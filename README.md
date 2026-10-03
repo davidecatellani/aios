@@ -168,3 +168,12 @@ AIOS_OLLAMA_URL=http://127.0.0.1:9 pytest -q    # i test non richiedono un model
 Struttura: `copilot/` (Nova e i servizi, Python, nessuna dipendenza esterna), `image/` (immagine
 per PC), `phone/` (immagine per telefono e app Nova per Android), `docs/` (documentazione e
 marchio). I test girano su GitHub a ogni modifica.
+
+## Licenza
+
+AIOS è software libero: puoi usarlo, studiarlo, modificarlo e ridistribuirlo secondo la
+[GNU General Public License, versione 3 o successive](LICENSE) (GPL-3.0-or-later). Chi distribuisce
+versioni modificate deve renderne disponibile il codice sorgente con la stessa licenza.
+
+I loghi di AIOS e di Nova ([`docs/brand/`](docs/brand/)) identificano il progetto: per usarli in
+versioni modificate o in altri prodotti, chiedi prima.

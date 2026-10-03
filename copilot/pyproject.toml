@@ -5,10 +5,11 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "aios-copilot"
 version = "0.1.0"
-description = "Copilota AI locale di AIOS: gestisci il sistema in lingua naturale"
+description = "Nova, l'assistente AI locale di AIOS: gestisci il sistema in lingua naturale"
 readme = "README.md"
 requires-python = ">=3.10"
-license = { text = "Apache-2.0" }
+license = { text = "GPL-3.0-or-later" }
+classifiers = ["License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)"]
 # Nessuna dipendenza obbligatoria: la finestra grafica usa PyGObject/GTK4 di sistema.
 dependencies = []
 
