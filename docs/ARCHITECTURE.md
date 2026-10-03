@@ -252,6 +252,36 @@ lo si adotta solo se è almeno buono quanto l'attuale e abbastanza veloce, altri
 si scarta e si libera lo spazio. Il modello precedente resta: «torna al modello di
 prima».
 
+### Memoria compressa: modelli più grandi su dispositivi piccoli
+
+Un modello linguistico, per ogni parola, legge tutti i suoi pesi dalla memoria: la
+memoria limita sia *quale* modello entra sia *quanto* è veloce. AIOS comprime in tre
+punti, sempre in base al dispositivo (`memory.py`, `models.py`):
+
+- **Pesi del modello compressi (quantizzazione).** Il catalogo contiene varianti a
+  4, 3 e 2 bit dello stesso modello. Un 14B a 3 bit entra in una GPU da 12 GB dove
+  quello a 4 bit non entra; un 32B a 3 bit entra in 24 GB. La compressione toglie un
+  po' di qualità, quindi ogni variante ha un punteggio atteso (`score`) e la
+  **catena di prove** decide: se la variante scelta, provata sul dispositivo, è troppo
+  lenta o meno precisa del modello attuale, viene scartata (non si ripropone) e AIOS
+  prova da solo la successiva, mai sotto il modello già in uso. Senza GPU si
+  escludono i modelli che richiedono di leggere più di 5 GB per parola: sarebbero
+  troppo lenti per una conversazione.
+- **Memoria della conversazione compressa** (KV cache a 8 bit, o a 4 bit sotto gli
+  8 GB di RAM, con flash attention): contesti lunghi in metà o un quarto dello spazio.
+  Impostata per il servizio Ollama con un file di systemd, insieme a una lunghezza
+  di contesto adatta alla RAM.
+- **RAM compressa** (zram con zstd, metà della RAM fino a 8 GB): le pagine delle app
+  ferme restano in memoria compresse 2–4 volte invece di finire sul disco, e resta
+  più memoria vera per il modello. Parametri del kernel adatti (swappiness alta,
+  lettura di una pagina alla volta).
+
+Le impostazioni di sistema si applicano solo su richiesta («ottimizza la memoria»),
+con conferma e password di amministratore (pkexec); «quanta memoria ho» mostra lo
+stato e quanto si sta risparmiando. Prossimi passi: modelli a esperti (MoE) con gli
+esperti letti dal disco veloce solo quando servono, e — come ricerca del laboratorio
+AIOS — pesi compressi senza perdita decompressi direttamente durante il calcolo.
+
 ### Aggiornamenti del sistema
 
 Previsti nell'immagine (non ancora costruita), con lo stesso schema:

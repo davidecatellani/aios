@@ -26,6 +26,7 @@ aios-mail = "aios_copilot.mail.service:main"
 aios-posta = "aios_copilot.mail.ui:main"
 aios-modelli = "aios_copilot.models:main"
 aios-catalogo = "aios_copilot.modelcatalog:main"
+aios-memoria = "aios_copilot.memory:main"
 
 [tool.setuptools.packages.find]
 include = ["aios_copilot*"]

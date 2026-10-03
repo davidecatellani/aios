@@ -145,7 +145,15 @@ settimana, se c'è di meglio, il riepilogo del mattino lo segnala.
 ```bash
 aios-modelli proposte | installa [vista dettatura …] | stato | ripristina testo | solo-aperte
 aios-catalogo stato | aggiorna         # catalogo dei modelli firmato
+aios-memoria stato | configura         # RAM compressa e memoria del modello compressa
 ```
+
+**Memoria compressa.** Il catalogo ha varianti dei modelli compresse a 3 e 2 bit:
+su una GPU da 12 GB entra un modello da 14 miliardi di parametri, su una da 24 GB uno
+da 32. Se una variante, provata sul tuo dispositivo, è lenta o imprecisa, AIOS la
+scarta e prova da solo la successiva. «ottimizza la memoria» (con conferma e password)
+attiva la RAM compressa (zram + zstd) e comprime la memoria della conversazione del
+modello a 8 o 4 bit; «quanta memoria ho» mostra quanto si risparmia.
 
 L'elenco dei modelli si aggiorna con un **catalogo firmato** dal progetto AIOS: i
 modelli nuovi arrivano senza aggiornare il codice. Prima di adottare un nuovo

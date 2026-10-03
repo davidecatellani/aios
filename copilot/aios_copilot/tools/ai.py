@@ -6,12 +6,12 @@ import re
 from pathlib import Path
 from typing import Callable
 
-from .. import engines
+from .. import engines, memory
 from ..fastpath import Intent, normalize
 from ..hardware import Device
 from ..models import CAPABILITIES, Queue, best_for, describe_proposals, propose
 from ..xdg import resolve_folder
-from .base import Tool, params
+from .base import Runner, Tool, params
 
 CAP_WORDS = {"vista": "vista", "immagini": "immagini", "foto": "vista", "dettatura": "dettatura",
              "riconoscimento vocale": "dettatura", "voce": "voce", "lettura": "voce", "testo": "testo",
@@ -20,7 +20,7 @@ CAP_WORDS = {"vista": "vista", "immagini": "immagini", "foto": "vista", "dettatu
 
 
 def make_management_tools(get_device: Callable[[], Device], installed: Callable[[], list[str]],
-                          get_queue: Callable[[], Queue]) -> list[Tool]:
+                          get_queue: Callable[[], Queue], runner: Runner | None = None) -> list[Tool]:
     def suggest_models() -> str:
         device = get_device()
         return describe_proposals(device, propose(device, installed()))
@@ -59,7 +59,24 @@ def make_management_tools(get_device: Callable[[], Device], installed: Callable[
 
         return restore_model(CAP_WORDS.get(capability.lower().strip(), capability.lower().strip()))
 
+    def memory_status() -> str:
+        return memory.describe(get_device())
+
+    def optimize_memory() -> str:
+        plan = memory.plan_for(get_device())
+        errors = memory.apply_plan(plan, runner)
+        if errors:
+            return "Non sono riuscito a completare tutto (serve la password di amministratore):\n" + "\n".join(errors)
+        return (f"Fatto: RAM compressa da {plan.zram_mb / 1024:.1f} GB con zstd, memoria della conversazione del modello a "
+                f"{'4' if plan.kv_cache == 'q4_0' else '8'} bit, contesto di {plan.context} token. "
+                "Ora i modelli AI hanno più spazio e le app ferme occupano meno.")
+
     return [
+        Tool("memory_status", "Mostra quanta memoria c'è e se la compressione (RAM compressa, memoria del modello) è attiva.",
+             params(), memory_status),
+        Tool("optimize_memory", "Attiva la compressione della memoria adatta al dispositivo (RAM compressa zram, memoria "
+             "della conversazione del modello a 8/4 bit). Serve la password di amministratore.", params(), optimize_memory,
+             requires_confirmation=True),
         Tool("restore_model", "Torna al modello AI usato prima per una capacità (es. dopo un aggiornamento che non piace).",
              params(capability=("Capacità", list(CAPABILITIES))), restore),
         Tool("suggest_models", "Analizza il dispositivo e propone i modelli AI gratuiti più completi che può usare.",
@@ -126,6 +143,10 @@ RE_INSTALL = re.compile(
     r"creare immagini|generazione di immagini|modello più potente)$")
 RE_RESTORE = re.compile(r"^(?:torna|ritorna|rimetti)\s+(?:al|il)\s+modello\s+(?:di\s+)?(?:prima|precedente)")
 RE_STATUS = re.compile(r"^(?:stato|a che punto sono)\s+(?:dei|i)\s+modelli|^modelli installati$")
+RE_OPTIMIZE = re.compile(r"^(?:ottimizza|comprimi|libera|alleggerisci)\s+(?:la\s+)?(?:memoria|ram)$"
+                         r"|^(?:attiva|abilita)\s+(?:la\s+)?(?:compressione(?:\s+della\s+memoria)?|ram\s+compressa|zram)$")
+RE_MEMORY = re.compile(r"^(?:stato\s+della\s+|com'è\s+la\s+|quanta\s+)?(?:memoria|ram)(?:\s+(?:ho|c'è|libera))?$"
+                       r"|^(?:la\s+)?compressione\s+(?:della\s+memoria\s+)?è\s+attiva")
 RE_LOOK = re.compile(r"^(?:cosa|che cosa)\s+(?:c'è|vedi|dice)\s+(?:sullo|nello|lo)\s+schermo|^guarda\s+(?:lo\s+)?schermo")
 
 
@@ -144,6 +165,10 @@ class ModelsRouter:
             return Intent("restore_model", {"capability": "testo"})
         if RE_STATUS.match(low):
             return Intent("models_status", {})
+        if RE_OPTIMIZE.match(low):
+            return Intent("optimize_memory", {})
+        if RE_MEMORY.match(low):
+            return Intent("memory_status", {})
         if RE_LOOK.match(low) and "vista" in self.ready():
             return Intent("look_at_screen", {"question": text})
         return None

@@ -56,7 +56,7 @@ def test_detect_reads_hardware(tmp_path):
     (Device(32, 28, "Ryzen", 16, "x86_64", True, [GPU("RTX", 8, "nvidia")], disk_free_gb=300),
      {"testo": "qwen2.5:7b-instruct", "vista": "qwen2.5vl:7b", "immagini": "sd-turbo"}),
     (Device(64, 60, "TR", 32, "x86_64", True, [GPU("RTX 4090", 24, "nvidia")], disk_free_gb=900),
-     {"testo": "qwen2.5:14b-instruct", "immagini": "sdxl-turbo"}),
+     {"testo": "qwen2.5:32b-instruct-q3_K_M", "immagini": "sdxl-turbo"}),  # il 32B compresso a 3 bit
 ])
 def test_best_models_fit_the_device(device, expected):
     for cap, name in expected.items():

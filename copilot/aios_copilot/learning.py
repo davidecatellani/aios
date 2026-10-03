@@ -428,6 +428,7 @@ class DownloadTask:
     activate: Callable[[str, str], None] = activate_model
     trial: Callable[[str], tuple[bool, str]] = _trial_text_model
     discard: Callable[[str], None] | None = None
+    device: Callable[[], Any] | None = None  # per scegliere la variante successiva dopo uno scarto
     name: str = "scaricamento dei modelli"
     _retry_at: float = 0.0
 
@@ -487,10 +488,31 @@ class DownloadTask:
                     from .trial import delete_model
 
                     delete_model(model.name)
+                self._try_next(item, model)
                 return
             item.error = f"adottato: {why}"
         item.status = "fatto"
         self.activate(model.name, model.capability)
+
+
+    def _try_next(self, item: Any, model: Any) -> None:
+        """Catena di prove: se il modello non va bene qui, si prova la variante successiva
+        (es. lo stesso modello più compresso, quindi più leggero e veloce)."""
+        from .hardware import detect
+        from .models import load_config, next_candidate, save_config
+
+        config = load_config()
+        rejected = json.loads(config.get("_scartati", "[]"))
+        if model.name not in rejected:
+            rejected.append(model.name)
+        config["_scartati"] = json.dumps(rejected)
+        save_config(config)
+        try:
+            following = next_candidate((self.device or detect)(), model.capability, config.get(model.capability, ""))
+        except Exception:
+            following = None
+        if following is not None and self.queue.add(following):
+            item.error += f"; provo {following.name}"
 
 
 @dataclass

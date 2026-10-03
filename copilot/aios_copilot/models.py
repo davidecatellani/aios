@@ -45,10 +45,24 @@ class Model:
     rank: int = 0  # più alto = più completo (nel catalogo remoto: punteggio del laboratorio AIOS)
     license: str = "apache-2.0"
     sha256: tuple[str, ...] = ()  # impronte dei file (engine=file), verificate dopo lo scaricamento
+    quant: str = "q4"  # compressione dei pesi: q8, q4 (standard), q3, q2
 
     @property
     def open_license(self) -> bool:
         return self.license.lower() in OPEN_LICENSES
+
+    @property
+    def score(self) -> float:
+        """Completezza attesa: la compressione spinta toglie un po' di qualità al modello."""
+        return self.rank - QUANT_PENALTY.get(self.quant, 0.0)
+
+
+# Un modello più grande compresso a 3 bit di solito batte uno più piccolo a 4 bit; a 2 bit
+# la qualità cala di più. La prova sul dispositivo (trial.py) ha comunque l'ultima parola.
+QUANT_PENALTY = {"q8": -0.1, "q4": 0.0, "q3": 0.25, "q2": 0.75}
+# Senza GPU la velocità dipende da quanti GB si leggono per ogni parola: oltre questa
+# dimensione un modello diventa troppo lento per una conversazione.
+CPU_MAX_SIZE_GB = 5.0
 
 
 OPEN_LICENSES = {"apache-2.0", "mit", "bsd-2-clause", "bsd-3-clause", "cc-by-4.0", "openrail++"}
@@ -64,6 +78,11 @@ BUILTIN: tuple[Model, ...] = (
     Model("qwen2.5:7b-instruct", "testo", 4.7, 6, rank=4),
     Model("qwen2.5:14b-instruct", "testo", 9.0, 12, needs_gpu=True, rank=5),
     Model("qwen2.5:32b-instruct", "testo", 20.0, 24, needs_gpu=True, rank=6),
+    # varianti compresse: modelli più grandi in meno memoria (e più veloci da leggere)
+    Model("qwen2.5:7b-instruct-q3_K_M", "testo", 3.8, 4.8, rank=4, quant="q3", note="7B compresso a 3 bit"),
+    Model("qwen2.5:14b-instruct-q3_K_M", "testo", 7.3, 9, rank=5, quant="q3", note="14B compresso a 3 bit"),
+    Model("qwen2.5:14b-instruct-q2_K", "testo", 5.8, 7.5, rank=5, quant="q2", note="14B compresso a 2 bit"),
+    Model("qwen2.5:32b-instruct-q3_K_M", "testo", 15.9, 18, needs_gpu=True, rank=6, quant="q3", note="32B compresso a 3 bit"),
     # vista (multimodale)
     Model("moondream", "vista", 1.7, 3, rank=1, note="leggero, descrizioni brevi"),
     Model("qwen2.5vl:3b", "vista", 3.2, 6, rank=2, license="qwen-research"),
@@ -126,15 +145,20 @@ def budget_gb(device: Device) -> tuple[float, bool]:
     return max(0.0, device.ram_gb - reserve), False
 
 
-def best_for(device: Device, capability: str) -> Model | None:
+def candidates_for(device: Device, capability: str, config: dict[str, str] | None = None) -> list[Model]:
+    """I modelli adatti al dispositivo, dal più completo; esclusi quelli già provati e scartati."""
     budget, gpu = budget_gb(device)
     strict = open_only()
-    candidates = [m for m in catalog() if m.capability == capability and (m.open_license or not strict)]
+    rejected = set(rejected_models(config))
+    candidates = [m for m in catalog() if m.capability == capability and (m.open_license or not strict)
+                  and m.name not in rejected]
     fitting = []
     for m in candidates:
         if m.needs_gpu and not gpu:
             continue
         if m.ram_gb > budget:
+            continue
+        if not gpu and m.engine == "ollama" and capability == "testo" and m.size_gb > CPU_MAX_SIZE_GB:
             continue
         # Senza GPU un modello deve anche essere veloce: quelli pesanti solo con una CPU robusta.
         heavy = (m.capability == "testo" and m.rank >= 4) or (m.capability in ("vista", "dettatura") and m.rank >= 3)
@@ -145,7 +169,27 @@ def best_for(device: Device, capability: str) -> Model | None:
         if not m.urls and m.engine == "file":
             continue  # nessun download automatico disponibile (es. video): solo come informazione
         fitting.append(m)
-    return max(fitting, key=lambda m: m.rank, default=None)
+    # a parità di completezza, il più leggero
+    return sorted(fitting, key=lambda m: (-m.score, m.size_gb))
+
+
+def best_for(device: Device, capability: str, config: dict[str, str] | None = None) -> Model | None:
+    return next(iter(candidates_for(device, capability, config)), None)
+
+
+def rejected_models(config: dict[str, str] | None = None) -> list[str]:
+    """Modelli scartati dalla prova sul dispositivo (troppo lenti o meno bravi): non si ripropongono."""
+    config = config if config is not None else load_config()
+    try:
+        return list(json.loads(config.get("_scartati", "[]")))
+    except ValueError:
+        return []
+
+
+def next_candidate(device: Device, capability: str, current: str = "") -> Model | None:
+    """Dopo uno scarto: la variante successiva che sia comunque meglio del modello attuale."""
+    floor = find_model(current).score if current and find_model(current) else -1.0
+    return next((m for m in candidates_for(device, capability) if m.score > floor and m.name != current), None)
 
 
 @dataclass
@@ -182,13 +226,13 @@ def propose(device: Device, installed: Iterable[str], config: dict[str, str] | N
     proposals = []
     disk_left = device.disk_free_gb - 10  # mai riempire il disco
     for cap in CAPABILITIES:
-        best = best_for(device, cap)
+        best = best_for(device, cap, config)
         if best is None:
             continue
-        current_name = config.get(cap) or next((m.name for m in sorted(catalog(), key=lambda m: -m.rank)
+        current_name = config.get(cap) or next((m.name for m in sorted(catalog(), key=lambda m: -m.score)
                                                 if m.capability == cap and m.name in installed), "")
         current = by_name.get(current_name)
-        if current is not None and current.rank >= best.rank:
+        if current is not None and current.score >= best.score:
             continue
         if best.size_gb > disk_left:
             continue
