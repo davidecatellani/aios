@@ -524,6 +524,32 @@ class ModelCatalogTask:
         save_config(config)
 
 
+@dataclass
+class OrganizeTask:
+    """Aggiorna le raccolte automatiche (e la cartella ~/Raccolte) ogni mezz'ora di riposo."""
+
+    library: Any
+    view: bool = True
+    name: str = "raccolte dei tuoi file"
+    _last: float | None = None
+
+    def available(self) -> bool:
+        return True
+
+    def has_work(self) -> bool:
+        return self._last is None or time.monotonic() - self._last > 1800
+
+    def step(self, seconds: float) -> None:
+        if not self.library.refresh(deadline=time.monotonic() + seconds):
+            return  # riprende al passo successivo
+        self._last = time.monotonic()
+        if self.view:
+            try:
+                self.library.build_view()
+            except (OSError, RuntimeError):
+                pass  # es. esiste già una cartella «Raccolte» dell'utente: non la si tocca
+
+
 # --- Pianificatore ------------------------------------------------------------------
 
 
@@ -635,6 +661,9 @@ def build(index: FileIndex | None = None) -> tuple[Scheduler, FileIndex]:
 
     tasks.insert(0, DownloadTask(Queue()))  # un modello richiesto dall'utente ha la precedenza
     tasks.append(ModelCatalogTask())
+    from .organize import Library
+
+    tasks.append(OrganizeTask(Library()))
     config = load_config()
     if config is not None:
         encoder = OllamaEncoder(config.model, prefix=config.prefix)

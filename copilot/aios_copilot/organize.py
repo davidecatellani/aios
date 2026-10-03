@@ -60,7 +60,10 @@ APP_CATEGORIES = [
 ]
 MONTHS = ["gennaio", "febbraio", "marzo", "aprile", "maggio", "giugno", "luglio", "agosto", "settembre", "ottobre",
           "novembre", "dicembre"]
-EVENT_GAP = timedelta(hours=8)  # foto più distanti di così appartengono a momenti diversi
+# Foto dello stesso momento: si spezza dopo una pausa di più di 8 ore che salta almeno un giorno
+# (una vacanza con foto ogni giorno resta un evento), e comunque dopo 14 giorni.
+EVENT_GAP = timedelta(hours=8)
+EVENT_MAX = timedelta(days=14)
 
 
 @dataclass
@@ -149,9 +152,12 @@ def group_photo_events(entries: list[Entry]) -> None:
             e.group = label
 
     for e in photos:
-        if event and datetime.fromisoformat(e.date) - datetime.fromisoformat(event[-1].date) > EVENT_GAP:
-            close()
-            event = []
+        if event:
+            prev, cur, first = (datetime.fromisoformat(x.date) for x in (event[-1], e, event[0]))
+            skipped_day = (cur.date() - prev.date()).days > 1
+            if (cur - prev > EVENT_GAP and skipped_day) or cur - first > EVENT_MAX:
+                close()
+                event = []
         event.append(e)
     close()
 

@@ -191,6 +191,13 @@ se tutto gira in locale. Le difese di AIOS:
 adattamento LoRA del modello piccolo sulle richieste dell'utente, eseguito a riposo
 nello stesso pianificatore e con checkpoint frequenti.
 
+### Catalogazione automatica
+
+`organize.py` classifica a riposo documenti (per argomento), foto (per momento, da
+EXIF), video, musica (da tag), app e giochi (da `.desktop`), download; le raccolte
+sono virtuali (`~/Raccolte` con collegamenti) e il riordino reale avviene solo su
+richiesta, con piano, conferma e registro per annullare.
+
 ### Copilota proattivo (prossima fase)
 
 Non solo esecutore: un copilota che, conoscendo l'utente, **propone**.

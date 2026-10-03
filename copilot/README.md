@@ -152,6 +152,29 @@ modelli nuovi arrivano senza aggiornare il codice. Prima di adottare un nuovo
 modello di testo, AIOS lo **prova sul tuo dispositivo** (velocità e precisione sui
 compiti del copilota) e lo tiene solo se va meglio; altrimenti lo scarta.
 
+### Tutto in ordine, senza creare cartelle
+
+AIOS cataloga da solo **tutto** quello che hai su Scrivania, Download, Documenti,
+Immagini, Video e Musica, più le app installate:
+
+| Cosa | Come lo ordina |
+|---|---|
+| documenti | per argomento (Fatture e ricevute, Contratti, Casa, Salute, Banca e tasse, Auto, Viaggi, Lavoro, Scuola e studio…) e anno |
+| foto | per momento (data di scatto EXIF: «14–15 agosto 2026»); screenshot a parte |
+| video | per mese; registrazioni dello schermo a parte |
+| musica | per artista e album (tag ID3/FLAC o «Artista - Titolo») |
+| app e giochi | per uso (Giochi, Ufficio, Grafica…), con le app Windows e Android segnalate |
+| download | installer, archivi, scaricamenti interrotti, duplicati |
+
+**Di default non sposta niente**: le raccolte si vedono chiedendo al copilota
+(«le mie raccolte», «mostrami le fatture del 2025», «foto di agosto», «che giochi
+ho?») e nella cartella **~/Raccolte**, fatta di collegamenti ai file originali.
+«Riordina la scrivania» prepara un piano e lo mostra; «procedi con il riordino» lo
+esegue; «annulla il riordino» riporta ogni file dov'era. «Cosa posso eliminare?»
+propone duplicati, installer vecchi e scaricamenti interrotti, senza cancellare
+nulla. Mai toccati: file nascosti, cartelle di progetti (con `.git`), cartelle
+escluse.
+
 ### I tuoi file e l'apprendimento a riposo
 
 Il copilota cerca e legge i tuoi documenti (testi, PDF, Word, LibreOffice) tramite
