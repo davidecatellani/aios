@@ -32,6 +32,7 @@ from .tools import phone as phone_tools
 from .tools import identity as identity_tools
 from .tools import updates as update_tools
 from . import sdk
+from .tools import documents as document_tools
 
 
 def make_agent(confirm: Confirm, model: str | None = None, allowed: frozenset[str] | None = None) -> Agent:
@@ -134,7 +135,8 @@ def make_agent(confirm: Confirm, model: str | None = None, allowed: frozenset[st
          *theme_tools.make_tools(ask_llm=lambda prompt: llm.chat([{"role": "user", "content": prompt}], []).get("content", ""),
                                  runner=runner),
          *phone_tools.make_tools(runner), *identity_tools.make_tools(user_name=user_name),
-         *update_tools.make_tools(runner), *sdk.make_tools()]
+         *update_tools.make_tools(runner), *sdk.make_tools(),
+         *document_tools.make_tools(get_index, runner)]
     if allowed is not None:
         tools = [t for t in tools if t.name in allowed]
     agent = Agent(
@@ -153,6 +155,7 @@ def make_agent(confirm: Confirm, model: str | None = None, allowed: frozenset[st
             sdk.AppsRouter(),  # livello 0: frasi delle abilità offerte dalle app
             FastPath(find_apps=lambda query: apps.find_apps(runner, query)),  # livello 0
             organize_tools.OrganizeRouter(),  # livello 0: raccolte e riordino (dopo le cartelle)
+            document_tools.DocumentsRouter(),  # livello 0: «fammi vedere la bolletta…», dieta, lista della spesa
             theme_tools.ThemesRouter(),  # livello 0: temi
             semantic_router(),  # livello 1: italiano e inglese, < 1 ms
             *multilingual_router(),  # livello 1b: tutte le lingue, se configurato
@@ -187,7 +190,7 @@ def terminal_confirm(tool: Tool, args: dict[str, Any], warning: str | None = Non
 
 def print_event(kind: str, data: dict[str, Any]) -> None:
     if kind == "routed":
-        names = ["0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "1", "1 multilingue"]
+        names = ["0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "1", "1 multilingue"]
         level = names[data["level"]] if data["level"] < len(names) else data["level"]
         print(f"  ⚡ capito al livello {level}, senza modello AI")
     elif kind == "tool_call" and not data["tool"].requires_confirmation:

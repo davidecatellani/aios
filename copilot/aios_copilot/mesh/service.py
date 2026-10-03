@@ -303,8 +303,8 @@ def build(search: Callable[[str], list[dict[str, Any]]] | None = None) -> MeshSe
 
     from .remote_input import InputInjector
 
-    server = PhoneServer(FileShare(search=search), brain=Brain(), assistant=_Lazy(lambda: Assistant(phone_agent)),
-                         sync=sync_engine)
+    server = PhoneServer(FileShare(search=search), brain=Brain(), sync=sync_engine)
+    server.assistant = _Lazy(lambda: Assistant(phone_agent, attach=server.attach))
     server.input = InputInjector(runner)
     from .photos import PhotoSync
 

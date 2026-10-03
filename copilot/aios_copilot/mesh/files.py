@@ -215,6 +215,15 @@ class PhoneServer:
         self.tickets[t] = (path, now + TICKET_SECONDS)
         return t
 
+    def attach(self, path: Path) -> str | None:
+        """Un file del PC da aprire sul telefono: solo se la pagina dei file lo mostrerebbe."""
+        try:
+            rel = str(path.resolve().relative_to(self.share.root))
+        except ValueError:
+            return None
+        safe = self.share.resolve(rel)
+        return f"/scarica/{self.ticket(safe)}" if safe is not None and safe.is_file() else None
+
     def redeem(self, ticket: str) -> Path | None:
         entry = self.tickets.get(ticket)
         return entry[0] if entry and entry[1] > time.time() else None

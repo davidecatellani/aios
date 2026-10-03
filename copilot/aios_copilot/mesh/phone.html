@@ -51,6 +51,8 @@
   .bubble { max-width:88%; padding:10px 14px; border-radius:18px; white-space:pre-wrap; overflow-wrap:anywhere; }
   .me { align-self:flex-end; background:var(--accent); color:var(--on-accent); border-bottom-right-radius:6px; }
   .pc { align-self:flex-start; background:var(--surface); border:1px solid var(--line); border-bottom-left-radius:6px; }
+  .filebtn { align-self:flex-start; display:inline-block; padding:12px 16px; border-radius:14px; background:var(--accent);
+    color:var(--on-accent); font-weight:600; text-decoration:none; max-width:88%; overflow-wrap:anywhere; }
   .status { align-self:flex-start; color:var(--muted); font-size:14px; }
   .confirm { align-self:stretch; background:var(--surface); border:1px solid var(--accent); border-radius:16px; padding:12px; }
   .confirm .row { display:flex; gap:8px; margin-top:10px; }
@@ -307,7 +309,14 @@ $("ask-form").onsubmit = async (ev) => {
   while (true) {
     const s = await api(`/api/job/${job}?after=${after}`);
     after = s.next;
-    for (const e of s.events) if (e.kind === "status") wait.textContent = e.text + "…";
+    for (const e of s.events) {
+      if (e.kind === "status") wait.textContent = e.text + "…";
+      if (e.kind === "file") {
+        const a = el("a", { className: "filebtn", href: e.url + "?vedi=1", textContent: "📄 Apri " + e.name });
+        a.target = "_blank";
+        $("chat").append(a);
+      }
+    }
     if (s.pending && !asked) {
       asked = el("div", { className: "confirm" }, el("strong", { textContent: "Confermi? " }), s.pending.label);
       if (s.pending.warning) asked.append(el("p", { className: "muted", textContent: s.pending.warning }));

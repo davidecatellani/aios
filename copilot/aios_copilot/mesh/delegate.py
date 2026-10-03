@@ -36,6 +36,7 @@ PHONE_ALLOWED = frozenset({
     "mail_overview", "search_mail", "read_mail", "send_email",
     "list_collections", "show_collection", "cleanup_suggestions",
     "list_subscriptions", "recommend", "memory_status", "models_status", "suggest_models", "list_themes",
+    "show_document", "diet_today", "shopping_list",  # il file trovato arriva sul telefono come pulsante «Apri»
 })
 MAX_MESSAGES_BYTES = 1_000_000
 
@@ -43,9 +44,10 @@ MAX_MESSAGES_BYTES = 1_000_000
 class Assistant:
     """Le richieste «Chiedi al PC»: un copilota con strumenti limitati, conferme sul telefono."""
 
-    def __init__(self, make_agent: Callable[..., Any]):
+    def __init__(self, make_agent: Callable[..., Any], attach: Callable[[Path], str | None] | None = None):
         from ..localapp import Job
 
+        self.attach = attach  # file del PC → link monouso per il telefono
         self._Job = Job
         self.jobs: dict[str, Any] = {}
         self._ids = itertools.count(1)
@@ -67,8 +69,18 @@ class Assistant:
             if kind == "tool_call":
                 job.add(kind="status", text=describe_call(data["tool"], data["args"]))
 
+        from ..documents import deliver_to
+
+        def deliver(path: Path) -> str:
+            url = self.attach(path) if self.attach else None
+            if url is None:
+                return f"Il file «{path.name}» non si può aprire dal telefono (è in una cartella privata)."
+            job.add(kind="file", name=path.name, url=url)
+            return f"Ecco «{path.name}»: toccalo qui sotto per aprirlo."
+
         with self._lock:
             self._current = job
+            deliver_to.set(deliver)
             try:
                 job.answer = self.agent.ask(text, on_event, "La domanda arriva dal telefono dell'utente.")
             except LLMError:
