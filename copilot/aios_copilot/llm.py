@@ -16,6 +16,12 @@ DEFAULT_MODEL = "qwen2.5:1.5b-instruct"
 KEEP_ALIVE = -1
 
 
+def _configured_text_model() -> str | None:
+    from .models import load_config
+
+    return load_config().get("testo")
+
+
 class LLMError(RuntimeError):
     pass
 
@@ -31,7 +37,8 @@ class ChatModel(Protocol):
 class OllamaClient:
     def __init__(self, url: str | None = None, model: str | None = None, timeout: int = 300):
         self.url = (url or os.environ.get("AIOS_OLLAMA_URL", DEFAULT_URL)).rstrip("/")
-        self.model = model or os.environ.get("AIOS_MODEL", DEFAULT_MODEL)
+        # Ordine: scelta esplicita, variabile d'ambiente, modello installato dal consigliere, predefinito.
+        self.model = model or os.environ.get("AIOS_MODEL") or _configured_text_model() or DEFAULT_MODEL
         self.timeout = timeout
 
     def chat(self, messages: list[dict[str, Any]], tools: list[dict[str, Any]]) -> dict[str, Any]:

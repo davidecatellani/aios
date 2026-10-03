@@ -25,6 +25,7 @@ from .tools import Runner, Tool, apps, default_tools, files
 from .tools import agenda as agenda_tools
 from .tools import mail as mail_tools
 from .tools import taste as taste_tools
+from .tools import ai as ai_tools
 
 
 def make_agent(confirm: Confirm, model: str | None = None) -> Agent:
@@ -80,6 +81,34 @@ def make_agent(confirm: Confirm, model: str | None = None) -> Agent:
 
         return once("profile", Profile)
 
+    def device():
+        from .hardware import detect
+
+        return once("device", detect)
+
+    def installed_models() -> list[str]:
+        try:
+            from .multilingual import installed_models as tags
+
+            return sorted(tags())
+        except Exception:
+            return []
+
+    def downloads():
+        from .models import Queue
+
+        return Queue()
+
+    from . import engines
+
+    def model_hint() -> str | None:
+        from .models import weekly_hint
+
+        try:
+            return weekly_hint(device(), installed_models())
+        except Exception:
+            return None
+
     def user_name() -> str:
         from .welcome import load_profile
 
@@ -87,14 +116,17 @@ def make_agent(confirm: Confirm, model: str | None = None) -> Agent:
 
     agent = Agent(
         OllamaClient(model=model),
-        [*default_tools(runner), *files.make_tools(get_index), *agenda_tools.make_tools(get_agenda, user_name),
-         *mail_tools.make_tools(mail_store, send, has_accounts), *taste_tools.make_tools(subs, catalog, profile)],
+        [*default_tools(runner), *files.make_tools(get_index), *agenda_tools.make_tools(get_agenda, user_name, extras=lambda: [model_hint()]),
+         *mail_tools.make_tools(mail_store, send, has_accounts), *taste_tools.make_tools(subs, catalog, profile),
+         *ai_tools.make_management_tools(device, installed_models, downloads),
+         *ai_tools.make_capability_tools(engines.available())],
         confirm,
         history=History().record,
         routers=[
             agenda_tools.AgendaRouter(),  # livello 0: promemoria, appuntamenti, riepilogo
             mail_tools.MailRouter(),  # livello 0: posta
             taste_tools.TasteRouter(),  # livello 0: abbonamenti e consigli
+            ai_tools.ModelsRouter(),  # livello 0: modelli AI del dispositivo
             FastPath(find_apps=lambda query: apps.find_apps(runner, query)),  # livello 0
             semantic_router(),  # livello 1: italiano e inglese, < 1 ms
             *multilingual_router(),  # livello 1b: tutte le lingue, se configurato
@@ -129,7 +161,7 @@ def terminal_confirm(tool: Tool, args: dict[str, Any], warning: str | None = Non
 
 def print_event(kind: str, data: dict[str, Any]) -> None:
     if kind == "routed":
-        names = ["0", "0", "0", "0", "1", "1 multilingue"]
+        names = ["0", "0", "0", "0", "0", "1", "1 multilingue"]
         level = names[data["level"]] if data["level"] < len(names) else data["level"]
         print(f"  ⚡ capito al livello {level}, senza modello AI")
     elif kind == "tool_call" and not data["tool"].requires_confirmation:

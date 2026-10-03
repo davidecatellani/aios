@@ -1,0 +1,139 @@
+"""Modelli AI del dispositivo: proposte, installazione e funzioni (vista, voce, dettatura, immagini)."""
+
+from __future__ import annotations
+
+import re
+from pathlib import Path
+from typing import Callable
+
+from .. import engines
+from ..fastpath import Intent, normalize
+from ..hardware import Device
+from ..models import CAPABILITIES, CATALOG, Queue, best_for, describe_proposals, propose
+from ..xdg import resolve_folder
+from .base import Tool, params
+
+CAP_WORDS = {"vista": "vista", "immagini": "immagini", "foto": "vista", "dettatura": "dettatura",
+             "riconoscimento vocale": "dettatura", "voce": "voce", "lettura": "voce", "testo": "testo",
+             "significato": "significato", "lingue": "significato", "modello più potente": "testo",
+             "creare immagini": "immagini", "generazione di immagini": "immagini"}
+
+
+def make_management_tools(get_device: Callable[[], Device], installed: Callable[[], list[str]],
+                          get_queue: Callable[[], Queue]) -> list[Tool]:
+    def suggest_models() -> str:
+        device = get_device()
+        return describe_proposals(device, propose(device, installed()))
+
+    def install_models(which: str = "tutti") -> str:
+        device = get_device()
+        proposals = propose(device, installed())
+        wanted = which.lower().strip()
+        if wanted not in ("tutti", "tutto", "all", ""):
+            caps = {CAP_WORDS.get(w.strip(), w.strip()) for w in re.split(r",|\s+e\s+", wanted)}
+            proposals = [p for p in proposals if p.capability in caps]
+            if not proposals:
+                best = [best_for(device, c) for c in caps if c in CAPABILITIES]
+                if any(best):
+                    return "È già installato il modello migliore per questo dispositivo."
+                return f"Su questo dispositivo non posso installare: {which}."
+        queue = get_queue()
+        added = [p for p in proposals if queue.add(p.model)]
+        if not added:
+            return "Niente di nuovo da scaricare: è già tutto in coda o installato."
+        total = sum(p.model.size_gb for p in added)
+        names = ", ".join(f"{p.capability} ({p.model.name})" for p in added)
+        return (f"In coda: {names}. Circa {total:.1f} GB: li scarico quando il computer è a riposo e in carica, "
+                "e li collego al sistema appena pronti. «stato dei modelli» per vedere a che punto sono.")
+
+    def models_status() -> str:
+        queue = get_queue()
+        lines = [f"Attivi: " + (", ".join(f"{c} → {m}" for c, m in engines.available().items()) or "nessuno oltre al minimo")]
+        for d in queue.items:
+            pct = f" {100 * d.done_bytes // d.total_bytes}%" if d.total_bytes else ""
+            lines.append(f"  {d.capability}: {d.name} — {d.status}{pct}{(': ' + d.error) if d.error else ''}")
+        return "\n".join(lines)
+
+    return [
+        Tool("suggest_models", "Analizza il dispositivo e propone i modelli AI gratuiti più completi che può usare.",
+             params(), suggest_models),
+        Tool("install_models", "Mette in coda lo scaricamento dei modelli proposti ('tutti' o capacità: vista, dettatura, "
+             "voce, testo, significato, immagini).", params(which="Cosa installare"), install_models,
+             requires_confirmation=True),
+        Tool("models_status", "Mostra i modelli attivi e gli scaricamenti in corso.", params(), models_status),
+    ]
+
+
+def make_capability_tools(ready: dict[str, str]) -> list[Tool]:
+    """Solo le funzioni davvero disponibili: il modello non vede strumenti che non può usare."""
+    tools = []
+    if "vista" in ready:
+        model = ready["vista"]
+
+        def describe_image(path: str, question: str = "") -> str:
+            return engines.describe_image(Path(path), question, model)
+
+        def look_at_screen(question: str = "") -> str:
+            shot = engines.capture_screen()
+            if shot is None:
+                return "Non riesco a catturare lo schermo."
+            try:
+                return engines.describe_image(shot, question or "Descrivi cosa c'è sullo schermo.", model)
+            finally:
+                shot.unlink(missing_ok=True)
+
+        tools += [
+            Tool("describe_image", "Guarda un'immagine (foto, scansione, schermata) e risponde: descrizione, testo letto, domande.",
+                 params(["path"], path="Percorso dell'immagine", question="Cosa chiedere"), describe_image, reads_private=True),
+            Tool("look_at_screen", "Guarda lo schermo dell'utente e risponde (es. «cosa dice questo errore?»).",
+                 params([], question="Cosa chiedere"), look_at_screen, reads_private=True),
+        ]
+    if "voce" in ready:
+        voice = ready["voce"]
+        tools.append(Tool("read_aloud", "Legge un testo ad alta voce.", params(text="Testo"),
+                          lambda text: engines.speak(text, voice)))
+    if "dettatura" in ready:
+        whisper = ready["dettatura"]
+        tools.append(Tool("transcribe_audio", "Trascrive un file audio (riunione, messaggio vocale).",
+                          params(path="Percorso del file audio"), lambda path: engines.transcribe(Path(path), whisper),
+                          reads_private=True))
+    if "immagini" in ready:
+        sd = ready["immagini"]
+
+        def create_image(prompt: str) -> str:
+            out = engines.generate_image(prompt, sd, resolve_folder("PICTURES") / "AIOS")
+            return f"Immagine creata: {out}" if out else "Non sono riuscito a creare l'immagine."
+
+        tools.append(Tool("create_image", "Crea un'immagine da una descrizione (meglio in inglese, dettagliata).",
+                          params(prompt="Descrizione"), create_image))
+    return tools
+
+
+RE_SUGGEST = re.compile(
+    r"^(?:che|quali)\s+modelli\s+(?:ai\s+)?posso\s+(?:usare|installare|avere)|^(?:com'è|come è|quanto è potente)\s+il\s+mio\s+"
+    r"(?:computer|pc|telefono|dispositivo)|^(?:voglio|vorrei)\s+(?:un\s+)?(?:modello|ai|intelligenza artificiale)\s+più\s+(?:potente|completo)"
+    r"|^(?:posso\s+avere\s+)?modelli\s+(?:ai\s+)?migliori")
+RE_INSTALL = re.compile(
+    r"^(?:aggiorna|migliora)\s+(?:i\s+modelli|l'ai|l'intelligenza artificiale|il copilota)$"
+    r"|^(?:installa|attiva|aggiungi)\s+(?:la\s+|il\s+|le\s+)?(?P<cap>vista|dettatura|riconoscimento vocale|voce|lettura|"
+    r"creare immagini|generazione di immagini|modello più potente)$")
+RE_STATUS = re.compile(r"^(?:stato|a che punto sono)\s+(?:dei|i)\s+modelli|^modelli installati$")
+RE_LOOK = re.compile(r"^(?:cosa|che cosa)\s+(?:c'è|vedi|dice)\s+(?:sullo|nello|lo)\s+schermo|^guarda\s+(?:lo\s+)?schermo")
+
+
+class ModelsRouter:
+    def __init__(self, ready: Callable[[], dict[str, str]] = engines.available):
+        self.ready = ready
+
+    def match(self, text: str) -> Intent | None:
+        low = normalize(text)
+        if RE_SUGGEST.match(low):
+            return Intent("suggest_models", {})
+        m = RE_INSTALL.match(low)
+        if m:
+            return Intent("install_models", {"which": m.group("cap") or "tutti"})
+        if RE_STATUS.match(low):
+            return Intent("models_status", {})
+        if RE_LOOK.match(low) and "vista" in self.ready():
+            return Intent("look_at_screen", {"question": text})
+        return None

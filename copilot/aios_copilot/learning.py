@@ -345,6 +345,75 @@ class CatalogTask:
             self._retry_at = time.monotonic() + 3600
 
 
+def activate_model(name: str, capability: str, calibrate: Callable[[str], Any] | None = None) -> None:
+    """Collega un modello appena scaricato alla sua funzione nel sistema."""
+    from .models import load_config, save_config
+
+    config = load_config()
+    config[capability] = name
+    save_config(config)
+    if capability == "significato":  # il riconoscimento in tutte le lingue va calibrato sul modello
+        try:
+            (calibrate or _calibrate_embedding)(name)
+        except Exception:
+            pass  # resta attivo il classificatore integrato; si potrà rifare con aios-copilot-setup
+
+
+def _calibrate_embedding(name: str) -> None:
+    from .multilingual import calibrate, catalog_with_translations, neural_router, NeuralConfig, save_config, without_eval_phrases
+
+    catalog = without_eval_phrases(catalog_with_translations())
+    outcome = calibrate(lambda: neural_router(NeuralConfig(name, 1.0, 0.0), catalog), name)
+    if outcome is not None:
+        save_config(outcome[0])
+
+
+@dataclass
+class DownloadTask:
+    """Scarica i modelli in coda a passi brevi (pausa e ripresa), poi li attiva."""
+
+    queue: Any
+    pull: Callable[[str, float], tuple[bool, int, int]] | None = None
+    fetch: Callable[[Any, Path, float], tuple[bool, int, int]] | None = None
+    activate: Callable[[str, str], None] = activate_model
+    name: str = "scaricamento dei modelli"
+    _retry_at: float = 0.0
+
+    def available(self) -> bool:
+        return time.monotonic() >= self._retry_at
+
+    def has_work(self) -> bool:
+        return bool(self.queue.pending())
+
+    def step(self, seconds: float) -> None:
+        from .models import CATALOG, file_download_step, models_dir, ollama_pull_step
+
+        item = self.queue.pending()[0]
+        model = next((m for m in CATALOG if m.name == item.name), None)
+        if model is None:
+            item.status, item.error = "errore", "modello sconosciuto"
+            self.queue.save()
+            return
+        item.status = "in corso"
+        try:
+            if model.engine == "ollama":
+                done, have, total = (self.pull or ollama_pull_step)(model.name, seconds)
+            else:
+                target = models_dir() / model.name
+                target.mkdir(parents=True, exist_ok=True)
+                done, have, total = (self.fetch or (lambda m, d, s: file_download_step(m.urls, d, s)))(model, target, seconds)
+        except Exception as exc:  # rete assente, server irraggiungibile: si riprova più tardi
+            item.error = str(exc)[:200]
+            self._retry_at = time.monotonic() + 900
+            self.queue.save()
+            return
+        item.done_bytes, item.total_bytes, item.error = have, total, ""
+        if done:
+            item.status = "fatto"
+            self.activate(model.name, model.capability)
+        self.queue.save()
+
+
 # --- Pianificatore ------------------------------------------------------------------
 
 
@@ -452,6 +521,9 @@ def build(index: FileIndex | None = None) -> tuple[Scheduler, FileIndex]:
     from .recommend import Catalog, refresh_catalog
 
     tasks.append(CatalogTask(Catalog(), refresh_catalog))
+    from .models import Queue
+
+    tasks.insert(0, DownloadTask(Queue()))  # un modello richiesto dall'utente ha la precedenza
     config = load_config()
     if config is not None:
         encoder = OllamaEncoder(config.model, prefix=config.prefix)

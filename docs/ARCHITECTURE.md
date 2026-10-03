@@ -207,6 +207,14 @@ Non solo esecutore: un copilota che, conoscendo l'utente, **propone**.
 - **Dosaggio**: pochi suggerimenti, nei momenti giusti; "non mi interessa" è a sua
   volta un segnale da cui imparare; "cosa sai di me?" mostra e corregge il profilo.
 
+### Modelli adatti al dispositivo
+
+`hardware.py` legge le caratteristiche del dispositivo; `models.py` sceglie per ogni
+capacità (testo, vista, dettatura, voce, significato, immagini, video) il modello più
+completo compatibile con memoria, GPU/CPU e disco, e lo propone; `learning.DownloadTask`
+lo scarica a riposo con pausa e ripresa; `engines.py` lo collega alle funzioni del
+sistema (il copilota cambia modello, compaiono vista, voce, dettatura, immagini).
+
 ### Mesh dei dispositivi
 
 - **Identità:** ogni utente ha una chiave principale, e ogni dispositivo riceve una

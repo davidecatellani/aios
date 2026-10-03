@@ -119,6 +119,33 @@ systemctl --user enable --now aios-mail   # servizio (dopo aver copiato data/aio
   film e serie serve una chiave TMDB gratuita (`AIOS_TMDB_KEY`). La musica è il
   prossimo passo.
 
+### Modelli AI adatti al tuo dispositivo
+
+AIOS legge memoria, processore (AVX2, core), GPU (NVIDIA, AMD, Intel), NPU e spazio
+libero, e propone per ogni capacità il modello gratuito più completo che ci sta
+davvero, lasciando sempre memoria al resto del sistema:
+
+| Capacità | Modelli (dal più leggero) | Diventa nel sistema |
+|---|---|---|
+| testo | Qwen2.5 0,5B → 32B | il modello del copilota |
+| vista | Moondream, Qwen2.5-VL 3B/7B, Llama 3.2 Vision | «cosa c'è in questa foto?», «cosa c'è sullo schermo?» |
+| dettatura | Whisper base/small/large-v3-turbo | trascrizione di audio e messaggi vocali |
+| voce | Piper (voce italiana) | lettura ad alta voce |
+| significato | Granite, paraphrase-multilingual, BGE-M3 | livello 1 in tutte le lingue (calibrato da solo) e ricerca nei file |
+| immagini | SD-Turbo, SDXL-Turbo | «crea un'immagine di…» |
+| video | — | proposto solo con GPU da almeno 16 GB |
+
+«che modelli posso usare?» mostra le proposte; «aggiorna i modelli» o «installa la
+vista» (con conferma) li mette in coda: si scaricano a riposo e in carica, a passi
+riprendibili, e appena pronti vengono **collegati al sistema** da soli. Le funzioni
+compaiono al copilota solo quando modello e programma (whisper.cpp, piper,
+stable-diffusion.cpp, presenti nell'immagine di AIOS) ci sono davvero. Una volta a
+settimana, se c'è di meglio, il riepilogo del mattino lo segnala.
+
+```bash
+aios-modelli proposte | installa [vista dettatura …] | stato
+```
+
 ### I tuoi file e l'apprendimento a riposo
 
 Il copilota cerca e legge i tuoi documenti (testi, PDF, Word, LibreOffice) tramite

@@ -45,7 +45,8 @@ def _period(period: str, now: datetime) -> tuple[datetime, datetime, str]:
 
 
 def make_tools(get_agenda: Callable[[], Agenda], get_name: Callable[[], str] = lambda: "",
-               recent: Callable[[], Iterable[str]] = recent_files) -> list[Tool]:
+               recent: Callable[[], Iterable[str]] = recent_files,
+               extras: Callable[[], Iterable[str]] = lambda: ()) -> list[Tool]:
     def add_reminder(what: str, when: str = "", repeat: str = "") -> str:
         agenda = get_agenda()
         now = agenda.now()
@@ -89,7 +90,9 @@ def make_tools(get_agenda: Callable[[], Agenda], get_name: Callable[[], str] = l
         return f"Ecco cosa hai {label}:\n" + "\n".join(i.line(now) for i in items)
 
     def daily_briefing() -> str:
-        return get_agenda().briefing(get_name(), recent())
+        text = get_agenda().briefing(get_name(), recent())
+        more = [line for line in extras() if line]  # es. modelli AI migliori disponibili
+        return "\n".join([text, *more])
 
     def _pick(query: str) -> tuple[list, str | None]:
         found = get_agenda().find(query)

@@ -41,6 +41,14 @@ TEMPLATES = {
     "set_subscription": "💳 Abbonamento {service}: {active}",
     "recommend": "🍿 Cerco qualcosa per te: {kind}",
     "rate": "⭐ {title}: piaciuto? {liked}",
+    "suggest_models": "🧠 Guardo cosa può fare questo dispositivo",
+    "install_models": "🧠 Scaricare e attivare i modelli: {which}",
+    "models_status": "🧠 Stato dei modelli",
+    "describe_image": "👁️ Guardo {path}",
+    "look_at_screen": "👁️ Guardo lo schermo",
+    "read_aloud": "🔊 Leggo ad alta voce",
+    "transcribe_audio": "🎙️ Trascrivo {path}",
+    "create_image": "🎨 Creo un'immagine: {prompt}",
 }
 
 
