@@ -155,6 +155,13 @@ scarta e prova da solo la successiva. «ottimizza la memoria» (con conferma e p
 attiva la RAM compressa (zram + zstd) e comprime la memoria della conversazione del
 modello a 8 o 4 bit; «quanta memoria ho» mostra quanto si risparmia.
 
+**Modelli a esperti.** Modelli come Qwen3 30B-A3B usano per ogni parola solo una
+piccola parte dei loro parametri: con 32 GB di RAM e senza scheda video vanno veloci
+come un 3B ragionando quasi come un 30B. Con 16 GB e un disco NVMe gli esperti meno
+usati restano sul disco e si leggono solo quando servono (con llama.cpp,
+`llama-server`); con una scheda video piccola l'attenzione va sulla GPU e gli esperti
+in RAM. AIOS sceglie la sistemazione da solo e la verifica con la prova sul dispositivo.
+
 L'elenco dei modelli si aggiorna con un **catalogo firmato** dal progetto AIOS: i
 modelli nuovi arrivano senza aggiornare il codice. Prima di adottare un nuovo
 modello di testo, AIOS lo **prova sul tuo dispositivo** (velocità e precisione sui

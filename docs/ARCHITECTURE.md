@@ -278,9 +278,31 @@ punti, sempre in base al dispositivo (`memory.py`, `models.py`):
 
 Le impostazioni di sistema si applicano solo su richiesta («ottimizza la memoria»),
 con conferma e password di amministratore (pkexec); «quanta memoria ho» mostra lo
-stato e quanto si sta risparmiando. Prossimi passi: modelli a esperti (MoE) con gli
-esperti letti dal disco veloce solo quando servono, e — come ricerca del laboratorio
-AIOS — pesi compressi senza perdita decompressi direttamente durante il calcolo.
+stato e quanto si sta risparmiando.
+
+**Modelli a esperti (MoE, `moe.py`).** Un modello come Qwen3 30B-A3B ha 30 miliardi
+di parametri ma per ogni parola ne usa circa 3: va veloce come un modello piccolo e
+ragiona quasi come uno grande. Il catalogo indica per ogni modello a esperti quanti GB
+si leggono per parola (`active_gb`); AIOS stima la velocità di ogni sistemazione e
+sceglie la più veloce sopra le 4 parole al secondo:
+
+| Modalità | Quando | Motore |
+|---|---|---|
+| gpu | tutto entra nella scheda video | Ollama |
+| ram | tutto entra nella RAM (es. 32 GB senza GPU: ~20 parole/s) | Ollama |
+| gpu+ram | attenzione sulla GPU, esperti in RAM | llama.cpp `--n-cpu-moe` |
+| disco | gli esperti più usati in RAM, gli altri letti dal disco NVMe/SSD quando servono (mmap) | llama.cpp |
+
+Per le ultime due Ollama non basta (rifiuta i modelli più grandi della RAM): AIOS
+avvia `llama-server` come servizio utente (`aios-esperti.service`) direttamente sul
+file GGUF già scaricato da Ollama, senza copie, e il copilota gli parla con l'API
+OpenAI (`llm.LlamaServerClient`). La stima tiene conto che gli esperti non sono usati
+tutti allo stesso modo; la velocità vera la misura la prova sul dispositivo, che
+scarta il modello se è lento (e ferma il servizio). Tornando al modello di prima,
+il servizio si ferma e la memoria si libera.
+
+Ricerca futura del laboratorio AIOS: pesi compressi senza perdita, decompressi
+direttamente durante il calcolo.
 
 ### Aggiornamenti del sistema
 

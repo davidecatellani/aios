@@ -37,6 +37,7 @@ class Device:
     npu: str = ""
     disk_free_gb: float = 0.0
     battery: bool = False
+    disk_kind: str = ""  # nvme | ssd | hdd: quanto è veloce leggere i modelli dal disco
 
     @property
     def vram_gb(self) -> float:
@@ -53,7 +54,8 @@ class Device:
             parts.append(f"GPU {g.name}" + (f" con {g.vram_gb:.0f} GB" if g.vram_gb else " (integrata)"))
         if self.npu:
             parts.append(f"NPU {self.npu}")
-        parts.append(f"{self.disk_free_gb:.0f} GB liberi su disco")
+        kind = {"nvme": " (NVMe)", "ssd": " (SSD)", "hdd": " (disco meccanico)"}.get(self.disk_kind, "")
+        parts.append(f"{self.disk_free_gb:.0f} GB liberi su disco{kind}")
         return ", ".join(parts)
 
 
@@ -71,6 +73,20 @@ def _run(cmd: list[str]) -> str:
         return subprocess.run(cmd, capture_output=True, text=True, timeout=5).stdout
     except (OSError, subprocess.SubprocessError):
         return ""
+
+
+def disk_kind(root: Path = Path("/")) -> str:
+    """Il disco più veloce presente (i modelli stanno nella cartella personale, di solito lì)."""
+    kinds = set()
+    for dev in (root / "sys/block").glob("*"):
+        if dev.name.startswith(("loop", "ram", "zram", "dm-", "sr", "md")):
+            continue
+        if dev.name.startswith("nvme"):
+            kinds.add("nvme")
+        else:
+            rotational = _read(dev / "queue/rotational").strip()
+            kinds.add("hdd" if rotational == "1" else "ssd" if rotational == "0" else "")
+    return next((k for k in ("nvme", "ssd", "hdd") if k in kinds), "")
 
 
 VENDORS = {"0x10de": "nvidia", "0x1002": "amd", "0x8086": "intel"}
@@ -113,4 +129,5 @@ def detect(root: Path = Path("/"), run: Callable[[list[str]], str] = _run, home:
         ram_gb=meminfo.get("MemTotal", 0) / 1024**2, ram_available_gb=meminfo.get("MemAvailable", 0) / 1024**2,
         cpu=(model.group(1).strip() if model else platform.processor() or "sconosciuta")[:60], cores=cores,
         arch=platform.machine() if root == Path("/") else ("aarch64" if "asimd" in (flags.group(1) if flags else "") else "x86_64"),
-        avx2="avx2" in (flags.group(1).split() if flags else []), gpus=gpus, npu=npu, disk_free_gb=free, battery=battery)
+        avx2="avx2" in (flags.group(1).split() if flags else []), gpus=gpus, npu=npu, disk_free_gb=free, battery=battery,
+        disk_kind=disk_kind(root))

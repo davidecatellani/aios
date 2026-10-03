@@ -16,6 +16,7 @@ from aios_copilot.tools import ai as ai_tools
 def dirs(tmp_path, monkeypatch):
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "config"))
     monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path / "data"))
+    monkeypatch.setattr("aios_copilot.moe.has_server", lambda: False)
 
 
 def fake_root(tmp_path: Path, ram_kb: int, cores: int, flags: str, gpu: tuple[str, int] | None = None,
@@ -54,7 +55,7 @@ def test_detect_reads_hardware(tmp_path):
     (Device(4, 2, "Celeron", 2, "x86_64", False, [], disk_free_gb=20), {"testo": "qwen2.5:0.5b-instruct"}),
     (Device(16, 12, "Xeon", 4, "x86_64", True, [], disk_free_gb=100), {"testo": "qwen2.5:3b-instruct", "vista": "qwen2.5vl:3b"}),
     (Device(32, 28, "Ryzen", 16, "x86_64", True, [GPU("RTX", 8, "nvidia")], disk_free_gb=300),
-     {"testo": "qwen2.5:7b-instruct", "vista": "qwen2.5vl:7b", "immagini": "sd-turbo"}),
+     {"testo": "qwen3:30b-a3b-instruct-2507-q4_K_M", "vista": "qwen2.5vl:7b", "immagini": "sd-turbo"}),  # a esperti, in RAM
     (Device(64, 60, "TR", 32, "x86_64", True, [GPU("RTX 4090", 24, "nvidia")], disk_free_gb=900),
      {"testo": "qwen2.5:32b-instruct-q3_K_M", "immagini": "sdxl-turbo"}),  # il 32B compresso a 3 bit
 ])

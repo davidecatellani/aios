@@ -42,10 +42,11 @@ class Model:
     urls: tuple[str, ...] = ()  # per engine=file
     needs_gpu: bool = False
     note: str = ""
-    rank: int = 0  # più alto = più completo (nel catalogo remoto: punteggio del laboratorio AIOS)
+    rank: float = 0  # più alto = più completo (nel catalogo remoto: punteggio del laboratorio AIOS)
     license: str = "apache-2.0"
     sha256: tuple[str, ...] = ()  # impronte dei file (engine=file), verificate dopo lo scaricamento
     quant: str = "q4"  # compressione dei pesi: q8, q4 (standard), q3, q2
+    active_gb: float = 0.0  # modelli a esperti (MoE): GB letti per ogni parola; 0 = modello denso
 
     @property
     def open_license(self) -> bool:
@@ -83,6 +84,10 @@ BUILTIN: tuple[Model, ...] = (
     Model("qwen2.5:14b-instruct-q3_K_M", "testo", 7.3, 9, rank=5, quant="q3", note="14B compresso a 3 bit"),
     Model("qwen2.5:14b-instruct-q2_K", "testo", 5.8, 7.5, rank=5, quant="q2", note="14B compresso a 2 bit"),
     Model("qwen2.5:32b-instruct-q3_K_M", "testo", 15.9, 18, needs_gpu=True, rank=6, quant="q3", note="32B compresso a 3 bit"),
+    # modelli a esperti: tanti parametri, pochi letti per ogni parola (moe.py li sistema tra GPU, RAM e disco)
+    Model("qwen3:30b-a3b-instruct-2507-q4_K_M", "testo", 18.6, 21, rank=5.5, active_gb=2.0,
+          note="30B a esperti: per ogni parola ne usa 3, veloce anche senza GPU"),
+    Model("gpt-oss:20b", "testo", 13.8, 16, rank=5, active_gb=2.0, note="21B a esperti, 3,6B attivi per parola"),
     # vista (multimodale)
     Model("moondream", "vista", 1.7, 3, rank=1, note="leggero, descrizioni brevi"),
     Model("qwen2.5vl:3b", "vista", 3.2, 6, rank=2, license="qwen-research"),
@@ -154,6 +159,12 @@ def candidates_for(device: Device, capability: str, config: dict[str, str] | Non
                   and m.name not in rejected]
     fitting = []
     for m in candidates:
+        if m.active_gb:  # a esperti: conta dove si possono sistemare i pezzi e quanto andrebbe veloce
+            from .moe import best_placement
+
+            if best_placement(device, m) is not None:
+                fitting.append(m)
+            continue
         if m.needs_gpu and not gpu:
             continue
         if m.ram_gb > budget:
@@ -249,6 +260,12 @@ def describe_proposals(device: Device, proposals: list[Proposal]) -> str:
     lines = [f"Ho guardato il tuo dispositivo: {device.summary()}.", "Puoi usare modelli più completi, gratuiti e in locale:"]
     for n, p in enumerate(proposals, 1):
         note = f" — {p.model.note}" if p.model.note else ""
+        if p.model.active_gb:
+            from .moe import best_placement
+
+            placement = best_placement(device, p.model)
+            if placement is not None:
+                note += f" ({placement.describe()})"
         if not p.model.open_license:
             note += f" (licenza {p.model.license}: gratuita per uso personale, con condizioni)"
         lines.append(f"  {n}. {p.capability.capitalize()}: {p.model.name} (~{p.model.size_gb:.1f} GB), {p.reason}{note}")

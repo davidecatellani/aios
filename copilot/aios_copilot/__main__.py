@@ -16,7 +16,7 @@ from .agent import Agent, Confirm
 from .fastpath import FastPath
 from .fileindex import FileIndex
 from .learning import History
-from .llm import LLMError, OllamaClient
+from .llm import LLMError, make_client
 from .multilingual import load_config, neural_router
 from .semantic import SemanticRouter, default_router
 from .status import describe_call
@@ -121,7 +121,7 @@ def make_agent(confirm: Confirm, model: str | None = None) -> Agent:
 
         return load_profile().get("name", "")
 
-    llm = OllamaClient(model=model)
+    llm = make_client(model)
     agent = Agent(
         llm,
         [*default_tools(runner), *files.make_tools(get_index), *agenda_tools.make_tools(get_agenda, user_name, extras=lambda: [model_hint()]),

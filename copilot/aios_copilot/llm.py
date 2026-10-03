@@ -34,6 +34,40 @@ class ChatModel(Protocol):
         """Prepara il modello in anticipo (facoltativo)."""
 
 
+class LlamaServerClient:
+    """Per i modelli a esperti sistemati tra GPU, RAM e disco (moe.py): llama.cpp con API OpenAI."""
+
+    def __init__(self, url: str, model: str, timeout: int = 300):
+        self.url, self.model, self.timeout = url.rstrip("/"), model, timeout
+
+    def chat(self, messages: list[dict[str, Any]], tools: list[dict[str, Any]]) -> dict[str, Any]:
+        from .moe import _post, from_openai, to_openai
+
+        try:
+            return from_openai(_post(f"{self.url}/v1/chat/completions",
+                                     {"messages": to_openai(messages), "tools": tools or None}, self.timeout))
+        except urllib.error.URLError as exc:
+            raise LLMError(f"Non riesco a contattare il modello a esperti su {self.url} "
+                           "(systemctl --user status aios-esperti).") from exc
+
+    def warmup(self, messages: list[dict[str, Any]], tools: list[dict[str, Any]]) -> None:
+        pass  # llama-server tiene già il modello caricato
+
+
+def make_client(model: str | None = None) -> "OllamaClient | LlamaServerClient":
+    """Il client giusto per il modello di testo: Ollama, o llama.cpp per un modello a esperti sistemato a pezzi."""
+    from .models import load_config
+
+    name = model or os.environ.get("AIOS_MODEL") or _configured_text_model() or DEFAULT_MODEL
+    try:
+        placed = json.loads(load_config().get("_esperti", "{}")).get(name)
+    except ValueError:
+        placed = None
+    if placed and placed.get("url"):
+        return LlamaServerClient(placed["url"], name)
+    return OllamaClient(model=name)
+
+
 class OllamaClient:
     def __init__(self, url: str | None = None, model: str | None = None, timeout: int = 300):
         self.url = (url or os.environ.get("AIOS_OLLAMA_URL", DEFAULT_URL)).rstrip("/")

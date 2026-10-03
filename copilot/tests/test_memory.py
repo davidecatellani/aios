@@ -15,11 +15,13 @@ from aios_copilot.tools.base import Runner
 def dirs(tmp_path, monkeypatch):
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "config"))
     monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path / "data"))
+    monkeypatch.setattr("aios_copilot.moe.has_server", lambda: False)
 
 
 SMALL = Device(4, 2, "Celeron", 2, "x86_64", False, [], disk_free_gb=20)
 LAPTOP = Device(16, 12, "Ryzen 7", 8, "x86_64", True, [], disk_free_gb=200)
-GAMER = Device(32, 28, "Ryzen", 16, "x86_64", True, [GPU("RTX 4070", 12, "nvidia")], disk_free_gb=300)
+# 16 GB di RAM: il modello a esperti non ci sta, quindi qui si confrontano i modelli densi compressi.
+GAMER = Device(16, 12, "Ryzen", 16, "x86_64", True, [GPU("RTX 4070", 12, "nvidia")], disk_free_gb=300)
 
 
 # --- RAM compressa e memoria del modello ------------------------------------------------------------

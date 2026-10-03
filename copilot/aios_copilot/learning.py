@@ -380,6 +380,9 @@ def restore_model(capability: str) -> str:
         return f"Non c'è un modello precedente per «{capability}»."
     config[f"_precedente_{capability}"], config[capability] = config.get(capability, ""), previous
     save_config(config)
+    experts = json.loads(config.get("_esperti", "{}"))
+    if capability == "testo" and config[f"_precedente_{capability}"] in experts and previous not in experts:
+        _stop_experts_server()  # il modello a esperti non serve più: si libera la memoria
     return f"Fatto: per «{capability}» uso di nuovo {previous}."
 
 
@@ -398,9 +401,10 @@ def _trial_text_model(name: str) -> tuple[bool, str]:
     from .models import load_config, save_config
     from .trial import Result, decide, run_trial
 
+    placed = _place_experts(name)
     config = load_config()
     scores = json.loads(config.get("_punteggi", "{}"))
-    new = run_trial(name)
+    new = run_trial(name, placed["call"]) if placed else run_trial(name)
     scores[name] = {"quality": new.quality, "speed": new.speed}
     current = config.get("testo")
     old = None
@@ -414,8 +418,39 @@ def _trial_text_model(name: str) -> tuple[bool, str]:
         if current in scores:
             old = Result(current, scores[current]["quality"], scores[current]["speed"], [])
     config["_punteggi"] = json.dumps(scores)
+    adopt, why = decide(new, old)
+    experts = json.loads(config.get("_esperti", "{}"))
+    if placed and adopt:
+        experts[name] = {"modo": placed["mode"], "url": placed["url"]}
+        why += f"; {placed['mode']}: {placed['how']}"
+    elif placed:
+        _stop_experts_server()
+    config["_esperti"] = json.dumps(experts)
     save_config(config)
-    return decide(new, old)
+    return adopt, why
+
+
+def _place_experts(name: str) -> dict | None:
+    """Un modello a esperti che non sta tutto in GPU o in RAM: lo si avvia con llama.cpp a pezzi."""
+    from .hardware import detect
+    from .models import find_model
+    from . import moe
+
+    model = find_model(name)
+    if model is None or not model.active_gb:
+        return None
+    placement = moe.best_placement(detect(), model)
+    if placement is None or not placement.needs_server:
+        return None  # sta tutto in GPU o in RAM: basta Ollama
+    url = moe.start_server(name, placement)
+    time.sleep(5)  # caricamento iniziale (con mmap è rapido: i pezzi arrivano quando servono)
+    return {"mode": placement.mode, "how": placement.describe(), "url": url, "call": moe.server_call(url)}
+
+
+def _stop_experts_server() -> None:
+    from .tools.base import Runner
+
+    Runner().run(["systemctl", "--user", "disable", "--now", "aios-esperti.service"])
 
 
 @dataclass
