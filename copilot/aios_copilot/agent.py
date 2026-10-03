@@ -115,10 +115,14 @@ class Agent:
         # Testi privati letti in questa conversazione: rendono "privata" la conversazione.
         self.private_texts: list[str] = []
 
-    def ask(self, text: str, on_event: OnEvent | None = None) -> str:
-        """Elabora una richiesta dell'utente e restituisce la risposta finale."""
+    def ask(self, text: str, on_event: OnEvent | None = None, context: str | None = None) -> str:
+        """Elabora una richiesta dell'utente e restituisce la risposta finale.
+
+        `context` (es. «l'utente sta leggendo la mail [12]») arriva solo al modello:
+        i livelli veloci lavorano sulla frase così come l'ha scritta l'utente.
+        """
         emit = on_event or (lambda kind, data: None)
-        self.messages.append({"role": "user", "content": text})
+        self.messages.append({"role": "user", "content": f"{text}\n\n(Contesto: {context})" if context else text})
 
         for level, router in enumerate(self.routers):
             intent = router.match(text)

@@ -64,7 +64,16 @@ per la serata con il servizio su cui guardarli. A destra «Che cartone guardiamo
 stasera con i bambini?»: tre titoli adatti, **scelti sul telefono**, solo tra
 quelli inclusi negli abbonamenti attivi. 🔜
 
-## Consigli e abbonamenti (prossima fase)
+## Posta (realizzata)
+
+![Posta](img/mail-desktop.png)
+
+Catalogazione e importanza calcolate in locale, riepilogo del copilota in cima
+all'elenco, date trovate nella mail come azioni, pannello del copilota che conosce
+la mail aperta. Su telefono: categorie in una riga scorrevole, lettura a schermo
+intero.
+
+## Consigli e abbonamenti (realizzati, cataloghi da verificare dal vivo)
 
 - **Cosa**: film, serie, cartoni, musica, software e giochi.
 - **Abbonamenti riconosciuti** in locale: app installate e account dichiarati,

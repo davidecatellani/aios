@@ -72,6 +72,53 @@ aios-agenda importa calendario.ics
 systemctl --user enable --now aios-agenda   # dopo aver copiato data/aios-agenda.service
 ```
 
+### Posta
+
+Un client email nativo con il copilota dentro: Gmail, Outlook, Yahoo, iCloud,
+Libero, Virgilio o qualsiasi server IMAP/SMTP.
+
+```bash
+aios-mail aggiungi tuo@gmail.com          # password per le app (Gmail, Yahoo, iCloud...)
+aios-mail aggiungi tuo@outlook.com        # Outlook: accesso con Microsoft (OAuth)
+aios-posta                                # apre la Posta
+aios-mail archivia newsletter             # archiviazione automatica di una categoria
+systemctl --user enable --now aios-mail   # servizio (dopo aver copiato data/aios-mail.service)
+```
+
+- **Catalogazione automatica** in locale: Importanti, Personali, Lavoro, Ricevute e
+  abbonamenti, Newsletter e promozioni, Notifiche. «Sposta in…» corregge la categoria
+  di quel mittente anche per il futuro.
+- **Notifiche solo delle mail importanti** (persone a cui scrivi, urgenze, accessi
+  sospetti), mai delle promozioni, mai due volte.
+- **Archiviazione automatica** solo delle categorie scelte, solo posta letta e più
+  vecchia di una settimana: la mail viene spostata in «AIOS/…», mai cancellata; se
+  il server non permette di spostarla in sicurezza, resta dov'è.
+- Le mail si scaricano senza segnarle come lette; si leggono come testo (nessun
+  codice o immagine remota eseguiti); le date trovate diventano «Aggiungi in agenda».
+- **Il copilota sa quale mail stai leggendo**: «ricordamelo domani alle 9»,
+  «riassumi questa mail», «scrivi una risposta». Le mail sono dati, mai ordini: una
+  mail che chiede di «inoltrare tutto» non fa partire nulla senza la tua conferma,
+  che mostra destinatario e testo.
+- Gmail e Outlook con OAuth richiedono un client id di AIOS registrato presso
+  Google/Microsoft (`~/.config/aios/oauth.json`).
+
+| PC | Telefono |
+|---|---|
+| ![Posta su PC](../docs/img/mail-desktop.png) | ![Posta su telefono](../docs/img/mail-telefono-elenco.png) |
+
+### Abbonamenti e consigli
+
+- «i miei abbonamenti», «quanto spendo in abbonamenti?»: riconosciuti da ricevute,
+  rinnovi e disdette nelle email, dalle app installate, o dichiarati («ho Netflix e
+  Spotify», «ho disdetto Disney+»). I rinnovi diventano proposte nel riepilogo.
+- «consigliami un film», «che cartone guardiamo con i bambini?», «suggeriscimi un
+  gioco»: scelti in locale tra i titoli **inclusi nei tuoi abbonamenti** o gratuiti.
+  «Mi è piaciuto …» / «… non mi è piaciuto» affinano i gusti.
+- I cataloghi (TMDB per film e serie, Flathub per app e giochi) si scaricano con
+  richieste uguali per tutti: gusti e abbonamenti non escono dal dispositivo. Per
+  film e serie serve una chiave TMDB gratuita (`AIOS_TMDB_KEY`). La musica è il
+  prossimo passo.
+
 ### I tuoi file e l'apprendimento a riposo
 
 Il copilota cerca e legge i tuoi documenti (testi, PDF, Word, LibreOffice) tramite
