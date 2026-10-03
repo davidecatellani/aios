@@ -6,9 +6,9 @@ VirtualBox) o su un PC senza dati importanti.
 
 1. Scarica i file `aios-installazione.iso…` qui sotto.
 2. Se la ISO è divisa in pezzi (`.parte0`, `.parte1`, …), riuniscila:
-   - **Windows** (Prompt dei comandi, nella cartella Download):
-     `copy /b aios-installazione.iso.parte0 + aios-installazione.iso.parte1 aios-installazione.iso`
-     (aggiungi `+ …parte2` se c'è)
+   - **Windows** (PowerShell o Prompt dei comandi, nella cartella Download):
+     `cmd /c copy /b aios-installazione.iso.parte0 + aios-installazione.iso.parte1 aios-installazione.iso`
+     (aggiungi `+ aios-installazione.iso.parte2` se c'è)
    - **Linux / macOS**: `cat aios-installazione.iso.parte* > aios-installazione.iso`
 3. Controlla che sia integra (facoltativo): il codice di `sha256sum aios-installazione.iso`
    (Windows: `certutil -hashfile aios-installazione.iso SHA256`) deve coincidere con il file `.sha256`.
