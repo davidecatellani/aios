@@ -6,16 +6,16 @@ in sottofondo, Ollama, icone, scorciatoia Super+Spazio, controllo all'avvio (gre
 ## Costruire l'immagine
 
 ```bash
-podman build -t localhost/aios:42 -f image/Containerfile .     # dalla radice del repository
+podman build -t localhost/aios:44 -f image/Containerfile .     # dalla radice del repository
 ```
 
 Su GitHub la costruisce la procedura «Immagine AIOS» (`.github/workflows/immagine.yml`) e la
-pubblica come `ghcr.io/<utente>/aios:42`.
+pubblica come `ghcr.io/<utente>/aios:44`.
 
 ## Provarla senza reinstallare (da un Fedora Atomic: Silverblue, Kinoite…)
 
 ```bash
-rpm-ostree rebase ostree-unverified-registry:ghcr.io/<utente>/aios:42
+rpm-ostree rebase ostree-unverified-registry:ghcr.io/<utente>/aios:44
 systemctl reboot
 ```
 
@@ -37,7 +37,7 @@ sudo podman run --rm -it --privileged --pull=newer \
   -v ./image/config.toml:/config.toml:ro -v ./uscita:/output \
   -v /var/lib/containers/storage:/var/lib/containers/storage \
   quay.io/centos-bootc/bootc-image-builder:latest \
-  --type anaconda-iso --rootfs btrfs localhost/aios:42
+  --type anaconda-iso --rootfs btrfs localhost/aios:44
 ```
 
 Il file ISO finisce in `uscita/bootiso/install.iso`: si scrive su una chiavetta (per es. con

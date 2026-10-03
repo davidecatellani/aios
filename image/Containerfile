@@ -1,12 +1,12 @@
 # AIOS per PC (anteprima): Fedora Silverblue immutabile + Nova e i servizi di AIOS.
 #
-#   podman build -t aios:42 -f image/Containerfile .          (dalla radice del repository)
-#   rpm-ostree rebase ostree-unverified-registry:ghcr.io/<utente>/aios:42   (da un Fedora Atomic già installato)
+#   podman build -t aios:44 -f image/Containerfile .          (dalla radice del repository)
+#   rpm-ostree rebase ostree-unverified-registry:ghcr.io/<utente>/aios:44   (da un Fedora Atomic già installato)
 #
 # Per la chiavetta d'installazione: vedi image/README.md (bootc-image-builder, tipo anaconda-iso).
 # Gli aggiornamenti arrivano come nuove versioni dell'immagine: aios-aggiornamenti (rpm-ostree) le
 # prepara a riposo e si applicano al riavvio; greenboot torna indietro se qualcosa non va.
-ARG FEDORA=42
+ARG FEDORA=44
 FROM quay.io/fedora-ostree-desktops/silverblue:${FEDORA}
 
 # Programmi di sistema usati da AIOS

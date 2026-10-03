@@ -39,13 +39,22 @@ jobs:
                       /usr/local/share/boost /usr/share/swift /usr/local/.ghcup
           sudo docker image prune -af || true
           df -h / /mnt
+      - name: Versione di Fedora
+        # La più recente stabile disponibile tra quelle provate con AIOS
+        run: |
+          for v in 44 43; do
+            if sudo skopeo inspect --raw "docker://quay.io/fedora-ostree-desktops/silverblue:$v" >/dev/null; then
+              echo "FEDORA=$v" >> "$GITHUB_ENV"; echo "Fedora $v"; exit 0
+            fi
+          done
+          echo "Nessuna immagine Silverblue trovata" >&2; exit 1
       - name: Costruisci
-        run: sudo podman build -t "${IMMAGINE}:42" -f image/Containerfile .
+        run: sudo podman build --build-arg FEDORA="$FEDORA" -t "${IMMAGINE}:${FEDORA}" -f image/Containerfile .
       - name: Pubblica
         if: env.PUBBLICA == 'true'
         run: |
           echo "${{ secrets.GITHUB_TOKEN }}" | sudo podman login ghcr.io -u "${{ github.actor }}" --password-stdin
-          sudo podman push "${IMMAGINE}:42"
+          sudo podman push "${IMMAGINE}:${FEDORA}"
       - name: Chiavetta d'installazione
         if: env.ISO == 'true'
         run: |
@@ -54,7 +63,7 @@ jobs:
             -v ./image/config.toml:/config.toml:ro -v /mnt/uscita:/output \
             -v /var/lib/containers/storage:/var/lib/containers/storage \
             quay.io/centos-bootc/bootc-image-builder:latest \
-            --type anaconda-iso --rootfs btrfs "${IMMAGINE}:42"
+            --type anaconda-iso --rootfs btrfs "${IMMAGINE}:${FEDORA}"
           ls -lh /mnt/uscita/bootiso
       - name: Metti la ISO in una Release
         if: env.ISO == 'true'
