@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="34 26 432 308" width="432" height="308">
+  <title>AIOS</title>
+  <defs>
+    <linearGradient id="g" x1="0%" y1="20%" x2="100%" y2="80%">
+      <stop offset="0%" stop-color="#0B6E99"/>
+      <stop offset="100%" stop-color="#2EC4B6"/>
+    </linearGradient>
+  </defs>
+  <!-- anello che collega i dispositivi (dal vettoriale originale, senza l'arco doppio) -->
+  <path d="M92 270 C45 205 92 130 178 102 C275 70 385 92 420 153 C451 207 414 264 343 288 C257 317 150 316 92 270"
+        fill="none" stroke="url(#g)" stroke-width="24" stroke-linecap="round"/>
+  <circle cx="92" cy="270" r="38" fill="#0B6E99"/>
+  <circle cx="270" cy="88" r="52" fill="#168AA5"/>
+  <circle cx="390" cy="225" r="42" fill="#2EC4B6"/>
+  <rect x="76" y="249" width="32" height="48" rx="5" fill="none" stroke="#fff" stroke-width="5"/>
+  <circle cx="92" cy="290" r="2.8" fill="#fff"/>
+  <rect x="246" y="66" width="48" height="32" rx="3" fill="none" stroke="#fff" stroke-width="5"/>
+  <path d="M239 104 H301" stroke="#fff" stroke-width="6" stroke-linecap="round"/>
+  <rect x="375" y="203" width="30" height="43" rx="3" fill="none" stroke="#fff" stroke-width="5"/>
+  <circle cx="390" cy="240" r="2.5" fill="#fff"/>
+</svg>
