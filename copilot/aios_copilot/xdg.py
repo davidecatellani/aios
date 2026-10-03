@@ -24,3 +24,17 @@ def resolve_folder(key: str, home: Path | None = None) -> Path:
     except OSError:
         pass
     return home / XDG_DEFAULTS[key]
+
+
+# Nomi con cui l'utente chiama le cartelle → chiave XDG.
+FOLDERS_IT = {
+    "scrivania": "DESKTOP", "desktop": "DESKTOP", "download": "DOWNLOAD", "scaricati": "DOWNLOAD",
+    "documenti": "DOCUMENTS", "immagini": "PICTURES", "foto": "PICTURES", "video": "VIDEOS", "musica": "MUSIC",
+}
+
+
+# Nomi con cui l'utente chiama le cartelle → chiave XDG.
+FOLDERS_IT = {
+    "scrivania": "DESKTOP", "desktop": "DESKTOP", "download": "DOWNLOAD", "scaricati": "DOWNLOAD",
+    "documenti": "DOCUMENTS", "immagini": "PICTURES", "foto": "PICTURES", "video": "VIDEOS", "musica": "MUSIC",
+}
