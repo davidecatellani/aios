@@ -24,7 +24,7 @@ import urllib.request
 from pathlib import Path
 from typing import Callable
 
-from .models import CATALOG, load_config, models_dir
+from .models import find_model, load_config, models_dir
 
 ENGINES = {
     "dettatura": ("whisper-cli", "whisper-cpp", "whisper"),
@@ -41,7 +41,7 @@ def engine(capability: str, which: Callable[[str], str | None] = shutil.which) -
 
 
 def model_files(name: str) -> list[Path]:
-    model = next((m for m in CATALOG if m.name == name), None)
+    model = find_model(name)
     if model is None:
         return []
     return [models_dir() / name / url.rsplit("/", 1)[-1] for url in model.urls]
@@ -54,7 +54,7 @@ def available(which: Callable[[str], str | None] = shutil.which) -> dict[str, st
     for cap, name in config.items():
         if cap.startswith("_") or not name:
             continue
-        model = next((m for m in CATALOG if m.name == name), None)
+        model = find_model(name)
         if model is None:
             continue
         if model.engine == "file":

@@ -9,7 +9,7 @@ from typing import Callable
 from .. import engines
 from ..fastpath import Intent, normalize
 from ..hardware import Device
-from ..models import CAPABILITIES, CATALOG, Queue, best_for, describe_proposals, propose
+from ..models import CAPABILITIES, Queue, best_for, describe_proposals, propose
 from ..xdg import resolve_folder
 from .base import Tool, params
 
@@ -54,7 +54,14 @@ def make_management_tools(get_device: Callable[[], Device], installed: Callable[
             lines.append(f"  {d.capability}: {d.name} — {d.status}{pct}{(': ' + d.error) if d.error else ''}")
         return "\n".join(lines)
 
+    def restore(capability: str = "testo") -> str:
+        from ..learning import restore_model
+
+        return restore_model(CAP_WORDS.get(capability.lower().strip(), capability.lower().strip()))
+
     return [
+        Tool("restore_model", "Torna al modello AI usato prima per una capacità (es. dopo un aggiornamento che non piace).",
+             params(capability=("Capacità", list(CAPABILITIES))), restore),
         Tool("suggest_models", "Analizza il dispositivo e propone i modelli AI gratuiti più completi che può usare.",
              params(), suggest_models),
         Tool("install_models", "Mette in coda lo scaricamento dei modelli proposti ('tutti' o capacità: vista, dettatura, "
@@ -117,6 +124,7 @@ RE_INSTALL = re.compile(
     r"^(?:aggiorna|migliora)\s+(?:i\s+modelli|l'ai|l'intelligenza artificiale|il copilota)$"
     r"|^(?:installa|attiva|aggiungi)\s+(?:la\s+|il\s+|le\s+)?(?P<cap>vista|dettatura|riconoscimento vocale|voce|lettura|"
     r"creare immagini|generazione di immagini|modello più potente)$")
+RE_RESTORE = re.compile(r"^(?:torna|ritorna|rimetti)\s+(?:al|il)\s+modello\s+(?:di\s+)?(?:prima|precedente)")
 RE_STATUS = re.compile(r"^(?:stato|a che punto sono)\s+(?:dei|i)\s+modelli|^modelli installati$")
 RE_LOOK = re.compile(r"^(?:cosa|che cosa)\s+(?:c'è|vedi|dice)\s+(?:sullo|nello|lo)\s+schermo|^guarda\s+(?:lo\s+)?schermo")
 
@@ -132,6 +140,8 @@ class ModelsRouter:
         m = RE_INSTALL.match(low)
         if m:
             return Intent("install_models", {"which": m.group("cap") or "tutti"})
+        if RE_RESTORE.match(low):
+            return Intent("restore_model", {"capability": "testo"})
         if RE_STATUS.match(low):
             return Intent("models_status", {})
         if RE_LOOK.match(low) and "vista" in self.ready():

@@ -215,6 +215,40 @@ completo compatibile con memoria, GPU/CPU e disco, e lo propone; `learning.Downl
 lo scarica a riposo con pausa e ripresa; `engines.py` lo collega alle funzioni del
 sistema (il copilota cambia modello, compaiono vista, voce, dettatura, immagini).
 
+**Catalogo aggiornabile.** I modelli migliori cambiano di mese in mese, quindi
+l'elenco non sta nel codice: il progetto AIOS pubblica un catalogo JSON firmato
+(Ed25519, `modelcatalog.py`), scaricato una volta a settimana con una richiesta
+uguale per tutti. È accettato solo con firma valida per una chiave fidata
+(`/etc/aios/catalog-keys.d/`), versione più alta di quella in uso (niente ritorni
+a cataloghi vecchi) e, per i file, impronte SHA-256 che vengono verificate dopo lo
+scaricamento. Senza chiavi configurate vale il catalogo integrato. Ogni modello
+riporta la licenza; l'impostazione «solo licenze aperte» esclude quelle con
+condizioni.
+
+**Il laboratorio AIOS** (servizio del progetto, da costruire) valuta i nuovi modelli
+aperti sui compiti reali di AIOS (uso degli strumenti, italiano, resistenza alle
+istruzioni nascoste, velocità per classe di hardware) e pubblica nel catalogo solo
+quelli che superano le soglie, con il punteggio.
+
+**Prova sul dispositivo** (`trial.py`): prima di adottare un nuovo modello di testo
+se ne misura la velocità reale e la precisione su un insieme di compiti di AIOS;
+lo si adotta solo se è almeno buono quanto l'attuale e abbastanza veloce, altrimenti
+si scarta e si libera lo spazio. Il modello precedente resta: «torna al modello di
+prima».
+
+### Aggiornamenti del sistema
+
+Previsti nell'immagine (non ancora costruita), con lo stesso schema:
+
+- **sistema base immutabile** (ostree / Fedora Atomic): l'aggiornamento intero si
+  scarica in background, a riposo e in carica, e si applica in modo atomico al
+  riavvio successivo; mai un sistema "aggiornato a metà";
+- **ritorno automatico** alla versione precedente se il nuovo sistema non si avvia
+  correttamente (controlli all'avvio in stile greenboot), e sempre possibile a mano;
+- app (Flatpak) e modelli AI (catalogo firmato) aggiornati separatamente;
+- tutto firmato; il copilota avvisa e lascia scegliere il momento del riavvio, mai
+  forzato mentre si lavora; gli aggiornamenti di sicurezza sono evidenziati.
+
 ### Mesh dei dispositivi
 
 - **Identità:** ogni utente ha una chiave principale, e ogni dispositivo riceve una

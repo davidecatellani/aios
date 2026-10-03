@@ -42,6 +42,7 @@ TEMPLATES = {
     "recommend": "🍿 Cerco qualcosa per te: {kind}",
     "rate": "⭐ {title}: piaciuto? {liked}",
     "suggest_models": "🧠 Guardo cosa può fare questo dispositivo",
+    "restore_model": "🧠 Torno al modello precedente: {capability}",
     "install_models": "🧠 Scaricare e attivare i modelli: {which}",
     "models_status": "🧠 Stato dei modelli",
     "describe_image": "👁️ Guardo {path}",

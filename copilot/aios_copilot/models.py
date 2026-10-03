@@ -42,50 +42,77 @@ class Model:
     urls: tuple[str, ...] = ()  # per engine=file
     needs_gpu: bool = False
     note: str = ""
-    rank: int = 0  # più alto = più completo
+    rank: int = 0  # più alto = più completo (nel catalogo remoto: punteggio del laboratorio AIOS)
+    license: str = "apache-2.0"
+    sha256: tuple[str, ...] = ()  # impronte dei file (engine=file), verificate dopo lo scaricamento
+
+    @property
+    def open_license(self) -> bool:
+        return self.license.lower() in OPEN_LICENSES
 
 
-CATALOG: tuple[Model, ...] = (
+OPEN_LICENSES = {"apache-2.0", "mit", "bsd-2-clause", "bsd-3-clause", "cc-by-4.0", "openrail++"}
+
+# Catalogo integrato: vale finché non arriva un catalogo aggiornato e firmato (modelcatalog.py).
+# Le licenze indicate qui vanno ricontrollate dal laboratorio AIOS a ogni versione.
+BUILTIN_VERSION = 0
+BUILTIN: tuple[Model, ...] = (
     # testo (con uso degli strumenti)
     Model("qwen2.5:0.5b-instruct", "testo", 0.4, 1.5, rank=1),
     Model("qwen2.5:1.5b-instruct", "testo", 1.0, 3, rank=2),
-    Model("qwen2.5:3b-instruct", "testo", 1.9, 5, rank=3),
+    Model("qwen2.5:3b-instruct", "testo", 1.9, 5, rank=3, license="qwen-research"),
     Model("qwen2.5:7b-instruct", "testo", 4.7, 6, rank=4),
     Model("qwen2.5:14b-instruct", "testo", 9.0, 12, needs_gpu=True, rank=5),
     Model("qwen2.5:32b-instruct", "testo", 20.0, 24, needs_gpu=True, rank=6),
     # vista (multimodale)
     Model("moondream", "vista", 1.7, 3, rank=1, note="leggero, descrizioni brevi"),
-    Model("qwen2.5vl:3b", "vista", 3.2, 6, rank=2),
+    Model("qwen2.5vl:3b", "vista", 3.2, 6, rank=2, license="qwen-research"),
     Model("qwen2.5vl:7b", "vista", 6.0, 7, rank=3, note="legge bene testi e documenti"),
-    Model("llama3.2-vision:11b", "vista", 7.9, 12, needs_gpu=True, rank=4),
+    Model("llama3.2-vision:11b", "vista", 7.9, 12, needs_gpu=True, rank=4, license="llama3.2"),
     # significato (embedding multilingue)
     Model("granite-embedding:278m", "significato", 0.6, 1, rank=1),
     Model("paraphrase-multilingual", "significato", 0.6, 1, rank=2),
-    Model("bge-m3", "significato", 1.2, 2, rank=3),
+    Model("bge-m3", "significato", 1.2, 2, rank=3, license="mit"),
     # dettatura (whisper.cpp)
     Model("whisper-base", "dettatura", 0.15, 1, "file",
-          ("https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.bin",), rank=1),
+          ("https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.bin",), rank=1, license="mit"),
     Model("whisper-small", "dettatura", 0.47, 2, "file",
-          ("https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small.bin",), rank=2),
+          ("https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small.bin",), rank=2, license="mit"),
     Model("whisper-large-v3-turbo", "dettatura", 1.6, 4, "file",
           ("https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v3-turbo.bin",), rank=3,
-          note="la più precisa; veloce con GPU o CPU recenti"),
+          note="la più precisa; veloce con GPU o CPU recenti", license="mit"),
     # voce (piper)
     Model("piper-it-paola", "voce", 0.07, 0.5, "file",
           ("https://huggingface.co/rhasspy/piper-voices/resolve/main/it/it_IT/paola/medium/it_IT-paola-medium.onnx",
            "https://huggingface.co/rhasspy/piper-voices/resolve/main/it/it_IT/paola/medium/it_IT-paola-medium.onnx.json"),
-          rank=1),
+          rank=1, license="cc-by-4.0"),
     # immagini (stable-diffusion.cpp)
     Model("sd-turbo", "immagini", 2.5, 6, "file",
           ("https://huggingface.co/stabilityai/sd-turbo/resolve/main/sd_turbo.safetensors",), rank=1,
-          note="un'immagine in pochi secondi con GPU, circa un minuto senza"),
+          note="un'immagine in pochi secondi con GPU, circa un minuto senza", license="stability-community"),
     Model("sdxl-turbo", "immagini", 6.9, 10, "file",
           ("https://huggingface.co/stabilityai/sdxl-turbo/resolve/main/sd_xl_turbo_1.0_fp16.safetensors",),
-          needs_gpu=True, rank=2),
+          needs_gpu=True, rank=2, license="stability-community"),
     # video: solo con GPU molto potenti
     Model("generazione-video", "video", 10.0, 16, "file", (), needs_gpu=True, rank=1,
           note="sperimentale: richiede una GPU con almeno 16 GB"),
 )
+
+
+def catalog() -> tuple[Model, ...]:
+    """I modelli del catalogo attivo: quello aggiornato e firmato se c'è, altrimenti quello integrato."""
+    from .modelcatalog import active_models
+
+    return active_models()
+
+
+def find_model(name: str) -> Model | None:
+    return next((m for m in catalog() if m.name == name), None)
+
+
+def open_only() -> bool:
+    """Impostazione per aziende e scuole: solo modelli con licenza aperta."""
+    return load_config().get("_licenze") == "aperte"
 
 
 def budget_gb(device: Device) -> tuple[float, bool]:
@@ -101,7 +128,8 @@ def budget_gb(device: Device) -> tuple[float, bool]:
 
 def best_for(device: Device, capability: str) -> Model | None:
     budget, gpu = budget_gb(device)
-    candidates = [m for m in CATALOG if m.capability == capability]
+    strict = open_only()
+    candidates = [m for m in catalog() if m.capability == capability and (m.open_license or not strict)]
     fitting = []
     for m in candidates:
         if m.needs_gpu and not gpu:
@@ -150,14 +178,14 @@ def propose(device: Device, installed: Iterable[str], config: dict[str, str] | N
     """Miglioramenti possibili rispetto a ciò che è già installato o in uso."""
     config = config if config is not None else load_config()
     installed = set(installed)
-    by_name = {m.name: m for m in CATALOG}
+    by_name = {m.name: m for m in catalog()}
     proposals = []
     disk_left = device.disk_free_gb - 10  # mai riempire il disco
     for cap in CAPABILITIES:
         best = best_for(device, cap)
         if best is None:
             continue
-        current_name = config.get(cap) or next((m.name for m in sorted(CATALOG, key=lambda m: -m.rank)
+        current_name = config.get(cap) or next((m.name for m in sorted(catalog(), key=lambda m: -m.rank)
                                                 if m.capability == cap and m.name in installed), "")
         current = by_name.get(current_name)
         if current is not None and current.rank >= best.rank:
@@ -177,6 +205,8 @@ def describe_proposals(device: Device, proposals: list[Proposal]) -> str:
     lines = [f"Ho guardato il tuo dispositivo: {device.summary()}.", "Puoi usare modelli più completi, gratuiti e in locale:"]
     for n, p in enumerate(proposals, 1):
         note = f" — {p.model.note}" if p.model.note else ""
+        if not p.model.open_license:
+            note += f" (licenza {p.model.license}: gratuita per uso personale, con condizioni)"
         lines.append(f"  {n}. {p.capability.capitalize()}: {p.model.name} (~{p.model.size_gb:.1f} GB), {p.reason}{note}")
     lines.append(f"In tutto circa {total:.1f} GB. Dimmi «aggiorna i modelli» (o solo alcuni, es. «installa la vista»): "
                  "li scarico quando il computer è a riposo e in carica.")
@@ -202,7 +232,7 @@ def weekly_hint(device: Device, installed: Iterable[str], now: float | None = No
 
 
 def main(argv: list[str] | None = None) -> int:
-    """aios-modelli [proposte|installa [capacità]|stato]"""
+    """aios-modelli [proposte | installa [capacità…] | stato | ripristina [capacità] | solo-aperte]"""
     import sys
 
     from .hardware import detect
@@ -222,6 +252,15 @@ def main(argv: list[str] | None = None) -> int:
         added = [p.model.name for p in propose(device, installed) if (not wanted or p.capability in wanted) and queue.add(p.model)]
         print(("In coda: " + ", ".join(added) + ". Verranno scaricati a riposo (aios-learn) e attivati da soli.")
               if added else "Niente da aggiungere.")
+    elif args[0] == "ripristina":
+        from .learning import restore_model
+
+        print(restore_model(args[1] if len(args) > 1 else "testo"))
+    elif args[0] == "solo-aperte":
+        config = load_config()
+        config["_licenze"] = "aperte"
+        save_config(config)
+        print("D'ora in poi propongo solo modelli con licenza aperta (Apache, MIT, BSD...).")
     elif args[0] == "stato":
         for d in Queue().items:
             pct = f" {100 * d.done_bytes // d.total_bytes}%" if d.total_bytes else ""

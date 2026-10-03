@@ -143,8 +143,14 @@ stable-diffusion.cpp, presenti nell'immagine di AIOS) ci sono davvero. Una volta
 settimana, se c'è di meglio, il riepilogo del mattino lo segnala.
 
 ```bash
-aios-modelli proposte | installa [vista dettatura …] | stato
+aios-modelli proposte | installa [vista dettatura …] | stato | ripristina testo | solo-aperte
+aios-catalogo stato | aggiorna         # catalogo dei modelli firmato
 ```
+
+L'elenco dei modelli si aggiorna con un **catalogo firmato** dal progetto AIOS: i
+modelli nuovi arrivano senza aggiornare il codice. Prima di adottare un nuovo
+modello di testo, AIOS lo **prova sul tuo dispositivo** (velocità e precisione sui
+compiti del copilota) e lo tiene solo se va meglio; altrimenti lo scarta.
 
 ### I tuoi file e l'apprendimento a riposo
 

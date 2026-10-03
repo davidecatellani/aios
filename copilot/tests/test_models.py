@@ -8,7 +8,7 @@ import pytest
 from aios_copilot import engines
 from aios_copilot.hardware import GPU, Device, detect
 from aios_copilot.learning import DownloadTask, activate_model
-from aios_copilot.models import CATALOG, Queue, best_for, file_download_step, load_config, propose
+from aios_copilot.models import Queue, find_model, best_for, file_download_step, load_config, propose
 from aios_copilot.tools import ai as ai_tools
 
 
@@ -85,7 +85,7 @@ def test_install_requires_confirmation_and_queues(tmp_path):
 
 def test_download_task_resumes_and_activates(tmp_path):
     q = Queue(tmp_path / "q.json")
-    model = next(m for m in CATALOG if m.name == "qwen2.5vl:3b")
+    model = find_model("qwen2.5vl:3b")
     q.add(model)
     progress = iter([(False, 100, 1000), (False, 600, 1000), (True, 1000, 1000)])
     activated = []
@@ -102,7 +102,7 @@ def test_download_task_resumes_and_activates(tmp_path):
 
 def test_download_errors_retry_later(tmp_path):
     q = Queue(tmp_path / "q.json")
-    q.add(next(m for m in CATALOG if m.name == "bge-m3"))
+    q.add(find_model("bge-m3"))
 
     def boom(name, s):
         raise OSError("rete assente")

@@ -346,10 +346,12 @@ class CatalogTask:
 
 
 def activate_model(name: str, capability: str, calibrate: Callable[[str], Any] | None = None) -> None:
-    """Collega un modello appena scaricato alla sua funzione nel sistema."""
+    """Collega un modello appena scaricato alla sua funzione nel sistema (il precedente resta per tornare indietro)."""
     from .models import load_config, save_config
 
     config = load_config()
+    if config.get(capability) and config[capability] != name:
+        config[f"_precedente_{capability}"] = config[capability]
     config[capability] = name
     save_config(config)
     if capability == "significato":  # il riconoscimento in tutte le lingue va calibrato sul modello
@@ -368,6 +370,54 @@ def _calibrate_embedding(name: str) -> None:
         save_config(outcome[0])
 
 
+def restore_model(capability: str) -> str:
+    """Torna al modello usato prima per una capacità."""
+    from .models import load_config, save_config
+
+    config = load_config()
+    previous = config.get(f"_precedente_{capability}")
+    if not previous:
+        return f"Non c'è un modello precedente per «{capability}»."
+    config[f"_precedente_{capability}"], config[capability] = config.get(capability, ""), previous
+    save_config(config)
+    return f"Fatto: per «{capability}» uso di nuovo {previous}."
+
+
+def _sha256(path: Path) -> str:
+    import hashlib
+
+    h = hashlib.sha256()
+    with open(path, "rb") as f:
+        for chunk in iter(lambda: f.read(1 << 20), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def _trial_text_model(name: str) -> tuple[bool, str]:
+    """Prova il nuovo modello di testo e lo confronta con quello attuale (punteggi in cache)."""
+    from .models import load_config, save_config
+    from .trial import Result, decide, run_trial
+
+    config = load_config()
+    scores = json.loads(config.get("_punteggi", "{}"))
+    new = run_trial(name)
+    scores[name] = {"quality": new.quality, "speed": new.speed}
+    current = config.get("testo")
+    old = None
+    if current and current != name:
+        if current not in scores:
+            try:
+                r = run_trial(current)
+                scores[current] = {"quality": r.quality, "speed": r.speed}
+            except Exception:
+                pass
+        if current in scores:
+            old = Result(current, scores[current]["quality"], scores[current]["speed"], [])
+    config["_punteggi"] = json.dumps(scores)
+    save_config(config)
+    return decide(new, old)
+
+
 @dataclass
 class DownloadTask:
     """Scarica i modelli in coda a passi brevi (pausa e ripresa), poi li attiva."""
@@ -376,6 +426,8 @@ class DownloadTask:
     pull: Callable[[str, float], tuple[bool, int, int]] | None = None
     fetch: Callable[[Any, Path, float], tuple[bool, int, int]] | None = None
     activate: Callable[[str, str], None] = activate_model
+    trial: Callable[[str], tuple[bool, str]] = _trial_text_model
+    discard: Callable[[str], None] | None = None
     name: str = "scaricamento dei modelli"
     _retry_at: float = 0.0
 
@@ -386,10 +438,10 @@ class DownloadTask:
         return bool(self.queue.pending())
 
     def step(self, seconds: float) -> None:
-        from .models import CATALOG, file_download_step, models_dir, ollama_pull_step
+        from .models import file_download_step, find_model, models_dir, ollama_pull_step
 
         item = self.queue.pending()[0]
-        model = next((m for m in CATALOG if m.name == item.name), None)
+        model = find_model(item.name)
         if model is None:
             item.status, item.error = "errore", "modello sconosciuto"
             self.queue.save()
@@ -409,9 +461,67 @@ class DownloadTask:
             return
         item.done_bytes, item.total_bytes, item.error = have, total, ""
         if done:
-            item.status = "fatto"
-            self.activate(model.name, model.capability)
+            self._finish(item, model)
         self.queue.save()
+
+    def _finish(self, item: Any, model: Any) -> None:
+        from .models import models_dir
+
+        if model.engine == "file" and model.sha256:  # il file deve essere esattamente quello del catalogo
+            files = [models_dir() / model.name / u.rsplit("/", 1)[-1] for u in model.urls]
+            if [_sha256(f) for f in files] != list(model.sha256):
+                for f in files:
+                    f.unlink(missing_ok=True)
+                item.status, item.error = "errore", "impronta del file non corrispondente: scartato"
+                return
+        if model.capability == "testo":
+            try:
+                adopt, why = self.trial(model.name)
+            except Exception as exc:
+                adopt, why = False, f"prova non riuscita: {exc}"
+            if not adopt:
+                item.status, item.error = "scartato", why
+                if self.discard is not None:
+                    self.discard(model.name)
+                else:
+                    from .trial import delete_model
+
+                    delete_model(model.name)
+                return
+            item.error = f"adottato: {why}"
+        item.status = "fatto"
+        self.activate(model.name, model.capability)
+
+
+@dataclass
+class ModelCatalogTask:
+    """Controlla una volta a settimana se c'è un catalogo dei modelli più recente."""
+
+    update: Callable[[], str] | None = None
+    name: str = "catalogo dei modelli"
+    _retry_at: float = 0.0
+
+    def available(self) -> bool:
+        return time.monotonic() >= self._retry_at
+
+    def has_work(self) -> bool:
+        from .models import load_config
+
+        return time.time() - float(load_config().get("_catalogo_controllato", 0)) > 7 * 86400
+
+    def step(self, seconds: float) -> None:
+        from .models import load_config, save_config
+
+        try:
+            from .modelcatalog import update
+
+            (self.update or update)()
+        except Exception:
+            self._retry_at = time.monotonic() + 3600  # rete assente: si riprova più tardi
+            return
+        config = load_config()
+        config["_catalogo_controllato"] = str(time.time())
+        save_config(config)
 
 
 # --- Pianificatore ------------------------------------------------------------------
@@ -524,6 +634,7 @@ def build(index: FileIndex | None = None) -> tuple[Scheduler, FileIndex]:
     from .models import Queue
 
     tasks.insert(0, DownloadTask(Queue()))  # un modello richiesto dall'utente ha la precedenza
+    tasks.append(ModelCatalogTask())
     config = load_config()
     if config is not None:
         encoder = OllamaEncoder(config.model, prefix=config.prefix)
