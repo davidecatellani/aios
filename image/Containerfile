@@ -20,6 +20,24 @@ RUN dnf install -y --skip-unavailable \
         linux-firmware realtek-firmware atheros-firmware iwlwifi-mvm-firmware mt7xxx-firmware brcmfmac-firmware \
     && dnf clean all
 
+# Kernel: quello di Fedora (predefinito) o il ramo a lungo termine 6.18 LTS (KERNEL=lts), più vicino a
+# quello di Ubuntu: alcuni PC (es. ASUS X540UA) col kernel più recente non vedono la scheda Wi-Fi.
+# Il kernel LTS non è firmato da Fedora: con il Secure Boot attivo non si avvia (va disattivato nel BIOS).
+ARG FEDORA=44
+ARG KERNEL=fedora
+RUN if [ "$KERNEL" = lts ]; then \
+      set -e; \
+      curl -fsSL -o /etc/yum.repos.d/kernel-longterm-6.18.repo \
+        "https://copr.fedorainfracloud.org/coprs/kwizart/kernel-longterm-6.18/repo/fedora-${FEDORA}/kwizart-kernel-longterm-6.18-fedora-${FEDORA}.repo"; \
+      old="$(ls /usr/lib/modules)"; \
+      rpm -e --nodeps $(rpm -qa 'kernel' 'kernel-core' 'kernel-modules*' 'kernel-uki-virt' | tr '\n' ' '); \
+      for k in $old; do rm -rf "/usr/lib/modules/$k"; done; \
+      dnf install -y kernel-longterm kernel-longterm-core kernel-longterm-modules kernel-longterm-modules-extra; \
+      dnf clean all; \
+      ls /usr/lib/modules; test "$(ls /usr/lib/modules | wc -l)" = 1; \
+      test -f "/usr/lib/modules/$(ls /usr/lib/modules)/vmlinuz"; \
+    fi
+
 # Aspetto AIOS: niente loghi di Fedora (come chiedono le regole dei marchi Fedora per i sistemi derivati)
 # e niente giro di benvenuto di GNOME: il benvenuto è quello di Nova.
 RUN dnf swap -y fedora-logos generic-logos || echo "avviso: loghi Fedora non sostituiti"; \

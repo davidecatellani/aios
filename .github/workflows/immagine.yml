@@ -16,6 +16,11 @@ on:
         description: "Pubblica l'immagine su ghcr.io"
         type: boolean
         default: false
+      kernel:
+        description: "Kernel: fedora (predefinito) o lts (6.18, richiede Secure Boot disattivato)"
+        type: choice
+        options: [fedora, lts]
+        default: fedora
   push:
     tags: ["v*"]
 
@@ -27,6 +32,7 @@ env:
   IMMAGINE: ghcr.io/${{ github.repository_owner }}/aios
   ISO: ${{ github.event_name == 'push' || inputs.iso }}
   PUBBLICA: ${{ github.event_name == 'push' || inputs.pubblica }}
+  KERNEL: ${{ inputs.kernel || 'fedora' }}
 
 jobs:
   immagine:
@@ -53,7 +59,7 @@ jobs:
         run: |
           echo "VERSIONE=$(date -u +%Y.%m.%d).${GITHUB_RUN_NUMBER}" >> "$GITHUB_ENV"
           sudo podman build --build-arg FEDORA="$FEDORA" --build-arg VERSIONE="$(date -u +%Y.%m.%d).${GITHUB_RUN_NUMBER}" \
-            --build-arg REPO="$GITHUB_REPOSITORY" -t "${IMMAGINE}:${FEDORA}" -f image/Containerfile .
+            --build-arg REPO="$GITHUB_REPOSITORY" --build-arg KERNEL="${KERNEL:-fedora}" -t "${IMMAGINE}:${FEDORA}" -f image/Containerfile .
       - name: Pubblica
         if: env.PUBBLICA == 'true'
         run: |
@@ -106,4 +112,4 @@ jobs:
             files+=(/mnt/uscita/bootiso/aios-installazione.iso*)
           fi
           gh release create "anteprima-${GITHUB_RUN_NUMBER}" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --prerelease \
-            --title "AIOS ${VERSIONE} (anteprima)" --notes-file "$GITHUB_WORKSPACE/image/RELEASE.md" "${files[@]}"
+            --title "AIOS ${VERSIONE} (anteprima$([ "$KERNEL" = lts ] && echo ', kernel LTS 6.18'))" --notes-file "$GITHUB_WORKSPACE/image/RELEASE.md" "${files[@]}"
