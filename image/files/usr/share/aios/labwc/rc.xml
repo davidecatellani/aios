@@ -1,0 +1,55 @@
+<?xml version="1.0"?>
+<!-- Il compositore di AIOS: nessuna interfaccia propria (niente menu, niente barre).
+     La shell di AIOS (aios-shell) disegna la giornata, la barra e Nova; le app si aprono a tutto schermo. -->
+<labwc_config>
+  <core>
+    <decoration>server</decoration>
+    <gap>0</gap>
+  </core>
+  <theme>
+    <name>AIOS</name>
+    <cornerRadius>12</cornerRadius>
+    <font place=""><name>Cantarell</name><size>11</size><weight>bold</weight></font>
+  </theme>
+  <windowSwitcher show="yes" preview="yes" outlines="yes">
+    <fields>
+      <field content="icon" width="10%"/>
+      <field content="title" width="90%"/>
+    </fields>
+  </windowSwitcher>
+  <focus><followMouse>no</followMouse><raiseOnFocus>yes</raiseOnFocus></focus>
+  <placement><policy>center</policy></placement>
+  <keyboard>
+    <default/>
+    <!-- Super: torna alla giornata; Super+Spazio: Nova sopra qualsiasi app -->
+    <keybind key="Super_L" onRelease="yes"><action name="Execute" command="aios-shell --casa"/></keybind>
+    <keybind key="W-space"><action name="Execute" command="aios-shell --nova"/></keybind>
+    <keybind key="W-a"><action name="Execute" command="aios-shell --nova"/></keybind>
+    <keybind key="A-Tab"><action name="NextWindow"/></keybind>
+    <keybind key="A-F4"><action name="Close"/></keybind>
+    <keybind key="W-q"><action name="Close"/></keybind>
+    <keybind key="W-l"><action name="Execute" command="swaylock -f -c 0A2A3A"/></keybind>
+    <keybind key="XF86AudioRaiseVolume"><action name="Execute" command="wpctl set-volume -l 1.0 @DEFAULT_AUDIO_SINK@ 5%+"/></keybind>
+    <keybind key="XF86AudioLowerVolume"><action name="Execute" command="wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%-"/></keybind>
+    <keybind key="XF86AudioMute"><action name="Execute" command="wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle"/></keybind>
+    <keybind key="XF86MonBrightnessUp"><action name="Execute" command="brightnessctl set +10%"/></keybind>
+    <keybind key="XF86MonBrightnessDown"><action name="Execute" command="brightnessctl set 10%-"/></keybind>
+    <keybind key="Print"><action name="Execute" command="sh -c 'grim ~/Immagini/schermata-$(date +%Y%m%d-%H%M%S).png'"/></keybind>
+  </keyboard>
+  <mouse>
+    <default/>
+    <!-- niente menu del desktop: sul fondo c'è la giornata di AIOS -->
+    <context name="Root">
+      <mousebind button="Left" action="Press"/>
+      <mousebind button="Right" action="Press"/>
+      <mousebind button="Middle" action="Press"/>
+    </context>
+  </mouse>
+  <libinput>
+    <device category="touchpad"><naturalScroll>yes</naturalScroll><tap>yes</tap></device>
+  </libinput>
+  <windowRules>
+    <!-- le app occupano tutto lo spazio sotto la barra di AIOS -->
+    <windowRule identifier="*" type="normal"><action name="Maximize"/></windowRule>
+  </windowRules>
+</labwc_config>

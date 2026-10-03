@@ -1,0 +1,6 @@
+[Desktop Entry]
+Name=AIOS
+Comment=AIOS: la giornata, Nova e le tue app
+Exec=/usr/bin/aios-sessione
+Type=Application
+DesktopNames=AIOS

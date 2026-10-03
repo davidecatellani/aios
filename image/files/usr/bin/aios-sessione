@@ -1,0 +1,13 @@
+#!/bin/sh
+# La sessione di AIOS: il compositore labwc (solo schermo e input, niente interfaccia sua) con la
+# shell di AIOS sopra. Configurazione in /usr/share/aios/labwc (l'utente può aggiungere la sua in
+# ~/.config/labwc, che ha la precedenza).
+export XDG_CURRENT_DESKTOP=AIOS
+export XDG_SESSION_DESKTOP=aios
+export XDG_SESSION_TYPE=wayland
+export MOZ_ENABLE_WAYLAND=1
+export QT_QPA_PLATFORM="wayland;xcb"
+export _JAVA_AWT_WM_NONREPARENTING=1
+config=/usr/share/aios/labwc
+[ -f "${XDG_CONFIG_HOME:-$HOME/.config}/labwc/rc.xml" ] && config="${XDG_CONFIG_HOME:-$HOME/.config}/labwc"
+exec labwc -C "$config"

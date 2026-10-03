@@ -222,8 +222,9 @@ class Ears:
 
 
 def deliver(text: str, run: Callable[..., Any] = subprocess.run) -> bool:
-    """Passa la richiesta alla finestra di Nova (la apre se serve)."""
-    exe = shutil.which("aios-copilot") or "aios-copilot"
+    """Passa la richiesta a Nova: il pannello della shell di AIOS, o la finestra di Nova in altre sessioni."""
+    in_shell = "AIOS" in os.environ.get("XDG_CURRENT_DESKTOP", "") and shutil.which("aios-shell")
+    exe = shutil.which("aios-shell") if in_shell else (shutil.which("aios-copilot") or "aios-copilot")
     try:
         run([exe, "--voce", text], timeout=30, capture_output=True)
         return True

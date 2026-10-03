@@ -30,9 +30,8 @@ from .tools import Tool
 
 CONFIRM_TIMEOUT = 300  # secondi: senza risposta l'azione viene annullata
 NO_MODEL = (
-    "Per le domande libere mi serve il modello AI locale, che non è ancora attivo "
-    "(ollama serve). Intanto posso già fare molte cose: prova «alza il volume», "
-    "«attiva il tema scuro» o «quanta memoria ho?»."
+    "Per le domande libere mi serve il mio modello AI, che non è ancora pronto: lo scarico appena c'è "
+    "internet. Intanto posso già fare molte cose: prova «alza il volume», «che ore sono» o «quanta memoria ho?»."
 )
 MAX_BODY = 256 * 1024
 
@@ -115,8 +114,8 @@ class LocalApp:
             self._current = job
             try:
                 job.answer = self.agent.ask(text, on_event, context)
-            except LLMError:
-                job.answer = NO_MODEL
+            except LLMError as exc:  # messaggio già in parole semplici (llm.py) o quello generico
+                job.answer = str(exc) if str(exc).startswith("Il mio modello") else NO_MODEL
             except Exception as exc:  # la pagina deve sempre ricevere una risposta
                 job.answer = f"Qualcosa è andato storto: {exc}"
             finally:

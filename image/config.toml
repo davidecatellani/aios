@@ -92,4 +92,11 @@ AIOSLOG
 chmod +x /usr/local/bin/aios-log
 cp /usr/local/bin/aios-log /root/aios-log 2>/dev/null
 %end
+
+%post
+# all'accesso parte la sessione di AIOS (la shell), non il desktop GNOME
+mkdir -p /var/lib/AccountsService/users
+printf '[User]\nSession=aios\nSystemAccount=false\n' > /var/lib/AccountsService/users/aios
+chmod 600 /var/lib/AccountsService/users/aios
+%end
 '''

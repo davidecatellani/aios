@@ -1,0 +1,11 @@
+font=Cantarell 11
+background-color=#12394BF0
+text-color=#EAF4F4
+border-color=#2EC4B6
+border-size=1
+border-radius=16
+padding=14
+margin=12
+width=380
+default-timeout=7000
+anchor=top-right

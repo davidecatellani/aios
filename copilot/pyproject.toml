@@ -21,6 +21,7 @@ test = ["pytest>=8"]
 [project.scripts]
 aios-copilot = "aios_copilot.__main__:main"
 aios-voce = "aios_copilot.voice:main"
+aios-shell = "aios_copilot.shell:main"
 aios-copilot-setup = "aios_copilot.multilingual:main"
 aios-welcome = "aios_copilot.welcome:main"
 aios-learn = "aios_copilot.learning:main"
@@ -42,7 +43,7 @@ aios-catalogo-telefoni = "aios_copilot.phonecatalog:main"
 include = ["aios_copilot*"]
 
 [tool.setuptools.package-data]
-aios_copilot = ["welcome/*.html", "mail/*.html", "mesh/*.html", "brand/*", "phoneapp/*.html"]
+aios_copilot = ["welcome/*.html", "mail/*.html", "mesh/*.html", "brand/*", "phoneapp/*.html", "shell/*.html"]
 
 [tool.pytest.ini_options]
 pythonpath = [".", "tests"]

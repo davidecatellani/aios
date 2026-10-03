@@ -1,0 +1,430 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AIOS</title>
+<style>
+:root {
+  --blu: #0B6E99; --turchese: #2EC4B6; --turchese-scuro: #0F8077; --ambra: #E9C46A; --notte: #0A2A3A;
+  --fondo: linear-gradient(135deg, #EEF6F7 0%, #E6F2F5 40%, #DCEFF0 100%);
+  --carta: rgba(255,255,255,.86); --bordo: rgba(10,42,58,.08); --testo: #10232E; --tenue: #5B6E78;
+  --ombra: 0 10px 30px rgba(10,42,58,.08); --barra: rgba(255,255,255,.72); --chip: #FFFFFF;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --fondo: radial-gradient(circle at 70% 30%, #0F4A63 0%, #0A2A3A 45%, #05141D 100%);
+    --carta: rgba(18,57,75,.78); --bordo: rgba(255,255,255,.07); --testo: #EAF4F4; --tenue: #9FC1C6;
+    --ombra: 0 10px 30px rgba(0,0,0,.25); --barra: rgba(7,30,42,.75); --chip: rgba(18,57,75,.9);
+  }
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; overflow: hidden; }
+body { font-family: "Inter", "Cantarell", "DejaVu Sans", sans-serif; color: var(--testo); background: var(--fondo);
+       user-select: none; -webkit-user-select: none; cursor: default; }
+button { font: inherit; cursor: pointer; }
+[hidden] { display: none !important; }
+
+/* barra in alto: sempre visibile, anche sopra le app */
+#barra { position: fixed; top: 0; left: 0; right: 0; height: 40px; display: flex; align-items: center; gap: 14px;
+         padding: 0 18px; background: var(--barra); backdrop-filter: blur(18px); border-bottom: 1px solid var(--bordo);
+         font-size: 14px; font-weight: 600; z-index: 10; }
+#logo { font-weight: 800; letter-spacing: .5px; cursor: pointer; }
+#logo b { color: var(--turchese-scuro); }
+@media (prefers-color-scheme: dark) { #logo b { color: var(--turchese); } }
+#app-aperte { display: flex; gap: 6px; overflow: hidden; }
+.aperta { border: 0; border-radius: 10px; padding: 3px 10px; background: var(--chip); color: var(--testo); font-size: 13px;
+          max-width: 180px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#ora { position: absolute; left: 50%; transform: translateX(-50%); }
+#destra { margin-left: auto; display: flex; gap: 14px; align-items: center; }
+.badge { background: rgba(46,196,182,.16); color: var(--turchese-scuro); padding: 3px 10px; border-radius: 999px; }
+@media (prefers-color-scheme: dark) { .badge { color: var(--turchese); } }
+
+/* la giornata */
+#casa { position: absolute; top: 40px; bottom: 0; left: 0; right: 0; display: grid;
+        grid-template-columns: minmax(280px, 1fr) minmax(380px, 1.5fr) minmax(260px, 1fr); gap: 36px; padding: 40px 48px 210px; }
+.colonna { display: flex; flex-direction: column; gap: 18px; overflow: hidden; }
+.etichetta { font-size: 13px; letter-spacing: 2px; color: var(--tenue); font-weight: 700; text-transform: uppercase; }
+.carta { background: var(--carta); border: 1px solid var(--bordo); border-radius: 22px; padding: 20px 22px; box-shadow: var(--ombra); }
+.carta h3 { margin: 0 0 8px; font-size: 18px; display: flex; gap: 10px; align-items: center; }
+.carta p { margin: 0; line-height: 1.5; }
+.carta .nota { color: var(--tenue); font-size: 14px; margin-top: 8px; }
+.carta .tipo { font-size: 12px; letter-spacing: 1.5px; font-weight: 700; color: var(--tenue); text-transform: uppercase; margin-bottom: 6px; }
+.azioni { display: flex; gap: 10px; margin-top: 14px; }
+.azioni button { border-radius: 12px; padding: 8px 16px; border: 1px solid var(--bordo); background: var(--chip); color: var(--testo); font-weight: 600; }
+.azioni button:first-child { background: linear-gradient(135deg, var(--blu), var(--turchese)); color: #fff; border: 0; }
+.sfera { width: 30px; height: 30px; flex: none; }
+
+#centro { display: flex; flex-direction: column; gap: 14px; overflow: hidden; }
+#saluto { font-size: 52px; font-weight: 800; margin: 18px 0 0; letter-spacing: -1px; }
+#sottotitolo { font-size: 20px; color: var(--tenue); margin: 0 0 8px; }
+#esempi { display: flex; flex-wrap: wrap; gap: 10px; }
+.esempio { border: 1px solid var(--bordo); background: var(--chip); color: var(--testo); border-radius: 999px; padding: 9px 16px; font-size: 15px; }
+
+/* la conversazione con Nova (al centro della schermata, o nel pannello) */
+#conversazione { display: flex; flex-direction: column; gap: 10px; overflow-y: auto; padding-right: 4px; scroll-behavior: smooth; }
+.msg { max-width: 92%; padding: 11px 15px; border-radius: 18px; line-height: 1.45; white-space: pre-wrap; user-select: text; -webkit-user-select: text; }
+.msg.io { align-self: flex-end; background: linear-gradient(135deg, var(--blu), #1593AD); color: #fff; }
+.msg.nova { align-self: flex-start; background: var(--carta); border: 1px solid var(--bordo); }
+.stato { color: var(--tenue); font-size: 14px; display: flex; gap: 8px; align-items: center; }
+.veloce { background: rgba(46,196,182,.18); color: var(--turchese-scuro); border-radius: 999px; padding: 1px 8px; font-weight: 700; font-size: 12px; }
+.conferma { border: 1.5px solid #D9822B; border-radius: 18px; padding: 14px; background: var(--carta); }
+.conferma .bottoni { display: flex; gap: 8px; justify-content: flex-end; margin-top: 10px; }
+.conferma button { border-radius: 12px; padding: 7px 14px; border: 1px solid var(--bordo); background: var(--chip); color: var(--testo); font-weight: 600; }
+.conferma button.si { background: linear-gradient(135deg, var(--blu), var(--turchese)); color: #fff; border: 0; }
+
+/* casella di Nova e dock */
+#fondo { position: fixed; left: 0; right: 0; bottom: 26px; display: flex; flex-direction: column; align-items: center; gap: 16px; }
+#casella { width: min(980px, 70vw); display: flex; align-items: center; gap: 14px; background: var(--carta); border: 1px solid var(--bordo);
+           border-radius: 28px; padding: 12px 14px 12px 16px; box-shadow: 0 14px 40px rgba(10,42,58,.14); }
+#casella input { flex: 1; border: 0; outline: 0; background: transparent; color: var(--testo); font-size: 20px; }
+#casella input::placeholder { color: var(--tenue); }
+.tasto { border: 1px solid var(--bordo); border-radius: 8px; padding: 2px 8px; font-size: 13px; color: var(--tenue); }
+#microfono { width: 46px; height: 46px; border-radius: 50%; border: 1px solid var(--bordo); background: var(--chip); font-size: 20px; }
+#microfono.attivo { background: var(--turchese); animation: pulsa 1.2s infinite; }
+@keyframes pulsa { 50% { box-shadow: 0 0 0 10px rgba(46,196,182,.15); } }
+#sfera-nova { width: 44px; height: 44px; transition: transform .6s; }
+#sfera-nova.pensa { animation: respira 1.4s ease-in-out infinite; }
+@keyframes respira { 50% { transform: scale(1.12) rotate(20deg); } }
+#dock { display: flex; gap: 12px; background: var(--carta); border: 1px solid var(--bordo); border-radius: 26px; padding: 10px 14px; box-shadow: var(--ombra); }
+.app { width: 64px; height: 64px; border-radius: 18px; border: 1px solid var(--bordo); background: var(--chip); position: relative;
+       display: grid; place-items: center; transition: transform .15s; }
+.app:hover { transform: translateY(-4px); }
+.app img { width: 42px; height: 42px; }
+.app .win { position: absolute; bottom: -6px; right: -4px; background: var(--blu); color: #fff; font-size: 10px; font-weight: 800;
+            border-radius: 6px; padding: 1px 5px; }
+.app .lettera { font-size: 24px; font-weight: 800; color: var(--turchese-scuro); }
+
+/* tutte le app */
+#tutte { position: fixed; inset: 40px 0 0 0; background: var(--fondo); z-index: 5; padding: 40px 10vw; overflow-y: auto; }
+#cerca-app { width: 100%; font-size: 22px; padding: 14px 20px; border-radius: 18px; border: 1px solid var(--bordo); background: var(--carta);
+             color: var(--testo); outline: 0; margin-bottom: 28px; }
+#griglia { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 22px; }
+.voce-app { display: flex; flex-direction: column; align-items: center; gap: 8px; border: 0; background: none; color: var(--testo); font-size: 14px; text-align: center; }
+.voce-app .app { width: 72px; height: 72px; }
+
+/* la shell divisa in tre superfici: barra (sopra alle app), casa (sotto), pannello (Nova sopra tutto) */
+body.barra { background: transparent; }
+body.barra > *:not(#barra) { display: none !important; }
+body.barra #barra { position: static; height: 100vh; }
+body.casa #barra { display: none !important; }
+body.casa #casa { top: 0; }
+body.casa #tutte { inset: 0; }
+
+/* pannello di Nova sopra le app (Super+Spazio) */
+body.pannello { background: transparent; }
+body.pannello #barra, body.pannello #casa > .colonna, body.pannello #saluto, body.pannello #sottotitolo,
+body.pannello #esempi, body.pannello #dock, body.pannello #tutte { display: none !important; }
+body.pannello #casa { display: block; top: 0; padding: 0; }
+body.pannello #centro { position: fixed; inset: 0; padding: 22px 22px 110px; background: var(--fondo); border-radius: 24px;
+                        border: 1px solid var(--bordo); }
+body.pannello #testa-pannello { display: flex !important; }
+#testa-pannello { align-items: center; gap: 12px; margin-bottom: 8px; }
+#testa-pannello h2 { margin: 0; font-size: 20px; }
+#testa-pannello span { color: var(--tenue); font-size: 13px; }
+body.pannello #fondo { bottom: 18px; }
+body.pannello #casella { width: calc(100vw - 36px); }
+body.pannello .tasto { display: none; }
+</style>
+</head>
+<body>
+<div id="barra">
+  <span id="logo" title="Torna alla schermata">AI<b>OS</b></span>
+  <div id="app-aperte"></div>
+  <span id="ora"></span>
+  <div id="destra">
+    <span class="badge" id="privacy">🔒 AI in locale</span>
+    <span id="dispositivi" hidden></span>
+    <span id="rete" title="Rete"></span>
+    <span id="batteria"></span>
+  </div>
+</div>
+
+<div id="casa">
+  <div class="colonna" id="sinistra">
+    <div class="etichetta">Oggi</div>
+  </div>
+  <div id="centro">
+    <div id="testa-pannello" hidden>
+      <svg class="sfera" viewBox="0 0 40 40"><use href="#orb"/></svg>
+      <div><h2>Nova</h2><span id="contesto">Chiedimi qualsiasi cosa, anche sopra un'app.</span></div>
+    </div>
+    <h1 id="saluto">Ciao.</h1>
+    <p id="sottotitolo">Cosa facciamo oggi? Puoi chiedermi qualsiasi cosa, a voce o scrivendo.</p>
+    <div id="esempi"></div>
+    <div id="conversazione" aria-live="polite"></div>
+  </div>
+  <div class="colonna" id="destra-col"></div>
+</div>
+
+<div id="fondo">
+  <form id="casella" autocomplete="off">
+    <svg id="sfera-nova" viewBox="0 0 40 40"><use href="#orb"/></svg>
+    <input id="testo" placeholder="Chiedimi qualsiasi cosa…" aria-label="Chiedi a Nova">
+    <span class="tasto">Super</span><span class="tasto">Spazio</span>
+    <button id="microfono" type="button" title="Parla con Nova (oppure di' «Nova»)">🎙️</button>
+  </form>
+  <div id="dock"></div>
+</div>
+
+<div id="tutte" hidden>
+  <input id="cerca-app" placeholder="Cerca un'app…" aria-label="Cerca un'app">
+  <div id="griglia"></div>
+</div>
+
+<svg width="0" height="0" style="position:absolute">
+  <defs>
+    <linearGradient id="og" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#2EC4B6"/><stop offset="1" stop-color="#0B6E99"/></linearGradient>
+    <linearGradient id="oa" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#FBE3A0"/><stop offset="1" stop-color="#E9C46A"/></linearGradient>
+    <symbol id="orb" viewBox="0 0 40 40">
+      <circle cx="20" cy="20" r="18" fill="url(#og)"/>
+      <path d="M4 17 C 12 9, 26 7, 36 14 A 18 18 0 0 0 5 13 Z" fill="url(#oa)"/>
+      <path d="M3 24 C 13 17, 27 19, 37 25" stroke="#58D8C5" stroke-width="3" fill="none" opacity=".8"/>
+    </symbol>
+  </defs>
+</svg>
+
+<script>
+"use strict";
+const $ = id => document.getElementById(id);
+const hash = new URLSearchParams(location.hash.slice(1));
+const TOKEN = hash.get("t") || "";
+const PARTE = new URLSearchParams(location.search + "&" + location.hash.slice(1)).get("parte") || "tutto";
+const PANNELLO = PARTE === "pannello";
+document.body.classList.add(PARTE);
+
+async function api(path, body) {
+  const r = await fetch(path, { method: body === undefined ? "GET" : "POST", headers: { "X-AIOS-Token": TOKEN,
+    "Content-Type": "application/json" }, body: body === undefined ? undefined : JSON.stringify(body) });
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(data.error || r.status);
+  return data;
+}
+const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+
+// --- orologio e barra -------------------------------------------------------------------------------
+const GIORNI = ["domenica", "lunedì", "martedì", "mercoledì", "giovedì", "venerdì", "sabato"];
+const MESI = ["gennaio","febbraio","marzo","aprile","maggio","giugno","luglio","agosto","settembre","ottobre","novembre","dicembre"];
+function orologio() {
+  const d = new Date();
+  $("ora").textContent = `${GIORNI[d.getDay()]} ${d.getDate()} ${MESI[d.getMonth()]} · ${d.toTimeString().slice(0, 5)}`;
+}
+setInterval(orologio, 10000); orologio();
+
+function stato(s) {
+  $("batteria").textContent = s.batteria != null ? `${s.in_carica ? "⚡" : "🔋"} ${s.batteria}%` : "";
+  $("rete").textContent = s.rete || "⚠️ senza rete";
+  $("rete").title = s.rete_nome || "Nessuna rete: di' «Nova, collegati al Wi-Fi»";
+  const disp = s.dispositivi || [];
+  $("dispositivi").hidden = !disp.length;
+  $("dispositivi").textContent = `📱 ${disp.length} ${disp.length === 1 ? "dispositivo" : "dispositivi"}`;
+  $("dispositivi").title = disp.join(", ");
+}
+
+async function finestre() {
+  try {
+    const { finestre } = await api("/api/finestre");
+    const box = $("app-aperte"); box.replaceChildren();
+    for (const w of finestre.slice(0, 6)) {
+      const b = el("button", "aperta", w.title || w.app_id);
+      b.title = w.title;
+      b.onclick = () => api("/api/finestra", { app_id: w.app_id }).catch(() => {});
+      box.append(b);
+    }
+  } catch {}
+}
+$("logo").onclick = () => api("/api/casa-vai", {}).catch(() => {});
+
+// --- icone delle app ----------------------------------------------------------------------------------
+const icone = new Map();
+async function icona(app) {
+  const box = el("div", "app");
+  box.title = app.label || app.name;
+  const fallback = el("span", "lettera", (app.label || app.name || "?").slice(0, 1));
+  box.append(fallback);
+  if (app.windows) box.append(el("span", "win", "Win"));
+  try {
+    if (!icone.has(app.id)) icone.set(app.id, api(`/api/icona/${encodeURIComponent(app.id)}`));
+    const i = await icone.get(app.id);
+    const img = el("img"); img.alt = ""; img.src = `data:${i.tipo};base64,${i.dati}`;
+    fallback.replaceWith(img);
+  } catch {}
+  return box;
+}
+async function avvia(id) {
+  $("tutte").hidden = true;
+  try { await api("/api/avvia", { id }); } catch (e) { nova(`Non riesco ad aprire l'app: ${e.message}`); }
+}
+
+// --- la giornata -----------------------------------------------------------------------------------------
+function carta(c) {
+  const d = el("div", "carta");
+  if (c.tipo === "riepilogo") {
+    const h = el("h3"); h.innerHTML = `<svg class="sfera" viewBox="0 0 40 40"><use href="#orb"/></svg>`;
+    h.append(c.titolo); d.append(h);
+  } else {
+    d.append(el("div", "tipo", c.tipo === "scadenza" ? "📌 Trovata nei tuoi documenti" : "↪ Continua da dove eri"));
+    d.append(el("h3", "", "")); d.lastChild.innerHTML = c.titolo;
+  }
+  const p = el("p"); p.innerHTML = c.testo; d.append(p);
+  if (c.nota) { const n = el("p", "nota"); n.innerHTML = c.nota; d.append(n); }
+  if (c.azioni) {
+    const a = el("div", "azioni");
+    for (const az of c.azioni) {
+      const b = el("button", "", az.etichetta);
+      b.onclick = () => az.chiedi ? chiedi(az.chiedi) : api("/api/apri", { percorso: az.apri }).catch(e => nova(e.message));
+      a.append(b);
+    }
+    d.append(a);
+  }
+  return d;
+}
+
+async function casa() {
+  let data;
+  try { data = await api("/api/casa"); } catch { return; }
+  $("saluto").textContent = data.saluto;
+  stato(data.stato || {});
+  const sin = $("sinistra"); sin.replaceChildren(el("div", "etichetta", "Oggi"));
+  for (const c of data.carte) sin.append(carta(c));
+  const es = $("esempi"); es.replaceChildren();
+  if (!$("conversazione").childElementCount) {
+    for (const e of data.esempi) {
+      const b = el("button", "esempio", e);
+      b.onclick = () => chiedi(e.replace(/^\S+\s/, ""));
+      es.append(b);
+    }
+  }
+  const destra = $("destra-col"); destra.replaceChildren();
+  const disp = (data.stato || {}).dispositivi || [];
+  const dc = el("div", "carta");
+  dc.append(el("div", "tipo", "Dispositivi"));
+  if (disp.length) for (const n of disp) dc.append(el("p", "", `📱 ${n} · vicino`));
+  else dc.append(el("p", "nota", "Nessun telefono collegato. Di' «Nova, collega il telefono»."));
+  destra.append(dc);
+  const dock = $("dock"); dock.replaceChildren();
+  for (const app of data.dock) {
+    const b = el("button", "", null); b.style.cssText = "border:0;background:none;padding:0";
+    b.append(await icona(app)); b.onclick = () => avvia(app.id); dock.append(b);
+  }
+  const tutte = el("button", "", null); tutte.style.cssText = "border:0;background:none;padding:0";
+  const t = el("div", "app"); t.title = "Tutte le app"; t.append(el("span", "lettera", "⋯"));
+  tutte.append(t); tutte.onclick = mostraTutte; dock.append(tutte);
+}
+
+async function mostraTutte() {
+  $("tutte").hidden = false;
+  const { app } = await api("/api/app").catch(() => ({ app: [] }));
+  const griglia = $("griglia");
+  const disegna = async filtro => {
+    griglia.replaceChildren();
+    const f = filtro.toLowerCase();
+    for (const a of app.filter(a => !f || (a.name + " " + a.keywords).toLowerCase().includes(f))) {
+      const b = el("button", "voce-app"); b.append(await icona(a), el("span", "", a.name));
+      b.onclick = () => avvia(a.id); griglia.append(b);
+    }
+  };
+  $("cerca-app").value = ""; $("cerca-app").oninput = e => disegna(e.target.value);
+  $("cerca-app").focus();
+  disegna("");
+}
+document.addEventListener("keydown", e => { if (e.key === "Escape") $("tutte").hidden = true; });
+
+// --- Nova ------------------------------------------------------------------------------------------------
+const conv = $("conversazione");
+function giu() { conv.scrollTop = conv.scrollHeight; }
+function io(t) { $("esempi").replaceChildren(); $("sottotitolo").hidden = true; conv.append(el("div", "msg io", t)); giu(); }
+function nova(t) { conv.append(el("div", "msg nova", t)); giu(); }
+function riga(t, veloce) {
+  const s = el("div", "stato", t);
+  if (veloce) s.append(el("span", "veloce", veloce));
+  conv.append(s); giu();
+}
+
+let occupata = false;
+async function chiedi(text, aVoce = false) {
+  if (!text || occupata) return;
+  occupata = true; io(text);
+  $("testo").value = ""; $("sfera-nova").classList.add("pensa");
+  const inizio = performance.now();
+  let risposta = "", veloce = false;
+  try {
+    const { job } = await api("/api/ask", { text });
+    let next = 0, mostrata = false;
+    for (;;) {
+      const s = await api(`/api/job/${job}?after=${next}`);
+      next = s.next;
+      for (const ev of s.events) {
+        if (ev.kind === "fast") veloce = true;
+        if (ev.kind === "status") riga(ev.text);
+      }
+      if (s.pending && !mostrata) { mostrata = true; conferma(job, s.pending.label, s.pending.warning, aVoce); }
+      if (!s.pending) mostrata = false;
+      if (s.done) { risposta = s.answer; break; }
+      await new Promise(r => setTimeout(r, 200));
+    }
+  } catch (e) { risposta = `Non riesco a parlare con Nova (${e.message}).`; }
+  $("sfera-nova").classList.remove("pensa");
+  if (veloce) riga("capito all'istante", `⚡ ${Math.max(1, Math.round(performance.now() - inizio))} ms`);
+  nova(risposta);
+  if (aVoce) api("/api/parla", { testo: risposta }).catch(() => {});
+  occupata = false;
+  if (!PANNELLO) setTimeout(casa, 500);
+}
+
+function conferma(job, label, warning, aVoce) {
+  const box = el("div", "conferma");
+  box.append(el("div", "", (warning ? `🔒 ${warning}\n` : "") + `Confermi? ${label}`));
+  const bottoni = el("div", "bottoni");
+  const no = el("button", "", "Annulla"), si = el("button", "si", "Procedi");
+  let deciso = false;
+  const decidi = ok => {
+    if (deciso) return; deciso = true;
+    si.disabled = no.disabled = true; box.firstChild.textContent += ok ? "  ✓" : "  ✕";
+    api(`/api/job/${job}/confirm`, { ok }).catch(() => {});
+  };
+  si.onclick = () => decidi(true); no.onclick = () => decidi(false);
+  bottoni.append(no, si); box.append(bottoni); conv.append(box); giu(); si.focus();
+  if (aVoce) {  // anche a voce: «sì» / «no»
+    api("/api/parla", { testo: `${warning ? warning + ". " : ""}Confermi? ${label}` })
+      .then(() => api("/api/ascolta-si-no", {}))
+      .then(r => { if (r.risposta === true || r.risposta === false) decidi(r.risposta); }).catch(() => {});
+  }
+}
+
+$("casella").addEventListener("submit", e => { e.preventDefault(); chiedi($("testo").value.trim()); });
+$("microfono").onclick = async () => {
+  const m = $("microfono"); m.classList.add("attivo");
+  try {
+    const { testo } = await api("/api/ascolta", {});
+    m.classList.remove("attivo");
+    if (testo) chiedi(testo, true); else nova("Non ho sentito: riprova, o scrivi.");
+  } catch (e) { m.classList.remove("attivo"); nova(`Microfono non disponibile (${e.message}).`); }
+};
+document.addEventListener("keydown", e => {
+  if (e.key.length === 1 && document.activeElement.tagName !== "INPUT" && $("tutte").hidden) $("testo").focus();
+});
+
+// chiamate dalla shell (Super+Spazio, voce)
+window.novaChiedi = (t, aVoce) => chiedi(t, aVoce);
+window.novaFocus = () => $("testo").focus();
+
+if (PARTE === "barra") {
+  api("/api/stato").then(stato).catch(() => {});
+  setInterval(finestre, 2000);
+  setInterval(() => api("/api/stato").then(stato).catch(() => {}), 15000);
+  finestre();
+} else if (PANNELLO) {
+  $("saluto").hidden = true;
+} else {
+  casa();
+  setInterval(casa, 60000);
+  if (PARTE === "tutto") {
+    setInterval(finestre, 2000);
+    setInterval(() => api("/api/stato").then(stato).catch(() => {}), 15000);
+  }
+}
+$("testo").focus();
+</script>
+</body>
+</html>

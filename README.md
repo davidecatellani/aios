@@ -134,7 +134,7 @@ AIOS è in sviluppo attivo. Onestamente, ad oggi:
 | Identità unica, sincronizzazione cifrata, relay | ✅ |
 | Aggiornamenti automatici (rpm-ostree/bootc), batteria gestita da Nova, SDK per le app | ✅ |
 | `install.sh` su Linux esistente | ✅ provato su Ubuntu 24.04 |
-| Immagine AIOS per PC (Silverblue) | 🧪 anteprima, da costruire e provare su PC veri |
+| Immagine AIOS per PC: shell AIOS (niente desktop classico), Nova a voce, aggiornamenti senza formattare | 🧪 anteprima, in prova su un PC vero |
 | Installatore per telefono | 🧪 provato con telefoni simulati |
 | Immagine AIOS per telefono | 🛠️ struttura di compilazione pronta, prima compilazione da fare |
 

@@ -31,6 +31,23 @@ principale di usare il dispositivo:
    Windows (Bottles) e Android (Waydroid) stanno accanto alle native, con un
    piccolo segno distintivo. 🔜
 
+## La shell di AIOS (realizzata, `copilot/aios_copilot/shell/`)
+
+Niente desktop classico: la sessione «AIOS» è un compositore senza interfaccia propria
+(labwc) con sopra la shell di AIOS, in tre superfici (gtk4-layer-shell):
+
+- **la giornata**, sotto a tutto: carte (riepilogo, scadenze trovate nei documenti,
+  file da riprendere), saluto, esempi, la casella di Nova e il dock;
+- **la barra**, sempre visibile: le app si aprono a tutto schermo sotto di lei; mostra
+  le app aperte, l'ora, «🔒 AI in locale», rete e batteria;
+- **Nova sopra le app** (Super+Spazio o «Nova…» a voce), sul lato destro.
+
+Super riporta alla giornata, Alt+Tab passa da un'app all'altra. GNOME resta solo come
+sessione di riserva.
+
+![La giornata](img/shell-casa.png)
+![Nova sopra un'app](img/shell-nova.png)
+
 ## Le tavole
 
 ### PC — la schermata iniziale

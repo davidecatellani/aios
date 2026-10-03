@@ -1,0 +1,18 @@
+# Bordi e titoli delle app nella sessione AIOS (colori del marchio)
+border.width: 0
+padding.height: 8
+window.active.title.bg.color: #0A2A3A
+window.inactive.title.bg.color: #0F3B50
+window.active.label.text.color: #EAF4F4
+window.inactive.label.text.color: #9FC1C6
+window.label.text.justify: center
+window.active.button.unpressed.image.color: #2EC4B6
+window.inactive.button.unpressed.image.color: #7FB3B8
+window.active.border.color: #0A2A3A
+window.inactive.border.color: #0F3B50
+osd.bg.color: #12394B
+osd.border.color: #2EC4B6
+osd.border.width: 1
+osd.label.text.color: #EAF4F4
+window-switcher.width: 50%
+window-switcher.item.active.border.color: #2EC4B6

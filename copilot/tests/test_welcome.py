@@ -107,7 +107,7 @@ def test_confirmation_flow(server):
 def test_without_model_answers_kindly(server):
     call, *_ = server
     job = call("POST", "/api/ask", {"text": "scrivi una poesia"})[1]["job"]
-    assert "modello AI locale" in wait_job(call, job)["answer"]
+    assert "modello AI" in wait_job(call, job)["answer"]
 
 
 def test_invalid_requests(server):
