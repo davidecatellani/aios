@@ -22,7 +22,7 @@ Sicurezza: immagini solo dal catalogo firmato (Ed25519, come i modelli AI) con
 impronta SHA-256 verificata; batteria ≥ 50%; backup prima di tutto; nessuna
 cancellazione senza una conferma esplicita; ogni comando nel registro; modalità prova.
 
-    aios-installa-telefono [stato | prova | installa]
+    aios-installa-telefono [stato | prova | installa | backup | ripristina --cartella …]
 """
 
 from __future__ import annotations
@@ -238,9 +238,12 @@ def common_start(phone: PhoneInfo) -> list[Step]:
         steps.append(Step("sviluppatore", "Prepara il telefono", "utente", DEV_OPTIONS, wait_for="adb"))
     steps += [
         Step("batteria", "Controllo della batteria", "auto", f"Serve almeno il {MIN_BATTERY}% di carica."),
-        Step("backup", "Backup di foto, video e documenti sul PC", "auto",
-             "Copio sul PC fotocamera, immagini, documenti e scaricati. Le chat di WhatsApp vanno salvate dall'app "
-             "(Impostazioni › Chat › Backup)."),
+        Step("whatsapp", "Backup di WhatsApp", "utente",
+             "Se usi WhatsApp: apri WhatsApp › Impostazioni › Chat › Backup delle chat › «Esegui backup». Su AIOS non c'è "
+             "Google Drive: il backup lo copio io sul PC e lo rimetto sul telefono nuovo. Se non usi WhatsApp, continua."),
+        Step("backup", "Backup completo sul PC", "auto",
+             "Copio sul PC foto e video, documenti, scaricati, musica, rubrica, WhatsApp e, se Android lo permette, "
+             "SMS e calendario."),
         Step("immagini", "Scarico e verifico AIOS", "auto", "Solo immagini firmate dal progetto AIOS, con impronta verificata."),
         Step("conferma", "Conferma: il telefono verrà cancellato", "conferma",
              "Lo sblocco cancella tutto ciò che c'è sul telefono. Il backup è fatto. Vuoi installare AIOS?"),
@@ -273,7 +276,7 @@ def plan_for(phone: PhoneInfo, system: Build, recovery: Build | None, files: dic
             Step("bootloader", "Riavvio nel bootloader", "auto", commands=[["adb", "reboot", "bootloader"]], wait_for="fastboot"),
             Step("dati_sblocco", "Dati per lo sblocco", "auto", commands=[["fastboot", "oem", "get_unlock_data"]]),
             Step("codice", "Codice di sblocco di Motorola", "codice",
-                 f"Apri {MOTOROLA_UNLOCK_SITE}, accedi, incolla la stringa qui sopra e chiedi il codice: arriva per email. "
+                 f"Apri {MOTOROLA_UNLOCK_SITE}, accedi, incolla la stringa qui sotto e chiedi il codice: arriva per email. "
                  "Poi scrivilo qui."),
             Step("sblocco", "Sblocco del bootloader", "attesa", "Conferma sul telefono se te lo chiede.",
                  commands=[["fastboot", "oem", "unlock", "{codice}"], ["fastboot", "oem", "unlock", "{codice}"]], wait_for="sbloccato"),
@@ -334,6 +337,14 @@ def plan_for(phone: PhoneInfo, system: Build, recovery: Build | None, files: dic
     steps += [
         Step("avvio", "Primo avvio di AIOS", "auto", "Il primo avvio può richiedere qualche minuto.",
              commands=[["fastboot", "reboot"]]),
+        Step("debug_nuovo", "Collega il telefono nuovo", "utente",
+             "Sul telefono, nella prima schermata di AIOS, scegli «Ripristina dal computer» (oppure attiva «Debug USB» "
+             "dalle Opzioni sviluppatore) e tocca «Consenti» quando chiede se fidarsi di questo computer.", wait_for="adb"),
+        Step("ripristino", "Ripristino di foto, file e WhatsApp", "auto",
+             "Rimetto sul telefono ciò che ho salvato. Il backup resta comunque sul PC."),
+        Step("app", "Rubrica e WhatsApp", "utente",
+             "Rubrica: apri Contatti › Importa › «contatti.vcf» (in Download). WhatsApp: installalo e, quando lo chiede, "
+             "tocca «Ripristina»: trova da solo il backup che ho rimesso al suo posto."),
         Step("collega", "Collego il telefono alla tua identità", "utente",
              "Sul telefono, nella prima schermata di AIOS, scegli «Ho già AIOS sul computer» e inquadra il codice che ti "
              "mostro qui (oppure attiva «Debug USB» e lo faccio io via cavo)."),
@@ -399,6 +410,8 @@ class Installer:
         self.runner, self.phone, self.steps, self.ask, self.emit = runner, phone, steps, ask, emit
         self.dry_run, self.timeout = dry_run, timeout
         self.backup = backup or (lambda p: backup_phone(runner, p))
+        self.restore = lambda p, folder: restore_phone(runner, p, folder)
+        self.backup_dir: Path | None = None
         self.wait = wait or self._wait
         self.values: dict[str, str] = {}
         self.log = log_dir() / f"{datetime.now():%Y%m%d-%H%M%S}.log"
@@ -468,7 +481,10 @@ class Installer:
             if level is not None and level < MIN_BATTERY:
                 raise InstallError(f"batteria al {level}%: serve almeno il {MIN_BATTERY}%")
         if step.id == "backup" and not self.dry_run:
-            step.detail = self.backup(self.phone)
+            result = self.backup(self.phone)
+            step.detail, self.backup_dir = result if isinstance(result, tuple) else (result, None)
+        if step.id == "ripristino" and not self.dry_run:
+            step.detail = self.restore(self.phone, self.backup_dir) if self.backup_dir else "Nessun backup da ripristinare."
         outputs = [self._cmd(cmd) for cmd in step.commands]
         if step.id == "dati_sblocco":
             data = "".join(re.findall(r"\(bootloader\)\s*([0-9A-Za-z#$]+)\s*$", "\n".join(outputs), re.M))
@@ -478,23 +494,94 @@ class Installer:
                                if step.kind == "utente" else f"il telefono non è arrivato allo stato «{step.wait_for}» in tempo")
 
 
-def backup_phone(runner: Runner, phone: PhoneInfo, dest: Path | None = None) -> str:
-    """Copia sul PC le cartelle importanti del telefono (adb pull, sola lettura)."""
+BACKUP_FOLDERS = ("DCIM", "Pictures", "Movies", "Documents", "Download", "Music", "Recordings", "Notifications",
+                  "Android/media/com.whatsapp")  # l'ultima: il backup locale di WhatsApp (su AOSP non c'è Google Drive)
+
+
+def contacts_vcf(rows: str) -> str:
+    """Le righe di «content query» della rubrica → un file .vcf importabile da qualsiasi app Contatti."""
+    people: dict[str, dict[str, Any]] = {}
+    for line in rows.splitlines():
+        if not line.startswith("Row:"):
+            continue
+        fields = dict(re.findall(r"(\w+)=(.*?)(?=, \w+=|$)", line.split(" ", 2)[-1]))
+        pid = fields.get("raw_contact_id") or fields.get("contact_id") or fields.get("display_name", "")
+        person = people.setdefault(pid, {"name": fields.get("display_name", ""), "tel": [], "email": []})
+        kind, value = fields.get("mimetype", ""), fields.get("data1", "")
+        if value and value != "NULL":
+            if kind.endswith("/phone_v2"):
+                person["tel"].append(value)
+            elif kind.endswith("/email_v2"):
+                person["email"].append(value)
+    cards = []
+    for p in people.values():
+        if not p["name"] or p["name"] == "NULL":
+            continue
+        esc = lambda t: t.replace("\\", "\\\\").replace(",", "\\,").replace(";", "\\;")  # noqa: E731
+        lines = ["BEGIN:VCARD", "VERSION:3.0", f"FN:{esc(p['name'])}", f"N:{esc(p['name'])};;;;"]
+        lines += [f"TEL;TYPE=CELL:{t}" for t in dict.fromkeys(p["tel"])]
+        lines += [f"EMAIL:{e}" for e in dict.fromkeys(p["email"])]
+        cards.append("\r\n".join(lines + ["END:VCARD"]))
+    return "\r\n".join(cards) + ("\r\n" if cards else "")
+
+
+def backup_phone(runner: Runner, phone: PhoneInfo, dest: Path | None = None) -> tuple[str, Path]:
+    """Copia sul PC ciò che conta del telefono (sola lettura). → (riepilogo, cartella del backup)."""
     from .xdg import resolve_folder
 
-    dest = dest or resolve_folder("DOCUMENTS") / f"Backup telefono {datetime.now():%Y-%m-%d}"
-    dest.mkdir(parents=True, exist_ok=True)
-    copied = []
-    for folder in ("DCIM", "Pictures", "Movies", "Documents", "Download", "Music", "Recordings"):
-        code, _ = runner.run(["adb", "-s", phone.serial, "pull", "-a", f"/sdcard/{folder}", str(dest)])
+    dest = dest or resolve_folder("DOCUMENTS") / f"Backup telefono {phone.model or 'Android'} {datetime.now():%Y-%m-%d %H%M}"
+    (dest / "file").mkdir(parents=True, exist_ok=True)
+    adb = ["adb", "-s", phone.serial] if phone.serial else ["adb"]
+    copied, manifest = [], {"telefono": asdict(phone), "quando": datetime.now().isoformat(), "cartelle": []}
+    for folder in BACKUP_FOLDERS:
+        target = dest / "file" / Path(folder).parent
+        target.mkdir(parents=True, exist_ok=True)
+        code, _ = runner.run([*adb, "pull", "-a", f"/sdcard/{folder}", str(target)])
         if code == 0:
-            copied.append(folder)
-    code, out = runner.run(["adb", "-s", phone.serial, "shell", "content", "query", "--uri",
-                            "content://com.android.contacts/data", "--projection", "display_name:data1:mimetype"])
-    if code == 0 and out.strip():
-        (dest / "contatti.txt").write_text(out)
-        copied.append("contatti")
-    return f"Backup in {dest}: {', '.join(copied) or 'nessuna cartella copiata'}"
+            copied.append("WhatsApp" if "whatsapp" in folder else folder)
+            manifest["cartelle"].append(folder)
+    code, rows = runner.run([*adb, "shell", "content", "query", "--uri", "content://com.android.contacts/data",
+                             "--projection", "raw_contact_id:display_name:mimetype:data1"])
+    vcf = contacts_vcf(rows) if code == 0 else ""
+    if vcf:
+        (dest / "contatti.vcf").write_text(vcf)
+        copied.append(f"rubrica ({vcf.count('BEGIN:VCARD')} contatti)")
+    for name, uri, projection in (("sms.txt", "content://sms", "address:date:body:type"),
+                                  ("calendario.txt", "content://com.android.calendar/events", "title:dtstart:dtend:eventLocation")):
+        code, out = runner.run([*adb, "shell", "content", "query", "--uri", uri, "--projection", projection])
+        if code == 0 and out.startswith("Row:"):
+            (dest / name).write_text(out)
+            copied.append(name.split(".")[0])
+    (dest / "backup.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=1))
+    os.chmod(dest, 0o700)
+    return f"Backup in «{dest.name}»: {', '.join(copied) or 'niente da copiare'}.", dest
+
+
+def restore_phone(runner: Runner, phone: PhoneInfo, backup: Path) -> str:
+    """Rimette sul telefono nuovo i file del backup e prepara rubrica e WhatsApp."""
+    adb = ["adb", "-s", phone.serial] if phone.serial else ["adb"]
+    try:
+        manifest = json.loads((backup / "backup.json").read_text())
+    except (OSError, ValueError):
+        raise InstallError(f"in {backup} non trovo un backup di AIOS")
+    restored = []
+    for folder in manifest.get("cartelle", []):
+        source = backup / "file" / folder
+        if not source.exists():
+            continue
+        parent = Path(folder).parent
+        remote = "/sdcard/" if parent == Path(".") else f"/sdcard/{parent.as_posix()}/"
+        runner.run([*adb, "shell", "mkdir", "-p", remote.rstrip("/")])
+        code, out = runner.run([*adb, "push", str(source), remote])
+        if code != 0:
+            raise InstallError(f"ripristino di {folder} non riuscito: {out.strip()[-200:]}")
+        restored.append("WhatsApp" if "whatsapp" in folder else folder)
+    if (backup / "contatti.vcf").exists():
+        runner.run([*adb, "push", str(backup / "contatti.vcf"), "/sdcard/Download/contatti.vcf"])
+        restored.append("rubrica (da importare)")
+    # le foto ripristinate compaiono subito in Galleria
+    runner.run([*adb, "shell", "content", "call", "--uri", "content://media", "--method", "scan_volume", "--arg", "external_primary"])
+    return f"Ripristinati: {', '.join(restored) or 'niente'}."
 
 
 def download_build(build: Build, target: Path, fetch: Callable[..., Any] | None = None) -> dict[str, Path]:
@@ -540,12 +627,25 @@ def main(argv: list[str] | None = None) -> int:
     import argparse
 
     parser = argparse.ArgumentParser(prog="aios-installa-telefono", description="Installa AIOS su un telefono collegato via USB")
-    parser.add_argument("azione", nargs="?", default="stato", choices=["stato", "prova", "installa"])
+    parser.add_argument("azione", nargs="?", default="stato", choices=["stato", "prova", "installa", "backup", "ripristina"])
     parser.add_argument("--immagine", type=Path, help="immagine GSI scaricata da te (system.img)")
     parser.add_argument("--vbmeta", type=Path, help="vbmeta.img da usare con la GSI")
+    parser.add_argument("--cartella", type=Path, help="cartella del backup da ripristinare")
     args = parser.parse_args(argv)
     runner = Runner()
     phone = detect(runner)
+    if args.azione in ("backup", "ripristina"):
+        if phone.mode != "adb":
+            print("Collega il telefono con «Debug USB» attivo e tocca «Consenti» sul telefono.")
+            return 1
+        if args.azione == "backup":
+            print(backup_phone(runner, phone)[0])
+        else:
+            if not args.cartella:
+                print("Indica la cartella del backup: --cartella \"Documenti/Backup telefono …\"")
+                return 1
+            print(restore_phone(runner, phone, args.cartella))
+        return 0
     builds = load_catalog()
     local = local_build(args.immagine, args.vbmeta) if args.immagine else None
     print(f"Telefono: {phone.label if phone.mode != 'nessuno' else 'nessuno'} ({phone.mode})")

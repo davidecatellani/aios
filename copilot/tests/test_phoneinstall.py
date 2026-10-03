@@ -140,7 +140,7 @@ def test_preflight_stops_before_touching_the_phone():
 def test_pixel_install_unlocks_flashes_and_relocks():
     phone = FakePhone("google")
     ok, asked, steps = run_install(phone)
-    assert ok and asked == ["conferma", "collega"]  # telefono già pronto: conferma, poi il collegamento finale
+    assert ok and asked == ["whatsapp", "conferma", "debug_nuovo", "app", "collega"]  # nessun passo superfluo
     cmds = [" ".join(c[3:] if c[1] == "-s" else c[1:]) for c in flashed(phone)]
     assert cmds == ["flashing unlock", "erase avb_custom_key", "flash avb_custom_key avb_pkmd.bin",
                     "-w update --skip-reboot aios-shiba.zip", "reboot-bootloader", "flashing lock", "reboot"]
@@ -229,3 +229,65 @@ def test_signed_catalog_and_local_image(tmp_path):
     img.write_bytes(b"gsi di google")
     local = pi.local_build(img)
     assert local.files[0]["sha256"] == hashlib.sha256(b"gsi di google").hexdigest()
+
+
+ROWS = """Row: 0 raw_contact_id=12, display_name=Mario Rossi, mimetype=vnd.android.cursor.item/phone_v2, data1=+39 333 1234567
+Row: 1 raw_contact_id=12, display_name=Mario Rossi, mimetype=vnd.android.cursor.item/email_v2, data1=mario@example.com
+Row: 2 raw_contact_id=12, display_name=Mario Rossi, mimetype=vnd.android.cursor.item/name, data1=Mario Rossi
+Row: 3 raw_contact_id=20, display_name=Pizzeria Da Gino, Napoli, mimetype=vnd.android.cursor.item/phone_v2, data1=081 555 1234
+"""
+
+
+def test_contacts_become_a_vcf():
+    vcf = pi.contacts_vcf(ROWS)
+    assert vcf.count("BEGIN:VCARD") == 2
+    assert "FN:Mario Rossi" in vcf and "TEL;TYPE=CELL:+39 333 1234567" in vcf and "EMAIL:mario@example.com" in vcf
+    assert "FN:Pizzeria Da Gino\\, Napoli" in vcf  # la virgola del nome è protetta
+
+
+class BackupPhone(FakePhone):
+    def run(self, cmd):
+        c = [x for i, x in enumerate(cmd) if not (cmd[i - 1:i] == ["-s"] or x == "-s")]
+        if c[:2] == ["adb", "pull"]:
+            folder = Path(c[-1]) / Path(c[-2]).name
+            folder.mkdir(parents=True, exist_ok=True)
+            (folder / "file.jpg").write_bytes(b"x")
+            self.ran.append(cmd)
+            return 0, "1 file pulled"
+        if c[:3] == ["adb", "shell", "content"] and "content://com.android.contacts/data" in c:
+            self.ran.append(cmd)
+            return 0, ROWS
+        if c[:3] == ["adb", "shell", "content"] and "content://sms" in c:
+            self.ran.append(cmd)
+            return 1, "Permission Denial"  # Android non lo permette: si va avanti
+        return super().run(cmd)
+
+
+def test_backup_and_restore(tmp_path):
+    phone = BackupPhone("motorola")
+    info = pi.detect(phone)
+    summary, folder = pi.backup_phone(phone, info, tmp_path / "backup")
+    assert "rubrica (2 contatti)" in summary and "WhatsApp" in summary and "sms" not in summary
+    assert (folder / "file/DCIM/file.jpg").exists() and (folder / "file/Android/media/com.whatsapp/file.jpg").exists()
+    assert oct(folder.stat().st_mode)[-3:] == "700"
+    phone.ran.clear()
+    report = pi.restore_phone(phone, info, folder)
+    pushes = [c[-2:] for c in phone.ran if "push" in c]
+    assert [str(folder / "file/DCIM"), "/sdcard/"] in pushes
+    assert [str(folder / "file/Android/media/com.whatsapp"), "/sdcard/Android/media/"] in pushes
+    assert [str(folder / "contatti.vcf"), "/sdcard/Download/contatti.vcf"] in pushes
+    assert "WhatsApp" in report and "rubrica" in report
+    with pytest.raises(pi.InstallError):
+        pi.restore_phone(phone, info, tmp_path / "vuota")
+
+
+def test_install_restores_the_backup(tmp_path):
+    phone = BackupPhone("motorola")
+    info = pi.detect(phone)
+    steps = pi.plan_for(info, build("gsi"), None, {})
+    answers = {"codice": MOTO_CODE}
+    installer = pi.Installer(phone, info, steps, lambda st: answers.get(st.id, "ok"),
+                             wait=lambda s, t: _reach(phone, s), timeout=1)
+    assert installer.run()
+    assert next(s for s in steps if s.id == "ripristino").detail.startswith("Ripristinati: DCIM")
+    assert installer.backup_dir.exists()  # il backup resta sul PC

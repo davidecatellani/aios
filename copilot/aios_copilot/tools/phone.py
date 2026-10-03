@@ -172,6 +172,14 @@ def make_tools(runner: Runner | None = None, command: Callable[[dict[str, Any]],
         return (f"Dimenticato «{name}»: scollegato qui e tolto dall'elenco di tutti i tuoi dispositivi." if hits
                 else f"Non trovo un dispositivo Bluetooth «{name}».")
 
+    def install_aios_phone() -> str:
+        import sys
+
+        runner.spawn([sys.executable, "-m", "aios_copilot.phoneapp"])
+        return ("Apro l'installatore di AIOS per telefono. Collega il telefono con un cavo USB dati: ti guido io passo "
+                "per passo. Prima di cancellare qualsiasi cosa faccio il backup completo sul PC, e alla fine lo rimetto "
+                "sul telefono nuovo.")
+
     def phone_status() -> str:
         lines = []
         if kc.available():
@@ -253,6 +261,8 @@ def make_tools(runner: Runner | None = None, command: Callable[[dict[str, Any]],
         return f"Scollegato «{name}»: non potrà più aprire i file del PC né ricevere notifiche finché non lo ricolleghi."
 
     return [
+        Tool("install_aios_phone", "Apre l'installatore guidato di AIOS per un telefono collegato via USB "
+             "(Pixel, Samsung, Motorola, Xiaomi, Oppo), con backup e ripristino.", params(), install_aios_phone),
         Tool("bluetooth_devices", "Elenca i dispositivi Bluetooth dell'utente condivisi tra telefono e PC.", params(),
              bluetooth_devices),
         Tool("forget_bluetooth", "Dimentica un dispositivo Bluetooth su tutti i dispositivi dell'utente.",
@@ -323,6 +333,7 @@ def _original(pattern: re.Pattern[str], text: str, low_match: re.Match[str], gro
     return m.group(group).strip() if m else low_match.group(group).strip()
 
 
+RE_INSTALL_PHONE = re.compile(r"^(?:installa|metti|porta)\s+aios\s+(?:sul|nel)\s+(?:mio\s+)?(?:telefono|cellulare|smartphone)$")
 RE_BT = re.compile(r"^(?:i\s+)?(?:miei\s+)?dispositivi\s+bluetooth$|^(?:quali|che)\s+dispositivi\s+bluetooth\s+ho\??$")
 RE_BT_FORGET = re.compile(r"^(?:dimentica|scollega\s+ovunque)\s+(?:le\s+|il\s+|la\s+|lo\s+|gli\s+)?(?P<n>.+?)\s+(?:dal|del)\s+bluetooth$"
                           r"|^dimentica\s+il\s+dispositivo\s+bluetooth\s+(?P<m>.+)$")
@@ -334,6 +345,8 @@ RE_IMPROVE = re.compile(r"^migliora\s+(?:le\s+(?:ultime\s+)?foto|(?:questa|la)\s
 class PhoneRouter:
     def match(self, text: str) -> Intent | None:
         low = normalize(text)
+        if RE_INSTALL_PHONE.match(low):
+            return Intent("install_aios_phone", {})
         if RE_PHOTOS.match(low):
             return Intent("sync_photos", {})
         if RE_BT.match(low):
