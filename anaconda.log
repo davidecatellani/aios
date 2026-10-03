@@ -1,0 +1,258 @@
+00:00:31,571 DBG core.util: VARIANT_ID not found in os-release files
+00:00:31,571 INF core.configuration.profile: Loading information about profiles from /etc/anaconda/profile.d.
+00:00:31,573 INF core.configuration.profile: Found the 'almalinux' profile at /etc/anaconda/profile.d/almalinux.conf.
+00:00:31,574 INF core.configuration.profile: Found the 'centos' profile at /etc/anaconda/profile.d/centos.conf.
+00:00:31,574 INF core.configuration.profile: Found the 'circle' profile at /etc/anaconda/profile.d/circle.conf.
+00:00:31,575 INF core.configuration.profile: Found the 'fedora-designsuite' profile at /etc/anaconda/profile.d/fedora-designsuite.conf.
+00:00:31,576 INF core.configuration.profile: Found the 'fedora-eln' profile at /etc/anaconda/profile.d/fedora-eln.conf.
+00:00:31,578 INF core.configuration.profile: Found the 'fedora-iot' profile at /etc/anaconda/profile.d/fedora-iot.conf.
+00:00:31,578 INF core.configuration.profile: Found the 'fedora-kde-mobile' profile at /etc/anaconda/profile.d/fedora-kde-mobile.conf.
+00:00:31,579 INF core.configuration.profile: Found the 'fedora-kde' profile at /etc/anaconda/profile.d/fedora-kde.conf.
+00:00:31,580 INF core.configuration.profile: Found the 'fedora-kinoite' profile at /etc/anaconda/profile.d/fedora-kinoite.conf.
+00:00:31,581 INF core.configuration.profile: Found the 'fedora-sericea' profile at /etc/anaconda/profile.d/fedora-sericea.conf.
+00:00:31,581 INF core.configuration.profile: Found the 'fedora-server' profile at /etc/anaconda/profile.d/fedora-server.conf.
+00:00:31,582 INF core.configuration.profile: Found the 'fedora-silverblue' profile at /etc/anaconda/profile.d/fedora-silverblue.conf.
+00:00:31,583 INF core.configuration.profile: Found the 'fedora-workstation' profile at /etc/anaconda/profile.d/fedora-workstation.conf.
+00:00:31,584 INF core.configuration.profile: Found the 'fedora' profile at /etc/anaconda/profile.d/fedora.conf.
+00:00:31,584 INF core.configuration.profile: Found the 'navix' profile at /etc/anaconda/profile.d/navix.conf.
+00:00:31,585 INF core.configuration.profile: Found the 'ovirt' profile at /etc/anaconda/profile.d/ovirt.conf.
+00:00:31,586 INF core.configuration.profile: Found the 'rhel' profile at /etc/anaconda/profile.d/rhel.conf.
+00:00:31,587 INF core.configuration.profile: Found the 'rhvh' profile at /etc/anaconda/profile.d/rhvh.conf.
+00:00:31,587 INF core.configuration.profile: Found the 'rocky' profile at /etc/anaconda/profile.d/rocky.conf.
+00:00:31,588 INF core.configuration.profile: Found the 'scientific-linux' profile at /etc/anaconda/profile.d/scientific-linux.conf.
+00:00:31,589 INF core.configuration.profile: Found the 'virtuozzo-linux' profile at /etc/anaconda/profile.d/virtuozzo-linux.conf.
+00:00:31,589 DBG core.configuration.profile: Detecting a profile for ID=fedora, VARIANT_ID=None.
+00:00:31,589 INF core.configuration.profile: The 'fedora' profile is detected.
+00:00:31,589 INF core.configuration.anaconda: Load the 'fedora' profile configuration.
+00:00:31,594 INF main: /usr/bin/anaconda 44.30-2.fc44
+00:00:31,595 INF core.util: Reporting the IPMI event: 7
+00:00:31,775 INF startup_utils: check_memory(): total:7935, needed:320
+00:00:31,775 DBG startup_utils: Don't set up proxy variables.
+00:00:31,791 INF main: anaconda called with cmdline = ['/usr/bin/anaconda']
+00:00:31,792 INF main: Default encoding = utf-8 
+00:00:31,792 INF misc: Configuration loaded from: ['/etc/anaconda/anaconda.conf', '/etc/anaconda/profile.d/fedora.conf', '/etc/anaconda/conf.d/00-do-nothing.conf', '/etc/anaconda/conf.d/01-still-do-nothing.conf', '/etc/anaconda/conf.d/90-osbuild.conf']
+00:00:31,792 INF misc: Writing the runtime configuration to: /run/anaconda/anaconda.conf
+00:00:31,807 INF core.dbus: Connecting to the Anaconda bus at unix:path=/tmp/dbus-5lnAR7Hg7g,guid=ed498b87c5f62c1e404a3f766aa7391f.
+00:00:35,227 INF main: Found a kickstart file: /run/install/ks.cfg
+00:00:35,249 INF startup_utils: Parsing kickstart: /run/install/ks.cfg
+00:00:35,466 WRN kickstart: Command ostreecontainer will be parsed in DBus module.
+00:00:35,467 WRN kickstart: Command lang will be parsed in DBus module.
+00:00:35,467 WRN kickstart: Command keyboard will be parsed in DBus module.
+00:00:35,468 WRN kickstart: Command timezone will be parsed in DBus module.
+00:00:35,468 WRN kickstart: Command user will be parsed in DBus module.
+00:00:35,525 DBG payload.rpmostreepayload: The flatpak source is not available.
+00:00:35,539 DBG anaconda: setting display mode to GUI
+00:00:35,543 DBG localization: setting locale to: en_US.UTF-8
+00:00:35,558 DBG network: Initialization started.
+00:00:35,567 DBG network: Devices found: []
+00:00:35,573 DBG network: Running task Apply kickstart
+00:00:35,685 DBG network: Apply kickstart result: []
+00:00:35,693 DBG network: Running task Persist initramfs configuration
+00:00:35,806 DBG network: Persist initramfs configuration result: []
+00:00:35,808 DBG network: Creating network configurations.
+00:00:35,812 DBG network: Initialization finished.
+00:00:35,812 INF core.threads: Running Thread: AnaWaitForConnectingNMThread (140576424105664)
+00:00:35,813 DBG anaconda: changing display mode from GUI to GUI
+00:00:35,820 INF core.threads: Thread Done: AnaWaitForConnectingNMThread (140576424105664)
+00:00:35,832 WRN stdout: Not asking for RDP mode because we don't have a network
+00:00:35,832 INF anaconda: Display mode is set to 'interactive graphical mode'.
+00:00:35,843 INF startup_utils: check_memory(): total:7935, needed:320
+00:00:35,844 INF startup_utils: check_memory(): total:7935, graphical:410
+00:00:39,834 DBG misc: GLib: (anaconda:2383): GLib-GIO-[1;32mDEBUG[0m: [34m00:00:39.834[0m: _g_io_module_get_default: Found default implementation dconf (DConfSettingsBackend) for ‘gsettings-backend’
+00:00:39,834 DBG misc: GLib: (anaconda:2383): dconf-[1;32mDEBUG[0m: [34m00:00:39.834[0m: watch_fast: "/org/gnome/desktop/interface/" (establishing: 0, active: 0)
+00:00:39,835 DBG misc: GLib: (anaconda:2383): dconf-[1;32mDEBUG[0m: [34m00:00:39.835[0m: watch_fast: "/org/gnome/desktop/peripherals/mouse/" (establishing: 0, active: 0)
+00:00:39,836 DBG misc: GLib: (anaconda:2383): dconf-[1;32mDEBUG[0m: [34m00:00:39.836[0m: watch_fast: "/org/gnome/desktop/sound/" (establishing: 0, active: 0)
+00:00:39,837 DBG misc: GLib: (anaconda:2383): dconf-[1;32mDEBUG[0m: [34m00:00:39.836[0m: watch_fast: "/org/gnome/desktop/privacy/" (establishing: 0, active: 0)
+00:00:39,837 DBG misc: GLib: (anaconda:2383): dconf-[1;32mDEBUG[0m: [34m00:00:39.837[0m: watch_fast: "/org/gnome/desktop/wm/preferences/" (establishing: 0, active: 0)
+00:00:39,838 DBG misc: GLib: (anaconda:2383): dconf-[1;32mDEBUG[0m: [34m00:00:39.838[0m: watch_fast: "/org/gnome/settings-daemon/plugins/xsettings/" (establishing: 0, active: 0)
+00:00:39,838 DBG misc: GLib: (anaconda:2383): dconf-[1;32mDEBUG[0m: [34m00:00:39.838[0m: watch_fast: "/org/gnome/desktop/a11y/" (establishing: 0, active: 0)
+00:00:39,839 DBG misc: GLib: (anaconda:2383): dconf-[1;32mDEBUG[0m: [34m00:00:39.839[0m: watch_fast: "/org/gnome/desktop/a11y/interface/" (establishing: 0, active: 0)
+00:00:39,839 DBG misc: GLib: (anaconda:2383): dconf-[1;32mDEBUG[0m: [34m00:00:39.839[0m: watch_established: "/org/gnome/desktop/interface/" (establishing: 1)
+00:00:39,840 DBG misc: GLib: (anaconda:2383): dconf-[1;32mDEBUG[0m: [34m00:00:39.840[0m: watch_established: "/org/gnome/desktop/peripherals/mouse/" (establishing: 1)
+00:00:39,841 DBG misc: GLib: (anaconda:2383): dconf-[1;32mDEBUG[0m: [34m00:00:39.841[0m: watch_established: "/org/gnome/desktop/sound/" (establishing: 1)
+00:00:39,841 DBG misc: GLib: (anaconda:2383): dconf-[1;32mDEBUG[0m: [34m00:00:39.841[0m: watch_established: "/org/gnome/desktop/privacy/" (establishing: 1)
+00:00:39,842 DBG misc: GLib: (anaconda:2383): dconf-[1;32mDEBUG[0m: [34m00:00:39.842[0m: watch_established: "/org/gnome/desktop/wm/preferences/" (establishing: 1)
+00:00:39,843 DBG misc: GLib: (anaconda:2383): dconf-[1;32mDEBUG[0m: [34m00:00:39.843[0m: watch_established: "/org/gnome/settings-daemon/plugins/xsettings/" (establishing: 1)
+00:00:39,843 DBG misc: GLib: (anaconda:2383): dconf-[1;32mDEBUG[0m: [34m00:00:39.843[0m: watch_established: "/org/gnome/desktop/a11y/" (establishing: 1)
+00:00:39,845 DBG misc: GLib: (anaconda:2383): dconf-[1;32mDEBUG[0m: [34m00:00:39.844[0m: watch_established: "/org/gnome/desktop/a11y/interface/" (establishing: 1)
+00:00:39,979 DBG misc: GLib: (anaconda:2383): GLib-[1;32mDEBUG[0m: [34m00:00:39.979[0m: unsetenv() is not thread-safe and should not be used after threads are created
+00:00:40,117 DBG misc: GLib: (anaconda:2383): GLib-GIO-[1;32mDEBUG[0m: [34m00:00:40.117[0m: _g_io_module_get_default: Found default implementation local (GLocalVfs) for ‘gio-vfs’
+00:00:40,384 DBG ui.lib.addons: Loading spokes into module path for addon com_redhat_kdump
+00:00:40,488 DBG core.storage: LABEL=OEMDRV matches [] for devicetree=None and disks_only=True
+00:00:40,489 INF core.threads: Running Thread: AnaStorageThread (140575619671744)
+00:00:40,540 DBG payload.manager: Restarting payload thread
+00:00:40,541 INF core.threads: Running Thread: AnaPayloadRestartThread (140575610230464)
+00:00:40,541 INF startup_utils: Geolocation is disabled due to automated kickstart based installation.
+00:00:40,542 INF core.threads: Running Thread: AnaPayloadThread (140575601837760)
+00:00:40,542 INF core.threads: Thread Done: AnaPayloadRestartThread (140575610230464)
+00:00:40,545 DBG startup_utils: Skip the time synchronization due to disabled module.
+00:00:43,217 INF core.threads: Thread Done: AnaStorageThread (140575619671744)
+00:00:43,228 INF core.threads: Thread Done: AnaPayloadThread (140575601837760)
+00:00:43,570 DBG ui.gui.spokes.network: network standalone spoke (init): completed: True
+00:00:43,598 INF lifecycle: Adding controller: SummaryHub
+00:00:43,953 INF core.threads: Running Thread: AnaStorageWatcher (140575601837760)
+00:00:43,958 DBG ui.gui.hubs: incomplete spokes: [StorageSpoke]
+00:00:43,972 DBG ui.lib.storage: Selecting all disks by default: sda,sdb,mmcblk0
+00:00:43,973 INF lifecycle: Module initialized: StorageSpoke
+00:00:43,973 INF core.threads: Thread Done: AnaStorageWatcher (140575601837760)
+00:00:43,998 INF lifecycle: Module initialized: CustomPartitioningSpoke
+00:00:44,041 INF lifecycle: Module initialized: BlivetGuiSpoke
+00:00:44,043 WRN misc: /usr/lib64/python3.14/site-packages/pyanaconda/ui/gui/__init__.py:159: Warning: g_value_type_transformable: assertion 'src_type' failed
+  self.builder.add_objects_from_file(self._findUIFile(), self.builderObjects)
+
+00:00:44,044 DBG misc: GLib: 
+(anaconda:2383): Gtk-[1;33mWARNING[0m **: [34m00:00:44.044[0m: ../gtk/gtkliststore.c:836: Unable to convert from (null) to gchararray
+00:00:44,044 DBG misc: GLib: 
+(anaconda:2383): Gtk-[1;33mWARNING[0m **: [34m00:00:44.044[0m: ../gtk/gtkliststore.c:836: Unable to convert from (null) to gchararray
+00:00:44,044 DBG misc: GLib: 
+(anaconda:2383): Gtk-[1;33mWARNING[0m **: [34m00:00:44.044[0m: ../gtk/gtkliststore.c:836: Unable to convert from (null) to gchararray
+00:00:44,044 DBG misc: GLib: 
+(anaconda:2383): Gtk-[1;33mWARNING[0m **: [34m00:00:44.044[0m: ../gtk/gtkliststore.c:836: Unable to convert from (null) to gchararray
+00:00:44,044 DBG misc: GLib: 
+(anaconda:2383): Gtk-[1;33mWARNING[0m **: [34m00:00:44.044[0m: ../gtk/gtkliststore.c:836: Unable to convert from (null) to gchararray
+00:00:44,045 DBG misc: GLib: 
+(anaconda:2383): Gtk-[1;33mWARNING[0m **: [34m00:00:44.045[0m: ../gtk/gtkliststore.c:836: Unable to convert from (null) to gchararray
+00:00:44,045 DBG misc: GLib: 
+(anaconda:2383): Gtk-[1;33mWARNING[0m **: [34m00:00:44.045[0m: ../gtk/gtkliststore.c:836: Unable to convert from (null) to gchararray
+00:00:44,045 DBG misc: GLib: 
+(anaconda:2383): Gtk-[1;33mWARNING[0m **: [34m00:00:44.045[0m: ../gtk/gtkliststore.c:836: Unable to convert from (null) to gchararray
+00:00:44,045 DBG misc: GLib: 
+(anaconda:2383): Gtk-[1;33mWARNING[0m **: [34m00:00:44.045[0m: ../gtk/gtkliststore.c:836: Unable to convert from (null) to gchararray
+00:00:44,045 DBG misc: GLib: 
+(anaconda:2383): Gtk-[1;33mWARNING[0m **: [34m00:00:44.045[0m: ../gtk/gtkliststore.c:836: Unable to convert from (null) to gchararray
+00:00:44,045 DBG misc: GLib: 
+(anaconda:2383): Gtk-[1;33mWARNING[0m **: [34m00:00:44.045[0m: ../gtk/gtkliststore.c:836: Unable to convert from (null) to gchararray
+00:00:44,046 DBG misc: GLib: 
+(anaconda:2383): Gtk-[1;33mWARNING[0m **: [34m00:00:44.046[0m: ../gtk/gtkliststore.c:836: Unable to convert from (null) to gchararray
+00:00:44,046 DBG misc: GLib: 
+(anaconda:2383): Gtk-[1;33mWARNING[0m **: [34m00:00:44.046[0m: ../gtk/gtkliststore.c:836: Unable to convert from (null) to gchararray
+00:00:44,046 DBG misc: GLib: 
+(anaconda:2383): Gtk-[1;33mWARNING[0m **: [34m00:00:44.046[0m: ../gtk/gtkliststore.c:836: Unable to convert from (null) to gchararray
+00:00:44,046 DBG misc: GLib: 
+(anaconda:2383): Gtk-[1;33mWARNING[0m **: [34m00:00:44.046[0m: ../gtk/gtkliststore.c:836: Unable to convert from (null) to gchararray
+00:00:44,046 DBG misc: GLib: 
+(anaconda:2383): Gtk-[1;33mWARNING[0m **: [34m00:00:44.046[0m: ../gtk/gtkliststore.c:836: Unable to convert from (null) to gchararray
+00:00:44,046 DBG misc: GLib: 
+(anaconda:2383): Gtk-[1;33mWARNING[0m **: [34m00:00:44.046[0m: ../gtk/gtkliststore.c:836: Unable to convert from (null) to gchararray
+00:00:44,046 DBG misc: GLib: 
+(anaconda:2383): Gtk-[1;33mWARNING[0m **: [34m00:00:44.046[0m: ../gtk/gtkliststore.c:836: Unable to convert from (null) to gchararray
+00:00:44,047 DBG misc: GLib: 
+(anaconda:2383): Gtk-[1;33mWARNING[0m **: [34m00:00:44.047[0m: ../gtk/gtkliststore.c:836: Unable to convert from (null) to gchararray
+00:00:44,047 DBG misc: GLib: 
+(anaconda:2383): Gtk-[1;33mWARNING[0m **: [34m00:00:44.047[0m: ../gtk/gtkliststore.c:836: Unable to convert from (null) to gchararray
+00:00:44,047 DBG misc: GLib: 
+(anaconda:2383): Gtk-[1;33mWARNING[0m **: [34m00:00:44.047[0m: ../gtk/gtkliststore.c:836: Unable to convert from (null) to gchararray
+00:00:44,047 DBG misc: GLib: 
+(anaconda:2383): Gtk-[1;33mWARNING[0m **: [34m00:00:44.047[0m: ../gtk/gtkliststore.c:836: Unable to convert from (null) to gchararray
+00:00:44,097 INF lifecycle: Module initialized: FilterSpoke
+00:00:44,141 WRN misc: /usr/lib/python3.14/site-packages/dasbus/server/handler.py:78: DeprecationWarning: Gio.DBusConnection.register_object is deprecated
+  registration_id = connection.register_object(
+
+00:00:44,146 INF lifecycle: Module initialized: NetworkSpoke
+00:00:44,186 INF lifecycle: Module initialized: PasswordSpoke
+00:00:44,243 INF lifecycle: Module initialized: UserSpoke
+00:00:44,257 INF lifecycle: Initialization of all modules (7) has been started.
+00:00:44,257 INF lifecycle: All modules have been initialized.
+00:00:44,259 DBG ui.gui.hubs: Starting event loop for hub SummaryHub
+00:00:44,318 DBG ui.common: Entered hub: SummaryHub
+00:00:44,328 WRN misc: /usr/lib64/python3.14/site-packages/gi/events.py:803: DeprecationWarning: 'asyncio.AbstractEventLoopPolicy' is deprecated and slated for removal in Python 3.16
+  AbstractEventLoopPolicy = getattr(asyncio, "AbstractEventLoopPolicy", object)
+
+00:00:44,370 DBG ui.gui.hubs: setting StorageSpoke status to: Probing storage...
+00:00:44,371 DBG ui.gui.hubs: setting StorageSpoke status to: Probing storage...
+00:00:44,388 DBG ui.gui.hubs: spoke is ready: StorageSpoke
+00:00:44,390 INF ui.gui.helpers: kickstart installation stopped for info: User interaction required on spoke Installation Destination
+00:00:44,403 DBG ui.gui.hubs: spoke is ready: PasswordSpoke
+00:00:44,406 DBG ui.gui.hubs: kickstart installation, spoke Root Account is ready
+00:02:27,585 DBG ui.common: Entered spoke: PasswordSpoke
+00:02:43,948 INF ui.gui.spokes.root_password: Return to hub prevented by password checking rules.
+00:02:45,885 DBG ui.common: Left spoke: PasswordSpoke
+00:02:45,956 DBG ui.gui.hubs: spoke is ready: PasswordSpoke
+00:02:45,958 DBG ui.gui.hubs: kickstart installation, spoke Root Account is ready
+00:02:53,964 DBG ui.common: Entered spoke: StorageSpoke
+00:03:29,689 DBG ui.gui.spokes.storage: disk free: 2.3 MiB  fs free: 224.77 GiB  sw needs: 476.84 MiB  auto swap: 0 B
+00:03:42,268 WRN misc: /usr/lib64/python3.14/site-packages/gi/overrides/GObject.py:646: Warning: ../gobject/gsignal.c:2723: instance '0x55953d418460' has no handler with id '11010'
+  return func(*args, **kwargs)
+
+00:03:42,268 WRN misc: /usr/lib64/python3.14/site-packages/gi/overrides/GObject.py:646: Warning: ../gobject/gsignal.c:2723: instance '0x55953d418460' has no handler with id '11011'
+  return func(*args, **kwargs)
+
+00:03:44,528 DBG ui.common: Left spoke: StorageSpoke
+00:03:44,656 DBG ui.common: Entered spoke: FilterSpoke
+00:03:51,722 DBG ui.common: Left spoke: FilterSpoke
+00:03:51,846 DBG ui.common: Entered spoke: StorageSpoke
+00:04:55,776 DBG ui.gui.spokes.lib.resize: Remove sda2.
+00:04:55,804 DBG ui.gui.spokes.lib.resize: Preserve sda1.
+00:04:55,804 DBG ui.gui.spokes.lib.resize: Preserve sda.
+00:04:55,807 WRN misc: /usr/lib64/python3.14/site-packages/gi/overrides/GObject.py:646: Warning: ../gobject/gsignal.c:2723: instance '0x55953d3d6c00' has no handler with id '14607'
+  return func(*args, **kwargs)
+
+00:04:55,807 WRN misc: /usr/lib64/python3.14/site-packages/gi/overrides/GObject.py:646: Warning: ../gobject/gsignal.c:2723: instance '0x55953d3d6c00' has no handler with id '14608'
+  return func(*args, **kwargs)
+
+00:04:55,836 DBG ui.gui.spokes.storage: Running the execute method for the AUTOMATIC partitioning method.
+00:04:55,837 INF core.threads: Running Thread: AnaExecuteStorageThread (140576424105664)
+00:04:55,837 DBG ui.lib.storage: Applying partitioning
+00:04:55,837 DBG ui.common: Left spoke: StorageSpoke
+00:04:55,838 DBG ui.gui.spokes.storage: Saving storage configuration...
+00:04:55,899 DBG ui.gui.hubs: spoke is not ready: StorageSpoke
+00:04:55,899 DBG ui.gui.hubs: setting StorageSpoke status to: Saving storage configuration...
+00:04:56,260 DBG ui.gui.spokes.storage: Checking storage configuration...
+00:04:56,326 DBG ui.gui.hubs: setting StorageSpoke status to: Checking storage configuration...
+00:04:56,379 DBG ui.lib.storage: Validation has been completed: ValidationReport(error_messages=[], warning_messages=[])
+00:04:56,473 DBG ui.lib.storage: Partitioning has been applied.
+00:04:56,473 INF core.threads: Thread Done: AnaExecuteStorageThread (140576424105664)
+00:04:56,546 DBG ui.gui.hubs: incomplete spokes: []
+00:04:56,555 INF ui.lib.space: fs space: 263.67 GiB  needed: 476.84 MiB
+00:04:56,555 INF core.hw: Skipping detection of SMT.
+00:04:56,555 DBG ui.gui.hubs: spoke is ready: StorageSpoke
+00:04:56,558 DBG ui.gui.hubs: kickstart installation, spoke Installation Destination is ready
+00:05:00,100 INF ui.gui.helpers: kickstart installation stopped for info: User interaction required on standalone spoke ProgressSpoke
+00:05:00,102 DBG ui.common: Left hub: SummaryHub
+00:05:00,111 DBG ui.gui.spokes.installation_progress: The installation has started.
+00:05:00,114 DBG ui.common: Entered spoke: ProgressSpoke
+00:11:16,637 DBG ui.gui.spokes.installation_progress: The installation has finished.
+00:11:16,644 DBG exception: running handleException
+00:11:16,650 CRT exception: Traceback (most recent call last):
+
+  File "/usr/lib/python3.14/site-packages/dasbus/client/handler.py", line 133, in _signal_callback
+    callback(parameters, *callback_args)
+    ~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+  File "/usr/lib/python3.14/site-packages/dasbus/client/handler.py", line 365, in _signal_callback
+    callback(*unwrap_variant(parameters))
+    ~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+  File "/usr/lib/python3.14/site-packages/dasbus/signal.py", line 53, in emit
+    callback(*args, **kwargs)
+    ~~~~~~~~^^^^^^^^^^^^^^^^^
+
+  File "/usr/lib64/python3.14/site-packages/pyanaconda/ui/gui/spokes/installation_progress.py", line 78, in _on_installation_done
+    self._task_proxy.Finish()
+    ~~~~~~~~~~~~~~~~~~~~~~~^^
+
+  File "/usr/lib/python3.14/site-packages/dasbus/client/handler.py", line 450, in _call_method
+    return self._get_method_reply(
+           ~~~~~~~~~~~~~~~~~~~~~~^
+        self._client.sync_call,
+        ^^^^^^^^^^^^^^^^^^^^^^^
+        *args,
+        ^^^^^^
+        **kwargs,
+        ^^^^^^^^^
+    )
+    ^
+
+  File "/usr/lib/python3.14/site-packages/dasbus/client/handler.py", line 483, in _get_method_reply
+    return self._handle_method_error(error)
+           ~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^
+
+  File "/usr/lib/python3.14/site-packages/dasbus/client/handler.py", line 509, in _handle_method_error
+    raise exception from None
+
+pyanaconda.modules.common.errors.installation.PayloadInstallationError: The command 'ostree container image deploy --sysroot=/mnt/sysimage --image=/run/install/repo/container --transport=oci' exited with the code 1:
+error: Performing deployment: Bootloader write config: grub2-mkconfig: Child process exited with code 1
+
+
+00:11:16,651 DBG exception: Gtk running, queuing exception handler to the main loop
+00:11:20,839 INF core.util: Reporting the IPMI event: 10

@@ -1,0 +1,149 @@
+DEBUG:anaconda.modules.common:The configuration is loaded from: ['/run/anaconda/anaconda.conf']
+DEBUG:anaconda.core.util:ID_LIKE not found in os-release files
+DEBUG:anaconda.core.kickstart.version:Using ID for version detection: fedora
+DEBUG:anaconda.core.kickstart.version:Attempting to convert version string: f44
+INFO:anaconda.core.kickstart.version:Detected kickstart version from platform ID: f44 -> 44000
+INFO:anaconda.core.kickstart.version:Using os-release detected kickstart version
+DEBUG:anaconda.modules.common.base.base:Publish the service.
+DEBUG:dasbus.connection:Publishing an object at /org/fedoraproject/Anaconda/Modules/Payloads.
+INFO:anaconda.core.dbus:Connecting to the Anaconda bus at unix:path=/tmp/dbus-5lnAR7Hg7g,guid=ed498b87c5f62c1e404a3f766aa7391f.
+WARNING:py.warnings:/usr/lib/python3.14/site-packages/dasbus/server/handler.py:78: DeprecationWarning: Gio.DBusConnection.register_object is deprecated
+  registration_id = connection.register_object(
+
+DEBUG:dasbus.connection:Registering a service name org.fedoraproject.Anaconda.Modules.Payloads.
+DEBUG:anaconda.modules.common.base.base:Start the loop.
+WARNING:py.warnings:/usr/lib64/python3.14/site-packages/gi/events.py:803: DeprecationWarning: 'asyncio.AbstractEventLoopPolicy' is deprecated and slated for removal in Python 3.16
+  AbstractEventLoopPolicy = getattr(asyncio, "AbstractEventLoopPolicy", object)
+
+DEBUG:anaconda.modules.common.base.base:Reading kickstart...
+DEBUG:anaconda.modules.payloads.payload.payload_base:The kernel version list is set to: []
+DEBUG:anaconda.modules.payloads.payloads:Created the payload PayloadType.RPM_OSTREE.
+DEBUG:anaconda.modules.payloads.source.rpm_ostree.rpm_ostree:Configuration is set to 'RPMOSTreeContainerConfigurationData(remote='', signature_verification_enabled=True, stateroot='', transport='oci', url='/run/install/repo/container')'.
+DEBUG:anaconda.modules.payloads.payload.payload_base:New sources [Source(type='RPM_OSTREE_CONTAINER', stateroot='', transport='oci', url='/run/install/repo/container')] were added.
+DEBUG:anaconda.modules.payloads.payloads:Activated the payload PayloadType.RPM_OSTREE.
+DEBUG:anaconda.modules.common.base.base:Kickstarted is set to True.
+DEBUG:dasbus.connection:Publishing an object at /org/fedoraproject/Anaconda/Modules/Payloads/Payload/1.
+DEBUG:dasbus.connection:Publishing an object at /org/fedoraproject/Anaconda/Modules/Payloads/Source/1.
+DEBUG:anaconda.modules.common.base.base:Locale is set to en_US.UTF-8.
+DEBUG:dasbus.connection:Publishing an object at /org/fedoraproject/Anaconda/Modules/Payloads/Task/1.
+INFO:anaconda.core.threads:Running Thread: AnaTaskThread-SetUpSourcesTask-1 (140109170038464)
+INFO:anaconda.modules.common.task.task:Set up installation sources
+DEBUG:anaconda.modules.payloads.base.initialization:Setting up sources...
+DEBUG:anaconda.modules.payloads.base.initialization:Setting up a source: Source(type='RPM_OSTREE_CONTAINER', stateroot='', transport='oci', url='/run/install/repo/container')
+INFO:anaconda.core.threads:Thread Done: AnaTaskThread-SetUpSourcesTask-1 (140109170038464)
+DEBUG:dasbus.connection:Publishing an object at /org/fedoraproject/Anaconda/Modules/Payloads/Source/2.
+DEBUG:anaconda.modules.payloads.payloads:Main payload size: 500000000, side payload size: 0, total: 500000000
+DEBUG:anaconda.modules.payloads.payloads:Main payload size: 500000000, side payload size: 0, total: 500000000
+DEBUG:anaconda.modules.payloads.payloads:Main payload size: 500000000, side payload size: 0, total: 500000000
+DEBUG:dasbus.connection:Publishing an object at /org/fedoraproject/Anaconda/Modules/Payloads/Task/2.
+DEBUG:dasbus.connection:Publishing an object at /org/fedoraproject/Anaconda/Modules/Payloads/Task/3.
+DEBUG:dasbus.connection:Publishing an object at /org/fedoraproject/Anaconda/Modules/Payloads/Task/4.
+DEBUG:dasbus.connection:Publishing an object at /org/fedoraproject/Anaconda/Modules/Payloads/Task/5.
+DEBUG:dasbus.connection:Publishing an object at /org/fedoraproject/Anaconda/Modules/Payloads/Task/6.
+DEBUG:dasbus.connection:Publishing an object at /org/fedoraproject/Anaconda/Modules/Payloads/Task/7.
+DEBUG:dasbus.connection:Publishing an object at /org/fedoraproject/Anaconda/Modules/Payloads/Task/8.
+DEBUG:dasbus.connection:Publishing an object at /org/fedoraproject/Anaconda/Modules/Payloads/Task/9.
+DEBUG:dasbus.connection:Publishing an object at /org/fedoraproject/Anaconda/Modules/Payloads/Task/10.
+DEBUG:dasbus.connection:Publishing an object at /org/fedoraproject/Anaconda/Modules/Payloads/Task/11.
+INFO:anaconda.core.threads:Running Thread: AnaTaskThread-PrepareSystemForInstallationTask-1 (140109170038464)
+INFO:anaconda.modules.common.task.task:Prepare system for installation
+INFO:anaconda.core.threads:Thread Done: AnaTaskThread-PrepareSystemForInstallationTask-1 (140109170038464)
+INFO:anaconda.core.threads:Running Thread: AnaTaskThread-InitOSTreeFsAndRepoTask-1 (140109170038464)
+INFO:anaconda.modules.common.task.task:Initialize OSTree file system and repository
+INFO:program:Running... ostree admin --sysroot=/mnt/sysimage init-fs /mnt/sysimage
+DEBUG:program:Return code of ostree: 0
+INFO:anaconda.core.threads:Thread Done: AnaTaskThread-InitOSTreeFsAndRepoTask-1 (140109170038464)
+INFO:anaconda.core.threads:Running Thread: AnaTaskThread-ChangeOSTreeRemoteTask-1 (140109170038464)
+INFO:anaconda.modules.common.task.task:Change OSTree remote
+INFO:anaconda.core.threads:Thread Done: AnaTaskThread-ChangeOSTreeRemoteTask-1 (140109170038464)
+INFO:anaconda.core.threads:Running Thread: AnaTaskThread-DeployOSTreeTask-1 (140109170038464)
+INFO:anaconda.modules.common.task.task:Deploy OSTree
+INFO:program:Running... ostree admin --sysroot=/mnt/sysimage os-init default
+INFO:program:ostree/deploy/default initialized as OSTree stateroot
+DEBUG:program:Return code of ostree: 0
+INFO:anaconda.modules.payloads.payload.rpm_ostree.installation:ostree image deploy starting
+INFO:program:Running... ostree container image deploy --sysroot=/mnt/sysimage --image=/run/install/repo/container --transport=oci
+INFO:program:error: Performing deployment: Bootloader write config: grub2-mkconfig: Child process exited with code 1
+DEBUG:program:Return code of ostree: 1
+INFO:anaconda.core.threads:Thread Failed: AnaTaskThread-DeployOSTreeTask-1 (140109170038464)
+ERROR:anaconda.modules.common.task.task:Thread AnaTaskThread-DeployOSTreeTask-1 has failed: Traceback (most recent call last):
+  File "/usr/lib64/python3.14/site-packages/pyanaconda/core/threads.py", line 281, in run
+    threading.Thread.run(self)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^
+  File "/usr/lib64/python3.14/threading.py", line 1024, in run
+    self._target(*self._args, **self._kwargs)
+    ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib64/python3.14/site-packages/pyanaconda/modules/common/task/task.py", line 97, in _thread_run_callback
+    self._task_run_callback()
+    ~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "/usr/lib64/python3.14/site-packages/pyanaconda/modules/common/task/task.py", line 110, in _task_run_callback
+    self._set_result(self.run())
+                     ~~~~~~~~^^
+  File "/usr/lib64/python3.14/site-packages/pyanaconda/modules/payloads/payload/rpm_ostree/installation.py", line 955, in run
+    safe_exec_program(
+    ~~~~~~~~~~~~~~~~~^
+        "ostree",
+        ^^^^^^^^^
+        args,
+        ^^^^^
+        env_add={"LC_ALL": "C.UTF-8"},
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/usr/lib64/python3.14/site-packages/pyanaconda/modules/payloads/payload/rpm_ostree/installation.py", line 62, in safe_exec_program
+    raise PayloadInstallationError(
+    ...<2 lines>...
+    )
+pyanaconda.modules.common.errors.installation.PayloadInstallationError: The command 'ostree container image deploy --sysroot=/mnt/sysimage --image=/run/install/repo/container --transport=oci' exited with the code 1:
+error: Performing deployment: Bootloader write config: grub2-mkconfig: Child process exited with code 1
+
+
+INFO:anaconda.core.threads:Thread Done: AnaTaskThread-DeployOSTreeTask-1 (140109170038464)
+WARNING:dasbus.server.handler:The call org.fedoraproject.Anaconda.Task.Finish has failed with an exception:
+Traceback (most recent call last):
+  File "/usr/lib/python3.14/site-packages/dasbus/server/handler.py", line 455, in _method_callback
+    result = self._handle_call(
+        interface_name,
+    ...<2 lines>...
+        **additional_args
+    )
+  File "/usr/lib/python3.14/site-packages/dasbus/server/handler.py", line 265, in _handle_call
+    return handler(*parameters, **additional_args)
+  File "/usr/lib64/python3.14/site-packages/pyanaconda/modules/common/task/task_interface.py", line 115, in Finish
+    self.implementation.finish()
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "/usr/lib64/python3.14/site-packages/pyanaconda/modules/common/task/task.py", line 176, in finish
+    thread_manager.raise_if_error(self._thread_name)
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib64/python3.14/site-packages/pyanaconda/core/threads.py", line 172, in raise_if_error
+    raise exc_info[1]
+  File "/usr/lib64/python3.14/site-packages/pyanaconda/core/threads.py", line 281, in run
+    threading.Thread.run(self)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^
+  File "/usr/lib64/python3.14/threading.py", line 1024, in run
+    self._target(*self._args, **self._kwargs)
+    ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib64/python3.14/site-packages/pyanaconda/modules/common/task/task.py", line 97, in _thread_run_callback
+    self._task_run_callback()
+    ~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "/usr/lib64/python3.14/site-packages/pyanaconda/modules/common/task/task.py", line 110, in _task_run_callback
+    self._set_result(self.run())
+                     ~~~~~~~~^^
+  File "/usr/lib64/python3.14/site-packages/pyanaconda/modules/payloads/payload/rpm_ostree/installation.py", line 955, in run
+    safe_exec_program(
+    ~~~~~~~~~~~~~~~~~^
+        "ostree",
+        ^^^^^^^^^
+        args,
+        ^^^^^
+        env_add={"LC_ALL": "C.UTF-8"},
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/usr/lib64/python3.14/site-packages/pyanaconda/modules/payloads/payload/rpm_ostree/installation.py", line 62, in safe_exec_program
+    raise PayloadInstallationError(
+    ...<2 lines>...
+    )
+pyanaconda.modules.common.errors.installation.PayloadInstallationError: The command 'ostree container image deploy --sysroot=/mnt/sysimage --image=/run/install/repo/container --transport=oci' exited with the code 1:
+error: Performing deployment: Bootloader write config: grub2-mkconfig: Child process exited with code 1
+
