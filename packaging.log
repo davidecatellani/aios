@@ -6,7 +6,7 @@ INFO:anaconda.core.kickstart.version:Detected kickstart version from platform ID
 INFO:anaconda.core.kickstart.version:Using os-release detected kickstart version
 DEBUG:anaconda.modules.common.base.base:Publish the service.
 DEBUG:dasbus.connection:Publishing an object at /org/fedoraproject/Anaconda/Modules/Payloads.
-INFO:anaconda.core.dbus:Connecting to the Anaconda bus at unix:path=/tmp/dbus-5lnAR7Hg7g,guid=ed498b87c5f62c1e404a3f766aa7391f.
+INFO:anaconda.core.dbus:Connecting to the Anaconda bus at unix:path=/tmp/dbus-tyGrkvlXiI,guid=bc4b5bf0640baf97916931fb6aa7391f.
 WARNING:py.warnings:/usr/lib/python3.14/site-packages/dasbus/server/handler.py:78: DeprecationWarning: Gio.DBusConnection.register_object is deprecated
   registration_id = connection.register_object(
 
@@ -25,13 +25,13 @@ DEBUG:anaconda.modules.common.base.base:Kickstarted is set to True.
 DEBUG:dasbus.connection:Publishing an object at /org/fedoraproject/Anaconda/Modules/Payloads/Payload/1.
 DEBUG:dasbus.connection:Publishing an object at /org/fedoraproject/Anaconda/Modules/Payloads/Source/1.
 DEBUG:anaconda.modules.common.base.base:Locale is set to en_US.UTF-8.
+DEBUG:dasbus.connection:Publishing an object at /org/fedoraproject/Anaconda/Modules/Payloads/Source/2.
 DEBUG:dasbus.connection:Publishing an object at /org/fedoraproject/Anaconda/Modules/Payloads/Task/1.
-INFO:anaconda.core.threads:Running Thread: AnaTaskThread-SetUpSourcesTask-1 (140109170038464)
+INFO:anaconda.core.threads:Running Thread: AnaTaskThread-SetUpSourcesTask-1 (140623949944512)
 INFO:anaconda.modules.common.task.task:Set up installation sources
 DEBUG:anaconda.modules.payloads.base.initialization:Setting up sources...
 DEBUG:anaconda.modules.payloads.base.initialization:Setting up a source: Source(type='RPM_OSTREE_CONTAINER', stateroot='', transport='oci', url='/run/install/repo/container')
-INFO:anaconda.core.threads:Thread Done: AnaTaskThread-SetUpSourcesTask-1 (140109170038464)
-DEBUG:dasbus.connection:Publishing an object at /org/fedoraproject/Anaconda/Modules/Payloads/Source/2.
+INFO:anaconda.core.threads:Thread Done: AnaTaskThread-SetUpSourcesTask-1 (140623949944512)
 DEBUG:anaconda.modules.payloads.payloads:Main payload size: 500000000, side payload size: 0, total: 500000000
 DEBUG:anaconda.modules.payloads.payloads:Main payload size: 500000000, side payload size: 0, total: 500000000
 DEBUG:anaconda.modules.payloads.payloads:Main payload size: 500000000, side payload size: 0, total: 500000000
@@ -45,28 +45,107 @@ DEBUG:dasbus.connection:Publishing an object at /org/fedoraproject/Anaconda/Modu
 DEBUG:dasbus.connection:Publishing an object at /org/fedoraproject/Anaconda/Modules/Payloads/Task/9.
 DEBUG:dasbus.connection:Publishing an object at /org/fedoraproject/Anaconda/Modules/Payloads/Task/10.
 DEBUG:dasbus.connection:Publishing an object at /org/fedoraproject/Anaconda/Modules/Payloads/Task/11.
-INFO:anaconda.core.threads:Running Thread: AnaTaskThread-PrepareSystemForInstallationTask-1 (140109170038464)
+INFO:anaconda.core.threads:Running Thread: AnaTaskThread-PrepareSystemForInstallationTask-1 (140623949944512)
 INFO:anaconda.modules.common.task.task:Prepare system for installation
-INFO:anaconda.core.threads:Thread Done: AnaTaskThread-PrepareSystemForInstallationTask-1 (140109170038464)
-INFO:anaconda.core.threads:Running Thread: AnaTaskThread-InitOSTreeFsAndRepoTask-1 (140109170038464)
+INFO:anaconda.core.threads:Thread Done: AnaTaskThread-PrepareSystemForInstallationTask-1 (140623949944512)
+INFO:anaconda.core.threads:Running Thread: AnaTaskThread-InitOSTreeFsAndRepoTask-1 (140623949944512)
 INFO:anaconda.modules.common.task.task:Initialize OSTree file system and repository
 INFO:program:Running... ostree admin --sysroot=/mnt/sysimage init-fs /mnt/sysimage
 DEBUG:program:Return code of ostree: 0
-INFO:anaconda.core.threads:Thread Done: AnaTaskThread-InitOSTreeFsAndRepoTask-1 (140109170038464)
-INFO:anaconda.core.threads:Running Thread: AnaTaskThread-ChangeOSTreeRemoteTask-1 (140109170038464)
+INFO:anaconda.core.threads:Thread Done: AnaTaskThread-InitOSTreeFsAndRepoTask-1 (140623949944512)
+INFO:anaconda.core.threads:Running Thread: AnaTaskThread-ChangeOSTreeRemoteTask-1 (140623949944512)
 INFO:anaconda.modules.common.task.task:Change OSTree remote
-INFO:anaconda.core.threads:Thread Done: AnaTaskThread-ChangeOSTreeRemoteTask-1 (140109170038464)
-INFO:anaconda.core.threads:Running Thread: AnaTaskThread-DeployOSTreeTask-1 (140109170038464)
+INFO:anaconda.core.threads:Thread Done: AnaTaskThread-ChangeOSTreeRemoteTask-1 (140623949944512)
+INFO:anaconda.core.threads:Running Thread: AnaTaskThread-DeployOSTreeTask-1 (140623949944512)
 INFO:anaconda.modules.common.task.task:Deploy OSTree
 INFO:program:Running... ostree admin --sysroot=/mnt/sysimage os-init default
 INFO:program:ostree/deploy/default initialized as OSTree stateroot
 DEBUG:program:Return code of ostree: 0
 INFO:anaconda.modules.payloads.payload.rpm_ostree.installation:ostree image deploy starting
 INFO:program:Running... ostree container image deploy --sysroot=/mnt/sysimage --image=/run/install/repo/container --transport=oci
-INFO:program:error: Performing deployment: Bootloader write config: grub2-mkconfig: Child process exited with code 1
-DEBUG:program:Return code of ostree: 1
-INFO:anaconda.core.threads:Thread Failed: AnaTaskThread-DeployOSTreeTask-1 (140109170038464)
-ERROR:anaconda.modules.common.task.task:Thread AnaTaskThread-DeployOSTreeTask-1 has failed: Traceback (most recent call last):
+INFO:program:Image contains non-ostree compatible file paths: .wh.aios-copilot: 1 aios-copilot: 182 dnf: 1 systemd: 3
+DEBUG:program:Return code of ostree: 0
+INFO:anaconda.modules.payloads.payload.rpm_ostree.installation:ostree config set sysroot.readonly true
+INFO:program:Running... ostree config --repo=/mnt/sysimage/ostree/repo set sysroot.readonly true
+DEBUG:program:Return code of ostree: 0
+INFO:anaconda.modules.payloads.payload.rpm_ostree.installation:ostree admin deploy complete
+INFO:anaconda.core.threads:Thread Done: AnaTaskThread-DeployOSTreeTask-1 (140623949944512)
+INFO:anaconda.core.threads:Running Thread: AnaTaskThread-SetSystemRootTask-1 (140623949944512)
+INFO:anaconda.modules.common.task.task:Set OSTree system root
+INFO:program:Running... findmnt -rn /mnt/sysroot
+INFO:program:/mnt/sysroot /dev/mmcblk0p1[/root] btrfs rw,relatime,seclabel,compress=zstd:1,ssd,discard=async,space_cache=v2,subvolid=257,subvol=/root
+DEBUG:program:Return code of findmnt: 0
+INFO:program:Running... mount --make-rprivate /mnt/sysroot
+DEBUG:program:Return code of mount: 0
+INFO:program:Running... umount --recursive /mnt/sysroot
+DEBUG:program:Return code of umount: 0
+INFO:program:Running... mount --rbind /mnt/sysimage/ostree/deploy/default/deploy/a00fc41487770c65f8fb6e88b281304b0f5811cebaaa2e0da47a0350b569e682.0 /mnt/sysroot
+DEBUG:program:Return code of mount: 0
+INFO:anaconda.core.threads:Thread Done: AnaTaskThread-SetSystemRootTask-1 (140623949944512)
+INFO:anaconda.core.threads:Running Thread: AnaTaskThread-CopyBootloaderDataTask-1 (140623949944512)
+INFO:anaconda.modules.common.task.task:Copy OSTree bootloader data
+INFO:anaconda.modules.payloads.payload.rpm_ostree.installation:Copying bootloader data: efi
+INFO:program:Running... cp -r -p /mnt/sysroot/usr/lib/ostree-boot/efi /mnt/sysimage/boot
+DEBUG:program:Return code of cp: 0
+INFO:anaconda.core.threads:Thread Done: AnaTaskThread-CopyBootloaderDataTask-1 (140623949944512)
+INFO:anaconda.core.threads:Running Thread: AnaTaskThread-PrepareOSTreeMountTargetsTask-1 (140623949944512)
+INFO:anaconda.modules.common.task.task:Prepare OSTree mount targets
+INFO:program:Running... mount --bind /mnt/sysroot/usr /mnt/sysroot/usr
+DEBUG:program:Return code of mount: 0
+INFO:program:Running... mount --bind -o remount,ro /mnt/sysroot/usr /mnt/sysroot/usr
+DEBUG:program:Return code of mount: 0
+INFO:program:Running... mount --rbind /mnt/sysimage/dev /mnt/sysroot/dev
+DEBUG:program:Return code of mount: 0
+INFO:program:Running... mount --rbind /mnt/sysimage/proc /mnt/sysroot/proc
+DEBUG:program:Return code of mount: 0
+INFO:program:Running... mount --rbind /mnt/sysimage/run /mnt/sysroot/run
+DEBUG:program:Return code of mount: 0
+INFO:program:Running... mount --rbind /mnt/sysimage/sys /mnt/sysroot/sys
+DEBUG:program:Return code of mount: 0
+INFO:program:Running... mount --bind /mnt/sysimage/ostree/deploy/default/var /mnt/sysroot/var
+DEBUG:program:Return code of mount: 0
+INFO:program:Running... systemd-tmpfiles --create --boot --root=/mnt/sysroot --prefix=/var/home
+DEBUG:program:Return code of systemd-tmpfiles: 0
+INFO:program:Running... systemd-tmpfiles --create --boot --root=/mnt/sysroot --prefix=/var/roothome
+DEBUG:program:Return code of systemd-tmpfiles: 0
+INFO:program:Running... systemd-tmpfiles --create --boot --root=/mnt/sysroot --prefix=/var/opt
+DEBUG:program:Return code of systemd-tmpfiles: 0
+INFO:program:Running... systemd-tmpfiles --create --boot --root=/mnt/sysroot --prefix=/var/srv
+DEBUG:program:Return code of systemd-tmpfiles: 0
+INFO:program:Running... systemd-tmpfiles --create --boot --root=/mnt/sysroot --prefix=/var/usrlocal
+DEBUG:program:Return code of systemd-tmpfiles: 0
+INFO:program:Running... systemd-tmpfiles --create --boot --root=/mnt/sysroot --prefix=/var/mnt
+DEBUG:program:Return code of systemd-tmpfiles: 0
+INFO:program:Running... systemd-tmpfiles --create --boot --root=/mnt/sysroot --prefix=/var/media
+DEBUG:program:Return code of systemd-tmpfiles: 0
+INFO:program:Running... systemd-tmpfiles --create --boot --root=/mnt/sysroot --prefix=/var/spool
+DEBUG:program:Return code of systemd-tmpfiles: 0
+INFO:program:Running... systemd-tmpfiles --create --boot --root=/mnt/sysroot --prefix=/var/spool/mail
+DEBUG:program:Return code of systemd-tmpfiles: 0
+INFO:program:Running... mount --bind /mnt/sysimage/boot /mnt/sysroot/boot
+DEBUG:program:Return code of mount: 0
+INFO:program:Running... mount --bind /mnt/sysimage/home /mnt/sysroot/var/home
+DEBUG:program:Return code of mount: 0
+INFO:program:Running... mount --bind /mnt/sysimage/boot/efi /mnt/sysroot/boot/efi
+DEBUG:program:Return code of mount: 0
+INFO:program:Running... mount --bind /mnt/sysimage/ /mnt/sysroot/sysroot
+DEBUG:program:Return code of mount: 0
+INFO:anaconda.core.threads:Thread Done: AnaTaskThread-PrepareOSTreeMountTargetsTask-1 (140623949944512)
+DEBUG:anaconda.modules.payloads.payload.rpm_ostree.rpm_ostree:Internal mounts are set to: ['/mnt/sysroot/usr', '/mnt/sysroot/dev', '/mnt/sysroot/proc', '/mnt/sysroot/run', '/mnt/sysroot/sys', '/mnt/sysroot/var', '/mnt/sysroot/boot', '/mnt/sysroot/var/home', '/mnt/sysroot/boot/efi', '/mnt/sysroot/sysroot']
+INFO:anaconda.core.threads:Running Thread: AnaTaskThread-CopyDriverDisksFilesTask-1 (140623949944512)
+INFO:anaconda.modules.common.task.task:Copy driver disks files
+INFO:anaconda.core.threads:Thread Done: AnaTaskThread-CopyDriverDisksFilesTask-1 (140623949944512)
+INFO:anaconda.core.threads:Running Thread: AnaTaskThread-ChangeOSTreeRemoteTask-2 (140623949944512)
+INFO:anaconda.modules.common.task.task:Change OSTree remote
+INFO:anaconda.core.threads:Thread Done: AnaTaskThread-ChangeOSTreeRemoteTask-2 (140623949944512)
+INFO:anaconda.core.threads:Running Thread: AnaTaskThread-ConfigureBootloader-1 (140623949944512)
+INFO:anaconda.modules.common.task.task:Configure OSTree bootloader
+DEBUG:anaconda.modules.payloads.payload.rpm_ostree.installation:Adding --update-firmware to bootupdctl call
+INFO:program:Running in chroot '/mnt/sysroot'... bootupctl backend install --auto --write-uuid --update-firmware --device /dev/sda /
+INFO:program:error: boot data installation failed: failed to install, invalid re-install attempted: Loading saved state: No ESP partition found among backing devices
+DEBUG:program:Return code of bootupctl: 1
+INFO:anaconda.core.threads:Thread Failed: AnaTaskThread-ConfigureBootloader-1 (140623949944512)
+ERROR:anaconda.modules.common.task.task:Thread AnaTaskThread-ConfigureBootloader-1 has failed: Traceback (most recent call last):
   File "/usr/lib64/python3.14/site-packages/pyanaconda/core/threads.py", line 281, in run
     threading.Thread.run(self)
     ~~~~~~~~~~~~~~~~~~~~^^^^^^
@@ -79,26 +158,15 @@ ERROR:anaconda.modules.common.task.task:Thread AnaTaskThread-DeployOSTreeTask-1 
   File "/usr/lib64/python3.14/site-packages/pyanaconda/modules/common/task/task.py", line 110, in _task_run_callback
     self._set_result(self.run())
                      ~~~~~~~~^^
-  File "/usr/lib64/python3.14/site-packages/pyanaconda/modules/payloads/payload/rpm_ostree/installation.py", line 955, in run
-    safe_exec_program(
-    ~~~~~~~~~~~~~~~~~^
-        "ostree",
-        ^^^^^^^^^
-        args,
-        ^^^^^
-        env_add={"LC_ALL": "C.UTF-8"},
-        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-    )
-    ^
-  File "/usr/lib64/python3.14/site-packages/pyanaconda/modules/payloads/payload/rpm_ostree/installation.py", line 62, in safe_exec_program
-    raise PayloadInstallationError(
-    ...<2 lines>...
-    )
-pyanaconda.modules.common.errors.installation.PayloadInstallationError: The command 'ostree container image deploy --sysroot=/mnt/sysimage --image=/run/install/repo/container --transport=oci' exited with the code 1:
-error: Performing deployment: Bootloader write config: grub2-mkconfig: Child process exited with code 1
+  File "/usr/lib64/python3.14/site-packages/pyanaconda/modules/payloads/payload/rpm_ostree/installation.py", line 600, in run
+    self._install_bootupd()
+    ~~~~~~~~~~~~~~~~~~~~~^^
+  File "/usr/lib64/python3.14/site-packages/pyanaconda/modules/payloads/payload/rpm_ostree/installation.py", line 634, in _install_bootupd
+    raise BootloaderInstallationError(
+        "failed to write boot loader configuration")
+pyanaconda.modules.common.errors.installation.BootloaderInstallationError: failed to write boot loader configuration
 
-
-INFO:anaconda.core.threads:Thread Done: AnaTaskThread-DeployOSTreeTask-1 (140109170038464)
+INFO:anaconda.core.threads:Thread Done: AnaTaskThread-ConfigureBootloader-1 (140623949944512)
 WARNING:dasbus.server.handler:The call org.fedoraproject.Anaconda.Task.Finish has failed with an exception:
 Traceback (most recent call last):
   File "/usr/lib/python3.14/site-packages/dasbus/server/handler.py", line 455, in _method_callback
@@ -129,21 +197,10 @@ Traceback (most recent call last):
   File "/usr/lib64/python3.14/site-packages/pyanaconda/modules/common/task/task.py", line 110, in _task_run_callback
     self._set_result(self.run())
                      ~~~~~~~~^^
-  File "/usr/lib64/python3.14/site-packages/pyanaconda/modules/payloads/payload/rpm_ostree/installation.py", line 955, in run
-    safe_exec_program(
-    ~~~~~~~~~~~~~~~~~^
-        "ostree",
-        ^^^^^^^^^
-        args,
-        ^^^^^
-        env_add={"LC_ALL": "C.UTF-8"},
-        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-    )
-    ^
-  File "/usr/lib64/python3.14/site-packages/pyanaconda/modules/payloads/payload/rpm_ostree/installation.py", line 62, in safe_exec_program
-    raise PayloadInstallationError(
-    ...<2 lines>...
-    )
-pyanaconda.modules.common.errors.installation.PayloadInstallationError: The command 'ostree container image deploy --sysroot=/mnt/sysimage --image=/run/install/repo/container --transport=oci' exited with the code 1:
-error: Performing deployment: Bootloader write config: grub2-mkconfig: Child process exited with code 1
-
+  File "/usr/lib64/python3.14/site-packages/pyanaconda/modules/payloads/payload/rpm_ostree/installation.py", line 600, in run
+    self._install_bootupd()
+    ~~~~~~~~~~~~~~~~~~~~~^^
+  File "/usr/lib64/python3.14/site-packages/pyanaconda/modules/payloads/payload/rpm_ostree/installation.py", line 634, in _install_bootupd
+    raise BootloaderInstallationError(
+        "failed to write boot loader configuration")
+pyanaconda.modules.common.errors.installation.BootloaderInstallationError: failed to write boot loader configuration

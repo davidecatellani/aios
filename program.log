@@ -1,35 +1,35 @@
-00:00:31,764 INF program: Running... losetup --list
-00:00:31,776 INF program: Running... auditctl -e 0
-00:00:31,789 INF program: enabled 0
-00:00:31,790 INF program: failure 1
-00:00:31,790 INF program: pid 0
-00:00:31,790 INF program: rate_limit 0
-00:00:31,790 INF program: backlog_limit 64
-00:00:31,790 INF program: lost 0
-00:00:31,790 INF program: backlog 0
-00:00:31,791 INF program: backlog_wait_time 60000
-00:00:31,791 INF program: backlog_wait_time_actual 0
-00:00:31,791 DBG program: Return code of auditctl: 0
-00:00:31,793 INF program: Running... dbus-daemon --print-address --syslog --config-file=/usr/share/anaconda/dbus/anaconda-bus.conf
-00:00:35,834 INF program: Running... losetup --list
-00:00:35,947 INF program: Running... /usr/libexec/anaconda/run-in-new-session --user root --service anaconda --session-type wayland --session-class user --vt 6 gnome-kiosk --wayland --wayland-display wl-sysinstall-0 --enable-vt-switch
-00:00:40,408 INF program: Running... udevadm settle --timeout=300
-00:00:40,426 DBG program: Return code: 0
-00:00:40,451 INF program: Running... udevadm settle --timeout=300
-00:00:40,467 DBG program: Return code: 0
-00:11:16,701 INF program: Running... lsblk --bytes -o NAME,SIZE,OWNER,GROUP,MODE,FSTYPE,LABEL,UUID,PARTUUID,FSAVAIL,FSUSE%,MOUNTPOINT
-00:11:16,777 INF program: NAME                SIZE OWNER GROUP MODE       FSTYPE   LABEL                  UUID                                 PARTUUID                                  FSAVAIL FSUSE% MOUNTPOINT
-00:11:16,778 INF program: loop0          818679808 root  disk  brw-rw---- squashfs                                                                                                             0   100% /run/rootfsbase
-00:11:16,778 INF program: sda         256060514304 root  disk  brw-rw----
-00:11:16,778 INF program: |-sda1        1127219200 root  disk  brw-rw---- vfat                            A688-ECCB                            ef141541-06ca-4b79-9094-bdf0c999bcd9   1118572544     1% /mnt/sysroot/boot/efi
-00:11:16,778 INF program: |-sda2        2147483648 root  disk  brw-rw---- ext4                            9a4e5dd5-c8e9-47c6-8ee6-cc7268fd0c49 f6031c59-b170-4485-93a8-58e85314b7ec   1658359808    13% /mnt/sysroot/boot
-00:11:16,778 INF program: `-sda3      252784410624 root  disk  brw-rw---- btrfs    fl_fedora              9fc3e463-e99f-412f-a74e-50a96def325d ebca751f-3356-483c-8cb7-e05ec1f746dc 246517432320     2% /mnt/sysroot/home
-00:11:16,779 INF program: sdb          31037849600 root  disk  brw-rw---- iso9660  Fedora-S-dvd-x86_64-44 2026-10-03-12-20-30-00                                                               0   100% /run/install/repo
-00:11:16,779 INF program: |-sdb1        3835547648 root  disk  brw-rw---- iso9660  Fedora-S-dvd-x86_64-44 2026-10-03-12-20-30-00               2fa0de9c-e455-4508-9b7a-e309ee6cfde1
-00:11:16,779 INF program: |-sdb2          20971520 root  disk  brw-rw---- vfat                            90AC-3357                            2fa0de9c-e455-4508-9b79-e309ee6cfde1
-00:11:16,779 INF program: `-sdb3            307200 root  disk  brw-rw----                                                                      2fa0de9c-e455-4508-9b78-e309ee6cfde1
-00:11:16,779 INF program: sr0           1073741312 root  cdrom brw-rw----
-00:11:16,780 INF program: mmcblk0       7744782336 root  disk  brw-rw----
-00:11:16,780 INF program: `-mmcblk0p1   7740588032 root  disk  brw-rw---- vfat                            412A-B645
-00:11:16,780 INF program: zram0         8186232832 root  disk  brw-rw---- swap     zram0                  263102da-a10b-493c-9e52-7b16d84968f3                                                          [SWAP]
-00:11:16,780 DBG program: Return code of lsblk: 0
+00:00:31,619 INF program: Running... losetup --list
+00:00:31,630 INF program: Running... auditctl -e 0
+00:00:31,644 INF program: enabled 0
+00:00:31,645 INF program: failure 1
+00:00:31,645 INF program: pid 0
+00:00:31,645 INF program: rate_limit 0
+00:00:31,645 INF program: backlog_limit 64
+00:00:31,645 INF program: lost 0
+00:00:31,645 INF program: backlog 3
+00:00:31,645 INF program: backlog_wait_time 60000
+00:00:31,645 INF program: backlog_wait_time_actual 0
+00:00:31,645 DBG program: Return code of auditctl: 0
+00:00:31,647 INF program: Running... dbus-daemon --print-address --syslog --config-file=/usr/share/anaconda/dbus/anaconda-bus.conf
+00:00:35,676 INF program: Running... losetup --list
+00:00:35,767 INF program: Running... /usr/libexec/anaconda/run-in-new-session --user root --service anaconda --session-type wayland --session-class user --vt 6 gnome-kiosk --wayland --wayland-display wl-sysinstall-0 --enable-vt-switch
+00:00:40,215 INF program: Running... udevadm settle --timeout=300
+00:00:40,234 DBG program: Return code: 0
+00:00:40,261 INF program: Running... udevadm settle --timeout=300
+00:00:40,282 DBG program: Return code: 0
+00:52:27,792 INF program: Running... lsblk --bytes -o NAME,SIZE,OWNER,GROUP,MODE,FSTYPE,LABEL,UUID,PARTUUID,FSAVAIL,FSUSE%,MOUNTPOINT
+00:52:27,831 INF program: NAME                SIZE OWNER GROUP MODE       FSTYPE   LABEL                  UUID                                 PARTUUID                                  FSAVAIL FSUSE% MOUNTPOINT
+00:52:27,831 INF program: loop0          818679808 root  disk  brw-rw---- squashfs                                                                                                             0   100% /run/rootfsbase
+00:52:27,831 INF program: sda         256060514304 root  disk  brw-rw----
+00:52:27,831 INF program: |-sda1         629145600 root  disk  brw-rw---- vfat                            9EC2-F581                            eb2af0b3-d9d2-432a-8dca-5a5347542a13    627871744     0% /mnt/sysimage/boot/efi
+00:52:27,832 INF program: |-sda2        2147483648 root  disk  brw-rw---- ext4                            b293f16c-c3d3-42c0-9153-316c6c77a4fd 7fafd347-ef27-43cd-87ea-468499eeb0fa   1658359808    13% /mnt/sysimage/ostree/deploy/default/deploy/a00fc41487770c65f8fb6e88b281304b0f5811cebaaa2e0da47a0350b569e682.0/boot
+00:52:27,832 INF program: `-sda3      253282484224 root  disk  brw-rw---- btrfs    fl_fedora              e28c5842-3090-413a-bdf5-3820bae139ed 9c4bef09-41c8-44e6-afb9-04385e66ce15
+00:52:27,832 INF program: sdb          31037849600 root  disk  brw-rw---- iso9660  Fedora-S-dvd-x86_64-44 2026-10-03-12-20-30-00                                                               0   100% /run/install/repo
+00:52:27,832 INF program: |-sdb1        3835547648 root  disk  brw-rw---- iso9660  Fedora-S-dvd-x86_64-44 2026-10-03-12-20-30-00               2fa0de9c-e455-4508-9b7a-e309ee6cfde1
+00:52:27,832 INF program: |-sdb2          20971520 root  disk  brw-rw---- vfat                            90AC-3357                            2fa0de9c-e455-4508-9b79-e309ee6cfde1
+00:52:27,832 INF program: `-sdb3            307200 root  disk  brw-rw----                                                                      2fa0de9c-e455-4508-9b78-e309ee6cfde1
+00:52:27,832 INF program: sr0           1073741312 root  cdrom brw-rw----
+00:52:27,832 INF program: mmcblk0       7744782336 root  disk  brw-rw----
+00:52:27,832 INF program: `-mmcblk0p1   7742685184 root  disk  brw-rw---- btrfs    fl_fedora              e28c5842-3090-413a-bdf5-3820bae139ed b6941a23-26a0-401e-bb2b-9a9127496fa7 254748610560     2% /mnt/sysimage/ostree/deploy/default/deploy/a00fc41487770c65f8fb6e88b281304b0f5811cebaaa2e0da47a0350b569e682.0/sysroot
+00:52:27,832 INF program: zram0         8186232832 root  disk  brw-rw---- swap     zram0                  c4cbe630-a766-4385-9a02-17fa7316940b                                                          [SWAP]
+00:52:27,833 DBG program: Return code of lsblk: 0
