@@ -1,32 +1,3 @@
-# bootc-image-builder: configurazione della chiavetta d'installazione.
-# Lingua, tastiera e utente iniziale sono già impostati; il disco su cui installare lo scegli
-# tu nell'installatore (niente viene cancellato senza che tu lo confermi).
-# Utente iniziale: aios / password aios — cambiala al primo accesso (Impostazioni › Utenti).
-# %pre aggiunge all'installatore il comando «aios-log» (image/aios-log.sh): Ctrl+Alt+F2, aios-log.
-[customizations.installer.kickstart]
-contents = '''
-lang it_IT.UTF-8
-keyboard it
-timezone Europe/Rome --utc
-user --name=aios --password=aios --plaintext --groups=wheel
-%include /tmp/aios-dischi.ks
-
-%pre
-# Schede SD e chiavette/dischi USB (tranne la chiavetta d'installazione) non si propongono come
-# destinazione: così non si cancellano per sbaglio. Le memorie eMMC interne restano disponibili.
-ign=""
-for dev in /sys/block/*; do
-    d=${dev##*/}
-    case "$d" in loop*|zram*|sr*|ram*) continue ;; esac
-    if [ "$(cat "$dev/device/type" 2>/dev/null)" = "SD" ] || \
-       { [ "$(cat "$dev/removable" 2>/dev/null)" = "1" ] || readlink -f "$dev" | grep -q /usb; }; then
-        lsblk -rno FSTYPE "/dev/$d" 2>/dev/null | grep -q iso9660 && continue
-        ign="${ign:+$ign,}$d"
-    fi
-done
-if [ -n "$ign" ]; then echo "ignoredisk --drives=$ign" > /tmp/aios-dischi.ks; else : > /tmp/aios-dischi.ks; fi
-mkdir -p /usr/local/bin
-cat > /usr/local/bin/aios-log <<'AIOSLOG'
 #!/bin/bash
 # Raccoglie i registri dell'installazione di AIOS su una chiavetta (non quella di installazione).
 #
@@ -87,8 +58,3 @@ fi
 echo
 echo "Fatto: registri salvati nella cartella $(basename "$out") della chiavetta."
 echo "Puoi toglierla. Ctrl+Alt+F6 (o F1) per tornare all'installatore."
-AIOSLOG
-chmod +x /usr/local/bin/aios-log
-cp /usr/local/bin/aios-log /root/aios-log 2>/dev/null
-%end
-'''

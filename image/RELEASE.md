@@ -17,6 +17,7 @@ VirtualBox) o su un PC senza dati importanti.
 
 ### Installare
 
+0. **Togli schede SD e altre chiavette o dischi USB** (l'installatore comunque non li propone più).
 1. Avvia il PC dalla chiavetta (all'accensione: F12, F11, F8 o Esc per il menu di avvio;
    se non parte, disattiva «Secure Boot» nel BIOS).
 2. L'installatore è già in italiano: scegli **Destinazione dell'installazione**, cioè il disco.
@@ -27,3 +28,9 @@ VirtualBox) o su un PC senza dati importanti.
    «Bootloader write config: grub2-mkconfig».
 3. Al riavvio entra con utente **aios** e password **aios**, poi cambiala subito
    (Impostazioni › Utenti). Premi **Super+Spazio** per parlare con Nova.
+
+### Se qualcosa va storto
+
+Non spegnere: inserisci un'altra chiavetta, premi **Ctrl+Alt+F2**, scrivi **`aios-log`** e premi
+Invio. I registri finiscono in una cartella `log-aios-…` sulla chiavetta (Ctrl+Alt+F6 per tornare
+all'installatore). Caricali su GitHub in un nuovo branch e avvisa.
