@@ -383,7 +383,25 @@ Il telefono e il PC si collegano da soli quando sono vicini (stessa rete):
 - Crittografia senza dipendenze (Ed25519, ChaCha20-Poly1305, HKDF in Python puro,
   verificati con i vettori delle RFC); se c'è `cryptography` la si usa per la velocità.
 
-Prossimi passi: relay cifrato per sincronizzare anche lontano da casa, CRDT di testo
+**Relay cifrato** (`relay.py`, `aios-relay`): per sincronizzare anche quando i
+dispositivi non sono nella stessa rete. È una cassetta postale che non sa leggere:
+conserva le operazioni già cifrate dai dispositivi (tiene solo la versione più recente
+di ogni voce, usando l'orologio in chiaro) e le consegna agli altri.
+
+- *Cosa vede*: l'impronta della cassetta (derivata dalla chiave pubblica dell'utente),
+  gli identificativi dei dispositivi, quando si collegano e quanti dati. *Non vede*:
+  contenuti, chiavi delle voci, nome dell'utente, chiave di sincronizzazione.
+- *Chi entra*: solo dispositivi con certificato dell'utente non revocato, con
+  richieste firmate. La cassetta è legata alla chiave dell'utente: nessuno può
+  occuparla. Le revoche (firmate, numerate) arrivano al relay dal dispositivo che
+  custodisce la chiave principale e da lì in poi il dispositivo revocato è respinto.
+- Nessun registro degli indirizzi IP, spazio limitato per cassetta (64 MB).
+- Chiunque può ospitarne uno (`data/aios-relay.service`); l'indirizzo si imposta con
+  «usa il relay https://…» e arriva da solo agli altri dispositivi (è un'impostazione
+  sincronizzata). Certificato verificato dalle autorità o fissato con l'impronta.
+
+Prossimi passi: rotazione della chiave di sincronizzazione dopo una revoca (oggi il
+dispositivo revocato non riceve più nulla, ma conosce i dati vecchi), CRDT di testo
 per le note condivise, sincronizzazione delle immagini dei temi.
 
 ## Roadmap

@@ -176,8 +176,9 @@ def config_path() -> Path:
 class Identity:
     """Ciò che questo dispositivo sa dell'identità: parte pubblica su disco, segreti nella cassaforte."""
 
-    def __init__(self, data: dict):
+    def __init__(self, data: dict, device_seed: bytes | None = None, sync_key: bytes | None = None):
         self.data = data
+        self._device_seed, self._sync_key = device_seed, sync_key  # in memoria (test, dispositivi senza cassaforte)
 
     # stato --------------------------------------------------------------------------------------
     @classmethod
@@ -192,6 +193,11 @@ class Identity:
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(json.dumps(self.data, ensure_ascii=False, indent=1))
         os.chmod(path, 0o600)
+
+    @property
+    def mailbox(self) -> str:
+        """La cassetta dell'utente sul relay: un'impronta, non il nome né la chiave."""
+        return mailbox_for(self.user_public)
 
     @property
     def user_public(self) -> bytes:
@@ -219,12 +225,16 @@ class Identity:
         return master_seed(unb64(secret.strip())) if secret else None
 
     def device_seed(self) -> bytes:
+        if self._device_seed is not None:
+            return self._device_seed
         seed = vault.load(DEVICE_SEED)
         if not seed:
             raise IdentityError("chiave del dispositivo mancante")
         return unb64(seed.strip())
 
     def sync_key(self) -> bytes | None:
+        if self._sync_key is not None:
+            return self._sync_key
         key = vault.load(SYNC_KEY)
         return unb64(key.strip()) if key else None
 
@@ -268,30 +278,43 @@ class Identity:
         key = self.sync_key()
         return {"utente": self.data["utente"], "nome": self.name, "certificato": cert.to_dict(),
                 "revoche": self.data.get("revoche", {}), "dispositivi": self.data.get("dispositivi", []),
-                "sincronizzazione": b64(key) if key else ""}
+                "sincronizzazione": b64(key) if key else "", "relay": self.data.get("relay")}
 
     # richieste firmate ----------------------------------------------------------------------------
     def sign_request(self, method: str, path: str, body: bytes, now: float | None = None) -> str:
         ts = str(int(now or time.time()))
-        message = f"{method}\n{path}\n{ts}\n{hashlib.sha256(body).hexdigest()}".encode()
-        signature = b64(ed25519.sign(self.device_seed(), message))
+        signature = b64(ed25519.sign(self.device_seed(), request_message(method, path, ts, body)))
         cert = base64.urlsafe_b64encode(canonical(self.certificate.to_dict())).decode()
         return f"AIOS {cert}.{ts}.{signature}"
 
     def check_request(self, header: str, method: str, path: str, body: bytes, now: float | None = None) -> Certificate | None:
         """Il dispositivo che firma la richiesta, se è dell'utente, non revocato e l'orario torna."""
-        try:
-            scheme, _, rest = header.partition(" ")
-            cert_b64, ts, signature = rest.split(".")
-            if scheme != "AIOS" or abs((now or time.time()) - int(ts)) > REQUEST_WINDOW:
-                return None
-            cert = Certificate.from_dict(json.loads(base64.urlsafe_b64decode(cert_b64)))
-            message = f"{method}\n{path}\n{ts}\n{hashlib.sha256(body).hexdigest()}".encode()
-            if self.trusts(cert) and ed25519.verify(unb64(cert.public), message, unb64(signature)):
-                return cert
-        except (ValueError, IdentityError):
+        return verify_request(header, method, path, body, self.user_public, self.revoked, now)
+
+
+def mailbox_for(user_public: bytes) -> str:
+    return hashlib.sha256(b"aios-relay-v1" + user_public).hexdigest()[:32]
+
+
+def request_message(method: str, path: str, ts: str, body: bytes) -> bytes:
+    return f"{method}\n{path}\n{ts}\n{hashlib.sha256(body).hexdigest()}".encode()
+
+
+def verify_request(header: str, method: str, path: str, body: bytes, user_public: bytes,
+                   revoked: set[str] = frozenset(), now: float | None = None) -> Certificate | None:
+    """Verifica una richiesta firmata da un dispositivo (usata dai dispositivi e dal relay)."""
+    try:
+        scheme, _, rest = header.partition(" ")
+        cert_b64, ts, signature = rest.split(".")
+        if scheme != "AIOS" or abs((now or time.time()) - int(ts)) > REQUEST_WINDOW:
             return None
+        cert = Certificate.from_dict(json.loads(base64.urlsafe_b64decode(cert_b64)))
+        if verify_certificate(cert, user_public, revoked) and \
+                ed25519.verify(unb64(cert.public), request_message(method, path, ts, body), unb64(signature)):
+            return cert
+    except (ValueError, IdentityError):
         return None
+    return None
 
 
 def _new_device_key() -> bytes:
@@ -326,7 +349,8 @@ def _from_secret(secret: bytes, name: str, device_name: str | None, kind: str) -
 def join(bundle: dict) -> Identity:
     """Un dispositivo appena abbinato entra nell'identità (riceve certificato e chiave di sincronizzazione)."""
     identity = Identity({"utente": bundle["utente"], "nome": bundle.get("nome", ""), "certificato": bundle["certificato"],
-                         "dispositivi": bundle.get("dispositivi", []), "revoche": bundle.get("revoche", {})})
+                         "dispositivi": bundle.get("dispositivi", []), "revoche": bundle.get("revoche", {}),
+                         **({"relay": bundle["relay"]} if bundle.get("relay") else {})})
     if not identity.trusts(identity.certificate):
         raise IdentityError("certificato non firmato dall'utente")
     if bundle.get("sincronizzazione"):

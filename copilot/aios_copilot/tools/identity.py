@@ -30,6 +30,8 @@ def make_tools(command: Callable[[dict[str, Any]], dict[str, Any] | None] = send
         for c in me.devices:
             state = " (revocato)" if c.id in me.revoked else " ← questo" if c.id == this else ""
             lines.append(f"  {KINDS.get(c.kind, '•')} {c.name}{state}")
+        if me.data.get("relay"):
+            lines.append(f"Sincronizzazione fuori casa: relay {me.data['relay']['url']} (dati cifrati)")
         peers = me.data.get("pari", [])
         if peers:
             lines.append("Si sincronizza con: " + ", ".join(p.get("nome", p["url"]) for p in peers))
@@ -77,6 +79,22 @@ def make_tools(command: Callable[[dict[str, Any]], dict[str, Any] | None] = send
         return (f"Revocato: {', '.join(c.name for c in gone)}. Non potrà più sincronizzarsi né farsi riconoscere; "
                 "gli altri dispositivi lo sapranno alla prossima sincronizzazione.")
 
+    def set_relay(url: str, fingerprint: str = "") -> str:
+        me = ident.Identity.load()
+        if me is None:
+            return "Prima serve un'identità AIOS («crea la mia identità»)."
+        url = url.strip().rstrip("/")
+        if url in ("", "no", "nessuno", "spento"):
+            me.data.pop("relay", None)
+            me.save()
+            return "Relay disattivato: i dispositivi si sincronizzano solo quando sono nella stessa rete."
+        if not url.startswith("https://"):
+            return "L'indirizzo del relay deve iniziare con https://"
+        me.data["relay"] = {"url": url, "fingerprint": fingerprint.strip().lower()}
+        me.save()
+        return (f"Relay attivo: {url}. Ora i tuoi dispositivi si sincronizzano anche lontano da casa. Il relay "
+                "conserva solo dati cifrati che non può leggere; lo saprà anche il resto dei tuoi dispositivi.")
+
     def sync_now() -> str:
         if ident.Identity.load() is None:
             return "Prima serve un'identità AIOS («crea la mia identità»)."
@@ -95,6 +113,10 @@ def make_tools(command: Callable[[dict[str, Any]], dict[str, Any] | None] = send
              params(phrase="Frase di recupero"), restore_identity, requires_confirmation=True),
         Tool("revoke_device", "Revoca un dispositivo (perso, rubato, venduto): non sarà più riconosciuto.",
              params(name="Nome del dispositivo"), revoke_device, requires_confirmation=True),
+        Tool("set_relay", "Attiva (indirizzo https) o disattiva («no») il relay cifrato per sincronizzare i dispositivi "
+             "anche quando non sono nella stessa rete.", params(["url"], url="Indirizzo del relay o «no»",
+                                                                   fingerprint="Impronta del certificato (facoltativa)"),
+             set_relay, requires_confirmation=True),
         Tool("sync_now", "Sincronizza subito agenda, nome e temi con gli altri dispositivi.", params(), sync_now),
     ]
 
@@ -105,6 +127,7 @@ RE_PHRASE = re.compile(r"^(?:mostra(?:mi)?|dammi|qual\s+è|rivedi)\s+(?:la\s+(?:
 RE_RESTORE = re.compile(r"^(?:ripristina|recupera|ritrova)\s+(?:la\s+mia\s+identità|il\s+mio\s+account)\s*:?\s*(?P<p>.*)$")
 RE_REVOKE = re.compile(r"^(?:revoca|scollega\s+dal\s+mio\s+account|rimuovi\s+dal\s+mio\s+account)\s+(?:il\s+|la\s+|lo\s+)?"
                        r"(?:dispositivo\s+)?(?P<n>.+)$")
+RE_RELAY = re.compile(r"^(?:usa|attiva|imposta)\s+(?:il\s+)?relay\s+(?P<url>https://\S+)$|^(?:disattiva|spegni)\s+(?:il\s+)?relay$")
 RE_SYNC = re.compile(r"^sincronizza(?:\s+(?:i\s+(?:miei\s+)?dispositivi|tutto|ora|adesso))?$")
 
 
@@ -123,6 +146,10 @@ class IdentityRouter:
         m = RE_REVOKE.match(low)
         if m:
             return Intent("revoke_device", {"name": m.group("n").strip()})
+        m = RE_RELAY.match(low)
+        if m:
+            url = re.search(r"https://\S+", text)
+            return Intent("set_relay", {"url": url.group(0) if url else "no"})
         if RE_SYNC.match(low):
             return Intent("sync_now", {})
         return None

@@ -358,3 +358,7 @@ mia identità: …» con le 17 parole.
 | «sincronizza» | sincronizzazione immediata con gli altri dispositivi |
 | «mostra la frase di recupero» | (con conferma) le 17 parole |
 | «revoca il tablet» | quel dispositivo non viene più riconosciuto |
+| «usa il relay https://…» | sincronizzazione anche fuori casa, tramite un relay che vede solo dati cifrati |
+
+Il relay si può ospitare da sé: `aios-relay --porta 8744 --certificato cert.pem --chiave key.pem`
+(vedi `data/aios-relay.service`).

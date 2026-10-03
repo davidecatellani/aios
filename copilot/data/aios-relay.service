@@ -1,0 +1,20 @@
+# Relay cifrato di AIOS (per chi vuole ospitarne uno: server di casa, VPS, progetto AIOS).
+# Copiare in /etc/systemd/system/ e attivare con: systemctl enable --now aios-relay
+# Il relay conserva solo dati cifrati end-to-end; serve un certificato HTTPS
+# (es. Let's Encrypt) o un proxy HTTPS davanti.
+[Unit]
+Description=AIOS: relay cifrato per la sincronizzazione dei dispositivi
+After=network-online.target
+
+[Service]
+DynamicUser=yes
+StateDirectory=aios-relay
+ExecStart=aios-relay --porta 8744 --dati /var/lib/aios-relay/relay.db --certificato /etc/aios-relay/cert.pem --chiave /etc/aios-relay/key.pem
+Restart=on-failure
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+
+[Install]
+WantedBy=multi-user.target

@@ -265,10 +265,34 @@ class ThemesAdapter:
         themes.save(theme)
 
 
+class SettingsAdapter:
+    """Impostazioni che valgono per tutti i dispositivi dell'utente (per ora: il relay)."""
+
+    prefix = "impostazioni"
+
+    def records(self) -> dict[str, Any]:
+        from .identity import Identity
+
+        me = Identity.load()
+        return {"relay": me.data["relay"]} if me and me.data.get("relay") else {}
+
+    def apply(self, key: str, value: Any) -> None:
+        from .identity import Identity
+
+        me = Identity.load()
+        if me is None or key != "relay":
+            return
+        if value and isinstance(value, dict) and str(value.get("url", "")).startswith("https://"):
+            me.data["relay"] = {"url": value["url"], "fingerprint": str(value.get("fingerprint", ""))}
+        else:
+            me.data.pop("relay", None)
+        me.save()
+
+
 def default_adapters() -> list[Adapter]:
     from .agenda import Agenda
 
-    return [AgendaAdapter(Agenda()), ProfileAdapter(), ThemesAdapter()]
+    return [AgendaAdapter(Agenda()), ProfileAdapter(), ThemesAdapter(), SettingsAdapter()]
 
 
 def engine_for(identity: Any, adapters: list[Adapter] | None = None) -> SyncEngine | None:

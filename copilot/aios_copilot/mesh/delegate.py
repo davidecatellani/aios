@@ -241,6 +241,18 @@ def sync_peers(identity: Any, engine: Any, request: Callable[..., Any] = pinned_
                 report.append(f"{peer.get('nome', peer['url'])}: non raggiungibile")
         except (OSError, ValueError, KeyError):
             report.append(f"{peer.get('nome', peer['url'])}: non raggiungibile")
+    relay = identity.data.get("relay")
+    if relay:  # anche fuori casa, tramite il relay cifrato
+        from ..relay import relay_requester
+
+        try:
+            got, sent = engine.sync_with(f"relay:{relay['url']}", relay_requester(identity, relay))
+            report.append(f"relay: ricevute {got}, inviate {sent}")
+        except ConnectionError as exc:
+            report.append("relay: " + ("non riconosce più questo dispositivo (revocato?)" if "riconosciuto" in str(exc)
+                                       else f"non disponibile ({exc})"))
+        except (OSError, ValueError, KeyError) as exc:
+            report.append(f"relay: non raggiungibile ({exc})")
     return report
 
 
