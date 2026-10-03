@@ -1,9 +1,10 @@
 [Desktop Entry]
 Type=Application
-Name=Copilota
-Comment=Chiedi al tuo computer di fare qualsiasi cosa
+Name=Nova
+GenericName=Assistente AI
+Comment=Nova, l'assistente di AIOS: chiedi al computer di fare qualsiasi cosa
 Exec=aios-copilot
 Icon=org.aios.Copilot
 Categories=Utility;
-Keywords=ai;assistente;copilota;cerca;installa;
+Keywords=nova;ai;assistente;copilota;cerca;installa;
 StartupNotify=true

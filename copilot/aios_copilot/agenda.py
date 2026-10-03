@@ -434,7 +434,7 @@ def find_deadlines(text: str, now: datetime) -> list[tuple[str, datetime]]:
 
 def notify(title: str, body: str, run: Callable[[list[str]], object] = subprocess.run) -> None:
     try:
-        run(["notify-send", "--app-name=Copilota", "--icon=appointment-soon", title, body])
+        run(["notify-send", "--app-name=Nova", "--icon=appointment-soon", title, body])
     except (FileNotFoundError, OSError):
         print(f"[{title}] {body}", flush=True)
 

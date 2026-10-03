@@ -3,7 +3,7 @@
 # AIOS
 
 Un sistema operativo grafico, **unico per computer, tablet e telefoni**, in cui si
-fa tutto parlando con un **copilota AI che gira in locale**:
+fa tutto parlando con **Nova**, un'assistente AI che gira in locale:
 
 - *«installa un programma per montare video»* → lo cerca, chiede conferma e lo installa
 - *«a che ora parte l'ultimo treno per Milano?»* → cerca su internet e cita le fonti

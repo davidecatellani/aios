@@ -22,7 +22,7 @@ from .hardware import Device
 from .privacy import private_dir
 
 CAPABILITIES = {
-    "testo": "capire e scrivere (il copilota)",
+    "testo": "capire e scrivere (Nova)",
     "vista": "descrivere immagini, leggere documenti fotografati e schermate",
     "dettatura": "parlare invece di scrivere",
     "voce": "leggere ad alta voce con una voce naturale",

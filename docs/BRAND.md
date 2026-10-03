@@ -1,5 +1,7 @@
 # Marchio
 
+Il sistema si chiama **AIOS**; la sua assistente AI si chiama **Nova** («Ehi Nova, …»).
+
 ## I loghi scelti
 
 | | File | Uso |
@@ -7,7 +9,7 @@
 | ![](brand/aios-logo.png) | `brand/aios-logo.png` | logo completo del sistema (documentazione, sito, schermata d'avvio) |
 | <img src="brand/aios-simbolo.png" width="96"> | `brand/aios-simbolo.png` | simbolo del sistema, da 64 px in su (icone grandi, app store) |
 | <img src="brand/aios-piccolo.svg" width="48"> | `brand/aios-piccolo.svg` | simbolo semplificato per 16–48 px: a quelle misure i disegni di telefono, tablet e PC si perderebbero |
-| <img src="brand/copilota.png" width="96"> | `brand/copilota.png` | il copilota: si legge bene anche a 16 px; nelle pagine «respira», più veloce quando lavora |
+| <img src="brand/copilota.png" width="96"> | `brand/copilota.png` | **Nova**, l'assistente: si legge bene anche a 16 px; nelle pagine «respira», più veloce quando lavora |
 
 Regole d'uso:
 - colori del marchio: blu profondo `#0B6E99`, turchese `#2EC4B6`, ambra `#E9C46A`

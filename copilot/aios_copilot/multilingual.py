@@ -346,7 +346,7 @@ def main(argv: list[str] | None = None) -> int:
         return 1
     path = save_config(best)
     print(f"\nScelto {best.model}. Configurazione salvata in {path}.")
-    print("Il copilota lo userà dal prossimo avvio per le lingue diverse da italiano e inglese.")
+    print("Nova lo userà dal prossimo avvio per le lingue diverse da italiano e inglese.")
     return 0
 
 

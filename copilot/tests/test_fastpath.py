@@ -30,6 +30,8 @@ def fp(tmp_path: Path) -> FastPath:
 def test_normalize_removes_politeness():
     assert normalize("Ehi, puoi aprire Firefox per favore?") == "aprire firefox"
     assert normalize("Mi apri  VLC!") == "apri vlc"
+    assert normalize("Ehi Nova, apri Firefox") == "apri firefox"  # il nome dell'assistente
+    assert normalize("Nova, che ore sono?") == "che ore sono"
 
 
 @pytest.mark.parametrize(

@@ -35,7 +35,7 @@ def control_path() -> Path:
 
 def notify_with_actions(title: str, body: str, actions: dict[str, str]) -> str:
     """Notifica con pulsanti; restituisce il pulsante premuto ("" se chiusa)."""
-    cmd = ["notify-send", "--app-name=Copilota", "--urgency=critical", "--wait",
+    cmd = ["notify-send", "--app-name=Nova", "--urgency=critical", "--wait",
            *[f"--action={k}={v}" for k, v in actions.items()], title, body]
     try:
         return subprocess.run(cmd, capture_output=True, text=True, timeout=60).stdout.strip()
@@ -45,7 +45,7 @@ def notify_with_actions(title: str, body: str, actions: dict[str, str]) -> str:
 
 def simple_notify(title: str, body: str) -> None:
     try:
-        subprocess.run(["notify-send", "--app-name=Copilota", "--icon=phone", title, body], timeout=10)
+        subprocess.run(["notify-send", "--app-name=Nova", "--icon=phone", title, body], timeout=10)
     except (OSError, subprocess.SubprocessError):
         print(f"[{title}] {body}", flush=True)
 
@@ -325,7 +325,7 @@ def main(argv: list[str] | None = None) -> int:
         from .delegate import pair_with_pc
 
         config = pair_with_pc(args[1], socket.gethostname())
-        print(f"Collegato a {config['pc']}: quando è vicino, il copilota userà il suo modello AI.")
+        print(f"Collegato a {config['pc']}: quando è vicino, Nova userà il suo modello AI.")
     elif args[0] in ("stato", "abbina"):
         reply = send_command({"azione": args[0]})
         if reply is None:

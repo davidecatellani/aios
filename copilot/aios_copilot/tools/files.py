@@ -57,7 +57,7 @@ def make_tools(
         ),
         Tool(
             "exclude_folder",
-            "Esclude una cartella: il copilota non la leggerà più e non la indicizzerà.",
+            "Esclude una cartella: Nova non la leggerà più e non la indicizzerà.",
             params(path="Percorso della cartella"),
             exclude_folder,
         ),

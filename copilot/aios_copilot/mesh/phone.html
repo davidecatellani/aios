@@ -125,7 +125,7 @@ function el(tag, props = {}, ...children) {
 }
 async function api(path) {
   const r = await fetch(path, { headers: { Authorization: "Bearer " + key } });
-  if (r.status === 403) { key = null; showPairing("Questo telefono non è più abbinato. Inquadra il QR sul PC (chiedi al copilota «collega il telefono»)."); throw new Error("non abbinato"); }
+  if (r.status === 403) { key = null; showPairing("Questo telefono non è più abbinato. Inquadra il QR sul PC (chiedi a Nova «collega il telefono»)."); throw new Error("non abbinato"); }
   return r.json();
 }
 async function openFile(path, view) {
@@ -346,7 +346,7 @@ $("ask-form").onsubmit = async (ev) => {
 
 const code = new URLSearchParams(location.hash.slice(1)).get("abbina");
 if (code) showPairing("Dai un nome a questo telefono: lo vedrai sul PC e potrai scollegarlo quando vuoi.", code);
-else if (!key) showPairing("Sul PC chiedi al copilota «collega il telefono» e inquadra il codice QR che compare.");
+else if (!key) showPairing("Sul PC chiedi a Nova «collega il telefono» e inquadra il codice QR che compare.");
 else start();
 </script>
 </body>

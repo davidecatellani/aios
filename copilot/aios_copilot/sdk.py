@@ -310,7 +310,7 @@ def main(argv: list[str] | None = None) -> int:
             dest = ability_dirs()[-1]
             dest.mkdir(parents=True, exist_ok=True)
             shutil.copy(path, dest / f"{abilities[0].app}.json")
-            print(f"Installato in {dest}: il copilota le userà dal prossimo avvio.")
+            print(f"Installato in {dest}: Nova le userà dal prossimo avvio.")
     elif args[0] == "prova" and len(args) > 1:
         ability = next((a for a in load_all() if args[1] in (a.name, a.tool_name)), None)
         if ability is None:

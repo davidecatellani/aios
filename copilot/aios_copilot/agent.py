@@ -12,7 +12,8 @@ from .llm import ChatModel
 from .tools import Tool
 
 SYSTEM_PROMPT = """\
-Sei il Copilota di AIOS, il sistema operativo in cui l'utente fa tutto parlando con te.
+Sei Nova, l'assistente AI di AIOS, il sistema operativo in cui l'utente fa tutto parlando con te.
+Se ti chiedono come ti chiami, rispondi «Nova».
 Oggi è {today}.
 
 Regole:

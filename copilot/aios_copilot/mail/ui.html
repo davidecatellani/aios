@@ -144,7 +144,7 @@
       <div class="chips" id="chips"></div>
       <form class="ask" id="askform" autocomplete="off">
         <div class="orb" aria-hidden="true"></div>
-        <input id="ask" placeholder="Chiedi al copilota…" aria-label="Chiedi al copilota" maxlength="500">
+        <input id="ask" placeholder="Chiedi a Nova…" aria-label="Chiedi a Nova" maxlength="500">
         <button type="submit" aria-label="Invia">↑</button>
       </form>
     </div>
@@ -209,7 +209,7 @@ async function loadList() {
   const list = $("list"); list.replaceChildren();
   const overview = await api("/api/folders");
   if (!current.q && overview.important.length) {
-    const d = el("div", "digest"); const t = el("div", "t"); t.append(el("div", "orb"), el("span", "", `Il copilota: ${overview.unread} non lette, da guardare`));
+    const d = el("div", "digest"); const t = el("div", "t"); t.append(el("div", "orb"), el("span", "", `Nova: ${overview.unread} non lette, da guardare`));
     const ul = el("ul"); for (const m of overview.important) ul.append(el("li", "", `${m.sender_name || m.sender} — ${m.subject}`));
     d.append(t, ul); list.append(d);
   }
@@ -302,7 +302,7 @@ async function ask(text) {
       if (s.done) { out.append(el("div", "a", s.answer)); break; }
       await new Promise(r => setTimeout(r, 200));
     }
-  } catch (e) { out.append(el("div", "a", "Non riesco a raggiungere il copilota.")); }
+  } catch (e) { out.append(el("div", "a", "Non riesco a raggiungere Nova.")); }
   $("orb").classList.remove("busy");
 }
 function confirmBox(job, pending) {

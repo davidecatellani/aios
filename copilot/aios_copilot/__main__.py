@@ -216,7 +216,7 @@ def run_cli(agent: Agent, request: str | None) -> int:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(prog="aios-copilot", description="Copilota AI di AIOS")
+    parser = argparse.ArgumentParser(prog="aios-copilot", description="Nova, l'assistente AI di AIOS")
     parser.add_argument("request", nargs="?", help="richiesta singola da eseguire nel terminale")
     parser.add_argument("--cli", action="store_true", help="usa il terminale invece della finestra")
     parser.add_argument("--model", help="modello Ollama da usare (default: $AIOS_MODEL)")

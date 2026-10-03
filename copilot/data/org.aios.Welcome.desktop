@@ -2,7 +2,7 @@
 Type=Application
 Name=Benvenuto in AIOS
 Name[en]=Welcome to AIOS
-Comment=Scopri AIOS parlando con il tuo copilota
+Comment=Scopri AIOS parlando con Nova
 Exec=aios-welcome
 Icon=org.aios.Welcome
 Categories=System;

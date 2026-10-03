@@ -21,7 +21,7 @@ from .xdg import resolve_folder
 
 # Riempitivi di cortesia che non cambiano il significato del comando.
 _FILLER_START = re.compile(
-    r"^(?:(?:ehi|hey|ok|allora|copilota)[,\s]+)*"
+    r"^(?:(?:ehi|hey|ok|allora|copilota|nova)[,\s]+)*"
     r"(?:(?:per favore|perfavore|please)\s+)?"
     r"(?:(?:puoi|potresti|riesci a|vorrei|voglio|can you|could you|please)\s+)?"
     r"(?:mi\s+)?"

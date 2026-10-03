@@ -129,7 +129,7 @@ class LocalApp:
     def _ask(self, match: re.Match[str], body: dict[str, Any], query: dict[str, str]) -> Response:
         text = body.get("text")
         if self.agent is None:
-            return 404, {"error": "copilota non disponibile"}
+            return 404, {"error": "Nova non è disponibile"}
         if not isinstance(text, str) or not text.strip() or len(text) > 500:
             return 400, {"error": "richiesta non valida"}
         return 200, {"job": self.start_job(*self.prompt_for(body))}
