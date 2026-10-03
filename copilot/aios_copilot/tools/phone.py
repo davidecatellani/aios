@@ -9,6 +9,7 @@ from typing import Any, Callable
 from ..fastpath import Intent, normalize
 from ..mesh import calls as calls_mod
 from ..mesh.calls import Ofono
+from ..mesh import messages as msg
 from ..mesh.files import Devices
 from ..mesh.phone import KdeConnect
 from ..mesh.service import send_command
@@ -25,10 +26,86 @@ def qr_text(url: str, runner: Runner) -> str:
     return out if code == 0 else ""
 
 
+def copy_to_clipboard(text: str, runner: Runner) -> bool:
+    for cmd in (["wl-copy", text], ["xclip", "-selection", "clipboard"], ["xsel", "--clipboard", "--input"]):
+        if runner.has(cmd[0]):
+            if cmd[0] == "wl-copy":
+                return runner.run(cmd)[0] == 0
+            import subprocess
+
+            try:
+                subprocess.run(cmd, input=text, text=True, timeout=5, check=True)
+                return True
+            except (OSError, subprocess.SubprocessError):
+                continue
+    return False
+
+
 def make_tools(runner: Runner | None = None, command: Callable[[dict[str, Any]], dict[str, Any] | None] = send_command,
-               devices: Callable[[], Devices] = Devices) -> list[Tool]:
+               devices: Callable[[], Devices] = Devices,
+               contacts: Callable[[], dict[str, str]] = msg.load_contacts) -> list[Tool]:
     runner = runner or Runner()
-    kc, ofono = KdeConnect(runner), Ofono(runner)
+    kc, ofono, bus = KdeConnect(runner), Ofono(runner), msg.PhoneBus(runner)
+
+    def phone_notifications() -> str:
+        phone = kc.find()
+        if phone is None:
+            return "Il telefono non è vicino: non vedo le sue notifiche."
+        return msg.summarize(bus.notifications(phone.id))
+
+    def copy_code() -> str:
+        phone = kc.find()
+        codes = [(n, msg.otp_code(f"{n.title} {n.text}")) for n in (bus.notifications(phone.id) if phone else [])]
+        codes = [(n, c) for n, c in codes if c]
+        if not codes:
+            return "Non vedo codici di verifica tra le notifiche del telefono."
+        n, code = codes[-1]
+        if copy_to_clipboard(code, runner):
+            return f"Codice {code} ({n.app or n.title}) copiato: incollalo con Ctrl+V."
+        return f"Il codice è {code} ({n.app or n.title})."
+
+    def reply_message(who: str, text: str) -> str:
+        phone = kc.find()
+        if phone is None:
+            return "Il telefono non è vicino."
+        wanted = who.lower().strip()
+        candidates = [n for n in bus.notifications(phone.id) if n.reply_id and n.kind == "messaggio"
+                      and (wanted in n.title.lower() or wanted in n.app.lower())]
+        if not candidates:
+            return f"Non vedo un messaggio di «{who}» a cui rispondere dal PC."
+        n = candidates[-1]
+        return f"Risposto a {n.title} su {n.app}." if bus.reply(phone.id, n.reply_id, text) else "Risposta non riuscita."
+
+    def read_sms(who: str = "") -> str:
+        phone = kc.find()
+        if phone is None:
+            return "Il telefono non è vicino: non posso leggere gli SMS."
+        book = contacts()
+        conversations = bus.conversations(phone.id, book)
+        if who:
+            wanted = who.lower().strip()
+            match = msg.find_number(who, book)
+            conversations = [m for m in conversations if wanted in m.who.lower()
+                             or (match and msg.normalize_number(m.address) == msg.normalize_number(match[0]))]
+        if not conversations:
+            return f"Nessun SMS{' di ' + who if who else ''}."
+        lines = []
+        for m in conversations[:10]:
+            arrow = "da" if m.incoming else "a"
+            new = "🆕 " if m.incoming and not m.read else ""
+            lines.append(f"{new}{m.date:%d/%m %H:%M} {arrow} {m.who}: {m.body[:200]}")
+        return "SMS:\n" + "\n".join(lines)
+
+    def send_sms(to: str, text: str) -> str:
+        phone = kc.find()
+        if phone is None:
+            return "Il telefono non è vicino: non posso mandare SMS."
+        found = msg.find_number(to, contacts())
+        if found is None:
+            return f"Non trovo un solo contatto «{to}» nella rubrica del telefono: dimmi il nome completo o il numero."
+        number, name = found
+        ok = kc.send_sms(phone, number, text)
+        return f"SMS inviato a {name or number}." if ok else "Invio non riuscito."
 
     def phone_status() -> str:
         lines = []
@@ -111,6 +188,17 @@ def make_tools(runner: Runner | None = None, command: Callable[[dict[str, Any]],
         return f"Scollegato «{name}»: non potrà più aprire i file del PC né ricevere notifiche finché non lo ricolleghi."
 
     return [
+        Tool("phone_notifications", "Riassume le notifiche del telefono: messaggi delle persone, codici, chiamate, altro.",
+             params(), phone_notifications, reads_private=True),
+        Tool("copy_code", "Copia sul PC l'ultimo codice di verifica (OTP) arrivato sul telefono.", params(), copy_code,
+             reads_private=True),
+        Tool("reply_message", "Risponde a un messaggio arrivato sul telefono (WhatsApp, Telegram, SMS…).",
+             params(who="Chi ha scritto (nome) o app", text="Testo della risposta"), reply_message,
+             requires_confirmation=True, sends_out=True),
+        Tool("read_sms", "Legge gli SMS del telefono (gli ultimi, o quelli di una persona).",
+             params([], who="Nome o numero"), read_sms, reads_private=True),
+        Tool("send_sms", "Manda un SMS dal telefono a un contatto della rubrica o a un numero.",
+             params(to="Nome o numero", text="Testo"), send_sms, requires_confirmation=True, sends_out=True),
         Tool("phone_status", "Mostra i telefoni collegati, quelli abbinati e le chiamate in arrivo.", params(), phone_status),
         Tool("connect_phone", "Collega un telefono al PC (abbinamento KDE Connect e codice QR per aprire i file del PC "
              "dal telefono).", params(), connect_phone),
@@ -145,9 +233,39 @@ RE_SETUP_CALLS = re.compile(r"^(?:voglio\s+)?rispondere\s+(?:alle\s+chiamate|al\
                             r"|^(?:attiva|configura)\s+(?:le\s+)?chiamate\s+(?:sul|dal)\s+(?:pc|computer)$")
 
 
+RE_NOTIFS = re.compile(rf"^(?:(?:le\s+)?notifiche\s+del\s+telefono|cosa\s+c'è\s+(?:di\s+nuovo\s+)?sul\s+telefono|"
+                       rf"novità\s+sul\s+telefono|ho\s+(?:nuovi\s+|dei\s+)?messaggi(?:\s+sul\s+telefono)?)\??$")
+RE_CODE = re.compile(r"^(?:copia(?:mi)?|dammi|qual\s+è|che)\s+(?:il\s+)?codice(?:\s+(?:di\s+verifica|del\s+telefono|"
+                     r"che\s+mi\s+è\s+arrivato|arrivato|sms))?\??$|^(?:che\s+)?codice\s+mi\s+è\s+arrivato\??$")
+RE_SMS_READ = re.compile(r"^(?:leggi(?:mi)?\s+|mostra(?:mi)?\s+)?(?:gli\s+|i\s+miei\s+|ultimi\s+)?sms"
+                         r"(?:\s+(?:di|da)\s+(?P<who>.+?))?\??$|^che\s+sms\s+ho\??$")
+RE_SMS_SEND = re.compile(r"^(?:manda|invia|scrivi)\s+(?:un\s+)?sms\s+a\s+(?P<to>[^:]+?)\s*(?::|dicendo\s+(?:che\s+)?|con\s+scritto\s+)"
+                         r"\s*(?P<text>.+)$", re.S)
+RE_REPLY = re.compile(r"^rispondi\s+a\s+(?P<who>[^:]+?)(?:\s+su\s+\w+)?\s*:\s*(?P<text>.+)$", re.S)
+
+
+def _original(pattern: re.Pattern[str], text: str, low_match: re.Match[str], group: str) -> str:
+    """Il testo da inviare così come l'ha scritto l'utente (maiuscole, punteggiatura, «grazie» finale)."""
+    m = re.compile(pattern.pattern, pattern.flags | re.I).match(" ".join(text.split()))
+    return m.group(group).strip() if m else low_match.group(group).strip()
+
+
 class PhoneRouter:
     def match(self, text: str) -> Intent | None:
         low = normalize(text)
+        if RE_NOTIFS.match(low):
+            return Intent("phone_notifications", {})
+        if RE_CODE.match(low):
+            return Intent("copy_code", {})
+        m = RE_SMS_SEND.match(low)
+        if m:
+            return Intent("send_sms", {"to": m.group("to").strip(), "text": _original(RE_SMS_SEND, text, m, "text")})
+        m = RE_SMS_READ.match(low)
+        if m:
+            return Intent("read_sms", {"who": (m.group("who") or "").strip()})
+        m = RE_REPLY.match(low)
+        if m:
+            return Intent("reply_message", {"who": m.group("who").strip(), "text": _original(RE_REPLY, text, m, "text")})
         if RE_CONNECT.match(low):
             return Intent("connect_phone", {})
         if RE_RING.match(low):

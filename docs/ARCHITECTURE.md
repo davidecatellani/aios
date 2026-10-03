@@ -338,9 +338,17 @@ Il telefono e il PC si collegano da soli quando sono vicini (stessa rete):
   telefono (profilo HFP, ruolo hands-free, con PipeWire/WirePlumber e oFono). Una
   chiamata in arrivo apre una notifica con «Rispondi» / «Rifiuta», e il copilota
   capisce «rispondi» e «riaggancia».
+- **Notifiche e SMS** (`mesh/messages.py`): tramite il demone KDE Connect (D-Bus) il
+  copilota legge le notifiche del telefono e le riassume (messaggi delle persone,
+  codici, chiamate, il resto raggruppato per app), legge gli SMS con i nomi della
+  rubrica sincronizzata dal telefono, risponde ai messaggi (WhatsApp, Telegram… se
+  l'app lo consente) e manda SMS. I **codici di verifica** vengono riconosciuti: il
+  servizio propone una notifica con «Copia», e «copia il codice» li mette negli
+  appunti. Notifiche e SMS sono dati privati (protezione dalle fughe del copilota);
+  ogni invio chiede conferma, e un nome ambiguo nella rubrica non viene indovinato.
 - Il copilota parla con il servizio da un socket locale leggibile solo dall'utente.
 
-Prossimi passi: notifiche e SMS del telefono sul PC dentro il copilota, delega dei
+Prossimi passi: delega dei
 modelli AI dal telefono al PC, identità dell'utente con una chiave principale per
 tutti i dispositivi, sincronizzazione con CRDT cifrati end-to-end.
 

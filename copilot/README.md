@@ -318,6 +318,11 @@ quando sono sulla stessa rete.
 | «manda ~/Documenti/contratto.pdf al telefono» | il file arriva sul telefono |
 | «rispondi», «riaggancia» | chiamata del telefono gestita dal PC (dopo «attiva le chiamate sul PC») |
 | «i miei dispositivi» | chi è collegato e chi può aprire i file |
+| «cosa c'è sul telefono?» | riassunto delle notifiche: messaggi delle persone, codici, il resto per app |
+| «copia il codice» | l'ultimo codice di verifica arrivato sul telefono va negli appunti del PC |
+| «rispondi a Giulia su WhatsApp: arrivo!» | risposta dal PC (con conferma) |
+| «leggi gli sms», «sms di Marco» | gli SMS, con i nomi della rubrica del telefono |
+| «manda un sms a Marco: sono in ritardo» | SMS inviato dal telefono (con conferma) |
 
 Dal telefono la pagina «Il mio PC» mostra le cartelle e cerca anche nel contenuto
 dei documenti; funziona solo mentre il telefono è vicino al PC e non mostra mai file

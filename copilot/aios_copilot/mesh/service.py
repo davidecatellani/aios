@@ -54,12 +54,15 @@ class MeshService:
     def __init__(self, kdeconnect: KdeConnect, ofono: Ofono, server: PhoneServer,
                  notify: Callable[[str, str], None] = simple_notify,
                  ask: Callable[[str, str, dict[str, str]], str] = notify_with_actions,
-                 clock: Callable[[], float] = time.time, start_kwargs: dict[str, Any] | None = None):
+                 clock: Callable[[], float] = time.time, start_kwargs: dict[str, Any] | None = None,
+                 bus: Any = None, copy: Callable[[str], bool] | None = None):
         self.kc, self.ofono, self.server = kdeconnect, ofono, server
         self.notify, self.ask, self.clock = notify, ask, clock
         self.start_kwargs = start_kwargs or {}
         self.near: dict[str, str] = {}  # id → nome
         self.ringing = ""
+        self.bus, self.copy = bus, copy
+        self.seen_codes: set[str] = set()
 
     def tick(self) -> None:
         try:
@@ -80,6 +83,32 @@ class MeshService:
         elif not phones and not pairing and self.server.running:
             self.server.stop()
         self._calls()
+        self._codes()
+
+    def _codes(self) -> None:
+        """Codice di verifica arrivato sul telefono → notifica sul PC con «Copia»."""
+        if self.bus is None:
+            return
+        from .messages import otp_code
+
+        for pid in self.near:
+            try:
+                notifications = self.bus.notifications(pid)
+            except Exception:
+                continue
+            for n in notifications:
+                code = otp_code(f"{n.title} {n.text}")
+                key = f"{pid}/{n.id}/{code}"
+                if not code or key in self.seen_codes:
+                    continue
+                self.seen_codes.add(key)
+
+                def offer(code: str = code, source: str = n.app or n.title) -> None:
+                    if self.ask(f"🔑 Codice {code}", f"Arrivato sul telefono da {source}.", {"copia": "Copia"}) == "copia" \
+                            and self.copy:
+                        self.copy(code)
+
+                threading.Thread(target=offer, daemon=True).start()
 
     def _calls(self) -> None:
         try:
@@ -176,7 +205,13 @@ def build(search: Callable[[str], list[dict[str, Any]]] | None = None) -> MeshSe
             from ..fileindex import FileIndex
 
             return FileIndex().search(query, limit=20)
-    return MeshService(KdeConnect(), Ofono(), PhoneServer(FileShare(search=search)))
+    from ..tools.base import Runner
+    from ..tools.phone import copy_to_clipboard
+    from .messages import PhoneBus
+
+    runner = Runner()
+    return MeshService(KdeConnect(runner), Ofono(runner), PhoneServer(FileShare(search=search)), bus=PhoneBus(runner),
+                       copy=lambda text: copy_to_clipboard(text, runner))
 
 
 def main(argv: list[str] | None = None) -> int:
