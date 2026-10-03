@@ -63,7 +63,7 @@ class FakeEmbedder(OllamaEncoder):
     def __init__(self):
         super().__init__("finto", threshold=0.8, margin=0.05)
 
-    def encode(self, texts):
+    def _embed(self, texts):
         out = []
         for t in texts:
             v = [1.0 if k in t else 0.0 for k in self.KEYS]

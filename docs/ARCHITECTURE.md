@@ -103,7 +103,7 @@ altrimenti passa al successivo:
 | Livello | Cosa fa | Tempo tipico su CPU | Stato |
 |---|---|---|---|
 | **0 — Motore di intenti** | regole + conoscenza del sistema: "apri Firefox", "installa VLC", "apri i Download", "cerca …" | **~10 µs** | ✅ `copilot/aios_copilot/fastpath.py` |
-| **1 — Classificatore semantico** | riconosce frasi riformulate ("si sente troppo piano", "fammi sentire un po' di musica", "stacca il wifi") confrontandole con un catalogo di esempi; concetti (abbassa = riduci = più basso), regole come "troppo basso → alza", astensione su negazioni e parole ignote | **~0,3 ms** | ✅ `copilot/aios_copilot/semantic.py` (italiano e inglese) |
+| **1 — Classificatore semantico** | riconosce frasi riformulate ("si sente troppo piano", "fammi sentire un po' di musica", "stacca il wifi") confrontandole con un catalogo di esempi; concetti (abbassa = riduci = più basso), regole come "troppo basso → alza", astensione su negazioni e parole ignote | **~0,3 ms** | ✅ `copilot/aios_copilot/semantic.py` (italiano e inglese) + `multilingual.py` (tutte le lingue, da calibrare) |
 | 2 — Modello linguistico piccolo | 0,5–3 miliardi di parametri quantizzati a 4 bit (o ternari, tipo BitNet), con output vincolato al formato delle azioni | 0,3–2 s | ✅ base (`qwen2.5:1.5b` via Ollama) |
 | 3 — Modello grande | sul PC dell'utente, raggiunto tramite la mesh, o nel cloud se l'utente lo sceglie | variabile | futuro |
 
@@ -117,11 +117,21 @@ Marco"). Sul banco di prova permanente (`copilot/tests/semantic_eval.py`):
 precisione 100%, copertura 89%, 0 falsi positivi su 32. Quando non è sicuro il
 livello 1 non agisce: la richiesta passa all'LLM.
 
-**Lingue.** Il codificatore integrato conosce italiano e inglese; nelle altre
-lingue si astiene e risponde l'LLM, che è multilingue ma più lento. Il prossimo passo
-è un modello di embedding multilingue (es. `multilingual-e5-small`, ~10–30 ms su
-CPU, già supportato tramite `AIOS_EMBED_MODEL`, soglie da calibrare) affiancato a
-cataloghi tradotti automaticamente per le lingue principali.
+**Lingue.** Il livello 1 ha due codificatori in cascata:
+
+- **integrato** (italiano e inglese, ~0,3 ms): concetti scritti a mano, il più veloce;
+- **neurale multilingue** (tutte le lingue, ~10–50 ms su CPU): un modello di embedding
+  servito da Ollama (candidati: `paraphrase-multilingual`, `granite-embedding:278m`,
+  `bge-m3`), con gli esempi del catalogo pre-calcolati in cache. Il catalogo si può
+  arricchire con traduzioni generate una volta sola dall'LLM locale.
+
+Il comando `aios-copilot-setup` sceglie il modello sul dispositivo reale. Calibra le
+soglie su metà delle frasi di prova, in 8 lingue con frasi-trappola e negazioni, con
+due vincoli: zero frasi fuori tema eseguite e precisione ≥ 97%. Il risultato
+dichiarato è quello misurato sull'altra metà. Le negazioni sono riconosciute anche
+in spagnolo, francese, tedesco, portoghese, russo, cinese, giapponese e coreano.
+*Stato:* la catena è verificata con un finto server Ollama; la qualità dei modelli
+veri va misurata sul primo dispositivo (da questo ambiente non si possono scaricare).
 
 **Vantaggi che ha solo un sistema operativo** (e che un'app non può avere):
 

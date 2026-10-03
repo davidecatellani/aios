@@ -6,7 +6,8 @@ L'assistente AI locale di AIOS. È pensato per essere veloce anche **senza GPU**
    vengono capiti dal **motore di intenti** in circa 10 µs, senza usare il modello AI;
 2. le frasi riformulate ("si sente troppo piano", "stacca il wifi", "fammi vedere le
    mie foto") vengono riconosciute dal **classificatore semantico** in ~0,3 ms
-   (italiano e inglese);
+   (italiano e inglese; le altre lingue con un modello di embedding multilingue,
+   vedi sotto);
 3. tutto il resto va a un modello linguistico piccolo in esecuzione sul tuo computer
    (tramite [Ollama](https://ollama.com)), tenuto sempre in memoria e preparato
    all'avvio.
@@ -40,6 +41,25 @@ aios-copilot                               # finestra grafica
 aios-copilot "installa un lettore video"   # oppure dal terminale
 ```
 
+### Tutte le lingue (facoltativo)
+
+Il riconoscimento veloce integrato capisce italiano e inglese. Per le altre lingue
+basta un comando, che scarica i modelli di embedding multilingue candidati, li
+prova sulle frasi di prova (in spagnolo, francese, tedesco, portoghese, russo e
+cinese) e salva il migliore:
+
+```bash
+aios-copilot-setup --pull                      # ~1–2 GB di download in tutto
+aios-copilot-setup --translate es,fr,de,pt     # opzionale: catalogo tradotto dall'LLM, più preciso
+aios-copilot-setup --status
+```
+
+Il modello viene scelto con regole prudenti: **nessuna frase fuori tema eseguita**
+e precisione di almeno il 97%. Le soglie sono calibrate su metà delle frasi e la
+precisione riportata è misurata sull'altra metà. Se nessun modello è abbastanza
+affidabile resta attivo solo il classificatore integrato, e le altre lingue
+continuano a passare dal modello AI.
+
 **Richiamarlo con un tasto:** nelle impostazioni della tastiera del tuo desktop
 aggiungi una scorciatoia personalizzata `Super+Spazio` → `aios-copilot`. Se la
 finestra è già aperta, torna in primo piano. `Esc` la nasconde.
@@ -50,7 +70,6 @@ finestra è già aperta, torna in primo piano. `Esc` la nasconde.
 |---|---|---|
 | `AIOS_MODEL` | `qwen2.5:1.5b-instruct` | qualsiasi modello Ollama con tool calling; su PC potenti ad es. `qwen2.5:7b-instruct` |
 | `AIOS_OLLAMA_URL` | `http://localhost:11434` | anche un altro PC di casa |
-| `AIOS_EMBED_MODEL` | *(vuoto → classificatore integrato)* | modello di embedding Ollama per il livello 1 (sperimentale) |
 | `AIOS_SEARXNG_URL` | *(vuoto → DuckDuckGo)* | istanza [SearXNG](https://docs.searxng.org) per ricerche private |
 
 ## Test
@@ -58,5 +77,5 @@ finestra è già aperta, torna in primo piano. `Esc` la nasconde.
 ```bash
 pip install -e '.[test]' && pytest
 python tests/semantic_eval.py          # qualità del livello 1
-python -m aios_copilot.semantic        # prova interattiva del livello 1
+python -m aios_copilot.semantic        # prova interattiva del livello 1 (italiano/inglese)
 ```

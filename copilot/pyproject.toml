@@ -18,6 +18,7 @@ test = ["pytest>=8"]
 
 [project.scripts]
 aios-copilot = "aios_copilot.__main__:main"
+aios-copilot-setup = "aios_copilot.multilingual:main"
 
 [tool.setuptools.packages.find]
 include = ["aios_copilot*"]

@@ -15,6 +15,7 @@ from typing import Any
 from .agent import Agent, Confirm
 from .fastpath import FastPath
 from .llm import LLMError, OllamaClient
+from .multilingual import load_config, neural_router
 from .semantic import SemanticRouter, default_router
 from .status import describe_call
 from .tools import Runner, Tool, apps, default_tools
@@ -28,7 +29,8 @@ def make_agent(confirm: Confirm, model: str | None = None) -> Agent:
         confirm,
         routers=[
             FastPath(find_apps=lambda query: apps.find_apps(runner, query)),  # livello 0
-            semantic_router(),  # livello 1
+            semantic_router(),  # livello 1: italiano e inglese, < 1 ms
+            *multilingual_router(),  # livello 1b: tutte le lingue, se configurato
         ],
     )
     # Il modello si prepara mentre l'utente scrive la prima richiesta.
@@ -37,11 +39,18 @@ def make_agent(confirm: Confirm, model: str | None = None) -> Agent:
 
 
 def semantic_router() -> SemanticRouter:
+    return default_router()
+
+
+def multilingual_router() -> list[SemanticRouter]:
+    config = load_config()
+    if config is None:
+        return []
     try:
-        return default_router()
-    except Exception as exc:  # modello di embedding non raggiungibile
-        print(f"Embedding neurale non disponibile ({exc}); uso il codificatore integrato.", file=sys.stderr)
-        return SemanticRouter()
+        return [neural_router(config)]
+    except Exception as exc:  # Ollama spento o modello rimosso: si va avanti senza
+        print(f"Riconoscimento multilingue non disponibile ({exc}).", file=sys.stderr)
+        return []
 
 
 def terminal_confirm(tool: Tool, args: dict[str, Any]) -> bool:
@@ -51,7 +60,9 @@ def terminal_confirm(tool: Tool, args: dict[str, Any]) -> bool:
 
 def print_event(kind: str, data: dict[str, Any]) -> None:
     if kind == "routed":
-        print(f"  ⚡ capito al livello {data['level']}, senza modello AI")
+        names = ["0", "1", "1 multilingue"]
+        level = names[data["level"]] if data["level"] < len(names) else data["level"]
+        print(f"  ⚡ capito al livello {level}, senza modello AI")
     elif kind == "tool_call" and not data["tool"].requires_confirmation:
         print(f"  {describe_call(data['tool'], data['args'])}")
 

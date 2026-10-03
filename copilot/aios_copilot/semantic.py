@@ -26,7 +26,7 @@ import time
 import unicodedata
 import urllib.request
 from collections import Counter
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any, Callable, Protocol, Sequence
 
@@ -41,7 +41,12 @@ STOPWORDS = frozenset(
     piu molto troppo tutto tutti
     the a an to of my me please can you could would i it this that some now on""".split()
 )
-NEGATIONS = frozenset({"non", "not", "dont", "don", "never", "mai", "senza"})
+NEGATIONS = frozenset(
+    "non not dont don never mai senza no ne pas jamais nicht kein keine nie nao nunca niet nee".split()
+    + ["не", "нет", "ни"]
+)
+# Lingue senza spazi tra le parole: la negazione si cerca come sottostringa.
+NEGATION_MARKS = ("不", "别", "没", "ない", "な", "않", "말")
 MAX_WORDS = 14
 # Quota minima di parole della richiesta che il catalogo conosce: "spegni il
 # computer di Marco" contiene un elemento ignoto e non va eseguita alla cieca.
@@ -102,7 +107,12 @@ def concepts(word: str) -> list[str]:
 def tokens(text: str) -> list[str]:
     text = unicodedata.normalize("NFKD", normalize(text))
     text = "".join(c for c in text if not unicodedata.combining(c))
-    return re.findall(r"[a-z0-9]+", text)
+    # \w copre ogni alfabeto (cirillico, greco, arabo, CJK...), non solo il latino.
+    return re.findall(r"\w+", text)
+
+
+def negated(text: str) -> bool:
+    return bool(NEGATIONS & set(tokens(text))) or any(mark in text for mark in NEGATION_MARKS)
 
 
 def content_words(text: str) -> list[str]:
@@ -233,6 +243,10 @@ class Encoder(Protocol):
     # Soglie di decisione: dipendono dal tipo di vettori prodotti.
     threshold: float
     margin: float
+    # True se i vettori si basano sulle parole del catalogo: allora le parole ignote
+    # sono un segnale di incertezza. Un modello neurale invece capisce anche parole
+    # (e lingue) che il catalogo non contiene.
+    lexical: bool
 
     def fit(self, corpus: Sequence[str]) -> None: ...
 
@@ -250,6 +264,7 @@ class LexicalEncoder:
 
     threshold = 0.45
     margin = 0.08
+    lexical = True
 
     def __init__(self) -> None:
         self.idf: dict[str, float] = {}
@@ -298,27 +313,79 @@ class LexicalEncoder:
 
 
 class OllamaEncoder:
-    """Embedding neurali tramite Ollama (/api/embed). Facoltativo."""
+    """Embedding neurali multilingue tramite Ollama (/api/embed).
 
-    def __init__(self, model: str, url: str | None = None, threshold: float = 0.75, margin: float = 0.05):
+    Gli embedding degli esempi del catalogo vengono salvati in una cache su disco:
+    all'avvio si ricalcolano solo quelli nuovi, e a ogni richiesta si codifica
+    soltanto la frase dell'utente.
+    """
+
+    lexical = False
+
+    def __init__(
+        self,
+        model: str,
+        url: str | None = None,
+        threshold: float = 0.75,
+        margin: float = 0.05,
+        prefix: str = "",
+        cache_dir: Path | None = None,
+    ):
         self.model = model
         self.url = (url or os.environ.get("AIOS_OLLAMA_URL", "http://localhost:11434")).rstrip("/")
         self.threshold = threshold
         self.margin = margin
+        self.prefix = prefix  # alcuni modelli (famiglia E5) vogliono "query: " davanti al testo
+        safe_name = re.sub(r"[^\w.-]", "_", model)
+        self.cache_path = cache_dir / f"embeddings-{safe_name}.json" if cache_dir else None
+        self._cache: dict[str, list[float]] | None = None
 
     def fit(self, corpus: Sequence[str]) -> None:
-        pass
+        missing = [t for t in dict.fromkeys(corpus) if t not in self._load_cache()]
+        for i in range(0, len(missing), 64):
+            batch = missing[i : i + 64]
+            self._cache.update(zip(batch, self._embed(batch)))
+        if missing:
+            self._save_cache()
 
     def encode(self, texts: Sequence[str]) -> list[list[float]]:
-        body = json.dumps({"model": self.model, "input": list(texts), "keep_alive": -1}).encode()
-        req = urllib.request.Request(f"{self.url}/api/embed", data=body, headers={"Content-Type": "application/json"})
-        with urllib.request.urlopen(req, timeout=60) as resp:
+        cache = self._load_cache()
+        missing = [t for t in texts if t not in cache]
+        fresh = dict(zip(missing, self._embed(missing))) if missing else {}
+        return [cache.get(t) or fresh[t] for t in texts]
+
+    def _embed(self, texts: Sequence[str]) -> list[list[float]]:
+        payload = {"model": self.model, "input": [self.prefix + t for t in texts], "keep_alive": -1}
+        req = urllib.request.Request(
+            f"{self.url}/api/embed", data=json.dumps(payload).encode(), headers={"Content-Type": "application/json"}
+        )
+        with urllib.request.urlopen(req, timeout=120) as resp:
             vectors = json.loads(resp.read())["embeddings"]
         out = []
         for v in vectors:
             norm = math.sqrt(sum(x * x for x in v)) or 1.0
             out.append([x / norm for x in v])
         return out
+
+    def _load_cache(self) -> dict[str, list[float]]:
+        if self._cache is None:
+            self._cache = {}
+            if self.cache_path and self.cache_path.exists():
+                try:
+                    self._cache = json.loads(self.cache_path.read_text())
+                except (OSError, ValueError):
+                    pass
+        return self._cache
+
+    def _save_cache(self) -> None:
+        if not self.cache_path:
+            return
+        try:
+            self.cache_path.parent.mkdir(parents=True, exist_ok=True)
+            rounded = {t: [round(x, 5) for x in v] for t, v in self._cache.items()}
+            self.cache_path.write_text(json.dumps(rounded))
+        except OSError:
+            pass  # la cache è solo un'ottimizzazione
 
     def similarity(self, a: list[float], b: list[float]) -> float:
         return sum(x * y for x, y in zip(a, b))
@@ -330,6 +397,13 @@ class Match:
     score: float
     runner_up: float
     example: str
+
+
+def with_examples(catalog: Sequence[IntentSpec], extra: dict[str, list[str]]) -> tuple[IntentSpec, ...]:
+    """Aggiunge al catalogo esempi in altre lingue (es. tradotti automaticamente)."""
+    return tuple(
+        replace(spec, examples=spec.examples + tuple(extra.get(spec.name, ()))) for spec in catalog
+    )
 
 
 @dataclass
@@ -366,25 +440,30 @@ class SemanticRouter:
         return Match(spec, score, ranked[1][0] if len(ranked) > 1 else 0.0, example)
 
     def match(self, text: str) -> Intent | None:
-        words = tokens(text)
-        if not words or len(words) > MAX_WORDS:
-            return None
-        if self.known_fraction(text) < MIN_KNOWN:
-            return None
-        m = self.rank(text)
-        if m is None or m.score < self.encoder.threshold or m.score - m.runner_up < self.encoder.margin:
-            return None
-        # "Non spegnere il wifi" somiglia a "spegni il wifi": davanti a una negazione
-        # si agisce solo se anche l'esempio la contiene ("non sento bene").
-        if NEGATIONS & set(words) and not NEGATIONS & set(tokens(m.example)):
+        m = self.candidate(text)
+        if m is None or not self.accept(m, text, self.encoder.threshold, self.encoder.margin):
             return None
         return m.spec.build()
 
+    def candidate(self, text: str) -> Match | None:
+        """Azione più probabile, prima di applicare le soglie (None se la frase è da scartare)."""
+        words = tokens(text)
+        if not words or len(words) > MAX_WORDS:
+            return None
+        if getattr(self.encoder, "lexical", False) and self.known_fraction(text) < MIN_KNOWN:
+            return None
+        return self.rank(text)
+
+    @staticmethod
+    def accept(m: Match, text: str, threshold: float, margin: float) -> bool:
+        if m.score < threshold or m.score - m.runner_up < margin:
+            return False
+        # "Non spegnere il wifi" somiglia a "spegni il wifi": davanti a una negazione
+        # si agisce solo se anche l'esempio la contiene ("non sento bene").
+        return not (negated(text) and not negated(m.example))
+
 
 def default_router() -> SemanticRouter:
-    model = os.environ.get("AIOS_EMBED_MODEL")
-    if model:
-        return SemanticRouter(encoder=OllamaEncoder(model))
     return SemanticRouter()
 
 
