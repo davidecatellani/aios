@@ -67,6 +67,8 @@ class MeshService:
         self.photos: Any = None  # PhotoSync: foto della fotocamera salvate da sole quando il telefono è vicino
         self.photos_every, self.next_photos = 1800.0, 0.0
         self._photos_busy = threading.Lock()
+        self.bluetooth: Any = None  # dispositivi Bluetooth dell'utente condivisi tra i suoi dispositivi
+        self.bt_every, self.next_bt = 300.0, 0.0
 
     def tick(self) -> None:
         try:
@@ -91,9 +93,20 @@ class MeshService:
         if self.photos is not None and phones and self.bus is not None and self.clock() >= self.next_photos:
             self.next_photos = self.clock() + self.photos_every
             threading.Thread(target=self.save_photos, daemon=True).start()
+        if self.bluetooth is not None and self.clock() >= self.next_bt:
+            self.next_bt = self.clock() + self.bt_every
+            threading.Thread(target=self._bluetooth_round, daemon=True).start()
         if self.clock() >= self.next_sync:
             self.next_sync = self.clock() + self.sync_every
             threading.Thread(target=self.sync_now, daemon=True).start()
+
+    def _bluetooth_round(self) -> None:
+        from .bluetooth import share_round
+
+        try:
+            share_round(self.bluetooth, self.notify, self.ask)
+        except Exception:
+            pass
 
     def save_photos(self) -> None:
         from .photos import describe, mount_phone
@@ -298,6 +311,9 @@ def build(search: Callable[[str], list[dict[str, Any]]] | None = None) -> MeshSe
     service = MeshService(KdeConnect(runner), Ofono(runner), server, bus=PhoneBus(runner),
                           copy=lambda text: copy_to_clipboard(text, runner))
     service.photos = PhotoSync()
+    from .bluetooth import Bluetooth
+
+    service.bluetooth = Bluetooth(runner)
     return service
 
 

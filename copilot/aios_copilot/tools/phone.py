@@ -150,6 +150,28 @@ def make_tools(runner: Runner | None = None, command: Callable[[dict[str, Any]],
         return (f"Migliorate {len(done)} foto con {method}. Le originali restano; le nuove si chiamano «… (migliorata).jpg»"
                 + (f", es. {done[0]}" if len(done) == 1 else "") + ".")
 
+    def bluetooth_devices() -> str:
+        from ..mesh.bluetooth import Bluetooth
+
+        bt = Bluetooth(runner)
+        if not bt.available():
+            return "Su questo dispositivo non c'è il Bluetooth (bluetoothctl)."
+        known, here = bt.remember_local(), set(bt.paired())
+        if not known:
+            return "Non hai ancora dispositivi Bluetooth abbinati."
+        lines = ["I tuoi dispositivi Bluetooth (condivisi tra i tuoi dispositivi AIOS):"]
+        for mac, info in known.items():
+            state = "abbinato qui" if mac in here else f"abbinato a {info.get('da') or 'un altro dispositivo'}: lo collego qui appena è vicino"
+            lines.append(f"  {info.get('nome', mac)} — {state}")
+        return "\n".join(lines)
+
+    def forget_bluetooth(name: str) -> str:
+        from ..mesh.bluetooth import Bluetooth, forget
+
+        hits = forget(Bluetooth(runner), name)
+        return (f"Dimenticato «{name}»: scollegato qui e tolto dall'elenco di tutti i tuoi dispositivi." if hits
+                else f"Non trovo un dispositivo Bluetooth «{name}».")
+
     def phone_status() -> str:
         lines = []
         if kc.available():
@@ -231,6 +253,10 @@ def make_tools(runner: Runner | None = None, command: Callable[[dict[str, Any]],
         return f"Scollegato «{name}»: non potrà più aprire i file del PC né ricevere notifiche finché non lo ricolleghi."
 
     return [
+        Tool("bluetooth_devices", "Elenca i dispositivi Bluetooth dell'utente condivisi tra telefono e PC.", params(),
+             bluetooth_devices),
+        Tool("forget_bluetooth", "Dimentica un dispositivo Bluetooth su tutti i dispositivi dell'utente.",
+             params(name="Nome del dispositivo"), forget_bluetooth, requires_confirmation=True),
         Tool("sync_photos", "Salva sul PC le foto e i video della fotocamera del telefono che mancano "
              "(non WhatsApp né screenshot).", params(), sync_photos),
         Tool("improve_photos", "Migliora le foto (le ultime salvate dal telefono, o un file): luce, rumore, nitidezza; "
@@ -297,6 +323,9 @@ def _original(pattern: re.Pattern[str], text: str, low_match: re.Match[str], gro
     return m.group(group).strip() if m else low_match.group(group).strip()
 
 
+RE_BT = re.compile(r"^(?:i\s+)?(?:miei\s+)?dispositivi\s+bluetooth$|^(?:quali|che)\s+dispositivi\s+bluetooth\s+ho\??$")
+RE_BT_FORGET = re.compile(r"^(?:dimentica|scollega\s+ovunque)\s+(?:le\s+|il\s+|la\s+|lo\s+|gli\s+)?(?P<n>.+?)\s+(?:dal|del)\s+bluetooth$"
+                          r"|^dimentica\s+il\s+dispositivo\s+bluetooth\s+(?P<m>.+)$")
 RE_PHOTOS = re.compile(r"^(?:sincronizza|salva|copia|scarica|porta|backup\s+del)(?:mi)?\s+(?:le\s+|tutte\s+le\s+)?(?:mie\s+)?"
                        r"(?:foto|fotografie)(?:\s+e\s+(?:i\s+)?video)?(?:\s+del\s+telefono)?(?:\s+(?:sul|nel|al)\s+(?:pc|computer))?$")
 RE_IMPROVE = re.compile(r"^migliora\s+(?:le\s+(?:ultime\s+)?foto|(?:questa|la)\s+foto)(?:\s+(?P<p>[/~]\S+))?$")
@@ -307,6 +336,11 @@ class PhoneRouter:
         low = normalize(text)
         if RE_PHOTOS.match(low):
             return Intent("sync_photos", {})
+        if RE_BT.match(low):
+            return Intent("bluetooth_devices", {})
+        m = RE_BT_FORGET.match(low)
+        if m:
+            return Intent("forget_bluetooth", {"name": (m.group("n") or m.group("m")).strip()})
         m = RE_IMPROVE.match(low)
         if m:
             path = re.search(r"[/~]\S+", text)

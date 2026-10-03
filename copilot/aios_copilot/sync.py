@@ -311,7 +311,9 @@ class SettingsAdapter:
 def default_adapters() -> list[Adapter]:
     from .agenda import Agenda
 
-    return [AgendaAdapter(Agenda()), ProfileAdapter(), ThemesAdapter(), SettingsAdapter()]
+    from .mesh.bluetooth import BluetoothAdapter
+
+    return [AgendaAdapter(Agenda()), ProfileAdapter(), ThemesAdapter(), SettingsAdapter(), BluetoothAdapter()]
 
 
 def engine_for(identity: Any, adapters: list[Adapter] | None = None) -> SyncEngine | None:
