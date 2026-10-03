@@ -1,6 +1,6 @@
 # Marchio
 
-Il sistema si chiama **AIOS**; la sua assistente AI si chiama **Nova** («Ehi Nova, …»).
+Il sistema si chiama **AIOS**; l'assistente AI si chiama **Nova** («Ehi Nova, …»).
 
 ## I loghi scelti
 
