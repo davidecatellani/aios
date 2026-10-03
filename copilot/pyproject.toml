@@ -27,12 +27,13 @@ aios-posta = "aios_copilot.mail.ui:main"
 aios-modelli = "aios_copilot.models:main"
 aios-catalogo = "aios_copilot.modelcatalog:main"
 aios-memoria = "aios_copilot.memory:main"
+aios-telefono = "aios_copilot.mesh.service:main"
 
 [tool.setuptools.packages.find]
 include = ["aios_copilot*"]
 
 [tool.setuptools.package-data]
-aios_copilot = ["welcome/*.html", "mail/*.html"]
+aios_copilot = ["welcome/*.html", "mail/*.html", "mesh/*.html"]
 
 [tool.pytest.ini_options]
 pythonpath = [".", "tests"]

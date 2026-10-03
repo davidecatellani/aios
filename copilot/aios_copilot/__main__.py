@@ -28,6 +28,7 @@ from .tools import taste as taste_tools
 from .tools import ai as ai_tools
 from .tools import organize as organize_tools
 from .tools import themes as theme_tools
+from .tools import phone as phone_tools
 
 
 def make_agent(confirm: Confirm, model: str | None = None) -> Agent:
@@ -129,7 +130,8 @@ def make_agent(confirm: Confirm, model: str | None = None) -> Agent:
          *ai_tools.make_management_tools(device, installed_models, downloads),
          *ai_tools.make_capability_tools(engines.available()), *organize_tools.make_tools(library),
          *theme_tools.make_tools(ask_llm=lambda prompt: llm.chat([{"role": "user", "content": prompt}], []).get("content", ""),
-                                 runner=runner)],
+                                 runner=runner),
+         *phone_tools.make_tools(runner)],
         confirm,
         history=History().record,
         routers=[
@@ -137,6 +139,7 @@ def make_agent(confirm: Confirm, model: str | None = None) -> Agent:
             mail_tools.MailRouter(),  # livello 0: posta
             taste_tools.TasteRouter(),  # livello 0: abbonamenti e consigli
             ai_tools.ModelsRouter(),  # livello 0: modelli AI del dispositivo
+            phone_tools.PhoneRouter(),  # livello 0: telefono e chiamate
             FastPath(find_apps=lambda query: apps.find_apps(runner, query)),  # livello 0
             organize_tools.OrganizeRouter(),  # livello 0: raccolte e riordino (dopo le cartelle)
             theme_tools.ThemesRouter(),  # livello 0: temi
@@ -173,7 +176,7 @@ def terminal_confirm(tool: Tool, args: dict[str, Any], warning: str | None = Non
 
 def print_event(kind: str, data: dict[str, Any]) -> None:
     if kind == "routed":
-        names = ["0", "0", "0", "0", "0", "0", "0", "0", "1", "1 multilingue"]
+        names = ["0", "0", "0", "0", "0", "0", "0", "0", "0", "1", "1 multilingue"]
         level = names[data["level"]] if data["level"] < len(names) else data["level"]
         print(f"  ⚡ capito al livello {level}, senza modello AI")
     elif kind == "tool_call" and not data["tool"].requires_confirmation:

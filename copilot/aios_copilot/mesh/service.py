@@ -1,0 +1,199 @@
+"""Servizio telefono↔PC: collega e scollega tutto da solo.
+
+Ogni pochi secondi:
+- telefono abbinato arrivato vicino → avviso e pagina dei file accesa;
+- telefono andato via → pagina dei file spenta (resta accesa solo durante un abbinamento);
+- chiamata in arrivo → notifica con «Rispondi» e «Rifiuta».
+
+Il copilota parla con il servizio da un socket locale leggibile solo dall'utente.
+
+    aios-telefono servizio | stato | abbina
+"""
+
+from __future__ import annotations
+
+import json
+import os
+import socket
+import subprocess
+import sys
+import threading
+import time
+from pathlib import Path
+from typing import Any, Callable
+
+from .calls import Ofono
+from .files import FileShare, PhoneServer, mesh_dir
+from .phone import KdeConnect
+
+TICK = 3.0
+
+
+def control_path() -> Path:
+    return mesh_dir() / "control.sock"
+
+
+def notify_with_actions(title: str, body: str, actions: dict[str, str]) -> str:
+    """Notifica con pulsanti; restituisce il pulsante premuto ("" se chiusa)."""
+    cmd = ["notify-send", "--app-name=Copilota", "--urgency=critical", "--wait",
+           *[f"--action={k}={v}" for k, v in actions.items()], title, body]
+    try:
+        return subprocess.run(cmd, capture_output=True, text=True, timeout=60).stdout.strip()
+    except (OSError, subprocess.SubprocessError):
+        return ""
+
+
+def simple_notify(title: str, body: str) -> None:
+    try:
+        subprocess.run(["notify-send", "--app-name=Copilota", "--icon=phone", title, body], timeout=10)
+    except (OSError, subprocess.SubprocessError):
+        print(f"[{title}] {body}", flush=True)
+
+
+class MeshService:
+    def __init__(self, kdeconnect: KdeConnect, ofono: Ofono, server: PhoneServer,
+                 notify: Callable[[str, str], None] = simple_notify,
+                 ask: Callable[[str, str, dict[str, str]], str] = notify_with_actions,
+                 clock: Callable[[], float] = time.time, start_kwargs: dict[str, Any] | None = None):
+        self.kc, self.ofono, self.server = kdeconnect, ofono, server
+        self.notify, self.ask, self.clock = notify, ask, clock
+        self.start_kwargs = start_kwargs or {}
+        self.near: dict[str, str] = {}  # id → nome
+        self.ringing = ""
+
+    def tick(self) -> None:
+        try:
+            phones = {p.id: p.name for p in self.kc.nearby()}
+        except Exception:
+            phones = dict(self.near)
+        for pid, name in phones.items():
+            if pid not in self.near:
+                self.notify(f"📱 {name} collegato",
+                            "Notifiche e chiamate arrivano sul PC; dal telefono puoi aprire i file del PC.")
+        for pid, name in self.near.items():
+            if pid not in phones:
+                self.notify(f"📱 {name} si è allontanato", "Ho chiuso l'accesso ai file del PC.")
+        self.near = phones
+        pairing = bool(self.server.pairing.code) and self.clock() < self.server.pairing.expires
+        if (phones or pairing) and not self.server.running:
+            self.server.start(**self.start_kwargs)
+        elif not phones and not pairing and self.server.running:
+            self.server.stop()
+        self._calls()
+
+    def _calls(self) -> None:
+        try:
+            call = self.ofono.incoming()
+        except Exception:
+            call = None
+        if call is None:
+            self.ringing = ""
+            return
+        if call.path == self.ringing:
+            return
+        self.ringing = call.path
+
+        def ask() -> None:
+            choice = self.ask(f"📞 Chiamata da {call.who}", "Rispondi dal PC o rifiuta. Puoi anche dirmi «rispondi».",
+                              {"rispondi": "Rispondi", "rifiuta": "Rifiuta"})
+            if choice == "rispondi":
+                self.ofono.answer()
+            elif choice == "rifiuta":
+                self.ofono.hang_up()
+
+        threading.Thread(target=ask, daemon=True).start()
+
+    # --- comandi dal copilota ------------------------------------------------------------------
+    def handle(self, command: dict[str, Any]) -> dict[str, Any]:
+        action = command.get("azione")
+        if action == "abbina":
+            self.server.pairing.start()
+            if not self.server.running:
+                self.server.start(**self.start_kwargs)
+            return {"url": self._url()}
+        if action == "stato":
+            return {"vicini": list(self.near.values()), "pagina": self.server.running,
+                    "abbinati": [d.name for d in self.server.devices.items]}
+        return {"errore": "comando sconosciuto"}
+
+    def _url(self) -> str:
+        from .files import lan_address
+
+        port = self.server.httpd.server_address[1] if self.server.httpd else 0
+        return f"https://{lan_address()}:{port}/#abbina={self.server.pairing.code}"
+
+    def serve_control(self, path: Path | None = None) -> socket.socket:
+        path = path or control_path()
+        path.unlink(missing_ok=True)
+        sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        sock.bind(str(path))
+        os.chmod(path, 0o600)
+        sock.listen(4)
+
+        def loop() -> None:
+            while True:
+                try:
+                    conn, _ = sock.accept()
+                except OSError:
+                    return
+                with conn:
+                    try:
+                        request = json.loads(conn.recv(4096) or b"{}")
+                        reply = self.handle(request if isinstance(request, dict) else {})
+                    except Exception as exc:
+                        reply = {"errore": str(exc)}
+                    conn.sendall(json.dumps(reply).encode())
+
+        threading.Thread(target=loop, daemon=True).start()
+        return sock
+
+    def run_forever(self) -> None:
+        self.serve_control()
+        while True:
+            self.tick()
+            time.sleep(TICK)
+
+
+def send_command(command: dict[str, Any], path: Path | None = None) -> dict[str, Any] | None:
+    """Dal copilota al servizio. None se il servizio non è attivo."""
+    try:
+        with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as s:
+            s.settimeout(10)
+            s.connect(str(path or control_path()))
+            s.sendall(json.dumps(command).encode())
+            s.shutdown(socket.SHUT_WR)
+            data = b""
+            while chunk := s.recv(65536):
+                data += chunk
+        return json.loads(data)
+    except (OSError, ValueError):
+        return None
+
+
+def build(search: Callable[[str], list[dict[str, Any]]] | None = None) -> MeshService:
+    if search is None:
+        def search(query: str) -> list[dict[str, Any]]:
+            from ..fileindex import FileIndex
+
+            return FileIndex().search(query, limit=20)
+    return MeshService(KdeConnect(), Ofono(), PhoneServer(FileShare(search=search)))
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = list(sys.argv[1:] if argv is None else argv) or ["stato"]
+    if args[0] == "servizio":
+        build().run_forever()
+    elif args[0] in ("stato", "abbina"):
+        reply = send_command({"azione": args[0]})
+        if reply is None:
+            print("Il servizio aios-telefono non è attivo (systemctl --user start aios-telefono).")
+            return 1
+        print(json.dumps(reply, ensure_ascii=False, indent=1))
+    else:
+        print("aios-telefono [servizio | stato | abbina]")
+        return 1
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

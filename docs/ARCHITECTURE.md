@@ -317,15 +317,32 @@ Previsti nell'immagine (non ancora costruita), con lo stesso schema:
 - tutto firmato; il copilota avvisa e lascia scegliere il momento del riavvio, mai
   forzato mentre si lavora; gli aggiornamenti di sicurezza sono evidenziati.
 
-### Mesh dei dispositivi
+### Telefono e PC (`mesh/`)
 
-- **Identità:** ogni utente ha una chiave principale, e ogni dispositivo riceve una
-  chiave firmata da quella.
-- **Scoperta:** mDNS in LAN, Bluetooth LE di prossimità, relay opzionale da remoto.
-- **Funzioni:** clipboard condivisa, invio file, notifiche unificate, handoff delle
-  app, telefono come telecomando/webcam, delega di calcolo AI.
-- **Punto di partenza:** il protocollo KDE Connect, già maturo e compatibile con
-  Android; la sincronizzazione dei dati sarà basata su CRDT con cifratura end-to-end.
+Il telefono e il PC si collegano da soli quando sono vicini (stessa rete):
+
+- **Base: KDE Connect** (app per Android e iPhone, protocollo cifrato e maturo).
+  L'abbinamento si conferma una volta sul telefono; poi il servizio `aios-telefono`
+  vede ogni pochi secondi quali telefoni abbinati sono vicini, avvisa quando uno
+  arriva o se ne va, e il copilota può farlo squillare o mandargli file e link.
+- **File del PC dal telefono** (`mesh/files.py`): una pagina HTTPS in rete locale,
+  accesa *solo* mentre un telefono abbinato è vicino (o durante un abbinamento).
+  Abbinamento con un QR mostrato sullo schermo del PC: chi lo inquadra è davanti al
+  PC; il codice vale una volta e 5 minuti (massimo 10 tentativi). Il telefono riceve
+  una chiave personale, il PC ne conserva solo l'impronta e la può revocare
+  («scollega il telefono»). Solo lettura, solo la cartella personale, mai file
+  nascosti o esclusi dalla privacy, nessuna uscita con link simbolici; si scarica con
+  link monouso di 2 minuti, e i file HTML non vengono mai aperti come pagine.
+  La ricerca usa l'indice personale (anche nel contenuto dei documenti).
+- **Chiamate dal PC** (`mesh/calls.py`): il PC fa da vivavoce Bluetooth del
+  telefono (profilo HFP, ruolo hands-free, con PipeWire/WirePlumber e oFono). Una
+  chiamata in arrivo apre una notifica con «Rispondi» / «Rifiuta», e il copilota
+  capisce «rispondi» e «riaggancia».
+- Il copilota parla con il servizio da un socket locale leggibile solo dall'utente.
+
+Prossimi passi: notifiche e SMS del telefono sul PC dentro il copilota, delega dei
+modelli AI dal telefono al PC, identità dell'utente con una chiave principale per
+tutti i dispositivi, sincronizzazione con CRDT cifrati end-to-end.
 
 ## Roadmap
 
@@ -334,6 +351,6 @@ Previsti nell'immagine (non ancora costruita), con lo stesso schema:
 | **1 — Copilota** *(in corso; benvenuto conversazionale ✅)* | `aios-copilot` funzionante su qualsiasi Linux: ricerca web, installazione/avvio app, overlay grafico richiamabile da tastiera, motore di intenti veloce, classificatore semantico |
 | 1b — Conoscenza personale *(in corso)* | indice dei file ✅, protezione dalle fughe di dati ✅, apprendimento a riposo ✅, agenda e promemoria ✅, riepilogo del mattino ✅, consigli personalizzati |
 | 2 — Immagine PC | immagine immutabile con shell AIOS, copilota integrato, Bottles e Waydroid preinstallati |
-| 3 — Mesh | collegamento tra i dispositivi dello stesso utente, delega AI dal telefono al PC |
+| 3 — Mesh *(in corso: telefono↔PC ✅)* | collegamento tra i dispositivi dello stesso utente, delega AI dal telefono al PC |
 | 4 — Mobile | immagine per 1–2 telefoni/tablet, input vocale |
 | 5 — Ecosistema | SDK per esporre le funzioni delle app al copilota, memoria personale semantica |

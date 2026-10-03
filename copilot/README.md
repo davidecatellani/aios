@@ -304,3 +304,27 @@ pip install -e '.[test]' && pytest
 python tests/semantic_eval.py          # qualità del livello 1
 python -m aios_copilot.semantic        # prova interattiva del livello 1 (italiano/inglese)
 ```
+
+### Telefono e PC
+
+Con l'app KDE Connect sul telefono (Android o iPhone) e il servizio attivo
+(`systemctl --user enable --now aios-telefono`), telefono e PC si collegano da soli
+quando sono sulla stessa rete.
+
+| Dici | Succede |
+|---|---|
+| «collega il telefono» | abbinamento (una conferma sul telefono) e codice QR per aprire i file del PC dal telefono |
+| «fai squillare il telefono», «dov'è il telefono?» | il telefono squilla anche se è in silenzioso |
+| «manda ~/Documenti/contratto.pdf al telefono» | il file arriva sul telefono |
+| «rispondi», «riaggancia» | chiamata del telefono gestita dal PC (dopo «attiva le chiamate sul PC») |
+| «i miei dispositivi» | chi è collegato e chi può aprire i file |
+
+Dal telefono la pagina «Il mio PC» mostra le cartelle e cerca anche nel contenuto
+dei documenti; funziona solo mentre il telefono è vicino al PC e non mostra mai file
+privati (chiavi, password, profili dei browser).
+
+![La pagina «Il mio PC» sul telefono](../docs/img/telefono.png)
+
+```bash
+aios-telefono servizio | stato | abbina
+```
