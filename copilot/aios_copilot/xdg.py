@@ -31,10 +31,3 @@ FOLDERS_IT = {
     "scrivania": "DESKTOP", "desktop": "DESKTOP", "download": "DOWNLOAD", "scaricati": "DOWNLOAD",
     "documenti": "DOCUMENTS", "immagini": "PICTURES", "foto": "PICTURES", "video": "VIDEOS", "musica": "MUSIC",
 }
-
-
-# Nomi con cui l'utente chiama le cartelle → chiave XDG.
-FOLDERS_IT = {
-    "scrivania": "DESKTOP", "desktop": "DESKTOP", "download": "DOWNLOAD", "scaricati": "DOWNLOAD",
-    "documenti": "DOCUMENTS", "immagini": "PICTURES", "foto": "PICTURES", "video": "VIDEOS", "musica": "MUSIC",
-}
