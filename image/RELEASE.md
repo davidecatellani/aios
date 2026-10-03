@@ -22,5 +22,8 @@ VirtualBox) o su un PC senza dati importanti.
 2. L'installatore è già in italiano: scegli **Destinazione dell'installazione**, cioè il disco.
    ⚠️ Il disco scelto può essere cancellato: se sul PC c'è Windows o dei dati, scegli con cura
    o fai prima un backup.
+   Se il disco aveva già Linux (per esempio Ubuntu), in «Recupera spazio» premi **«Elimina tutto»**,
+   compresa la partizione EFI: se ne resta una vecchia, l'installazione si ferma con l'errore
+   «Bootloader write config: grub2-mkconfig».
 3. Al riavvio entra con utente **aios** e password **aios**, poi cambiala subito
    (Impostazioni › Utenti). Premi **Super+Spazio** per parlare con Nova.
