@@ -175,6 +175,29 @@ propone duplicati, installer vecchi e scaricamenti interrotti, senza cancellare
 nulla. Mai toccati: file nascosti, cartelle di progetti (con `.git`), cartelle
 escluse.
 
+### Temi creati a voce
+
+«Crea un tema in stile marino», «un tema autunnale», «fammi un tema Dragon Ball»,
+«alto contrasto per mia nonna», «crea un tema partendo da questo disegno
+~/Immagini/disegno.png», poi «più scuro», «più caldo», «più vivace»… e «torna al
+tema di prima».
+
+![Temi](../docs/img/temi.png)
+
+- Il tema cambia colori (chiari e scuri), accento, forme, carattere e sfondo di
+  GNOME/KDE, delle app GTK e delle app di AIOS. Nei file GTK occupa solo un blocco
+  tra marcatori: le tue personalizzazioni restano.
+- **Leggibilità garantita**: ogni coppia testo/sfondo rispetta il contrasto WCAG
+  (≥ 4,5:1, ≥ 7:1 per «alto contrasto») e viene corretta se serve.
+- Da un disegno: colori principali estratti in locale (ffmpeg + k-means), il disegno
+  diventa lo sfondo. Da una descrizione: atmosfere conosciute subito, le altre con una
+  palette proposta dal modello e controllata. Sfondi disegnati da AIOS (onde,
+  montagne, stelle, energia, foglie…), senza file esterni.
+- **Market**: indice firmato (stesse chiavi del catalogo dei modelli), pacchetti con
+  impronta SHA-256 che possono contenere **solo** `theme.json` e un'immagine: niente
+  codice, niente SVG, niente percorsi strani. I temi ispirati a opere o marchi restano
+  per uso personale e non si possono pubblicare.
+
 ### I tuoi file e l'apprendimento a riposo
 
 Il copilota cerca e legge i tuoi documenti (testi, PDF, Word, LibreOffice) tramite

@@ -27,6 +27,7 @@ from .tools import mail as mail_tools
 from .tools import taste as taste_tools
 from .tools import ai as ai_tools
 from .tools import organize as organize_tools
+from .tools import themes as theme_tools
 
 
 def make_agent(confirm: Confirm, model: str | None = None) -> Agent:
@@ -120,12 +121,15 @@ def make_agent(confirm: Confirm, model: str | None = None) -> Agent:
 
         return load_profile().get("name", "")
 
+    llm = OllamaClient(model=model)
     agent = Agent(
-        OllamaClient(model=model),
+        llm,
         [*default_tools(runner), *files.make_tools(get_index), *agenda_tools.make_tools(get_agenda, user_name, extras=lambda: [model_hint()]),
          *mail_tools.make_tools(mail_store, send, has_accounts), *taste_tools.make_tools(subs, catalog, profile),
          *ai_tools.make_management_tools(device, installed_models, downloads),
-         *ai_tools.make_capability_tools(engines.available()), *organize_tools.make_tools(library)],
+         *ai_tools.make_capability_tools(engines.available()), *organize_tools.make_tools(library),
+         *theme_tools.make_tools(ask_llm=lambda prompt: llm.chat([{"role": "user", "content": prompt}], []).get("content", ""),
+                                 runner=runner)],
         confirm,
         history=History().record,
         routers=[
@@ -135,6 +139,7 @@ def make_agent(confirm: Confirm, model: str | None = None) -> Agent:
             ai_tools.ModelsRouter(),  # livello 0: modelli AI del dispositivo
             FastPath(find_apps=lambda query: apps.find_apps(runner, query)),  # livello 0
             organize_tools.OrganizeRouter(),  # livello 0: raccolte e riordino (dopo le cartelle)
+            theme_tools.ThemesRouter(),  # livello 0: temi
             semantic_router(),  # livello 1: italiano e inglese, < 1 ms
             *multilingual_router(),  # livello 1b: tutte le lingue, se configurato
         ],
@@ -168,7 +173,7 @@ def terminal_confirm(tool: Tool, args: dict[str, Any], warning: str | None = Non
 
 def print_event(kind: str, data: dict[str, Any]) -> None:
     if kind == "routed":
-        names = ["0", "0", "0", "0", "0", "0", "0", "1", "1 multilingue"]
+        names = ["0", "0", "0", "0", "0", "0", "0", "0", "1", "1 multilingue"]
         level = names[data["level"]] if data["level"] < len(names) else data["level"]
         print(f"  ⚡ capito al livello {level}, senza modello AI")
     elif kind == "tool_call" and not data["tool"].requires_confirmation:

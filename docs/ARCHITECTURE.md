@@ -198,6 +198,15 @@ EXIF), video, musica (da tag), app e giochi (da `.desktop`), download; le raccol
 sono virtuali (`~/Raccolte` con collegamenti) e il riordino reale avviene solo su
 richiesta, con piano, conferma e registro per annullare.
 
+### Temi
+
+`themes.py` (temi come soli dati, palette con contrasto WCAG garantito, atmosfere,
+estrazione dei colori da un'immagine, ritocchi, sfondi disegnati), `themeapply.py`
+(GTK/libadwaita, GNOME, KDE, app di AIOS via `/theme.css`, tema precedente),
+`thememarket.py` (indice firmato, pacchetti validati, temi «ispirati a» solo per uso
+personale). Prossimi passi: interfaccia del market con anteprime e valutazioni,
+sfondi generati dal modello di immagini quando installato.
+
 ### Copilota proattivo (prossima fase)
 
 Non solo esecutore: un copilota che, conoscendo l'utente, **propone**.
