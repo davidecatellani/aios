@@ -90,6 +90,15 @@ class Router(Protocol):
     def match(self, text: str) -> Intent | None: ...
 
 
+SECRET_RE = re.compile(r"\b(?:github_pat_[A-Za-z0-9_]{20,}|gh[pousr]_[A-Za-z0-9]{30,})\b")
+# Argomenti degli strumenti che contengono segreti: non vanno mostrati né registrati.
+SECRET_ARGS = ("token",)
+
+
+def redact_secrets(text: str) -> str:
+    return SECRET_RE.sub("[token segreto]", text)
+
+
 class Agent:
     def __init__(
         self,
@@ -125,12 +134,19 @@ class Agent:
         i livelli veloci lavorano sulla frase così come l'ha scritta l'utente.
         """
         emit = on_event or (lambda kind, data: None)
-        self.messages.append({"role": "user", "content": f"{text}\n\n(Contesto: {context})" if context else text})
+        # Un token incollato in chat resta qui: al modello e alla cronologia arriva solo un segnaposto.
+        shown = redact_secrets(text)
+        self.messages.append({"role": "user", "content": f"{shown}\n\n(Contesto: {context})" if context else shown})
 
         for level, router in enumerate(self.routers):
             intent = router.match(text)
             if intent is not None and intent.tool in self.tools:
                 return self._run_intent(intent, level, emit)
+        if shown != text:
+            answer = ("Questo sembra un token segreto: non lo passo al modello AI e non lo salvo. "
+                      "Se è il permesso per gli aggiornamenti, scrivimi «collega GitHub per gli aggiornamenti».")
+            self.messages.append({"role": "assistant", "content": answer})
+            return answer
 
         schemas = [t.schema() for t in self.tools.values()]
         calls_made: list[tuple[str, dict[str, Any], str]] = []
@@ -163,7 +179,8 @@ class Agent:
         return "Mi sono fermato: la richiesta richiedeva troppi passaggi. Puoi riformularla?"
 
     def _run_intent(self, intent: Intent, level: int, emit: OnEvent) -> str:
-        emit("routed", {"intent": intent, "level": level})
+        emit("routed", {"intent": Intent(intent.tool, {k: v for k, v in intent.args.items() if k not in SECRET_ARGS}),
+                        "level": level})
         result = self._run_tool(intent.tool, intent.args, emit)
         answer = "Va bene, annullato." if result == REFUSED else result
         # Resta nella cronologia: l'LLM avrà il contesto per le richieste successive.

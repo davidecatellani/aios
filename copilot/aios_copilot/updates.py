@@ -308,7 +308,7 @@ GITHUB_HELP = (
     "1. apri https://github.com/settings/personal-access-tokens/new\n"
     "2. nome «AIOS aggiornamenti», scadenza a tua scelta; «Repository access» › «Only select repositories» › {repo};\n"
     "3. «Permissions» › «Contents» › «Read-only» (nient'altro), poi «Generate token»;\n"
-    "4. incolla il token nella finestra che apro (resta nel portachiavi del PC, non passa dal modello AI).")
+    "4. incolla il token nella finestra che apro (resta nel portachiavi del PC, non passa dal modello AI);\n   se la finestra non si apre, incollalo qui in chat: lo riconosco senza modello AI.")
 
 
 def auto_enabled() -> bool:
@@ -332,10 +332,11 @@ def health_check(run: Callable[[list[str]], tuple[int, str]] | None = None) -> l
         import aios_copilot.__main__  # noqa: F401  il copilota si avvia
     except Exception as exc:
         problems.append(f"copilota: {exc}")
-    for cmd, what in ((["systemctl", "is-system-running", "--wait"], "servizi di sistema"),):
-        code, out = run(cmd)
-        if code != 0 and "degraded" not in out:
-            problems.append(f"{what}: {out.strip()[-120:]}")
+    # Solo ciò che rende AIOS inutilizzabile: un servizio che aspetta internet o un controllo che
+    # richiede la rete (senza Wi-Fi) non deve far riavviare il PC.
+    code, out = run(["systemctl", "is-failed", "ollama.service"])
+    if code == 0 and out.strip() == "failed":
+        problems.append("Ollama (modelli AI) non parte")
     return problems
 
 
@@ -401,7 +402,8 @@ def main(argv: list[str] | None = None) -> int:
 
         from .imageupdate import configured_repo
 
-        print(GITHUB_HELP.format(repo=load_state().get("repo") or configured_repo() or "il repository di AIOS"))
+        print(GITHUB_HELP.format(repo=load_state().get("repo") or configured_repo() or "il repository di AIOS",
+                                 dove="incolla il token qui sotto"))
         print(connect_github(getpass.getpass("Token: ")))
     elif args[0] == "chiavetta":
         found = u.check(("chiavetta",))

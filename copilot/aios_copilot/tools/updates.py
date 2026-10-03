@@ -49,14 +49,16 @@ def make_tools(runner: Runner | None = None, updates: Updates | None = None,
         return ("Aggiornamenti automatici attivi: scarico a riposo e in carica, e ti chiedo io quando riavviare."
                 if enabled else "Aggiornamenti automatici disattivati: dimmi «aggiorna il sistema» quando vuoi.")
 
-    def connect_github_updates() -> str:
+    def connect_github_updates(token: str = "") -> str:
         from ..imageupdate import configured_repo
 
+        if token:  # incollato in chat: riconosciuto senza modello AI (agent.SECRET_RE)
+            return connect(token)
         repo = load_state().get("repo") or configured_repo() or "il repository di AIOS"
-        help_text = GITHUB_HELP.format(repo=repo)
         token = secret("Aggiornamenti da GitHub", "Incolla il token di sola lettura (Contents: read) per " + repo)
-        if token is None:
-            return help_text.replace("nella finestra che apro", "nel Terminale con «aios-aggiornamenti github»")
+        if token is None:  # nessuna finestra disponibile: il token si incolla in chat (UpdatesRouter lo riconosce)
+            return GITHUB_HELP.format(repo=repo, dove="incolla il token qui in chat, da solo")
+        help_text = GITHUB_HELP.format(repo=repo, dove="incolla il token nella finestra che apro")
         if not token:
             return help_text + "\n\nQuando hai il token, dimmi di nuovo «collega GitHub per gli aggiornamenti»."
         return connect(token)
@@ -96,8 +98,9 @@ RE_STATUS = re.compile(r"^(?:ci sono|ho)\s+(?:degli\s+|nuovi\s+)?aggiornamenti\?
 RE_NOW = re.compile(r"^aggiorna\s+(?:il\s+sistema|il\s+computer|il\s+pc|tutto|aios)(?:\s+(?:ora|adesso|subito))?$")
 RE_ROLLBACK = re.compile(r"^(?:torna|ritorna)\s+alla\s+versione\s+precedente(?:\s+del\s+sistema)?$")
 RE_AUTO = re.compile(r"^(?P<v>attiva|disattiva)\s+(?:gli\s+)?aggiornamenti\s+automatici$")
-RE_GITHUB = re.compile(r"^(?:collega|configura|attiva)\s+github(?:\s+per\s+gli\s+aggiornamenti)?$"
-                       r"|^aggiornamenti\s+da\s+github$")
+RE_GITHUB = re.compile(r"^(?:collega|configura|attiva|imposta)\s+(?:a\s+)?github\b"
+                       r"|\bgithub\b.*\b(?:aggiornament\w*|token)\b|\b(?:aggiornament\w*|token)\b.*\bgithub\b")
+RE_TOKEN = re.compile(r"\b(?:github_pat_[A-Za-z0-9_]{20,}|gh[pousr]_[A-Za-z0-9]{30,})\b")
 RE_USB = re.compile(r"^aggiorna(?:\s+(?:il\s+sistema|aios))?\s+(?:dalla|con\s+la)\s+chiavetta$"
                     r"|^installa\s+l'aggiornamento\s+dalla\s+chiavetta$")
 RE_RESTART = re.compile(r"^riavvia\s+per\s+aggiornare$|^applica\s+l'aggiornamento$")
@@ -105,6 +108,9 @@ RE_RESTART = re.compile(r"^riavvia\s+per\s+aggiornare$|^applica\s+l'aggiornament
 
 class UpdatesRouter:
     def match(self, text: str) -> Intent | None:
+        token = RE_TOKEN.search(text)
+        if token:
+            return Intent("connect_github_updates", {"token": token.group(0)})
         low = normalize(text)
         if RE_STATUS.match(low):
             return Intent("update_status", {})
@@ -117,7 +123,7 @@ class UpdatesRouter:
             return Intent("auto_updates", {"on": "sì" if m.group("v") == "attiva" else "no"})
         if RE_RESTART.match(low):
             return Intent("restart_to_update", {})
-        if RE_GITHUB.match(low):
+        if RE_GITHUB.search(low):
             return Intent("connect_github_updates", {})
         if RE_USB.match(low):
             return Intent("update_from_usb", {})

@@ -1,0 +1,19 @@
+#!/bin/sh
+# Collega i modelli inclusi nell'immagine AIOS (/usr, sola lettura) nella cartella di Ollama.
+# I file grandi (blobs) sono collegamenti, non copie; gli elenchi (manifests) si copiano,
+# così Ollama può aggiornarli. Quello che c'è già non si tocca.
+src=/usr/share/aios/modelli
+dst=${OLLAMA_MODELS:-/var/lib/ollama/models}
+[ -d "$src" ] || exit 0
+cd "$src" || exit 0
+find . -type f | while IFS= read -r f; do
+    f=${f#./}
+    t="$dst/$f"
+    [ -e "$t" ] && continue
+    mkdir -p "$(dirname "$t")"
+    case $f in
+        blobs/*) ln -s "$src/$f" "$t" ;;
+        *) cp "$f" "$t" ;;
+    esac
+done
+exit 0

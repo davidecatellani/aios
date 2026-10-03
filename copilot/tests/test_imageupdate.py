@@ -199,4 +199,19 @@ def test_copilot_commands(tmp_path, monkeypatch):
     assert "pronto per il prossimo riavvio" in agent.ask("aggiorna dalla chiavetta")
     no_dialog = update_tools.make_tools(Runner(), updates=u, secret=lambda t, x: None)
     agent = Agent(NoModel(), no_dialog, confirm=lambda *a, **k: True, routers=[update_tools.UpdatesRouter()])
-    assert "aios-aggiornamenti github" in agent.ask("collega github")
+    assert "qui in chat" in agent.ask("collega github")
+    token = "github_pat_11ABCDEFG0123456789_abcdefghijklmnopqrstuvwxyz"
+    connected.clear()
+    pasted = update_tools.make_tools(Runner(), updates=u, secret=lambda t, x: None,
+                                     connect=lambda tok: connected.append(tok) or "Collegato.")
+    agent = Agent(NoModel(), pasted, confirm=lambda *a, **k: True, routers=[update_tools.UpdatesRouter()])
+    assert agent.ask(f"ecco il token: {token}") == "Collegato." and connected == [token]
+    assert token not in json.dumps(agent.messages)  # il modello non lo vedrà mai
+    assert update_tools.UpdatesRouter().match("puoi collegare github per scaricare gli aggiornamenti?")
+
+
+def test_secret_without_router_never_reaches_the_model():
+    agent = Agent(type("M", (), {"chat": lambda *a: (_ for _ in ()).throw(AssertionError("niente LLM"))})(), [],
+                  confirm=lambda *a, **k: True)
+    answer = agent.ask("ghp_" + "a1" * 18)
+    assert "token segreto" in answer and "ghp_" not in json.dumps(agent.messages)

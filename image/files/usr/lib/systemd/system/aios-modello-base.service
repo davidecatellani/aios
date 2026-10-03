@@ -1,15 +1,13 @@
 [Unit]
-Description=AIOS: scarica il modello AI di base di Nova appena c'è internet
-After=ollama.service network-online.target
-Wants=ollama.service network-online.target
+Description=AIOS: scarica il modello AI di base di Nova se manca (di solito è già incluso)
+After=ollama.service
+Wants=ollama.service
 
 [Service]
-Type=oneshot
-# già scaricato: niente da fare
-ExecCondition=/bin/sh -c '! /usr/bin/ollama list 2>/dev/null | grep -q "^qwen2.5:1.5b-instruct"'
-ExecStart=/usr/bin/ollama pull qwen2.5:1.5b-instruct
-Restart=on-failure
-RestartSec=120
+# «simple» e un ciclo, non «oneshot» con nuovi tentativi: senza internet non deve tenere il
+# sistema «in avvio» (greenboot lo prenderebbe per un guasto e riavvierebbe il PC).
+Type=simple
+ExecStart=/bin/sh -c 'until /usr/bin/ollama list 2>/dev/null | grep -q "^qwen2.5:1.5b-instruct" || /usr/bin/ollama pull qwen2.5:1.5b-instruct; do sleep 300; done'
 Nice=10
 IOSchedulingClass=idle
 

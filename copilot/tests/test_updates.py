@@ -112,9 +112,9 @@ def test_idle_task_checks_twice_a_day_and_notifies():
 
 
 def test_health_check():
-    assert updates.health_check(lambda c: (0, "running")) == []
-    assert updates.health_check(lambda c: (1, "degraded")) == []  # un servizio secondario non blocca
-    assert updates.health_check(lambda c: (1, "failed"))[0].startswith("servizi di sistema")
+    assert updates.health_check(lambda c: (1, "active")) == []
+    assert updates.health_check(lambda c: (1, "activating")) == []  # in attesa di internet: non è un guasto
+    assert updates.health_check(lambda c: (0, "failed"))[0].startswith("Ollama")
 
 
 def test_copilot_update_phrases():
