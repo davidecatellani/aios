@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Copilota
+Comment=Chiedi al tuo computer di fare qualsiasi cosa
+Exec=aios-copilot
+Icon=system-search
+Categories=Utility;
+Keywords=ai;assistente;copilota;cerca;installa;
+StartupNotify=true
