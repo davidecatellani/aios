@@ -23,6 +23,8 @@ from .status import describe_call
 from .agenda import Agenda
 from .tools import Runner, Tool, apps, default_tools, files
 from .tools import agenda as agenda_tools
+from .tools import mail as mail_tools
+from .tools import taste as taste_tools
 
 
 def make_agent(confirm: Confirm, model: str | None = None) -> Agent:
@@ -41,6 +43,43 @@ def make_agent(confirm: Confirm, model: str | None = None) -> Agent:
             agenda.append(Agenda())
         return agenda[0]
 
+    lazy: dict[str, object] = {}
+
+    def once(key: str, factory):
+        if key not in lazy:
+            lazy[key] = factory()
+        return lazy[key]
+
+    def mail_store():
+        from .mail.store import MailStore
+
+        return once("mail", MailStore)
+
+    def send(to, subject, body, reply_to):
+        from .mail.service import send_with_account
+
+        return send_with_account(mail_store(), to, subject, body, reply_to)
+
+    def has_accounts() -> bool:
+        from .mail.client import load_accounts
+
+        return bool(load_accounts())
+
+    def subs():
+        from .subscriptions import Subscriptions
+
+        return once("subs", Subscriptions)
+
+    def catalog():
+        from .recommend import Catalog
+
+        return once("catalog", Catalog)
+
+    def profile():
+        from .recommend import Profile
+
+        return once("profile", Profile)
+
     def user_name() -> str:
         from .welcome import load_profile
 
@@ -48,11 +87,14 @@ def make_agent(confirm: Confirm, model: str | None = None) -> Agent:
 
     agent = Agent(
         OllamaClient(model=model),
-        [*default_tools(runner), *files.make_tools(get_index), *agenda_tools.make_tools(get_agenda, user_name)],
+        [*default_tools(runner), *files.make_tools(get_index), *agenda_tools.make_tools(get_agenda, user_name),
+         *mail_tools.make_tools(mail_store, send, has_accounts), *taste_tools.make_tools(subs, catalog, profile)],
         confirm,
         history=History().record,
         routers=[
             agenda_tools.AgendaRouter(),  # livello 0: promemoria, appuntamenti, riepilogo
+            mail_tools.MailRouter(),  # livello 0: posta
+            taste_tools.TasteRouter(),  # livello 0: abbonamenti e consigli
             FastPath(find_apps=lambda query: apps.find_apps(runner, query)),  # livello 0
             semantic_router(),  # livello 1: italiano e inglese, < 1 ms
             *multilingual_router(),  # livello 1b: tutte le lingue, se configurato
@@ -87,7 +129,7 @@ def terminal_confirm(tool: Tool, args: dict[str, Any], warning: str | None = Non
 
 def print_event(kind: str, data: dict[str, Any]) -> None:
     if kind == "routed":
-        names = ["0", "0", "1", "1 multilingue"]
+        names = ["0", "0", "0", "0", "1", "1 multilingue"]
         level = names[data["level"]] if data["level"] < len(names) else data["level"]
         print(f"  ⚡ capito al livello {level}, senza modello AI")
     elif kind == "tool_call" and not data["tool"].requires_confirmation:

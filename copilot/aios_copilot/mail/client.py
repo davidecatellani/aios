@@ -18,7 +18,7 @@ import re
 import smtplib
 import ssl
 import time
-from dataclasses import asdict, dataclass, field
+from dataclasses import dataclass, field, fields
 from datetime import datetime, timedelta
 from email.message import EmailMessage
 from pathlib import Path
@@ -74,7 +74,7 @@ def load_accounts() -> list[Account]:
 def save_accounts(accounts: list[Account]) -> None:
     path = accounts_path()
     path.parent.mkdir(parents=True, exist_ok=True)
-    data = [{k: v for k, v in asdict(a).items() if k != "tls_context"} for a in accounts]
+    data = [{f.name: getattr(a, f.name) for f in fields(a) if f.name != "tls_context"} for a in accounts]
     path.write_text(json.dumps(data, indent=2))  # niente password qui: stanno nel portachiavi
 
 

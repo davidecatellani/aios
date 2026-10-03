@@ -33,6 +33,14 @@ TEMPLATES = {
     "complete_reminder": "✅ Segno come fatto: {query}",
     "delete_agenda_item": "🗑️ Eliminare dall'agenda: {query}",
     "resolve_suggestion": "📌 Scadenza proposta n. {number}: {accept}",
+    "mail_overview": "✉️ Controllo la posta",
+    "search_mail": "✉️ Cerco nelle mail: {query}",
+    "read_mail": "✉️ Leggo la mail {mail_id}",
+    "categorize_mail": "🗂️ Mail di {who} → {category}",
+    "list_subscriptions": "💳 Guardo i tuoi abbonamenti",
+    "set_subscription": "💳 Abbonamento {service}: {active}",
+    "recommend": "🍿 Cerco qualcosa per te: {kind}",
+    "rate": "⭐ {title}: piaciuto? {liked}",
 }
 
 
@@ -46,6 +54,10 @@ VALUES = {
 
 
 def describe_call(tool: Tool, args: dict[str, Any]) -> str:
+    if tool.name == "send_email":  # nella conferma si vede cosa parte davvero
+        body = str(args.get("body", ""))
+        preview = body[:280] + ("…" if len(body) > 280 else "")
+        return f"✉️ Inviare a {args.get('to', '?')} — «{args.get('subject', '')}»\n{preview}"
     template = TEMPLATES.get(tool.name)
     if template is None:
         return tool.describe_call(args)

@@ -34,34 +34,43 @@ Regole:
   che l'utente non lo chieda esplicitamente.
 """
 
-PRIVACY_WARNING = "In questa conversazione ho letto dei tuoi file, e questa azione invierebbe dati su internet."
+PRIVACY_WARNING = "In questa conversazione ho letto dati privati (file o email), e questa azione li invierebbe fuori dal dispositivo."
 
 REFUSED = "L'utente ha rifiutato questa azione."
 FAILURE_PREFIXES = ("Errore", "Argomenti", "Strumento sconosciuto", "Non ci sono riuscito", "Non posso", "Non trovo")
 
 
-def _shingles(text: str, n: int = 2) -> dict[tuple[str, ...], str]:
-    words = re.findall(r"\w+", text.lower())
-    return {tuple(words[i : i + n]): " ".join(words[i : i + n]) for i in range(len(words) - n + 1)}
-
-
 def shared_fragment(outgoing: str, private_texts: Sequence[str]) -> str | None:
-    """I pezzi dei file dell'utente presenti in ciò che sta per uscire (None se nessuno)."""
+    """Le frasi dei dati privati presenti in ciò che sta per uscire (None se nessuna).
+
+    Si confrontano coppie di parole consecutive e si uniscono quelle contigue, così
+    l'utente vede «serve la firma entro domani» e non cinque frammenti spezzati.
+    """
     from .semantic import STOPWORDS
 
-    out = _shingles(outgoing)
-    out_tokens = set(re.findall(r"\w+", outgoing.lower()))
-    found: list[str] = []
-    for text in private_texts:
-        lowered = text.lower()
-        for key in out.keys() & _shingles(text).keys():
-            if not all(w in STOPWORDS for w in key):  # "di la" non è un dato
-                found.append(out[key])
-        # Codici e numeri distintivi (fatture, IBAN, importi) anche da soli.
-        found += [t for t in out_tokens if len(t) >= 5 and any(c.isdigit() for c in t) and t in lowered]
-    # Frammenti contenuti in altri frammenti già trovati non aggiungono informazione.
-    unique = [f for f in dict.fromkeys(found) if not any(f != g and f in g for g in found)]
-    return ", ".join(sorted(unique)[:5]) or None
+    words = re.findall(r"\w+", outgoing.lower())
+    covered = [False] * len(words)
+    private_pairs: set[tuple[str, str]] = set()
+    lowered = [t.lower() for t in private_texts]
+    for text in lowered:
+        pw = re.findall(r"\w+", text)
+        private_pairs.update(zip(pw, pw[1:]))
+    for i, pair in enumerate(zip(words, words[1:])):
+        if pair in private_pairs and not all(w in STOPWORDS for w in pair):  # "di la" non è un dato
+            covered[i] = covered[i + 1] = True
+    found, run = [], []
+    for word, hit in zip(words + [""], covered + [False]):
+        if hit:
+            run.append(word)
+        elif run:
+            found.append(" ".join(run))
+            run = []
+    # Codici e numeri distintivi (fatture, IBAN, importi) anche da soli.
+    for token in dict.fromkeys(words):
+        if len(token) >= 5 and any(c.isdigit() for c in token) and any(token in t for t in lowered) \
+                and not any(token in f for f in found):
+            found.append(token)
+    return ", ".join(found[:5]) or None
 
 
 def wrap(source: str, text: str) -> str:
@@ -139,7 +148,7 @@ class Agent:
                 if tool is not None and tool.sends_out:
                     result = wrap("CONTENUTO WEB", result)
                 elif tool is not None and tool.reads_private:
-                    result = wrap("FILE DELL'UTENTE", result)
+                    result = wrap("DATI PRIVATI (file, email)", result)
                 self.messages.append({"role": "tool", "tool_name": name, "content": result})
 
         return "Mi sono fermato: la richiesta richiedeva troppi passaggi. Puoi riformularla?"
@@ -176,7 +185,7 @@ class Agent:
         warning = None
         if from_model and tool.sends_out and self.private_texts:
             leak = shared_fragment(json.dumps(args, ensure_ascii=False), self.private_texts)
-            warning = PRIVACY_WARNING + (f" Contiene testo dei tuoi file: «{leak}»." if leak else "")
+            warning = PRIVACY_WARNING + (f" Contiene: «{leak}»." if leak else "")
             emit("privacy_warning", {"tool": tool, "args": args, "warning": warning})
 
         emit("tool_call", {"tool": tool, "args": args})

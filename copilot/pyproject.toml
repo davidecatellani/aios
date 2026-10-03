@@ -22,6 +22,7 @@ aios-copilot-setup = "aios_copilot.multilingual:main"
 aios-welcome = "aios_copilot.welcome:main"
 aios-learn = "aios_copilot.learning:main"
 aios-agenda = "aios_copilot.agenda:main"
+aios-mail = "aios_copilot.mail.service:main"
 
 [tool.setuptools.packages.find]
 include = ["aios_copilot*"]

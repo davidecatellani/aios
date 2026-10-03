@@ -321,6 +321,30 @@ class DeadlineTask:
             self.state_path.write_text(json.dumps({"last_chunk": last}))
 
 
+@dataclass
+class CatalogTask:
+    """Aggiorna una volta al giorno i cataloghi generici (film, serie, app, giochi)."""
+
+    catalog: Any
+    refresh: Callable[[Any], str]
+    name: str = "catalogo dei consigli"
+    _retry_at: float = 0.0
+
+    def available(self) -> bool:
+        return time.monotonic() >= self._retry_at
+
+    def has_work(self) -> bool:
+        return self.catalog.stale()
+
+    def step(self, seconds: float) -> None:
+        try:
+            self.refresh(self.catalog)
+        except Exception:
+            pass
+        if self.catalog.stale():  # rete assente o catalogo irraggiungibile: si riprova fra un'ora
+            self._retry_at = time.monotonic() + 3600
+
+
 # --- Pianificatore ------------------------------------------------------------------
 
 
@@ -425,6 +449,9 @@ def build(index: FileIndex | None = None) -> tuple[Scheduler, FileIndex]:
     from .agenda import Agenda
 
     tasks.append(DeadlineTask(index, Agenda(), data_dir() / "deadline-state.json"))
+    from .recommend import Catalog, refresh_catalog
+
+    tasks.append(CatalogTask(Catalog(), refresh_catalog))
     config = load_config()
     if config is not None:
         encoder = OllamaEncoder(config.model, prefix=config.prefix)
