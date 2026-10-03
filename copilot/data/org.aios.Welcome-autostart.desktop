@@ -1,0 +1,7 @@
+# Da copiare in /etc/xdg/autostart/: mostra il benvenuto solo al primo accesso.
+[Desktop Entry]
+Type=Application
+Name=Benvenuto in AIOS
+Exec=aios-welcome --first-run
+NoDisplay=true
+X-GNOME-Autostart-Phase=Applications

@@ -41,6 +41,27 @@ aios-copilot                               # finestra grafica
 aios-copilot "installa un lettore video"   # oppure dal terminale
 ```
 
+### Benvenuto
+
+Al primo accesso AIOS si presenta con una conversazione: il copilota chiede come ti
+chiami, spiega il sistema con parole semplici (come parlargli, privacy, app,
+dispositivi, funzionamento offline) e ti fa provare subito comandi veri, mostrando
+quando una richiesta è stata capita all'istante senza modello AI.
+
+```bash
+aios-welcome               # finestra dedicata (WebKitGTK) o browser
+aios-welcome --first-run   # per l'avvio automatico: non fa nulla se già completato
+```
+
+Per l'avvio automatico al primo accesso copia `data/org.aios.Welcome-autostart.desktop`
+in `/etc/xdg/autostart/`. La pagina parla con l'agente tramite un server solo
+locale (127.0.0.1) protetto da una chiave casuale e dal controllo dell'header Host:
+un sito web aperto nel browser non può usarlo per comandare il computer.
+
+| PC (tema chiaro) | Telefono (tema scuro) |
+|---|---|
+| ![Benvenuto su PC](../docs/img/welcome-desktop.png) | ![Benvenuto su telefono](../docs/img/welcome-telefono.png) |
+
 ### Tutte le lingue (facoltativo)
 
 Il riconoscimento veloce integrato capisce italiano e inglese. Per le altre lingue
