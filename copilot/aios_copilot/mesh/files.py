@@ -35,6 +35,7 @@ PORT = 8743
 PAIR_SECONDS = 300
 MAX_PAIR_TRIES = 10
 TICKET_SECONDS = 120
+MAX_UPLOAD = 8 * 2**30  # un video lungo
 PAGE = Path(__file__).with_name("phone.html")
 
 
@@ -201,6 +202,7 @@ class PhoneServer:
         self.httpd: ThreadingHTTPServer | None = None
         self.brain, self.assistant = brain, assistant  # delega AI dal telefono (delegate.py)
         self.sync = sync  # motore di sincronizzazione (sync.py), creato alla prima richiesta
+        self.upload_dir: Path | None = None  # dove salvare le foto inviate (predefinito: Immagini/Telefono/anno/mese)
         self.fingerprint = ""
         self.tickets: dict[str, tuple[Path, float]] = {}
 
@@ -354,6 +356,8 @@ def make_handler(server: PhoneServer) -> type[BaseHTTPRequestHandler]:
 
         def do_POST(self) -> None:
             url = urlparse(self.path)
+            if url.path == "/api/carica":  # foto e video dal telefono (iPhone): a pezzi, mai tutto in memoria
+                return self._upload(url)
             limit = 8_000_000 if url.path in ("/api/modello", "/api/sync") else 8192
             length = int(self.headers.get("Content-Length") or 0)
             if length > limit:
@@ -378,6 +382,21 @@ def make_handler(server: PhoneServer) -> type[BaseHTTPRequestHandler]:
             if self._device() is None:
                 return self._json({"error": "telefono non abbinato"}, 403)
             self._delegate("POST", url, body)
+
+        def _upload(self, url: Any) -> None:
+            from .photos import save_upload
+
+            if self._device() is None:
+                return self._json({"error": "telefono non abbinato"}, 403)
+            length = int(self.headers.get("Content-Length") or 0)
+            if not 0 < length <= MAX_UPLOAD:
+                return self._json({"error": "file troppo grande o vuoto"}, 413)
+            name = parse_qs(url.query).get("nome", ["foto.jpg"])[0]
+            try:
+                dest = save_upload(name, self.rfile, length, server.upload_dir)
+            except ValueError as exc:
+                return self._json({"error": str(exc)}, 400)
+            self._json({"salvato": dest.name})
 
         def _delegate(self, method: str, url: Any, body: dict[str, Any]) -> None:
             from .delegate import handle_api

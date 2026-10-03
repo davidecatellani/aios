@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+import time
 from pathlib import Path
 from typing import Any, Callable
 
@@ -107,6 +108,48 @@ def make_tools(runner: Runner | None = None, command: Callable[[dict[str, Any]],
         ok = kc.send_sms(phone, number, text)
         return f"SMS inviato a {name or number}." if ok else "Invio non riuscito."
 
+    photos_state: dict[str, Any] = {}
+
+    def photo_sync():
+        from ..mesh.photos import PhotoSync
+
+        if "sync" not in photos_state:
+            photos_state["sync"] = PhotoSync()
+        return photos_state["sync"]
+
+    def sync_photos() -> str:
+        from ..mesh.photos import describe, mount_phone
+
+        phone = kc.find()
+        if phone is None:
+            return "Il telefono non è vicino: le foto le salvo appena torna sulla stessa rete del PC."
+        root = mount_phone(bus, phone.id)
+        if root is None:
+            return ("Non riesco ad aprire la memoria del telefono: nell'app KDE Connect attiva «Sfoglia questo dispositivo» "
+                    "(su iPhone usa «Invia foto al PC» nella pagina «Il mio PC»).")
+        result = photo_sync().run(phone.id, root, deadline=time.monotonic() + 600)
+        return describe(result, phone.name)
+
+    def improve_photos(which: str = "ultime") -> str:
+        from ..mesh.photos import enhance
+
+        if which.strip().startswith(("/", "~")):
+            targets = [Path(which.strip()).expanduser()]
+        else:
+            targets = photo_sync().last_batch()
+        targets = [t for t in targets if t.is_file()][:50]
+        if not targets:
+            return "Non ho foto da migliorare: dimmi il percorso, o prima «sincronizza le foto»."
+        done, method = [], ""
+        for t in targets:
+            out, method = enhance(t, which=runner.which)
+            if out:
+                done.append(out)
+        if not done:
+            return f"Non sono riuscito a migliorarle: {method}"
+        return (f"Migliorate {len(done)} foto con {method}. Le originali restano; le nuove si chiamano «… (migliorata).jpg»"
+                + (f", es. {done[0]}" if len(done) == 1 else "") + ".")
+
     def phone_status() -> str:
         lines = []
         if kc.available():
@@ -188,6 +231,10 @@ def make_tools(runner: Runner | None = None, command: Callable[[dict[str, Any]],
         return f"Scollegato «{name}»: non potrà più aprire i file del PC né ricevere notifiche finché non lo ricolleghi."
 
     return [
+        Tool("sync_photos", "Salva sul PC le foto e i video della fotocamera del telefono che mancano "
+             "(non WhatsApp né screenshot).", params(), sync_photos),
+        Tool("improve_photos", "Migliora le foto (le ultime salvate dal telefono, o un file): luce, rumore, nitidezza; "
+             "con il modello AI se c'è.", params([], which="«ultime» o percorso della foto"), improve_photos),
         Tool("phone_notifications", "Riassume le notifiche del telefono: messaggi delle persone, codici, chiamate, altro.",
              params(), phone_notifications, reads_private=True),
         Tool("copy_code", "Copia sul PC l'ultimo codice di verifica (OTP) arrivato sul telefono.", params(), copy_code,
@@ -250,9 +297,20 @@ def _original(pattern: re.Pattern[str], text: str, low_match: re.Match[str], gro
     return m.group(group).strip() if m else low_match.group(group).strip()
 
 
+RE_PHOTOS = re.compile(r"^(?:sincronizza|salva|copia|scarica|porta|backup\s+del)(?:mi)?\s+(?:le\s+|tutte\s+le\s+)?(?:mie\s+)?"
+                       r"(?:foto|fotografie)(?:\s+e\s+(?:i\s+)?video)?(?:\s+del\s+telefono)?(?:\s+(?:sul|nel|al)\s+(?:pc|computer))?$")
+RE_IMPROVE = re.compile(r"^migliora\s+(?:le\s+(?:ultime\s+)?foto|(?:questa|la)\s+foto)(?:\s+(?P<p>[/~]\S+))?$")
+
+
 class PhoneRouter:
     def match(self, text: str) -> Intent | None:
         low = normalize(text)
+        if RE_PHOTOS.match(low):
+            return Intent("sync_photos", {})
+        m = RE_IMPROVE.match(low)
+        if m:
+            path = re.search(r"[/~]\S+", text)
+            return Intent("improve_photos", {"which": path.group(0) if path else "ultime"})
         if RE_NOTIFS.match(low):
             return Intent("phone_notifications", {})
         if RE_CODE.match(low):

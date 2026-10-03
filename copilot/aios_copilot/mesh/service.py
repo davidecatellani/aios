@@ -64,6 +64,9 @@ class MeshService:
         self.bus, self.copy = bus, copy
         self.seen_codes: set[str] = set()
         self.sync_every, self.next_sync = 120.0, 0.0
+        self.photos: Any = None  # PhotoSync: foto della fotocamera salvate da sole quando il telefono è vicino
+        self.photos_every, self.next_photos = 1800.0, 0.0
+        self._photos_busy = threading.Lock()
 
     def tick(self) -> None:
         try:
@@ -85,9 +88,30 @@ class MeshService:
             self.server.stop()
         self._calls()
         self._codes()
+        if self.photos is not None and phones and self.bus is not None and self.clock() >= self.next_photos:
+            self.next_photos = self.clock() + self.photos_every
+            threading.Thread(target=self.save_photos, daemon=True).start()
         if self.clock() >= self.next_sync:
             self.next_sync = self.clock() + self.sync_every
             threading.Thread(target=self.sync_now, daemon=True).start()
+
+    def save_photos(self) -> None:
+        from .photos import describe, mount_phone
+
+        if not self._photos_busy.acquire(blocking=False):
+            return
+        try:
+            for pid, name in list(self.near.items()):
+                root = mount_phone(self.bus, pid)
+                if root is None:
+                    continue
+                result = self.photos.run(pid, root, deadline=time.monotonic() + 900)
+                if result["foto"] or result["video"]:
+                    self.notify("📷 Foto salvate sul PC", describe(result, name))
+        except Exception:
+            pass
+        finally:
+            self._photos_busy.release()
 
     def sync_now(self) -> list[str]:
         """Sincronizzazione con gli altri dispositivi dell'utente (se c'è un'identità)."""
@@ -266,8 +290,12 @@ def build(search: Callable[[str], list[dict[str, Any]]] | None = None) -> MeshSe
 
     server = PhoneServer(FileShare(search=search), brain=Brain(), assistant=_Lazy(lambda: Assistant(phone_agent)),
                          sync=sync_engine)
-    return MeshService(KdeConnect(runner), Ofono(runner), server, bus=PhoneBus(runner),
-                       copy=lambda text: copy_to_clipboard(text, runner))
+    from .photos import PhotoSync
+
+    service = MeshService(KdeConnect(runner), Ofono(runner), server, bus=PhoneBus(runner),
+                          copy=lambda text: copy_to_clipboard(text, runner))
+    service.photos = PhotoSync()
+    return service
 
 
 def main(argv: list[str] | None = None) -> int:
