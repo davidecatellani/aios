@@ -304,6 +304,14 @@ il servizio si ferma e la memoria si libera.
 Ricerca futura del laboratorio AIOS: pesi compressi senza perdita, decompressi
 direttamente durante il calcolo.
 
+### Abilità delle app (`sdk.py`, [SDK.md](SDK.md))
+
+Le app offrono le loro funzioni al copilota con un manifesto JSON: parametri tipizzati,
+frasi riconosciute all'istante (livello 0) e chiamata tramite comando (senza shell)
+o D-Bus. Il risultato di un'app è un dato esterno, mai un'istruzione; le abilità che
+cambiano qualcosa chiedono conferma; quelle con dati personali passano dalla
+protezione dalle fughe. `aios-abilita` per elencare, validare, installare e provare.
+
 ### Aggiornamenti del sistema (`updates.py`)
 
 - **Sistema immutabile** (rpm-ostree / Fedora Atomic, oppure bootc): due volte al

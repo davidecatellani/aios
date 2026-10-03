@@ -74,6 +74,8 @@ def shared_fragment(outgoing: str, private_texts: Sequence[str]) -> str | None:
 
 
 def wrap(source: str, text: str) -> str:
+    # Un testo esterno non deve poter «chiudere» il proprio involucro e fingersi istruzioni.
+    text = re.sub(r"\[(INIZIO|FINE) ", lambda m: f"[{m.group(1)}\u200b ", text)
     return f"[INIZIO {source}]\n{text}\n[FINE {source}]"
 
 # confirm(tool, args) -> bool; con l'argomento opzionale warning=... per gli avvisi di privacy.
@@ -153,6 +155,8 @@ class Agent:
                     result = wrap("CONTENUTO WEB", result)
                 elif tool is not None and tool.reads_private:
                     result = wrap("DATI PRIVATI (file, email)", result)
+                elif tool is not None and tool.external:
+                    result = wrap("RISULTATO DI UN'APP", result)
                 self.messages.append({"role": "tool", "tool_name": name, "content": result})
 
         return "Mi sono fermato: la richiesta richiedeva troppi passaggi. Puoi riformularla?"

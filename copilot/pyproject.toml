@@ -30,6 +30,7 @@ aios-memoria = "aios_copilot.memory:main"
 aios-telefono = "aios_copilot.mesh.service:main"
 aios-relay = "aios_copilot.relay:main"
 aios-aggiornamenti = "aios_copilot.updates:main"
+aios-abilita = "aios_copilot.sdk:main"
 
 [tool.setuptools.packages.find]
 include = ["aios_copilot*"]

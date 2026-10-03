@@ -1,0 +1,19 @@
+{
+  "app": "org.aios.Timer",
+  "nome": "Timer",
+  "versione": 1,
+  "abilita": [
+    {
+      "nome": "avvia_timer",
+      "descrizione": "Avvia un timer: allo scadere arriva una notifica.",
+      "parametri": {
+        "minuti": {"tipo": "integer", "descrizione": "Durata in minuti"},
+        "nome": {"tipo": "string", "descrizione": "A cosa serve (es. pasta)"}
+      },
+      "obbligatori": ["minuti"],
+      "frasi": ["metti un timer di {minuti} minuti", "timer di {minuti} minuti per {nome}", "avvisami tra {minuti} minuti"],
+      "esegui": ["systemd-run", "--user", "--on-active={minuti}m", "--timer-property=AccuracySec=1s",
+                 "notify-send", "⏰ Timer", "Tempo scaduto: {nome}"]
+    }
+  ]
+}

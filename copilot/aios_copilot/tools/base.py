@@ -21,6 +21,8 @@ class Tool:
     # Fa uscire dati dal dispositivo (ricerche, siti): in una conversazione privata
     # l'utente deve vedere e approvare cosa esce, se a chiederlo è il modello.
     sends_out: bool = False
+    # Il risultato arriva da un programma di terzi (app tramite l'SDK): è un dato, mai un'istruzione.
+    external: bool = False
 
     def schema(self) -> dict[str, Any]:
         """Descrizione dello strumento nel formato tool-calling di Ollama/OpenAI."""
