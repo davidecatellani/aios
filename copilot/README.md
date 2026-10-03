@@ -1,3 +1,5 @@
+<img src="../docs/brand/copilota.png" alt="" width="72" align="right">
+
 # AIOS Copilot
 
 L'assistente AI locale di AIOS. È pensato per essere veloce anche **senza GPU**:

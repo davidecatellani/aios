@@ -4,6 +4,6 @@ Name=Benvenuto in AIOS
 Name[en]=Welcome to AIOS
 Comment=Scopri AIOS parlando con il tuo copilota
 Exec=aios-welcome
-Icon=help-about
+Icon=org.aios.Welcome
 Categories=System;
 StartupNotify=true

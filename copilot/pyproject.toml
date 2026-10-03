@@ -36,7 +36,7 @@ aios-abilita = "aios_copilot.sdk:main"
 include = ["aios_copilot*"]
 
 [tool.setuptools.package-data]
-aios_copilot = ["welcome/*.html", "mail/*.html", "mesh/*.html"]
+aios_copilot = ["welcome/*.html", "mail/*.html", "mesh/*.html", "brand/*"]
 
 [tool.pytest.ini_options]
 pythonpath = [".", "tests"]

@@ -1,3 +1,5 @@
+<p align="center"><img src="docs/brand/aios-logo.png" alt="AIOS" width="520"></p>
+
 # AIOS
 
 Un sistema operativo grafico, **unico per computer, tablet e telefoni**, in cui si

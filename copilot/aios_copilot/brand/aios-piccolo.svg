@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <title>AIOS</title>
+  <defs><linearGradient id="g" x1="0" y1="1" x2="1" y2="0">
+    <stop offset="0" stop-color="#0B6E99"/><stop offset="1" stop-color="#2EC4B6"/></linearGradient></defs>
+  <!-- versione semplificata dell'anello per le dimensioni piccole (16–48 px) -->
+  <ellipse cx="32" cy="33" rx="25" ry="15" transform="rotate(-18 32 33)" fill="none" stroke="url(#g)" stroke-width="6"/>
+  <circle cx="34" cy="17" r="9" fill="#0B6E99"/>
+  <circle cx="12" cy="44" r="7" fill="#0E79B0"/>
+  <circle cx="47" cy="40" r="8" fill="#2EC4B6"/>
+</svg>

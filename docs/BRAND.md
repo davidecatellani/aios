@@ -1,4 +1,25 @@
-# Marchio: prompt per i loghi
+# Marchio
+
+## I loghi scelti
+
+| | File | Uso |
+|---|---|---|
+| ![](brand/aios-logo.png) | `brand/aios-logo.png` | logo completo del sistema (documentazione, sito, schermata d'avvio) |
+| <img src="brand/aios-simbolo.png" width="96"> | `brand/aios-simbolo.png` | simbolo del sistema, da 64 px in su (icone grandi, app store) |
+| <img src="brand/aios-piccolo.svg" width="48"> | `brand/aios-piccolo.svg` | simbolo semplificato per 16–48 px: a quelle misure i disegni di telefono, tablet e PC si perderebbero |
+| <img src="brand/copilota.png" width="96"> | `brand/copilota.png` | il copilota: si legge bene anche a 16 px; nelle pagine «respira», più veloce quando lavora |
+
+Regole d'uso:
+- colori del marchio: blu profondo `#0B6E99`, turchese `#2EC4B6`, ambra `#E9C46A`
+  (sono anche il tema predefinito di AIOS); su fondo chiaro per i testi si usa il
+  turchese scurito `#0F8077`, per il contrasto;
+- il simbolo e la sfera non si deformano, non si ruotano e non si mettono su fondi
+  che ne coprano i colori; attorno lasciare almeno un quarto della loro larghezza;
+- icone di sistema: `copilot/data/icons/hicolor/` (`org.aios.Copilot`, `org.aios.Welcome`).
+
+![Il marchio nelle pagine di AIOS](img/marchio.png)
+
+# Prompt usati per i loghi
 
 Prompt pronti per un generatore di immagini (ChatGPT, Midjourney, ecc.). L'idea
 visiva comune: **AIOS** è un sistema che collega tutti i tuoi dispositivi (un anello,

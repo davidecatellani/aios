@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0b6e99">
 <title>Il mio PC</title>
+<link rel="icon" href="/brand/aios-piccolo.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/brand/aios-simbolo.png">
 <style>
   :root { --bg:#f6f7fb; --surface:#fff; --text:#16202a; --muted:#5b6672; --accent:#0b6e99; --on-accent:#fff; --line:#e3e7ee; }
   @media (prefers-color-scheme: dark) {
@@ -16,6 +18,7 @@
   header { position:sticky; top:0; z-index:2; background:var(--bg); padding:14px 16px 10px; border-bottom:1px solid var(--line); }
   h1 { font-size:20px; margin:0 0 10px; display:flex; align-items:center; gap:8px; }
   h1 .dot { width:10px; height:10px; border-radius:50%; background:#2fbf71; }
+  h1 .logo { width:28px; height:28px; }
   input[type=search], input[type=text] { width:100%; font:inherit; padding:12px 14px; border-radius:14px; border:1px solid var(--line);
     background:var(--surface); color:var(--text); }
   .crumbs { display:flex; gap:4px; flex-wrap:wrap; margin-top:10px; font-size:14px; }
@@ -67,7 +70,7 @@
 </head>
 <body>
 <header id="top" hidden>
-  <h1><span class="dot"></span><span id="pc">Il mio PC</span></h1>
+  <h1><img class="logo" src="/brand/aios-piccolo.svg" alt=""><span id="pc">Il mio PC</span><span class="dot" title="Collegato"></span></h1>
   <div class="tabs" role="tablist">
     <button id="tab-files" role="tab" aria-selected="true">📁 File</button>
     <button id="tab-ask" role="tab" aria-selected="false">💬 Chiedi</button>
@@ -91,7 +94,7 @@
   <div class="keyrow"><button id="left">Clic sinistro</button><button id="right">Clic destro</button></div>
 </section>
 <section id="ask-view" hidden>
-  <div id="chat"><p class="bubble pc">Chiedimi qualcosa: uso il modello AI del PC, più grande di quello del telefono. Posso cercare nei file e nella posta, leggere l'agenda, cercare sul web. Dal telefono non cambio nulla sul PC.</p></div>
+  <div id="chat"><img src="/brand/copilota.png" alt="" style="width:56px;height:56px;align-self:center;margin:8px 0"><p class="bubble pc">Chiedimi qualcosa: uso il modello AI del PC, più grande di quello del telefono. Posso cercare nei file e nella posta, leggere l'agenda, cercare sul web. Dal telefono non cambio nulla sul PC.</p></div>
   <form class="ask" id="ask-form">
     <input id="ask-text" type="text" placeholder="Es. trova il contratto d'affitto" autocomplete="off" maxlength="500">
     <button aria-label="Invia">➤</button>

@@ -186,12 +186,29 @@ def make_handler(app: LocalApp, port_ref: list[int]) -> type[BaseHTTPRequestHand
             except ValueError:
                 return {}
 
+        def _brand(self, name: str) -> None:
+            from .branding import brand_file
+
+            found = brand_file(name)
+            if found is None:
+                return self._json({"error": "non trovato"}, 404)
+            data, kind = found
+            self.send_response(200)
+            self.send_header("Content-Type", kind)
+            self.send_header("Content-Length", str(len(data)))
+            self.send_header("Cache-Control", "max-age=86400")
+            self.send_header("X-Content-Type-Options", "nosniff")
+            self.end_headers()
+            self.wfile.write(data)
+
         def _dispatch(self, method: str) -> None:
             url = urlparse(self.path)
             if not self._host_ok():
                 return self._json({"error": "host non valido"}, 403)
             if method == "GET" and url.path in ("/", "/index.html"):
                 return self._send(200, app.page.read_bytes(), "text/html; charset=utf-8")
+            if method == "GET" and url.path.startswith("/brand/"):  # loghi di AIOS: pubblici
+                return self._brand(url.path[7:])
             if method == "GET" and url.path == "/theme.css":  # colori del tema attivo: niente di privato
                 from .themeapply import current_css
 

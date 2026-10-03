@@ -367,7 +367,7 @@ def remix(theme: Theme, change: str) -> Theme:
 
 def wallpaper_svg(recipe: dict, width: int = 1920, height: int = 1080, dark: bool = False) -> str:
     """Disegna lo sfondo da una ricetta: niente file esterni, niente script."""
-    colors = [c for c in recipe.get("colors", []) if re.fullmatch(r"#[0-9a-fA-F]{6}", c)] or ["#5b4cf0", "#18a7e0"]
+    colors = [c for c in recipe.get("colors", []) if re.fullmatch(r"#[0-9a-fA-F]{6}", c)] or ["#0b6e99", "#2ec4b6"]
     rnd = random.Random(recipe.get("seed", 1))
     style = recipe.get("style", "gradiente")
     c0, c1 = colors[0], colors[1 % len(colors)]
@@ -467,7 +467,8 @@ def wallpaper_files(theme: Theme) -> tuple[Path | None, Path | None]:
 
 
 def default_theme() -> Theme:
-    light, dark = build_palettes("#5b4cf0", "#18a7e0")
+    # i colori del marchio: blu profondo, turchese, ambra (docs/BRAND.md)
+    light, dark = build_palettes("#0b6e99", "#2ec4b6")
     return Theme("aios", "AIOS", "Il tema predefinito", light, dark, 14, "Inter",
-                 {"kind": "ricetta", "style": "gradiente", "colors": ["#5b4cf0", "#18a7e0", "#f06bd0"], "seed": 1},
-                 ["#5b4cf0", "#18a7e0", "#f06bd0"], "integrato")
+                 {"kind": "ricetta", "style": "gradiente", "colors": ["#0b6e99", "#2ec4b6", "#e9c46a"], "seed": 1},
+                 ["#0b6e99", "#2ec4b6", "#e9c46a"], "integrato")

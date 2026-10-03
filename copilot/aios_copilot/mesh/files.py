@@ -295,6 +295,21 @@ def make_handler(server: PhoneServer) -> type[BaseHTTPRequestHandler]:
             auth = self.headers.get("Authorization", "")
             return server.devices.check(auth[7:]) if auth.startswith("Bearer ") else None
 
+        def _brand(self, name: str) -> None:
+            from ..branding import brand_file
+
+            found = brand_file(name)
+            if found is None:
+                return self._json({"error": "non trovato"}, 404)
+            data, kind = found
+            self.send_response(200)
+            self.send_header("Content-Type", kind)
+            self.send_header("Content-Length", str(len(data)))
+            self.send_header("Cache-Control", "max-age=86400")
+            self.send_header("X-Content-Type-Options", "nosniff")
+            self.end_headers()
+            self.wfile.write(data)
+
         def do_GET(self) -> None:
             url = urlparse(self.path)
             query = {k: v[0] for k, v in parse_qs(url.query).items()}
@@ -302,6 +317,8 @@ def make_handler(server: PhoneServer) -> type[BaseHTTPRequestHandler]:
                 body = PAGE.read_bytes()
                 self._headers(200, "text/html; charset=utf-8", len(body))
                 return self.wfile.write(body)
+            if url.path.startswith("/brand/"):  # loghi di AIOS: pubblici
+                return self._brand(url.path[7:])
             if url.path.startswith("/scarica/"):
                 return self._download(url.path[9:], bool(query.get("vedi")))
             if url.path == "/api/sync":
