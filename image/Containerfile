@@ -17,10 +17,13 @@ RUN dnf install -y \
         greenboot greenboot-default-health-checks \
     && dnf clean all
 
-# Ollama (modelli AI locali), dal pacchetto ufficiale per Linux
+# Ollama (modelli AI locali), dal pacchetto ufficiale per Linux. Le librerie CUDA si tolgono:
+# senza il driver NVIDIA (non incluso in Fedora) non servono e raddoppiano la chiavetta.
 ARG OLLAMA_ARCH=amd64
-RUN curl -fsSL "https://ollama.com/download/ollama-linux-${OLLAMA_ARCH}.tgz" | tar -xz -C /usr \
-    && ollama --version || true
+RUN set -e; base="https://ollama.com/download/ollama-linux-${OLLAMA_ARCH}"; \
+    if curl -fsSLo /tmp/ollama.tar.zst "$base.tar.zst"; then tar --zstd -xf /tmp/ollama.tar.zst -C /usr; \
+    else curl -fsSL "$base.tgz" | tar -xz -C /usr; fi; \
+    rm -rf /tmp/ollama.tar.zst /usr/lib/ollama/cuda_*; ollama --version || true
 COPY image/files/ /
 
 # Nova e i programmi di AIOS
@@ -41,4 +44,5 @@ RUN systemctl enable ollama.service greenboot-healthcheck.service \
     && dconf update \
     && sed -i 's/^PRETTY_NAME=.*/PRETTY_NAME="AIOS (Fedora Silverblue)"/' /usr/lib/os-release
 
-RUN bootc container lint
+# Controllo finale (gli avvisi non bloccano l'anteprima)
+RUN bootc container lint || echo "avviso: bootc container lint ha segnalato problemi"

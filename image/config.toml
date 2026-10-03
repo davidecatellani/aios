@@ -1,5 +1,11 @@
-# bootc-image-builder: utente iniziale della chiavetta (cambia la password al primo accesso)
-[[customizations.user]]
-name = "aios"
-password = "aios"
-groups = ["wheel"]
+# bootc-image-builder: configurazione della chiavetta d'installazione.
+# Lingua, tastiera e utente iniziale sono già impostati; il disco su cui installare lo scegli
+# tu nell'installatore (niente viene cancellato senza che tu lo confermi).
+# Utente iniziale: aios / password aios — cambiala al primo accesso (Impostazioni › Utenti).
+[customizations.installer.kickstart]
+contents = """
+lang it_IT.UTF-8
+keyboard it
+timezone Europe/Rome --utc
+user --name=aios --password=aios --plaintext --groups=wheel
+"""

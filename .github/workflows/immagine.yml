@@ -1,48 +1,77 @@
 name: Immagine AIOS
 
-# Costruisce l'immagine AIOS per PC (image/Containerfile) e la pubblica su ghcr.io.
+# Costruisce l'immagine AIOS per PC (image/Containerfile) e, a scelta:
+# - la chiavetta d'installazione (ISO), messa in una Release «anteprima» del repository;
+# - la pubblicazione dell'immagine su ghcr.io (serve per gli aggiornamenti e per rpm-ostree rebase).
 # Si avvia a mano (Actions › Immagine AIOS › Run workflow) o con un'etichetta v*.
 on:
   workflow_dispatch:
     inputs:
       iso:
-        description: "Crea anche la chiavetta d'installazione (ISO)"
+        description: "Crea la chiavetta d'installazione (ISO)"
+        type: boolean
+        default: true
+      pubblica:
+        description: "Pubblica l'immagine su ghcr.io"
         type: boolean
         default: false
   push:
     tags: ["v*"]
 
 permissions:
-  contents: read
+  contents: write
   packages: write
 
 env:
   IMMAGINE: ghcr.io/${{ github.repository_owner }}/aios
+  ISO: ${{ github.event_name == 'push' || inputs.iso }}
+  PUBBLICA: ${{ github.event_name == 'push' || inputs.pubblica }}
 
 jobs:
   immagine:
     runs-on: ubuntu-24.04
+    timeout-minutes: 180
     steps:
       - uses: actions/checkout@v4
       - name: Spazio sul disco
-        run: sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache \
+                      /usr/local/share/boost /usr/share/swift /usr/local/.ghcup
+          sudo docker image prune -af || true
+          df -h / /mnt
       - name: Costruisci
         run: sudo podman build -t "${IMMAGINE}:42" -f image/Containerfile .
       - name: Pubblica
+        if: env.PUBBLICA == 'true'
         run: |
           echo "${{ secrets.GITHUB_TOKEN }}" | sudo podman login ghcr.io -u "${{ github.actor }}" --password-stdin
           sudo podman push "${IMMAGINE}:42"
       - name: Chiavetta d'installazione
-        if: ${{ inputs.iso }}
+        if: env.ISO == 'true'
         run: |
-          mkdir -p uscita
+          sudo mkdir -p /mnt/uscita
           sudo podman run --rm --privileged --pull=newer --security-opt label=type:unconfined_t \
-            -v ./image/config.toml:/config.toml:ro -v ./uscita:/output \
+            -v ./image/config.toml:/config.toml:ro -v /mnt/uscita:/output \
             -v /var/lib/containers/storage:/var/lib/containers/storage \
             quay.io/centos-bootc/bootc-image-builder:latest \
             --type anaconda-iso --rootfs btrfs "${IMMAGINE}:42"
-      - uses: actions/upload-artifact@v4
-        if: ${{ inputs.iso }}
-        with:
-          name: aios-installazione-iso
-          path: uscita/bootiso/install.iso
+          ls -lh /mnt/uscita/bootiso
+      - name: Metti la ISO in una Release
+        if: env.ISO == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # GitHub accetta file fino a 2 GB: se la ISO è più grande si divide in pezzi.
+          sudo chown -R "$(id -u)" /mnt/uscita
+          cd /mnt/uscita/bootiso
+          mv install.iso aios-installazione.iso
+          sha256sum aios-installazione.iso > aios-installazione.iso.sha256
+          if [ "$(stat -c %s aios-installazione.iso)" -gt 2000000000 ]; then
+            split -b 1900M -d -a 1 aios-installazione.iso aios-installazione.iso.parte
+            rm aios-installazione.iso
+          fi
+          tag="anteprima-${GITHUB_RUN_NUMBER}"
+          gh release create "$tag" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --prerelease \
+            --title "AIOS per PC — anteprima ${GITHUB_RUN_NUMBER}" \
+            --notes-file "$GITHUB_WORKSPACE/image/RELEASE.md" \
+            aios-installazione.iso*
