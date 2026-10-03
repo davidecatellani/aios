@@ -35,6 +35,15 @@
   .empty { text-align:center; color:var(--muted); padding:40px 10px; }
   .upload { display:block; text-align:center; margin-top:10px; padding:10px; border-radius:12px; border:1px dashed var(--accent);
     color:var(--accent); font-weight:600; cursor:pointer; }
+  #keys-view { padding:10px 12px 30px; }
+  #typing { width:100%; min-height:110px; font:inherit; padding:12px; border-radius:14px; border:1px solid var(--line);
+    background:var(--surface); color:var(--text); }
+  .keyrow { display:flex; gap:6px; margin:10px 0; }
+  .keyrow button { flex:1; padding:12px 0; border-radius:12px; border:1px solid var(--line); background:var(--surface);
+    color:var(--text); font:600 16px system-ui; min-width:0; }
+  #pad { height:240px; border-radius:18px; border:1px solid var(--line); background:var(--surface); color:var(--muted);
+    display:flex; align-items:center; justify-content:center; text-align:center; padding:20px; touch-action:none;
+    user-select:none; -webkit-user-select:none; font-size:14px; }
   .tabs { display:flex; gap:6px; margin-bottom:10px; }
   .tabs button { flex:1; border:1px solid var(--line); background:var(--surface); color:var(--text); border-radius:12px; padding:9px; font:600 15px system-ui; }
   .tabs button[aria-selected=true] { background:var(--accent); color:var(--on-accent); border-color:var(--accent); }
@@ -58,7 +67,8 @@
   <h1><span class="dot"></span><span id="pc">Il mio PC</span></h1>
   <div class="tabs" role="tablist">
     <button id="tab-files" role="tab" aria-selected="true">📁 File</button>
-    <button id="tab-ask" role="tab" aria-selected="false">💬 Chiedi al PC</button>
+    <button id="tab-ask" role="tab" aria-selected="false">💬 Chiedi</button>
+    <button id="tab-keys" role="tab" aria-selected="false">⌨️ Tastiera</button>
   </div>
   <input id="q" type="search" placeholder="Cerca nei file del PC…" autocomplete="off">
   <nav class="crumbs" id="crumbs"></nav>
@@ -67,6 +77,16 @@
   </label>
 </header>
 <main id="main"></main>
+<section id="keys-view" hidden>
+  <textarea id="typing" placeholder="Scrivi qui: il testo appare sul PC, dove c'è il cursore." autocapitalize="sentences"></textarea>
+  <div class="keyrow">
+    <button data-k="esc">Esc</button><button data-k="tab">Tab</button><button data-k="sinistra">◀</button>
+    <button data-k="su">▲</button><button data-k="giu">▼</button><button data-k="destra">▶</button>
+    <button data-k="cancella">⌫</button><button data-k="invio">⏎</button>
+  </div>
+  <div id="pad" aria-label="Touchpad">Touchpad: trascina per muovere, tocca per cliccare, due dita per scorrere</div>
+  <div class="keyrow"><button id="left">Clic sinistro</button><button id="right">Clic destro</button></div>
+</section>
 <section id="ask-view" hidden>
   <div id="chat"><p class="bubble pc">Chiedimi qualcosa: uso il modello AI del PC, più grande di quello del telefono. Posso cercare nei file e nella posta, leggere l'agenda, cercare sul web. Dal telefono non cambio nulla sul PC.</p></div>
   <form class="ask" id="ask-form">
@@ -160,6 +180,7 @@ $("q").addEventListener("input", () => {
 function showPairing(message, code) {
   $("top").hidden = true;
   $("ask-view").hidden = true;
+  $("keys-view").hidden = true;
   $("main").hidden = false;
   const name = el("input", { type: "text", value: /iPhone/.test(navigator.userAgent) ? "iPhone" : /Android/.test(navigator.userAgent) ? "Telefono Android" : "Telefono" });
   name.setAttribute("aria-label", "Nome del telefono");
@@ -187,18 +208,20 @@ function showPairing(message, code) {
 
 function start() {
   $("top").hidden = false;
-  showTab(false);
+  showTab("files");
   $("pc").textContent = store.get("aios-pc") || "Il mio PC";
   browse("").catch(() => {});
 }
 
-function showTab(ask) {
-  $("tab-files").setAttribute("aria-selected", String(!ask));
-  $("tab-ask").setAttribute("aria-selected", String(ask));
-  $("q").hidden = ask; $("crumbs").hidden = ask; $("upload-label").hidden = ask; $("main").hidden = ask; $("ask-view").hidden = !ask;
-  if (ask) $("ask-text").focus();
+function showTab(which) {
+  for (const t of ["files", "ask", "keys"]) $("tab-" + t).setAttribute("aria-selected", String(t === which));
+  const files = which === "files";
+  $("q").hidden = !files; $("crumbs").hidden = !files; $("upload-label").hidden = !files; $("main").hidden = !files;
+  $("ask-view").hidden = which !== "ask"; $("keys-view").hidden = which !== "keys";
+  if (which === "ask") $("ask-text").focus();
 }
-$("tab-files").onclick = () => showTab(false);
+$("tab-files").onclick = () => showTab("files");
+$("tab-keys").onclick = () => showTab("keys");
 $("upload").onchange = async () => {
   const files = [...$("upload").files];
   const label = $("upload-label").firstChild;
@@ -212,7 +235,53 @@ $("upload").onchange = async () => {
   label.textContent = `✅ ${done} di ${files.length} salvati sul PC (Immagini/Telefono). Invia altre foto `;
   $("upload").value = "";
 };
-$("tab-ask").onclick = () => showTab(true);
+$("tab-ask").onclick = () => showTab("ask");
+
+// --- tastiera e touchpad -------------------------------------------------------------------
+let queue = [], sending = false;
+async function sendInput(ev) {
+  queue.push(ev);
+  if (sending) return;
+  sending = true;
+  while (queue.length) {
+    const eventi = queue.splice(0, 50);
+    try { await post("/api/input", { eventi }); } catch {}
+  }
+  sending = false;
+}
+$("typing").addEventListener("beforeinput", (e) => {
+  if (e.inputType === "insertText" || e.inputType === "insertCompositionText" || e.inputType === "insertReplacementText") {
+    if (e.data) sendInput({ tipo: "testo", testo: e.data });
+  } else if (e.inputType === "insertLineBreak" || e.inputType === "insertParagraph") sendInput({ tipo: "tasto", tasto: "invio" });
+  else if (e.inputType === "deleteContentBackward") sendInput({ tipo: "tasto", tasto: "cancella" });
+  else if (e.inputType === "deleteContentForward") sendInput({ tipo: "tasto", tasto: "canc" });
+});
+document.querySelectorAll("[data-k]").forEach((b) => b.onclick = () => sendInput({ tipo: "tasto", tasto: b.dataset.k }));
+$("left").onclick = () => sendInput({ tipo: "click", tasto: "sinistro" });
+$("right").onclick = () => sendInput({ tipo: "click", tasto: "destro" });
+const touches = new Map();
+let moved = 0, acc = { dx: 0, dy: 0, wheel: 0 }, flushTimer = null;
+function flush() {
+  flushTimer = null;
+  if (acc.dx || acc.dy) sendInput({ tipo: "muovi", dx: Math.round(acc.dx), dy: Math.round(acc.dy) });
+  if (Math.abs(acc.wheel) >= 1) sendInput({ tipo: "scorri", passi: Math.trunc(acc.wheel) });
+  acc = { dx: 0, dy: 0, wheel: acc.wheel % 1 };
+}
+$("pad").addEventListener("pointerdown", (e) => { $("pad").setPointerCapture(e.pointerId); touches.set(e.pointerId, e); moved = 0; });
+$("pad").addEventListener("pointermove", (e) => {
+  const prev = touches.get(e.pointerId);
+  if (!prev) return;
+  const dx = e.clientX - prev.clientX, dy = e.clientY - prev.clientY;
+  touches.set(e.pointerId, e);
+  moved += Math.abs(dx) + Math.abs(dy);
+  if (touches.size >= 2) acc.wheel += dy / 25; else { acc.dx += dx * 1.6; acc.dy += dy * 1.6; }
+  if (!flushTimer) flushTimer = setTimeout(flush, 30);
+});
+$("pad").addEventListener("pointerup", (e) => {
+  touches.delete(e.pointerId);
+  if (moved < 6 && touches.size === 0) sendInput({ tipo: "click", tasto: "sinistro" });
+});
+$("pad").addEventListener("pointercancel", (e) => touches.delete(e.pointerId));
 
 function bubble(cls, text) {
   const b = el("div", { className: cls, textContent: text });

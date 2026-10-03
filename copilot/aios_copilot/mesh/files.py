@@ -202,7 +202,8 @@ class PhoneServer:
         self.httpd: ThreadingHTTPServer | None = None
         self.brain, self.assistant = brain, assistant  # delega AI dal telefono (delegate.py)
         self.sync = sync  # motore di sincronizzazione (sync.py), creato alla prima richiesta
-        self.upload_dir: Path | None = None  # dove salvare le foto inviate (predefinito: Immagini/Telefono/anno/mese)
+        self.upload_dir: Path | None = None
+        self.input: Any = None  # tastiera e touchpad dal telefono (remote_input.py)  # dove salvare le foto inviate (predefinito: Immagini/Telefono/anno/mese)
         self.fingerprint = ""
         self.tickets: dict[str, tuple[Path, float]] = {}
 
@@ -381,6 +382,11 @@ def make_handler(server: PhoneServer) -> type[BaseHTTPRequestHandler]:
                 return self._json(reply)
             if self._device() is None:
                 return self._json({"error": "telefono non abbinato"}, 403)
+            if url.path == "/api/input":  # tastiera e touchpad dal telefono
+                if server.input is None or not server.input.available():
+                    return self._json({"error": "sul PC manca ydotool (o wtype/xdotool)"}, 503)
+                events = body.get("eventi") if isinstance(body.get("eventi"), list) else [body]
+                return self._json({"ok": all(server.input.handle(e) for e in events[:50] if isinstance(e, dict))})
             self._delegate("POST", url, body)
 
         def _upload(self, url: Any) -> None:

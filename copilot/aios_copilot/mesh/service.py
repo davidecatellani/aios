@@ -288,8 +288,11 @@ def build(search: Callable[[str], list[dict[str, Any]]] | None = None) -> MeshSe
             engine.append(made)
         return engine[0]
 
+    from .remote_input import InputInjector
+
     server = PhoneServer(FileShare(search=search), brain=Brain(), assistant=_Lazy(lambda: Assistant(phone_agent)),
                          sync=sync_engine)
+    server.input = InputInjector(runner)
     from .photos import PhotoSync
 
     service = MeshService(KdeConnect(runner), Ofono(runner), server, bus=PhoneBus(runner),
