@@ -464,7 +464,10 @@ class SemanticRouter:
 
 
 def default_router() -> SemanticRouter:
-    return SemanticRouter()
+    """Catalogo integrato più le frasi che il copilota ha imparato dall'utente."""
+    from .learning import load_learned
+
+    return SemanticRouter(catalog=with_examples(CATALOG, load_learned()))
 
 
 def _cli() -> None:

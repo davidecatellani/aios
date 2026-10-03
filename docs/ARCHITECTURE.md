@@ -156,6 +156,54 @@ usando come dati le richieste reali (anonime e con consenso) e il catalogo delle
 azioni del sistema. Un modello da 1 miliardo di parametri addestrato su questo
 compito può battere un modello generalista dieci volte più grande.
 
+### Conoscenza personale e privacy
+
+Il copilota conosce i file dell'utente tramite un **indice locale** (SQLite FTS5 per
+le parole, embedding per il significato), costruito a passi transazionali: uno
+spegnimento a metà non corrompe nulla e il lavoro riprende dal punto esatto.
+
+L'apprendimento avviene **a riposo** (`aios-learn`): utente inattivo o schermo
+bloccato, alimentazione collegata, sistema scarico; priorità `SCHED_IDLE` e I/O
+idle, cioè la CPU va all'apprendimento solo quando nessun altro la usa. Passi da
+0,5 s: al ritorno dell'utente la pausa è immediata. Durante lo standby il
+processore è spento: il processo resta congelato e riprende al risveglio, che
+viene riconosciuto (differenza tra `CLOCK_BOOTTIME` e `CLOCK_MONOTONIC`) per
+lasciare libero il computer.
+
+**Il rischio vero non è il cloud.** Un'AI che (1) legge dati privati, (2) legge
+contenuti di terzi (web, documenti ricevuti) e (3) può comunicare all'esterno può
+essere manipolata da istruzioni nascoste in una pagina per far uscire dati, anche
+se tutto gira in locale. Le difese di AIOS:
+
+- percorsi mai letti (chiavi, password, browser, posta) e segreti rimossi dall'indice;
+- cartelle escludibili a voce, con rimozione immediata dall'indice;
+- **porta di uscita sorvegliata**: dopo che una conversazione ha letto dati privati,
+  ogni azione verso l'esterno chiesta dal modello si ferma e mostra cosa uscirebbe,
+  segnalando i frammenti presi dai file (nomi, codici, importi);
+- contenuti web e dei file passati al modello come dati, mai come istruzioni;
+- permessi 600 per indice e cronologia; cifratura del disco e sandbox delle app
+  (che non possono leggere `~/.local/share/aios`) nell'immagine di sistema. Una
+  cifratura applicativa non basterebbe: un programma con lo stesso utente ne
+  leggerebbe comunque la chiave.
+
+**Addestramento del modello.** Oggi l'apprendimento è memoria e catalogo personale
+(le frasi dell'utente diventano esempi del livello 1). Il passo successivo è un
+adattamento LoRA del modello piccolo sulle richieste dell'utente, eseguito a riposo
+nello stesso pianificatore e con checkpoint frequenti.
+
+### Copilota proattivo (prossima fase)
+
+Non solo esecutore: un copilota che, conoscendo l'utente, **propone**.
+
+- **Agenda e promemoria**: appuntamenti detti a voce o trovati in email e documenti;
+  avvisi al momento giusto; riepilogo del mattino.
+- **Organizzazione della giornata**: impegni, scadenze, file su cui si sta lavorando.
+- **Consigli**: software adatti a ciò che si fa; film, serie, cartoni e video in base
+  ai gusti. I cataloghi (novità, uscite) si scaricano in forma generica e la scelta
+  avviene in locale: il profilo dei gusti non lascia mai il dispositivo.
+- **Dosaggio**: pochi suggerimenti, nei momenti giusti; "non mi interessa" è a sua
+  volta un segnale da cui imparare; "cosa sai di me?" mostra e corregge il profilo.
+
 ### Mesh dei dispositivi
 
 - **Identità:** ogni utente ha una chiave principale, e ogni dispositivo riceve una
@@ -171,6 +219,7 @@ compito può battere un modello generalista dieci volte più grande.
 | Fase | Obiettivo |
 |---|---|
 | **1 — Copilota** *(in corso; benvenuto conversazionale ✅)* | `aios-copilot` funzionante su qualsiasi Linux: ricerca web, installazione/avvio app, overlay grafico richiamabile da tastiera, motore di intenti veloce, classificatore semantico |
+| 1b — Conoscenza personale *(in corso)* | indice dei file ✅, protezione dalle fughe di dati ✅, apprendimento a riposo ✅, agenda e promemoria, riepilogo del mattino, consigli personalizzati |
 | 2 — Immagine PC | immagine immutabile con shell AIOS, copilota integrato, Bottles e Waydroid preinstallati |
 | 3 — Mesh | collegamento tra i dispositivi dello stesso utente, delega AI dal telefono al PC |
 | 4 — Mobile | immagine per 1–2 telefoni/tablet, input vocale |

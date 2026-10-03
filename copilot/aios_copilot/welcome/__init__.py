@@ -85,9 +85,9 @@ class Job:
         with self._lock:
             self.events.append(event)
 
-    def ask_confirmation(self, tool: Tool, args: dict[str, Any]) -> bool:
+    def ask_confirmation(self, tool: Tool, args: dict[str, Any], warning: str | None = None) -> bool:
         self._answered.clear()
-        self.pending = {"label": describe_call(tool, args)}
+        self.pending = {"label": describe_call(tool, args), "warning": warning}
         answered = self._answered.wait(CONFIRM_TIMEOUT)
         self.pending = None
         return answered and self._decision
@@ -119,7 +119,7 @@ class WelcomeApp:
         self._ids = itertools.count(1)
         self._current: Job | None = None
         # Un solo agente per tutta la conversazione: ricorda il contesto.
-        self.agent = make_agent(lambda tool, args: self._current.ask_confirmation(tool, args))
+        self.agent = make_agent(lambda tool, args, **kw: self._current.ask_confirmation(tool, args, **kw))
         self._agent_lock = threading.Lock()
         self.finished = threading.Event()
 

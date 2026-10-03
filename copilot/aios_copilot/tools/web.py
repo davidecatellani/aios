@@ -123,6 +123,7 @@ def make_tools(fetch: Fetch = http_get) -> list[Tool]:
             "anteprime dei risultati.",
             params(query="Testo da cercare"),
             search_web,
+            sends_out=True,
         ),
         Tool(
             "read_webpage",
@@ -130,5 +131,6 @@ def make_tools(fetch: Fetch = http_get) -> list[Tool]:
             "di un risultato di ricerca.",
             params(url="Indirizzo completo della pagina"),
             read_webpage,
+            sends_out=True,
         ),
     ]

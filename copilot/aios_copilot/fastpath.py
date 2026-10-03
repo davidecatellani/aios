@@ -37,6 +37,11 @@ INSTALL = r"(?:installa|installare|installami|scarica e installa|install)"
 SEARCH = r"(?:cerca|cercami|cercare|ricerca|search|google|look up)"
 WEB = r"(?:\s+(?:su internet|online|sul web|in rete|on the web|on internet))?"
 
+FILE_SEARCH = re.compile(
+    r"^(?:cerca|cercami|trova|trovami|search|find)\s+(?:(?:nei|tra i|fra i|in)\s+)?(?:miei\s+|my\s+)?"
+    r"(?:file|documenti|documento|files|documents)\s+(?P<x>.+)$"
+    r"|^(?:dov'è|dove è|dove sta|where is)\s+(?:il|la|lo|l'|the)?\s*(?:file|documento)\s+(?P<y>.+)$"
+)
 DOMAIN = re.compile(r"^(?:https?://)?(?:[a-z0-9-]+\.)+[a-z]{2,}(?:/\S*)?$")
 
 # Cartelle utente secondo la specifica XDG (nomi italiani e inglesi).
@@ -87,6 +92,7 @@ class FastPath:
 
     def __post_init__(self) -> None:
         self.rules = [
+            (FILE_SEARCH, lambda m: Intent("search_files", {"query": (m.group("x") or m.group("y")).strip()})),
             (re.compile(rf"^{OPEN}\s+(?P<x>.+)$"), self._open),
             (re.compile(rf"^{INSTALL}\s+(?P<x>.+)$"), self._install),
             (re.compile(rf"^{SEARCH}{WEB}\s+(?P<x>.+)$"), self._search),

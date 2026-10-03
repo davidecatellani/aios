@@ -23,6 +23,9 @@ TEMPLATES = {
     "take_screenshot": "📸 Screenshot",
     "lock_screen": "🔒 Blocco lo schermo",
     "power": "⏻ Energia: {action}",
+    "search_files": "🗂️ Cerco nei tuoi file: {query}",
+    "read_file": "📄 Leggo {path}",
+    "exclude_folder": "🚫 Escludo {path}",
 }
 
 

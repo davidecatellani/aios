@@ -14,19 +14,29 @@ from typing import Any
 
 from .agent import Agent, Confirm
 from .fastpath import FastPath
+from .fileindex import FileIndex
+from .learning import History
 from .llm import LLMError, OllamaClient
 from .multilingual import load_config, neural_router
 from .semantic import SemanticRouter, default_router
 from .status import describe_call
-from .tools import Runner, Tool, apps, default_tools
+from .tools import Runner, Tool, apps, default_tools, files
 
 
 def make_agent(confirm: Confirm, model: str | None = None) -> Agent:
     runner = Runner()
+    index: list[FileIndex] = []  # aperto alla prima ricerca, non all'avvio
+
+    def get_index() -> FileIndex:
+        if not index:
+            index.append(FileIndex())
+        return index[0]
+
     agent = Agent(
         OllamaClient(model=model),
-        default_tools(runner),
+        [*default_tools(runner), *files.make_tools(get_index)],
         confirm,
+        history=History().record,
         routers=[
             FastPath(find_apps=lambda query: apps.find_apps(runner, query)),  # livello 0
             semantic_router(),  # livello 1: italiano e inglese, < 1 ms
@@ -53,7 +63,9 @@ def multilingual_router() -> list[SemanticRouter]:
         return []
 
 
-def terminal_confirm(tool: Tool, args: dict[str, Any]) -> bool:
+def terminal_confirm(tool: Tool, args: dict[str, Any], warning: str | None = None) -> bool:
+    if warning:
+        print(f"  🔒 {warning}")
     answer = input(f"  Confermi? {describe_call(tool, args)} [s/N] ")
     return answer.strip().lower() in ("s", "si", "sì", "y", "yes")
 

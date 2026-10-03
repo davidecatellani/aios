@@ -104,14 +104,15 @@ class CopilotWindow(Gtk.ApplicationWindow):
         self.entry.grab_focus()
         return False
 
-    def confirm(self, tool: Tool, args: dict[str, Any]) -> bool:
+    def confirm(self, tool: Tool, args: dict[str, Any], warning: str | None = None) -> bool:
         """Chiamata dal thread dell'agente: mostra la richiesta e attende la risposta."""
         answered = threading.Event()
         result = {"ok": False}
 
         def show() -> bool:
             box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
-            label = Gtk.Label(label=f"Confermi? {describe_call(tool, args)}", wrap=True, hexpand=True, xalign=0)
+            prefix = f"🔒 {warning}\n" if warning else ""
+            label = Gtk.Label(label=f"{prefix}Confermi? {describe_call(tool, args)}", wrap=True, hexpand=True, xalign=0)
             yes, no = Gtk.Button(label="Procedi"), Gtk.Button(label="Annulla")
             yes.add_css_class("suggested-action")
 
@@ -156,7 +157,7 @@ class CopilotApp(Gtk.Application):
         if self.window is None:
             # L'agente chiede conferma tramite la finestra, che viene creata subito dopo.
             holder: dict[str, CopilotWindow] = {}
-            agent = self.make_agent(lambda tool, args: holder["w"].confirm(tool, args))
+            agent = self.make_agent(lambda tool, args, **kw: holder["w"].confirm(tool, args, **kw))
             self.window = holder["w"] = CopilotWindow(self, agent)
         self.window.present()
         self.window.entry.grab_focus()

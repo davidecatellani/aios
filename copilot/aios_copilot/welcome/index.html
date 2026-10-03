@@ -617,7 +617,7 @@ async function ask(text) {
         if (ev.kind === "fast") fast = true;
         if (ev.kind === "status") status(ev.text);
       }
-      if (s.pending && !shownConfirm) { shownConfirm = true; askConfirmation(job, s.pending.label); }
+      if (s.pending && !shownConfirm) { shownConfirm = true; askConfirmation(job, s.pending.label, s.pending.warning); }
       if (!s.pending) shownConfirm = false;
       if (s.done) { answer = s.answer; break; }
       await new Promise(r => setTimeout(r, 200));
@@ -635,11 +635,12 @@ async function ask(text) {
   enableInput();
 }
 
-function askConfirmation(job, label) {
+function askConfirmation(job, label, warning) {
   const box = document.createElement("div");
   box.className = "confirm";
   const span = document.createElement("span");
-  span.textContent = `${T.confirmAsk} ${label}`;
+  span.textContent = (warning ? `🔒 ${warning}\n` : "") + `${T.confirmAsk} ${label}`;
+  span.style.whiteSpace = "pre-wrap";
   const no = Object.assign(document.createElement("button"), { className: "btn", type: "button", textContent: T.confirmNo });
   const yes = Object.assign(document.createElement("button"), { className: "btn primary", type: "button", textContent: T.confirmYes });
   const decide = ok => {

@@ -25,6 +25,8 @@ Dettagli in [`docs/ARCHITECTURE.md`](../docs/ARCHITECTURE.md#motore-ai-veloce-an
 | `set_volume`, `set_brightness`, `set_theme`, `set_radio` | audio, luminosità, tema scuro/chiaro, Wi-Fi e Bluetooth | no |
 | `media_control`, `take_screenshot`, `lock_screen` | musica, screenshot, blocco schermo | no |
 | `power` | sospensione, spegnimento, riavvio | **sì** |
+| `search_files`, `read_file` | cerca e legge i tuoi documenti (indice locale) | no |
+| `exclude_folder` | «non leggere questa cartella» | no |
 
 ## Prova
 
@@ -40,6 +42,38 @@ cd copilot && pip install -e .
 aios-copilot                               # finestra grafica
 aios-copilot "installa un lettore video"   # oppure dal terminale
 ```
+
+### I tuoi file e l'apprendimento a riposo
+
+Il copilota cerca e legge i tuoi documenti (testi, PDF, Word, LibreOffice) tramite
+un indice locale: «cerca nei miei file il preventivo del bagno», «dov'è il
+documento del contratto». L'indice e l'apprendimento lavorano **quando non usi il
+computer** (inattivo o schermo bloccato), solo se è collegato alla corrente, con la
+priorità più bassa del sistema; appena torni si fermano, e riprendono più tardi da
+dove erano arrivati. Durante lo standby il processore è fermo: il lavoro resta
+congelato e riparte al risveglio, dopo una pausa.
+
+```bash
+aios-learn --now      # costruisce subito l'indice, senza aspettare il riposo
+aios-learn --status   # a che punto è, e quali frasi ha imparato
+aios-learn --forget   # cancella frasi imparate e cronologia
+systemctl --user enable --now aios-learn   # dopo aver copiato data/aios-learn.service
+```
+
+Cosa impara: l'indice dei file; il significato dei documenti (se è configurato un
+modello di embedding); **le tue frasi**: quando il modello AI risolve una richiesta
+con una sola azione riuscita, e la stessa frase porta due volte alla stessa azione,
+dalla volta dopo il copilota la esegue all'istante.
+
+**Privacy.** Non vengono mai letti chiavi e password (`~/.ssh`, `~/.gnupg`, `.env`,
+`*.kdbx`…), profili dei browser e posta; i segreti dentro i documenti (password,
+token, numeri di carta, IBAN) vengono rimossi dall'indice. «Non leggere la cartella
+Lavoro» la esclude e la toglie subito dall'indice. Se in una conversazione il
+copilota ha letto i tuoi file e poi il modello vuole inviare qualcosa su internet,
+l'azione si ferma e ti mostra cosa uscirebbe, evidenziando i dati presi dai tuoi file.
+I contenuti di pagine web e documenti vengono passati al modello come dati, mai come
+istruzioni. Indice e cronologia sono leggibili solo dal tuo utente (permessi 600);
+la cifratura vera è quella del disco, prevista nell'immagine di AIOS.
 
 ### Benvenuto
 

@@ -16,6 +16,11 @@ class Tool:
     func: Callable[..., str]
     # Le azioni che modificano il sistema devono essere approvate dall'utente.
     requires_confirmation: bool = False
+    # Legge dati personali (file, memoria): da qui in poi la conversazione è "privata".
+    reads_private: bool = False
+    # Fa uscire dati dal dispositivo (ricerche, siti): in una conversazione privata
+    # l'utente deve vedere e approvare cosa esce, se a chiederlo è il modello.
+    sends_out: bool = False
 
     def schema(self) -> dict[str, Any]:
         """Descrizione dello strumento nel formato tool-calling di Ollama/OpenAI."""
