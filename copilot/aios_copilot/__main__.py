@@ -20,7 +20,9 @@ from .llm import LLMError, OllamaClient
 from .multilingual import load_config, neural_router
 from .semantic import SemanticRouter, default_router
 from .status import describe_call
+from .agenda import Agenda
 from .tools import Runner, Tool, apps, default_tools, files
+from .tools import agenda as agenda_tools
 
 
 def make_agent(confirm: Confirm, model: str | None = None) -> Agent:
@@ -32,12 +34,25 @@ def make_agent(confirm: Confirm, model: str | None = None) -> Agent:
             index.append(FileIndex())
         return index[0]
 
+    agenda: list[Agenda] = []
+
+    def get_agenda() -> Agenda:
+        if not agenda:
+            agenda.append(Agenda())
+        return agenda[0]
+
+    def user_name() -> str:
+        from .welcome import load_profile
+
+        return load_profile().get("name", "")
+
     agent = Agent(
         OllamaClient(model=model),
-        [*default_tools(runner), *files.make_tools(get_index)],
+        [*default_tools(runner), *files.make_tools(get_index), *agenda_tools.make_tools(get_agenda, user_name)],
         confirm,
         history=History().record,
         routers=[
+            agenda_tools.AgendaRouter(),  # livello 0: promemoria, appuntamenti, riepilogo
             FastPath(find_apps=lambda query: apps.find_apps(runner, query)),  # livello 0
             semantic_router(),  # livello 1: italiano e inglese, < 1 ms
             *multilingual_router(),  # livello 1b: tutte le lingue, se configurato
@@ -72,7 +87,7 @@ def terminal_confirm(tool: Tool, args: dict[str, Any], warning: str | None = Non
 
 def print_event(kind: str, data: dict[str, Any]) -> None:
     if kind == "routed":
-        names = ["0", "1", "1 multilingue"]
+        names = ["0", "0", "1", "1 multilingue"]
         level = names[data["level"]] if data["level"] < len(names) else data["level"]
         print(f"  ⚡ capito al livello {level}, senza modello AI")
     elif kind == "tool_call" and not data["tool"].requires_confirmation:

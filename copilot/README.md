@@ -27,6 +27,9 @@ Dettagli in [`docs/ARCHITECTURE.md`](../docs/ARCHITECTURE.md#motore-ai-veloce-an
 | `power` | sospensione, spegnimento, riavvio | **sì** |
 | `search_files`, `read_file` | cerca e legge i tuoi documenti (indice locale) | no |
 | `exclude_folder` | «non leggere questa cartella» | no |
+| `add_reminder`, `add_event`, `list_agenda`, `daily_briefing` | promemoria, appuntamenti, agenda, riepilogo | no |
+| `complete_reminder`, `resolve_suggestion` | segna come fatto, accetta/ignora scadenze trovate | no |
+| `delete_agenda_item` | elimina dall'agenda | **sì** |
 
 ## Prova
 
@@ -41,6 +44,32 @@ sudo apt install python3-gi gir1.2-gtk-4.0
 cd copilot && pip install -e .
 aios-copilot                               # finestra grafica
 aios-copilot "installa un lettore video"   # oppure dal terminale
+```
+
+### Agenda e promemoria
+
+Si parla come a una persona, e le frasi d'agenda vengono capite all'istante, senza
+modello AI:
+
+- «ricordami di chiamare la mamma domani alle 18», «tra 20 minuti ricordami di togliere la pasta»
+- «ricordami di prendere la pillola ogni giorno alle 8», «tutti i martedì alle 21 la spazzatura»
+- «ho la visita medica il 3 novembre alle 11», «cena da Luca sabato sera», «compleanno di Anna il primo dicembre»
+- «che impegni ho domani?», «i miei promemoria», «fatto: comprare il latte», «cancella l'appuntamento dal dentista»
+- «buongiorno» → riepilogo della giornata
+
+Gli avvisi arrivano come notifiche del desktop: il giorno prima e un'ora prima per gli
+appuntamenti, all'ora giusta per i promemoria. Se il computer era spento o in standby,
+gli avvisi delle ultime 6 ore vengono recuperati al risveglio. Ogni mattina, dalle 8 (o
+alla prima accensione dopo, entro mezzogiorno), arriva il **riepilogo**: impegni di oggi,
+cose rimaste indietro, da fare, anteprima di domani, file su cui stavi lavorando, e
+**scadenze trovate nei tuoi documenti** («da pagare entro il 15/11»). Queste sono solo
+proposte: entrano in agenda solo se dici «aggiungi la scadenza 1».
+
+```bash
+aios-agenda oggi | domani | settimana | riepilogo
+aios-agenda esporta agenda.ics    # verso qualsiasi calendario
+aios-agenda importa calendario.ics
+systemctl --user enable --now aios-agenda   # dopo aver copiato data/aios-agenda.service
 ```
 
 ### I tuoi file e l'apprendimento a riposo

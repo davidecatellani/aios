@@ -26,6 +26,13 @@ TEMPLATES = {
     "search_files": "🗂️ Cerco nei tuoi file: {query}",
     "read_file": "📄 Leggo {path}",
     "exclude_folder": "🚫 Escludo {path}",
+    "add_reminder": "🔔 Promemoria: {what}",
+    "add_event": "📅 In agenda: {title}",
+    "list_agenda": "📅 Guardo l'agenda: {period}",
+    "daily_briefing": "☀️ Preparo il riepilogo",
+    "complete_reminder": "✅ Segno come fatto: {query}",
+    "delete_agenda_item": "🗑️ Eliminare dall'agenda: {query}",
+    "resolve_suggestion": "📌 Scadenza proposta n. {number}: {accept}",
 }
 
 

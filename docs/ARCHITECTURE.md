@@ -195,8 +195,10 @@ nello stesso pianificatore e con checkpoint frequenti.
 
 Non solo esecutore: un copilota che, conoscendo l'utente, **propone**.
 
-- **Agenda e promemoria**: appuntamenti detti a voce o trovati in email e documenti;
-  avvisi al momento giusto; riepilogo del mattino.
+- **Agenda e promemoria** ✅: date e orari in linguaggio naturale capiti in locale
+  (`when.py`), ricorrenze, avvisi recuperati dopo lo standby, formato iCalendar;
+  scadenze trovate nei documenti proposte nel **riepilogo del mattino** ✅ (mai
+  aggiunte senza il sì dell'utente). Da fare: sincronizzazione CalDAV, email.
 - **Organizzazione della giornata**: impegni, scadenze, file su cui si sta lavorando.
 - **Consigli**: software adatti a ciò che si fa; film, serie, cartoni e video in base
   ai gusti. I cataloghi (novità, uscite) si scaricano in forma generica e la scelta
@@ -219,7 +221,7 @@ Non solo esecutore: un copilota che, conoscendo l'utente, **propone**.
 | Fase | Obiettivo |
 |---|---|
 | **1 — Copilota** *(in corso; benvenuto conversazionale ✅)* | `aios-copilot` funzionante su qualsiasi Linux: ricerca web, installazione/avvio app, overlay grafico richiamabile da tastiera, motore di intenti veloce, classificatore semantico |
-| 1b — Conoscenza personale *(in corso)* | indice dei file ✅, protezione dalle fughe di dati ✅, apprendimento a riposo ✅, agenda e promemoria, riepilogo del mattino, consigli personalizzati |
+| 1b — Conoscenza personale *(in corso)* | indice dei file ✅, protezione dalle fughe di dati ✅, apprendimento a riposo ✅, agenda e promemoria ✅, riepilogo del mattino ✅, consigli personalizzati |
 | 2 — Immagine PC | immagine immutabile con shell AIOS, copilota integrato, Bottles e Waydroid preinstallati |
 | 3 — Mesh | collegamento tra i dispositivi dello stesso utente, delega AI dal telefono al PC |
 | 4 — Mobile | immagine per 1–2 telefoni/tablet, input vocale |

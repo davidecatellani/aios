@@ -279,6 +279,48 @@ class PhraseTask:
         tmp.replace(self.state_path)  # scrittura atomica
 
 
+@dataclass
+class DeadlineTask:
+    """Cerca scadenze e appuntamenti nei documenti indicizzati: diventano *proposte*
+    nel riepilogo del mattino, mai voci in agenda senza il sì dell'utente."""
+
+    index: FileIndex
+    agenda: Any
+    state_path: Path
+    batch: int = 40
+    name: str = "scadenze nei documenti"
+
+    def _last(self) -> int:
+        try:
+            return int(json.loads(self.state_path.read_text()).get("last_chunk", 0))
+        except (OSError, ValueError, AttributeError):
+            return 0
+
+    def available(self) -> bool:
+        return True
+
+    def has_work(self) -> bool:
+        return self.index.db.execute("SELECT 1 FROM chunks WHERE id > ? LIMIT 1", (self._last(),)).fetchone() is not None
+
+    def step(self, seconds: float) -> None:
+        from .agenda import find_deadlines
+
+        end = time.monotonic() + seconds
+        last = self._last()
+        while time.monotonic() < end:
+            rows = self.index.db.execute(
+                "SELECT id, path, text FROM chunks WHERE id > ? ORDER BY id LIMIT ?", (last, self.batch)).fetchall()
+            if not rows:
+                break
+            now = self.agenda.now()
+            for cid, path, text in rows:
+                for title, due in find_deadlines(text, now):
+                    self.agenda.suggest(title, due, path)
+                last = cid
+            self.state_path.parent.mkdir(parents=True, exist_ok=True)
+            self.state_path.write_text(json.dumps({"last_chunk": last}))
+
+
 # --- Pianificatore ------------------------------------------------------------------
 
 
@@ -380,6 +422,9 @@ def build(index: FileIndex | None = None) -> tuple[Scheduler, FileIndex]:
         PhraseTask(History(), data_dir() / "learn-state.json", learned_path()),  # leggero: per primo
         IndexTask(index),
     ]
+    from .agenda import Agenda
+
+    tasks.append(DeadlineTask(index, Agenda(), data_dir() / "deadline-state.json"))
     config = load_config()
     if config is not None:
         encoder = OllamaEncoder(config.model, prefix=config.prefix)
