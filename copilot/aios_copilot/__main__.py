@@ -9,16 +9,27 @@ from __future__ import annotations
 
 import argparse
 import sys
+import threading
 from typing import Any
 
 from .agent import Agent, Confirm
+from .fastpath import FastPath
 from .llm import LLMError, OllamaClient
 from .status import describe_call
-from .tools import Tool, default_tools
+from .tools import Runner, Tool, apps, default_tools
 
 
 def make_agent(confirm: Confirm, model: str | None = None) -> Agent:
-    return Agent(OllamaClient(model=model), default_tools(), confirm)
+    runner = Runner()
+    agent = Agent(
+        OllamaClient(model=model),
+        default_tools(runner),
+        confirm,
+        fastpath=FastPath(find_apps=lambda query: apps.find_apps(runner, query)),
+    )
+    # Il modello si prepara mentre l'utente scrive la prima richiesta.
+    threading.Thread(target=agent.warmup, daemon=True).start()
+    return agent
 
 
 def terminal_confirm(tool: Tool, args: dict[str, Any]) -> bool:

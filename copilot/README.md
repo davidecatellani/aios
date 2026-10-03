@@ -1,7 +1,14 @@
 # AIOS Copilot
 
-L'assistente AI locale di AIOS. Usa un modello linguistico in esecuzione sul tuo
-computer (tramite [Ollama](https://ollama.com)) e degli strumenti per agire sul sistema.
+L'assistente AI locale di AIOS. È pensato per essere veloce anche **senza GPU**:
+
+1. i comandi comuni ("apri Firefox", "installa VLC", "apri i Download", "cerca …")
+   vengono capiti dal **motore di intenti** in circa 10 µs, senza usare il modello AI;
+2. tutto il resto va a un modello linguistico piccolo in esecuzione sul tuo computer
+   (tramite [Ollama](https://ollama.com)), tenuto sempre in memoria e preparato
+   all'avvio.
+
+Dettagli in [`docs/ARCHITECTURE.md`](../docs/ARCHITECTURE.md#motore-ai-veloce-anche-senza-gpu).
 
 | Strumento | Cosa fa | Chiede conferma |
 |---|---|---|
@@ -15,8 +22,8 @@ computer (tramite [Ollama](https://ollama.com)) e degli strumenti per agire sul 
 ## Prova
 
 ```bash
-# 1. Modello locale con supporto agli strumenti
-ollama pull qwen2.5:7b-instruct
+# 1. Modello locale con supporto agli strumenti (piccolo: va bene anche senza GPU)
+ollama pull qwen2.5:1.5b-instruct
 
 # 2. Interfaccia grafica GTK4 (Debian/Ubuntu; su Fedora: python3-gobject gtk4)
 sudo apt install python3-gi gir1.2-gtk-4.0
@@ -35,7 +42,7 @@ finestra è già aperta, torna in primo piano. `Esc` la nasconde.
 
 | Variabile | Default | |
 |---|---|---|
-| `AIOS_MODEL` | `qwen2.5:7b-instruct` | qualsiasi modello Ollama con tool calling |
+| `AIOS_MODEL` | `qwen2.5:1.5b-instruct` | qualsiasi modello Ollama con tool calling; su PC potenti ad es. `qwen2.5:7b-instruct` |
 | `AIOS_OLLAMA_URL` | `http://localhost:11434` | anche un altro PC di casa |
 | `AIOS_SEARXNG_URL` | *(vuoto → DuckDuckGo)* | istanza [SearXNG](https://docs.searxng.org) per ricerche private |
 

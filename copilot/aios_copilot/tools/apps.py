@@ -87,17 +87,22 @@ def exec_command(desktop_file: Path) -> list[str]:
     return [a for a in exec_line.split() if not re.fullmatch(r"%[a-zA-Z]", a)]
 
 
+def find_apps(runner: Runner, query: str) -> list[dict[str, str]]:
+    found: list[dict[str, str]] = []
+    if runner.has("flatpak"):
+        _, out = runner.run(["flatpak", "search", "--columns=name,application,description", query])
+        found += parse_flatpak_search(out)[:8]
+    if runner.has("apt-cache"):
+        _, out = runner.run(["apt-cache", "search", "--names-only", query])
+        found += parse_apt_search(out)[:5]
+    return found
+
+
 def make_tools(runner: Runner | None = None) -> list[Tool]:
     runner = runner or Runner()
 
     def search_apps(query: str) -> str:
-        found: list[dict[str, str]] = []
-        if runner.has("flatpak"):
-            _, out = runner.run(["flatpak", "search", "--columns=name,application,description", query])
-            found += parse_flatpak_search(out)[:8]
-        if runner.has("apt-cache"):
-            _, out = runner.run(["apt-cache", "search", "--names-only", query])
-            found += parse_apt_search(out)[:5]
+        found = find_apps(runner, query)
         if not found:
             return f"Nessuna applicazione trovata per '{query}'."
         return "\n".join(

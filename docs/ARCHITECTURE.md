@@ -86,11 +86,52 @@ Ogni strumento dichiara se richiede conferma.
 Le azioni privilegiate passano da **polkit**, quindi il sistema stesso fa da ultima
 barriera anche se il modello sbagliasse.
 
-**Modelli:** su PC un modello da 7–14 miliardi di parametri con tool calling
-(famiglie Qwen, Llama, Mistral) tramite Ollama. Su telefono un modello da 1–4
-miliardi; le richieste pesanti possono essere delegate al PC dell'utente tramite la
-mesh, senza passare dal cloud. Un modello cloud resta un'opzione esplicita, scelta
-dall'utente.
+Il dettaglio di come il copilota resta veloce anche senza GPU è nella sezione
+successiva.
+
+### Motore AI: veloce anche senza GPU
+
+Il copilota tradizionale manda ogni frase a un grande modello linguistico. Su un
+telefono o un PC senza GPU questo significa secondi di attesa per ogni comando.
+AIOS parte da un'idea diversa: **essendo il sistema operativo, sa già quasi tutto**
+(app installate, file, impostazioni, cosa c'è sullo schermo). Il modello linguistico
+serve solo per la parte che il sistema davvero non sa.
+
+Le richieste attraversano una cascata di livelli; ognuno risponde solo se è sicuro,
+altrimenti passa al successivo:
+
+| Livello | Cosa fa | Tempo tipico su CPU | Stato |
+|---|---|---|---|
+| **0 — Motore di intenti** | regole + conoscenza del sistema: "apri Firefox", "installa VLC", "apri i Download", "cerca …" | **~10 µs** | ✅ `copilot/aios_copilot/fastpath.py` |
+| 1 — Classificatore semantico | piccolo modello di embedding (~20–30 M parametri) che riconosce le frasi riformulate liberamente ("fammi sentire un po' di musica") e le mappa sulle azioni del sistema | 1–5 ms | prossimo |
+| 2 — Modello linguistico piccolo | 0,5–3 miliardi di parametri quantizzati a 4 bit (o ternari, tipo BitNet), con output vincolato al formato delle azioni | 0,3–2 s | ✅ base (`qwen2.5:1.5b` via Ollama) |
+| 3 — Modello grande | sul PC dell'utente, raggiunto tramite la mesh, o nel cloud se l'utente lo sceglie | variabile | futuro |
+
+Il livello 2 ha un default piccolo perché su CPU conta la reattività. È proprio
+grazie ai livelli 0–1, che gestiscono i comandi frequenti, che basta un modello piccolo.
+
+**Vantaggi che ha solo un sistema operativo** (e che un'app non può avere):
+
+- **Modello sempre caricato.** Viene caricato all'avvio, non viene mai scaricato dalla
+  memoria e i pesi sono condivisi tra i processi: niente attese di caricamento. ✅ (`keep_alive`)
+- **Prompt pre-elaborato.** Istruzioni e strumenti vengono elaborati una volta sola e
+  la loro cache viene riusata; senza GPU, leggere il prompt è il costo maggiore. ✅ (warmup all'avvio)
+- **Contesto senza fatica.** Il sistema passa all'AI direttamente l'app attiva, la
+  selezione e gli appunti, invece di farglieli "indovinare" con prompt lunghi.
+- **Priorità dello scheduler.** Le richieste dell'utente ottengono i core più veloci
+  e la memoria con pagine grandi (huge pages).
+- **Indice sempre aggiornato.** File, app e impostazioni vengono indicizzati mentre
+  cambiano (inotify), non al momento della domanda.
+- **Esecuzione anticipata.** Mentre l'utente scrive, il livello 0–1 prevede l'azione
+  e prepara il necessario.
+- **Acceleratori.** NPU e unità vettoriali dei SoC dei telefoni, quando disponibili.
+
+**Verso un modello "nostro".** Addestrare da zero un modello generalista costa milioni
+e non serve. La strada percorribile è un modello piccolo **specializzato sulle
+azioni di AIOS**, ottenuto con fine-tuning e distillazione da un modello grande,
+usando come dati le richieste reali (anonime e con consenso) e il catalogo delle
+azioni del sistema. Un modello da 1 miliardo di parametri addestrato su questo
+compito può battere un modello generalista dieci volte più grande.
 
 ### Mesh dei dispositivi
 
@@ -106,7 +147,7 @@ dall'utente.
 
 | Fase | Obiettivo |
 |---|---|
-| **1 — Copilota** *(in corso)* | `aios-copilot` funzionante su qualsiasi Linux: ricerca web, installazione/avvio app, overlay grafico richiamabile da tastiera |
+| **1 — Copilota** *(in corso)* | `aios-copilot` funzionante su qualsiasi Linux: ricerca web, installazione/avvio app, overlay grafico richiamabile da tastiera, motore di intenti veloce, classificatore semantico |
 | 2 — Immagine PC | immagine immutabile con shell AIOS, copilota integrato, Bottles e Waydroid preinstallati |
 | 3 — Mesh | collegamento tra i dispositivi dello stesso utente, delega AI dal telefono al PC |
 | 4 — Mobile | immagine per 1–2 telefoni/tablet, input vocale |

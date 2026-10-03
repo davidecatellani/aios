@@ -6,6 +6,7 @@ import json
 from datetime import date
 from typing import Any, Callable
 
+from .fastpath import FastPath
 from .llm import ChatModel
 from .tools import Tool
 
@@ -27,6 +28,8 @@ Regole:
 - Non inventare risultati: se uno strumento fallisce, dillo e proponi un'alternativa.
 """
 
+REFUSED = "L'utente ha rifiutato questa azione."
+
 Confirm = Callable[[Tool, dict[str, Any]], bool]
 OnEvent = Callable[[str, dict[str, Any]], None]
 
@@ -38,11 +41,13 @@ class Agent:
         tools: list[Tool],
         confirm: Confirm,
         max_steps: int = 8,
+        fastpath: FastPath | None = None,
     ):
         self.model = model
         self.tools = {t.name: t for t in tools}
         self.confirm = confirm
         self.max_steps = max_steps
+        self.fastpath = fastpath
         self.reset()
 
     def reset(self) -> None:
@@ -54,6 +59,16 @@ class Agent:
         """Elabora una richiesta dell'utente e restituisce la risposta finale."""
         emit = on_event or (lambda kind, data: None)
         self.messages.append({"role": "user", "content": text})
+
+        intent = self.fastpath.match(text) if self.fastpath else None
+        if intent is not None and intent.tool in self.tools:
+            emit("fast_path", {"intent": intent})
+            result = self._run_tool(intent.tool, intent.args, emit)
+            answer = "Va bene, annullato." if result == REFUSED else result
+            # Resta nella cronologia: l'LLM avrà il contesto per le richieste successive.
+            self.messages.append({"role": "assistant", "content": answer})
+            return answer
+
         schemas = [t.schema() for t in self.tools.values()]
 
         for _ in range(self.max_steps):
@@ -84,7 +99,7 @@ class Agent:
 
         emit("tool_call", {"tool": tool, "args": args})
         if tool.requires_confirmation and not self.confirm(tool, args):
-            result = "L'utente ha rifiutato questa azione."
+            result = REFUSED
         else:
             try:
                 result = tool.func(**args)
@@ -94,3 +109,10 @@ class Agent:
                 result = f"Errore durante {name}: {exc}"
         emit("tool_result", {"tool": tool, "result": result})
         return result
+
+    def warmup(self) -> None:
+        """Prepara il modello in background, così la prima risposta è già veloce."""
+        try:
+            self.model.warmup(self.messages[:1], [t.schema() for t in self.tools.values()])
+        except Exception:
+            pass  # facoltativo: se il modello non è raggiungibile se ne accorgerà ask()
