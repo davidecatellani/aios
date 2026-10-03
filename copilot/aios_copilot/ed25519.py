@@ -114,3 +114,15 @@ def sign(seed: bytes, message: bytes) -> bytes:
     big_r = _compress(_mul(r, BASE))
     h = int.from_bytes(hashlib.sha512(big_r + pub + message).digest(), "little") % Q
     return big_r + ((r + h * a) % Q).to_bytes(32, "little")
+
+
+def to_x25519_public(public: bytes) -> bytes:
+    """La stessa chiave vista come chiave di cifratura (u = (1 + y) / (1 - y)), come in libsodium."""
+    y = int.from_bytes(public, "little") & ((1 << 255) - 1)
+    return ((1 + y) * pow(1 - y, P - 2, P) % P).to_bytes(32, "little")
+
+
+def to_x25519_private(seed: bytes) -> bytes:
+    """Lo scalare privato di Ed25519 (già «clampato»), usabile con X25519."""
+    a, _ = _expand(seed)
+    return a.to_bytes(32, "little")

@@ -86,6 +86,25 @@ class SyncEngine:
         self.clock.ms = row[0] or 0
         self.lock = threading.RLock()
 
+    def rekey(self, key: bytes) -> None:
+        """Nuova chiave di sincronizzazione: si ricifra tutto con gli stessi orologi (nessuna modifica persa)
+        e si ricomincia lo scambio con tutti da capo."""
+        with self.lock:
+            if key == self.key:
+                return
+            old_key, rows = self.key, self.db.execute("SELECT hkey, ms, ctr, dev, box FROM ops").fetchall()
+            self.key = key
+            self.db.execute("DELETE FROM ops")
+            for hkey, ms, ctr, dev, box in rows:
+                try:
+                    doc = json.loads(open_sealed(old_key, base64.b64decode(box), self._aad(hkey, ms, ctr, dev)))
+                except (ValueError, DecryptError):
+                    continue
+                new_h = self._hkey(doc["k"])
+                sealed = seal(key, json.dumps(doc).encode(), self._aad(new_h, ms, ctr, dev))
+                self._store(new_h, ms, ctr, dev, base64.b64encode(sealed).decode())
+            self.db.execute("DELETE FROM peers")
+
     # --- utilità ------------------------------------------------------------------------------
     def _hkey(self, key: str) -> str:
         return hmac.new(self.key, key.encode(), hashlib.sha256).hexdigest()[:32]

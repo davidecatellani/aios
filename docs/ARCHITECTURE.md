@@ -400,9 +400,17 @@ di ogni voce, usando l'orologio in chiaro) e le consegna agli altri.
   «usa il relay https://…» e arriva da solo agli altri dispositivi (è un'impostazione
   sincronizzata). Certificato verificato dalle autorità o fissato con l'impronta.
 
-Prossimi passi: rotazione della chiave di sincronizzazione dopo una revoca (oggi il
-dispositivo revocato non riceve più nulla, ma conosce i dati vecchi), CRDT di testo
-per le note condivise, sincronizzazione delle immagini dei temi.
+**Cambio della chiave dopo una revoca.** Revocare un dispositivo crea una nuova
+chiave di sincronizzazione (epoca successiva), cifrata per ciascun dispositivo rimasto
+con la sua stessa chiave Ed25519 convertita in X25519 (chiave effimera + HKDF +
+ChaCha20-Poly1305) e firmata dalla chiave principale. Il pacchetto viaggia con le
+risposte di sincronizzazione (in casa e dal relay); chi lo riceve ricifra i propri dati
+con gli stessi orologi (nessuna modifica persa) e riparte. Il relay, alla nuova epoca,
+cancella i dati cifrati con la chiave vecchia. Il dispositivo revocato conserva solo
+ciò che aveva già.
+
+Prossimi passi: CRDT di testo per le note condivise, sincronizzazione delle immagini
+dei temi.
 
 ## Roadmap
 

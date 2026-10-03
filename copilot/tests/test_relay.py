@@ -179,3 +179,43 @@ def test_copilot_turns_the_relay_on_and_off():
     assert "relay https://Relay.Example.org" in agent.ask("la mia identità")
     assert agent.ask("disattiva il relay").startswith("Relay disattivato")
     assert "relay" not in ident.Identity.load().data
+
+
+def test_key_rotation_after_revocation(relay_server, tmp_path):
+    from aios_copilot.mesh.delegate import _sync_rotating
+
+    store, cfg = relay_server
+    davide = User("Davide")
+    laptop = davide.device("Portatile", holds_master=True)
+    phone, tablet = davide.device("Pixel 8", "telefono"), davide.device("Tablet", "tablet")
+    laptop.data["dispositivi"] = [d.certificate.to_dict() for d in (laptop, phone, tablet)]
+    engines = {name: engine(dev, tmp_path, name) for name, dev in (("a", laptop), ("p", phone), ("t", tablet))}
+    sync = {name: (lambda dev, eng: lambda: _sync_rotating(dev, eng, "relay", relay.relay_requester(dev, cfg)))(dev, engines[name][0])
+            for name, dev in (("a", laptop), ("p", phone), ("t", tablet))}
+    engines["a"][1].data["spesa"] = "latte"
+    for name in "apt":
+        sync[name]()
+    assert engines["t"][1].data == engines["p"][1].data == {"spesa": "latte"}
+    old_key = phone.sync_key()
+
+    laptop.revoke("pixel")  # revoca → nuova chiave cifrata solo per portatile e tablet
+    assert laptop.epoch == 1 and laptop.sync_key() != old_key
+    assert set(laptop.data["chiavi"]["wrapped"]) == {laptop.certificate.id, tablet.certificate.id}
+    engines["a"][1].data["dopo"] = "nuovo indirizzo di casa"
+    sync["a"]()
+    sync["t"]()  # il tablet riceve la nuova chiave, ricifra i suoi dati e continua
+    assert tablet.epoch == 1 and tablet.sync_key() == laptop.sync_key()
+    assert engines["t"][1].data == {"spesa": "latte", "dopo": "nuovo indirizzo di casa"}
+    engines["t"][1].data["film"] = "Dune"
+    sync["t"]()
+    sync["a"]()
+    assert engines["a"][1].data["film"] == "Dune"
+
+    # il telefono revocato: respinto dal relay, e anche con i dati in mano non saprebbe leggerli
+    with pytest.raises(ConnectionError, match="riconosciuto"):
+        sync["p"]()
+    assert not phone.accept_keys(laptop.data["chiavi"])  # la chiave nuova non è cifrata per lui
+    stolen, _ = store.since(laptop.mailbox, 0)
+    assert stolen and engines["p"][0].merge(stolen) == 0 and "dopo" not in engines["p"][1].data
+    forged = {**laptop.data["chiavi"], "epoch": 5}
+    assert not tablet.accept_keys(forged)  # epoca alterata: firma non valida

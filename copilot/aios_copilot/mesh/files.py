@@ -334,13 +334,17 @@ def make_handler(server: PhoneServer) -> type[BaseHTTPRequestHandler]:
             engine = server.sync() if server.sync else None
             if engine is None:
                 return self._json({"error": "sincronizzazione non attiva"}, 404)
+            from ..identity import Identity
+
+            identity = Identity.load()
+            if identity.sync_key() and identity.sync_key() != engine.key:
+                engine.rekey(identity.sync_key())  # chiave cambiata (revoca): prima si ricifra
             if method == "GET":
                 engine.scan()
                 after = query.get("dopo", "0")
                 ops, seq = engine.ops_since(int(after) if after.isdigit() else 0)
-                from ..identity import Identity
-
-                return self._json({"ops": ops, "seq": seq, "revoche": Identity.load().data.get("revoche", {})})
+                return self._json({"ops": ops, "seq": seq, "revoche": identity.data.get("revoche", {}),
+                                   "chiavi": identity.data.get("chiavi", {})})
             try:
                 body = json.loads(raw or b"{}")
             except ValueError:

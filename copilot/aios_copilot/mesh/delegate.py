@@ -218,11 +218,36 @@ def signed_requester(identity: Any, url: str, fingerprint: str,
     def call(method: str, path: str, payload: Any) -> Any:
         body = json.dumps(payload).encode() if payload is not None else b""
         reply = request(url, method, path, payload, identity.sign_request(method, path, body), fingerprint, 60)
-        if isinstance(reply, dict) and isinstance(reply.get("revoche"), dict) and reply["revoche"]:
-            identity.accept_revocations(reply["revoche"])  # accettate solo se firmate dall'utente e più recenti
-        return reply
+        return accept_updates(identity, reply)
 
     return call
+
+
+def accept_updates(identity: Any, reply: Any) -> Any:
+    """Revoche e nuove chiavi che viaggiano con le risposte (accettate solo se firmate dall'utente e più recenti)."""
+    from ..identity import KeyRotated
+
+    if isinstance(reply, dict):
+        if isinstance(reply.get("revoche"), dict) and reply["revoche"]:
+            identity.accept_revocations(reply["revoche"])
+        if isinstance(reply.get("chiavi"), dict) and reply["chiavi"] and identity.accept_keys(reply["chiavi"]):
+            raise KeyRotated()
+    return reply
+
+
+def _sync_rotating(identity: Any, engine: Any, peer: str, requester: Callable[[str, str, Any], Any]) -> tuple[int, int]:
+    """Una sincronizzazione; se a metà arriva una nuova chiave, si ricifra e si riparte una volta."""
+    from ..identity import KeyRotated
+
+    for attempt in range(2):
+        if identity.sync_key() and identity.sync_key() != engine.key:
+            engine.rekey(identity.sync_key())
+        try:
+            return engine.sync_with(peer, requester)
+        except KeyRotated:
+            if attempt:
+                raise
+    return 0, 0
 
 
 def sync_peers(identity: Any, engine: Any, request: Callable[..., Any] = pinned_request) -> list[str]:
@@ -230,7 +255,8 @@ def sync_peers(identity: Any, engine: Any, request: Callable[..., Any] = pinned_
     report = []
     for peer in identity.data.get("pari", []):
         try:
-            got, sent = engine.sync_with(peer["url"], signed_requester(identity, peer["url"], peer["fingerprint"], request))
+            got, sent = _sync_rotating(identity, engine, peer["url"],
+                                       signed_requester(identity, peer["url"], peer["fingerprint"], request))
             report.append(f"{peer.get('nome', peer['url'])}: ricevute {got}, inviate {sent}")
         except PinError:
             report.append(f"{peer.get('nome', peer['url'])}: certificato diverso, sincronizzazione bloccata per sicurezza")
@@ -246,7 +272,7 @@ def sync_peers(identity: Any, engine: Any, request: Callable[..., Any] = pinned_
         from ..relay import relay_requester
 
         try:
-            got, sent = engine.sync_with(f"relay:{relay['url']}", relay_requester(identity, relay))
+            got, sent = _sync_rotating(identity, engine, f"relay:{relay['url']}", relay_requester(identity, relay))
             report.append(f"relay: ricevute {got}, inviate {sent}")
         except ConnectionError as exc:
             report.append("relay: " + ("non riconosce più questo dispositivo (revocato?)" if "riconosciuto" in str(exc)

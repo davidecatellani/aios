@@ -27,7 +27,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from . import ed25519, vault
-from .crypto import hkdf
+from .crypto import hkdf, unwrap, wrap_for
 
 MASTER_SECRET = "identita-segreto"
 DEVICE_SEED = "identita-dispositivo"
@@ -60,6 +60,10 @@ assert len(WORDS) == 256 and len({w[:4] for w in WORDS}) == 256 and min(map(len,
 
 class IdentityError(ValueError):
     pass
+
+
+class KeyRotated(Exception):
+    """È arrivata una nuova chiave di sincronizzazione: i dati vanno ricifrati prima di continuare."""
 
 
 def b64(data: bytes) -> str:
@@ -260,7 +264,54 @@ class Identity:
             seq = int(self.data.get("revoche", {}).get("seq", 0)) + 1
             self.data["revoche"] = revocation_list(master, list(self.revoked | {c.id for c in hits}), seq)
             self.save()
+            self.rotate_sync_key()  # il dispositivo revocato non potrà leggere nulla di nuovo
         return hits
+
+    # --- chiave di sincronizzazione a epoche ------------------------------------------------------
+    @property
+    def epoch(self) -> int:
+        return int(self.data.get("chiavi", {}).get("epoch", 0))
+
+    def rotate_sync_key(self) -> dict:
+        """Nuova chiave di sincronizzazione, cifrata per ciascun dispositivo non revocato e firmata."""
+        master = self.master()
+        if master is None:
+            raise IdentityError("serve il dispositivo che custodisce la chiave principale")
+        new_key = secrets.token_bytes(32)
+        epoch = self.epoch + 1
+        wrapped = {}
+        for cert in self.devices:
+            if cert.id in self.revoked or not self.trusts(cert):
+                continue
+            info = f"{cert.id}|{epoch}".encode()
+            wrapped[cert.id] = wrap_for(ed25519.to_x25519_public(unb64(cert.public)), new_key, info)
+        body = {"v": 1, "epoch": epoch, "wrapped": wrapped}
+        doc = {**body, "signature": b64(ed25519.sign(master, canonical(body)))}
+        self._store_sync_key(new_key)
+        self.data["chiavi"] = doc
+        self.save()
+        return doc
+
+    def accept_keys(self, doc: dict) -> bool:
+        """Una nuova chiave arrivata da un altro dispositivo o dal relay: firmata dall'utente e più recente."""
+        try:
+            body = {"v": doc["v"], "epoch": int(doc["epoch"]), "wrapped": doc["wrapped"]}
+            if body["epoch"] <= self.epoch or not ed25519.verify(self.user_public, canonical(body), unb64(doc["signature"])):
+                return False
+            me = self.certificate.id
+            new_key = unwrap(ed25519.to_x25519_private(self.device_seed()), body["wrapped"][me], f"{me}|{body['epoch']}".encode())
+        except (KeyError, TypeError, ValueError):
+            return False  # non è per questo dispositivo (revocato?) o è alterata
+        self._store_sync_key(new_key)
+        self.data["chiavi"] = doc
+        self.save()
+        return True
+
+    def _store_sync_key(self, key: bytes) -> None:
+        if self._sync_key is not None:
+            self._sync_key = key
+        else:
+            vault.store(SYNC_KEY, b64(key))
 
     def accept_revocations(self, doc: dict) -> bool:
         """Revoche arrivate da un altro dispositivo: solo se firmate dall'utente e più recenti."""
@@ -278,7 +329,8 @@ class Identity:
         key = self.sync_key()
         return {"utente": self.data["utente"], "nome": self.name, "certificato": cert.to_dict(),
                 "revoche": self.data.get("revoche", {}), "dispositivi": self.data.get("dispositivi", []),
-                "sincronizzazione": b64(key) if key else "", "relay": self.data.get("relay")}
+                "sincronizzazione": b64(key) if key else "", "relay": self.data.get("relay"),
+                "chiavi": self.data.get("chiavi", {})}
 
     # richieste firmate ----------------------------------------------------------------------------
     def sign_request(self, method: str, path: str, body: bytes, now: float | None = None) -> str:
@@ -350,7 +402,8 @@ def join(bundle: dict) -> Identity:
     """Un dispositivo appena abbinato entra nell'identità (riceve certificato e chiave di sincronizzazione)."""
     identity = Identity({"utente": bundle["utente"], "nome": bundle.get("nome", ""), "certificato": bundle["certificato"],
                          "dispositivi": bundle.get("dispositivi", []), "revoche": bundle.get("revoche", {}),
-                         **({"relay": bundle["relay"]} if bundle.get("relay") else {})})
+                         **({"relay": bundle["relay"]} if bundle.get("relay") else {}),
+                         **({"chiavi": bundle["chiavi"]} if bundle.get("chiavi") else {})})
     if not identity.trusts(identity.certificate):
         raise IdentityError("certificato non firmato dall'utente")
     if bundle.get("sincronizzazione"):

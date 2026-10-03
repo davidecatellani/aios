@@ -115,3 +115,64 @@ def open_sealed(key: bytes, box: bytes, aad: bytes = b"") -> bytes:
     if len(box) < 28:
         raise DecryptError("dati troppo corti")
     return decrypt(key, box[:12], box[12:], aad)
+
+
+# --- X25519 (RFC 7748): cifrare una chiave per un dispositivo --------------------------------------
+
+_P25519 = 2**255 - 19
+_A24 = 121665
+
+
+def _clamp(k: bytes) -> int:
+    n = bytearray(k)
+    n[0] &= 248
+    n[31] &= 127
+    n[31] |= 64
+    return int.from_bytes(n, "little")
+
+
+def x25519(scalar: bytes, u_point: bytes, clamp: bool = True) -> bytes:
+    """Scala di Montgomery a tempo costante nel numero di passi (RFC 7748 §5)."""
+    k = _clamp(scalar) if clamp else int.from_bytes(scalar, "little")
+    u = int.from_bytes(u_point, "little") & ((1 << 255) - 1)
+    x1, x2, z2, x3, z3, swap = u, 1, 0, u, 1, 0
+    p = _P25519
+    for t in reversed(range(255)):
+        bit = (k >> t) & 1
+        swap ^= bit
+        if swap:
+            x2, x3, z2, z3 = x3, x2, z3, z2
+        swap = bit
+        a, b = (x2 + z2) % p, (x2 - z2) % p
+        aa, bb = a * a % p, b * b % p
+        e = (aa - bb) % p
+        c, d = (x3 + z3) % p, (x3 - z3) % p
+        da, cb = d * a % p, c * b % p
+        x3, z3 = (da + cb) ** 2 % p, x1 * (da - cb) ** 2 % p
+        x2, z2 = aa * bb % p, e * (aa + _A24 * e) % p
+    if swap:
+        x2, z2 = x3, z3
+    return (x2 * pow(z2, p - 2, p) % p).to_bytes(32, "little")
+
+
+def x25519_public(scalar: bytes) -> bytes:
+    return x25519(scalar, (9).to_bytes(32, "little"))
+
+
+def wrap_for(recipient_x25519: bytes, secret: bytes, info: bytes) -> dict[str, str]:
+    """Cifra `secret` per chi ha la chiave privata di `recipient_x25519` (chiave effimera + HKDF + AEAD)."""
+    import base64
+
+    eph = os.urandom(32)
+    shared = x25519(eph, recipient_x25519)
+    key = hkdf(shared, b"aios-avvolgi-v1" + info)
+    return {"eph": base64.b64encode(x25519_public(eph)).decode(),
+            "box": base64.b64encode(seal(key, secret, info)).decode()}
+
+
+def unwrap(private_scalar: bytes, wrapped: dict[str, str], info: bytes, clamp: bool = True) -> bytes:
+    import base64
+
+    shared = x25519(private_scalar, base64.b64decode(wrapped["eph"]), clamp)
+    key = hkdf(shared, b"aios-avvolgi-v1" + info)
+    return open_sealed(key, base64.b64decode(wrapped["box"]), info)

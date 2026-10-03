@@ -76,8 +76,9 @@ def make_tools(command: Callable[[dict[str, Any]], dict[str, Any] | None] = send
             return str(exc)
         if not gone:
             return f"Non trovo un dispositivo «{name}» (questo non si può revocare da sé)."
-        return (f"Revocato: {', '.join(c.name for c in gone)}. Non potrà più sincronizzarsi né farsi riconoscere; "
-                "gli altri dispositivi lo sapranno alla prossima sincronizzazione.")
+        return (f"Revocato: {', '.join(c.name for c in gone)}. Non potrà più sincronizzarsi né farsi riconoscere, e ho "
+                "cambiato la chiave di sincronizzazione: anche se avesse in mano i dati nuovi non saprebbe leggerli. "
+                "Gli altri dispositivi ricevono la nuova chiave alla prossima sincronizzazione.")
 
     def set_relay(url: str, fingerprint: str = "") -> str:
         me = ident.Identity.load()

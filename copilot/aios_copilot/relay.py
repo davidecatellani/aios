@@ -35,7 +35,7 @@ from .identity import mailbox_for, unb64, valid_revocations, verify_request
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS mailboxes (id TEXT PRIMARY KEY, user_public TEXT NOT NULL, revocations TEXT DEFAULT '{}',
-                                      bytes INTEGER DEFAULT 0);
+                                      bytes INTEGER DEFAULT 0, keys TEXT DEFAULT '{}');
 CREATE TABLE IF NOT EXISTS ops (mailbox TEXT, h TEXT, ms INTEGER, c INTEGER, d TEXT, box TEXT, seq INTEGER,
                                 PRIMARY KEY (mailbox, h));
 CREATE INDEX IF NOT EXISTS ops_seq ON ops(mailbox, seq);
@@ -43,13 +43,15 @@ CREATE INDEX IF NOT EXISTS ops_seq ON ops(mailbox, seq);
 MAX_BODY = 4_000_000
 MAX_MAILBOX_BYTES = 64_000_000  # spazio per utente
 MAX_OPS_REPLY = 2000
-PATH = re.compile(r"^/v1/(?P<box>[0-9a-f]{32})/(?P<what>registra|ops|revoche)$")
+PATH = re.compile(r"^/v1/(?P<box>[0-9a-f]{32})/(?P<what>registra|ops|revoche|chiavi)$")
 
 
 class RelayStore:
     def __init__(self, path: Path | str = ":memory:"):
         self.db = sqlite3.connect(str(path), check_same_thread=False, isolation_level=None)
         self.db.executescript(SCHEMA)
+        if "keys" not in [r[1] for r in self.db.execute("PRAGMA table_info(mailboxes)")]:
+            self.db.execute("ALTER TABLE mailboxes ADD COLUMN keys TEXT DEFAULT '{}'")
         self.lock = threading.Lock()
 
     def owner(self, box: str) -> tuple[bytes, set[str], int] | None:
@@ -73,6 +75,27 @@ class RelayStore:
             return False
         with self.lock:
             self.db.execute("UPDATE mailboxes SET revocations = ? WHERE id = ?", (json.dumps(doc), box))
+        return True
+
+    def set_keys(self, box: str, doc: dict) -> bool:
+        """Nuova chiave di sincronizzazione (dopo una revoca): i dati vecchi, cifrati con la chiave
+        precedente, non servono più a nessuno e si cancellano."""
+        from .ed25519 import verify
+        from .identity import canonical
+
+        owner = self.owner(box)
+        if owner is None:
+            return False
+        try:
+            body = {"v": doc["v"], "epoch": int(doc["epoch"]), "wrapped": doc["wrapped"]}
+            current = json.loads(self.db.execute("SELECT keys FROM mailboxes WHERE id = ?", (box,)).fetchone()[0] or "{}")
+            if body["epoch"] <= int(current.get("epoch", 0)) or not verify(owner[0], canonical(body), unb64(doc["signature"])):
+                return False
+        except (KeyError, TypeError, ValueError):
+            return False
+        with self.lock:
+            self.db.execute("UPDATE mailboxes SET keys = ?, bytes = 0 WHERE id = ?", (json.dumps(doc), box))
+            self.db.execute("DELETE FROM ops WHERE mailbox = ?", (box,))
         return True
 
     def put(self, box: str, ops: list[dict]) -> tuple[int, str]:
@@ -159,11 +182,14 @@ def make_handler(store: RelayStore) -> type[BaseHTTPRequestHandler]:
                 return self._json({"error": "dispositivo non riconosciuto"}, 403)
             if what == "revoche" and method == "POST":
                 return self._json({"ok": store.set_revocations(box, body)})
+            if what == "chiavi" and method == "POST":
+                return self._json({"ok": store.set_keys(box, body)})
             if what == "ops" and method == "GET":
                 after = parse_qs(url.query).get("dopo", ["0"])[0]
                 ops, seq = store.since(box, int(after) if after.isdigit() else 0)
-                row = store.db.execute("SELECT revocations FROM mailboxes WHERE id = ?", (box,)).fetchone()
-                return self._json({"ops": ops, "seq": seq, "revoche": json.loads(row[0] or "{}")})
+                row = store.db.execute("SELECT revocations, keys FROM mailboxes WHERE id = ?", (box,)).fetchone()
+                return self._json({"ops": ops, "seq": seq, "revoche": json.loads(row[0] or "{}"),
+                                   "chiavi": json.loads(row[1] or "{}")})
             if what == "ops" and method == "POST":
                 ops = body.get("ops")
                 stored, error = store.put(box, ops if isinstance(ops, list) else [])
@@ -199,7 +225,7 @@ def relay_requester(identity: Any, relay: dict[str, str], request: Any = None):
 
     relay = {"url": "https://…", "fingerprint": "…"(facoltativa: certificato fissato; senza, verifica CA)}.
     """
-    from .mesh.delegate import pinned_request
+    from .mesh.delegate import accept_updates, pinned_request
 
     base = relay["url"].rstrip("/")
     prefix = f"/v1/{identity.mailbox}"
@@ -219,14 +245,14 @@ def relay_requester(identity: Any, relay: dict[str, str], request: Any = None):
         if not registered[0]:
             send("POST", f"{prefix}/registra", {"utente": identity.data["utente"], "revoche": identity.data.get("revoche", {})})
             registered[0] = True
-        if identity.data.get("revoche", {}).get("seq", 0) and identity.master() is not None:
-            send("POST", f"{prefix}/revoche", identity.data["revoche"])  # il relay impara le revoche
+        if identity.master() is not None:  # il dispositivo principale comunica revoche e nuove chiavi
+            if identity.data.get("revoche", {}).get("seq", 0):
+                send("POST", f"{prefix}/revoche", identity.data["revoche"])
+            if identity.data.get("chiavi", {}).get("epoch", 0):
+                send("POST", f"{prefix}/chiavi", identity.data["chiavi"])
         if path.startswith("/api/sync"):
             path = f"{prefix}/ops" + path[len("/api/sync"):]
-        reply = send(method, path, payload)
-        if isinstance(reply, dict) and isinstance(reply.get("revoche"), dict) and reply["revoche"]:
-            identity.accept_revocations(reply["revoche"])
-        return reply
+        return accept_updates(identity, send(method, path, payload))
 
     return call
 
