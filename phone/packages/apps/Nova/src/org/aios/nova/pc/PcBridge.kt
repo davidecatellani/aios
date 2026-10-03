@@ -16,10 +16,38 @@ import javax.net.ssl.X509TrustManager
  * HTTPS con il certificato del PC «fissato»: si accetta solo l'impronta ricevuta con il QR,
  * quindi nessun altro può fingersi il PC.
  */
-class PcBridge(context: Context) {
+class PcBridge(private val context: Context) {
+    companion object {
+        @Volatile private var linkNetwork: android.net.Network? = null
+        @Volatile private var linkHost: String? = null
+
+        /** Collegamento diretto con il PC (NearbyService): rete da usare e indirizzo del PC. */
+        fun link(network: android.net.Network?, host: String?) {
+            linkNetwork = network
+            linkHost = host
+        }
+    }
+
     private val prefs = context.getSharedPreferences("pc", Context.MODE_PRIVATE)
 
     fun isPaired(): Boolean = prefs.getString("key", null) != null
+
+    /** Il segreto con cui telefono e PC si riconoscono via Bluetooth (nearby/NearbyCode.kt). */
+    fun nearbySecret(): ByteArray? = prefs.getString("key", null)?.let { org.aios.nova.nearby.NearbyCode.secretFromKey(it) }
+
+    fun port(): Int? = prefs.getString("url", null)?.let { Uri.parse(it).port }?.takeIf { it > 0 }
+
+    /** È davvero il mio PC? (la richiesta riesce solo con il certificato dall'impronta giusta e la chiave valida) */
+    fun check(): Boolean = try {
+        post("/api/vicino", JSONObject().put("bt", bluetoothAddress() ?: ""))
+        true
+    } catch (e: Exception) {
+        false
+    }
+
+    /** Richiesta firmata generica verso il PC (per esempio /api/vicino). */
+    fun post(path: String, body: JSONObject): JSONObject =
+        request(prefs.getString("url", null)!!, prefs.getString("fp", null)!!, prefs.getString("key", null), "POST", path, body)
 
     /** Dal QR del PC: https://ip:porta/#abbina=CODICE&fp=IMPRONTA */
     fun pair(qr: String): String {
@@ -32,6 +60,7 @@ class PcBridge(context: Context) {
         val fp = fragment["fp"] ?: throw IllegalArgumentException("nel codice QR manca l'impronta del PC")
         val base = "https://${uri.host}:${uri.port}"
         val body = JSONObject().put("code", code).put("name", Build.MODEL).put("kind", "telefono")
+        bluetoothAddress()?.let { body.put("bt", it) }  // per collegarsi anche senza Wi-Fi
         val reply = request(base, fp, null, "POST", "/api/abbina", body)
         prefs.edit().putString("url", base).putString("fp", fp).putString("key", reply.getString("key"))
             .putString("pc", reply.optString("pc", "PC")).apply()
@@ -55,9 +84,21 @@ class PcBridge(context: Context) {
         return "Il computer non ha risposto in tempo."
     }
 
+    private fun bluetoothAddress(): String? = try {
+        context.getSystemService(android.bluetooth.BluetoothManager::class.java)?.adapter?.address
+    } catch (e: SecurityException) {
+        null
+    }
+
     private fun request(base: String, fingerprint: String, key: String?, method: String, path: String,
                         body: JSONObject?): JSONObject {
-        val conn = URL(base + path).openConnection() as HttpsURLConnection
+        // Senza Wi-Fi in comune: attraverso la rete diretta (o Bluetooth) aperta con il PC. L'indirizzo
+        // cambia, l'identità no: l'impronta del certificato resta la stessa.
+        val net = linkNetwork
+        val host = linkHost
+        val target = if (host != null) Uri.parse(base).buildUpon().encodedAuthority("$host:${Uri.parse(base).port}").build().toString() else base
+        val url = URL(target + path)
+        val conn = (if (net != null) net.openConnection(url) else url.openConnection()) as HttpsURLConnection
         conn.sslSocketFactory = pinnedContext(fingerprint).socketFactory
         conn.setHostnameVerifier { _, _ -> true }  // l'identità del PC la garantisce l'impronta, non il nome
         conn.requestMethod = method

@@ -36,6 +36,7 @@ DEFAULT_HOURS_TO_CHARGE = 10.0
 ACTIVITIES = {
     "sincronizzazione": (120, "leggera"),
     "bluetooth": (300, "media"),
+    "vicini": (20, "leggera"),  # cercare i propri dispositivi via Bluetooth quando non c'è una rete in comune
     "foto": (1800, "pesante"),
     "modelli": (3600, "pesante"),
 }
@@ -161,18 +162,19 @@ class EnergyBrain:
         if choice.get("modo") == "risparmio" or margin < 0:
             why = ("Mi hai chiesto di risparmiare" if choice.get("modo") == "risparmio" else
                    f"{base}: non basterebbe")
-            return Decision("riserva", {"sincronizzazione": None, "bluetooth": None, "foto": None, "modelli": None},
+            return Decision("riserva", {"sincronizzazione": None, "bluetooth": None, "vicini": None, "foto": None,
+                                        "modelli": None},
                             f"{why}. Tengo solo l'essenziale: chiamate, notifiche e ciò che mi chiedi tu.", hours, drain)
         if margin < 25 or (learned and hours <= 1.5):
             soon = learned and hours <= 1.5
             return Decision("risparmio", {"sincronizzazione": normal["sincronizzazione"] * 8, "bluetooth": None,
-                                          "foto": None, "modelli": None},
+                                          "vicini": normal["vicini"] * 6, "foto": None, "modelli": None},
                             f"{base}. " + ("La ricarica è vicina: il lavoro pesante (foto, Bluetooth) lo faccio in carica, "
                                            "costa meno." if soon else
                                            "Basta, ma senza molto margine: copia delle foto e ricerca Bluetooth aspettano "
                                            "la ricarica; sincronizzo più di rado."), hours, drain)
         return Decision("normale", {"sincronizzazione": normal["sincronizzazione"] * 3, "bluetooth": normal["bluetooth"] * 4,
-                                    "foto": normal["foto"] * 2, "modelli": None},
+                                    "vicini": normal["vicini"] * 3, "foto": normal["foto"] * 2, "modelli": None},
                         f"{base}: c'è margine. Lavoro in sottofondo, ma più di rado che in carica; i modelli AI li "
                         "scarico solo in carica.", hours, drain)
 
@@ -193,7 +195,8 @@ class EnergyBrain:
         if activity and activity in d.intervals:
             iv = d.intervals[activity]
             label = {"foto": "la copia delle foto", "bluetooth": "la ricerca dei dispositivi Bluetooth",
-                     "sincronizzazione": "la sincronizzazione", "modelli": "lo scaricamento dei modelli AI"}[activity]
+                     "sincronizzazione": "la sincronizzazione", "modelli": "lo scaricamento dei modelli AI",
+                     "vicini": "la ricerca del telefono senza Wi-Fi"}[activity]
             state = (f"{label[0].upper() + label[1:]} è rimandata." if iv is None else
                      f"{label[0].upper() + label[1:]} la faccio ogni {iv // 60} minuti circa.")
             return f"{state} {d.reason}"

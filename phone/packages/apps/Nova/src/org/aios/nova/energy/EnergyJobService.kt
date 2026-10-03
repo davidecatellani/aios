@@ -11,7 +11,10 @@ class EnergyJobService : JobService() {
         Thread {
             try {
                 when (params.jobId) {
-                    EnergyJobs.LIGHT -> Log.i(TAG, "sincronizzazione leggera")  // TODO: /api/sync firmato (identity.py)
+                    EnergyJobs.LIGHT -> {
+                        Log.i(TAG, "sincronizzazione leggera")  // TODO: /api/sync firmato (identity.py)
+                        org.aios.nova.nearby.Nearby.start(applicationContext)  // se il Bluetooth era spento
+                    }
                     EnergyJobs.HEAVY -> LocalModel(applicationContext).downloadIfMissing()
                 }
             } catch (e: Exception) {

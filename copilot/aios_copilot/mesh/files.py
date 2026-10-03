@@ -17,6 +17,7 @@ import hmac
 import json
 import mimetypes
 import os
+import re
 import secrets
 import socket
 import ssl
@@ -49,6 +50,7 @@ class Device:
     key_hash: str
     added: float
     last_seen: float = 0.0
+    bt: str = ""  # indirizzo Bluetooth del telefono, per collegarsi anche senza Wi-Fi (nearby.py)
 
 
 class Devices:
@@ -66,12 +68,17 @@ class Devices:
         self.path.write_text(json.dumps([asdict(d) for d in self.items], indent=1))
         os.chmod(self.path, 0o600)
 
-    def add(self, name: str) -> str:
+    def add(self, name: str, bt: str = "") -> str:
         key = secrets.token_urlsafe(32)
         with self.lock:
-            self.items.append(Device(name[:60] or "telefono", _hash(key), time.time()))
+            self.items.append(Device(name[:60] or "telefono", _hash(key), time.time(), bt=_bt(bt)))
             self.save()
         return key
+
+    def set_bt(self, device: Device, bt: str) -> None:
+        with self.lock:
+            device.bt = _bt(bt)
+            self.save()
 
     def check(self, key: str) -> Device | None:
         h = _hash(key)
@@ -87,6 +94,11 @@ class Devices:
             self.items = [d for d in self.items if name.lower() not in d.name.lower()]
             self.save()
             return before - len(self.items)
+
+
+def _bt(value: Any) -> str:
+    text = str(value or "").strip().upper()
+    return text if re.fullmatch(r"(?:[0-9A-F]{2}:){5}[0-9A-F]{2}", text) else ""
 
 
 def _hash(key: str) -> str:
@@ -401,13 +413,17 @@ def make_handler(server: PhoneServer) -> type[BaseHTTPRequestHandler]:
                 if not server.pairing.use(str(body.get("code", ""))):
                     return self._json({"error": "codice non valido o scaduto: inquadra di nuovo il QR sul PC"}, 403)
                 name = str(body.get("name") or "telefono")
-                reply = {"key": server.devices.add(name), "pc": socket.gethostname()}
+                reply = {"key": server.devices.add(name, body.get("bt", "")), "pc": socket.gethostname()}
                 bundle = _identity_bundle(body, name)
                 if bundle:
                     reply["identita"] = bundle
                 return self._json(reply)
-            if self._device() is None:
+            device = self._device()
+            if device is None:
                 return self._json({"error": "telefono non abbinato"}, 403)
+            if url.path == "/api/vicino":  # il telefono comunica il suo indirizzo Bluetooth (collegamento senza Wi-Fi)
+                server.devices.set_bt(device, body.get("bt", ""))
+                return self._json({"ok": bool(device.bt)})
             if url.path == "/api/input":  # tastiera e touchpad dal telefono
                 if server.input is None or not server.input.available():
                     return self._json({"error": "sul PC manca ydotool (o wtype/xdotool)"}, 503)

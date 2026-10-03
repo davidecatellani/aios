@@ -13,7 +13,7 @@ FROM quay.io/fedora-ostree-desktops/silverblue:${FEDORA}
 RUN dnf install -y \
         python3-pip python3-setuptools python3-gobject webkitgtk6.0 \
         ffmpeg-free poppler-utils libnotify wl-clipboard libsecret \
-        kde-connect android-tools ydotool bluez \
+        kde-connect android-tools ydotool bluez dnsmasq \
         greenboot greenboot-default-health-checks \
     && dnf clean all
 

@@ -68,6 +68,9 @@ class MeshService:
         self.photos: Any = None  # PhotoSync: foto della fotocamera salvate da sole quando il telefono è vicino
         self._photos_busy = threading.Lock()
         self.bluetooth: Any = None  # dispositivi Bluetooth dell'utente condivisi tra i suoi dispositivi
+        self.nearby: Any = None  # Nearby: collegamento diretto con il telefono anche senza Wi-Fi (nearby.py)
+        self._nearby_busy = threading.Lock()
+        self._nearby_status = ""
 
     def tick(self) -> None:
         try:
@@ -83,15 +86,18 @@ class MeshService:
                 self.notify(f"📱 {name} si è allontanato", "Ho chiuso l'accesso ai file del PC.")
         self.near = phones
         pairing = bool(self.server.pairing.code) and self.clock() < self.server.pairing.expires
-        if (phones or pairing) and not self.server.running:
+        linked = self.nearby is not None and bool(self.nearby.link)  # collegamento diretto senza Wi-Fi
+        if (phones or pairing or linked) and not self.server.running:
             self.server.start(**self.start_kwargs)
-        elif not phones and not pairing and self.server.running:
+        elif not phones and not pairing and not linked and self.server.running:
             self.server.stop()
         self._calls()
         self._codes()
         intervals = self._intervals()
         if self.photos is not None and phones and self.bus is not None and self._due("foto", intervals):
             threading.Thread(target=self.save_photos, daemon=True).start()
+        if self.nearby is not None and self._due("vicini", intervals):
+            threading.Thread(target=self._nearby_round, args=(bool(phones), intervals), daemon=True).start()
         if self.bluetooth is not None and self._due("bluetooth", intervals):
             threading.Thread(target=self._bluetooth_round, daemon=True).start()
         if self._due("sincronizzazione", intervals):
@@ -116,6 +122,25 @@ class MeshService:
             return False
         self.last[activity] = now
         return True
+
+    def _nearby_round(self, same_network: bool, intervals: dict[str, int | None]) -> None:
+        """Senza una rete in comune: Nova cerca il telefono via Bluetooth e sceglie come collegarsi.
+        Collegamento veloce (Wi-Fi diretto) quando c'è lavoro pesante e la batteria lo permette."""
+        if not self._nearby_busy.acquire(blocking=False):
+            return
+        try:
+            heavy = intervals.get("foto") is not None
+            low = intervals.get("bluetooth") is None and self.energy is not None
+            status = self.nearby.round(same_network, "pesante" if heavy else "leggero", low,
+                                       confirm=lambda why: self.ask("🌐 Usare internet del telefono?", why,
+                                                                    {"si": "Sì", "no": "No"}) == "si")
+            if status.startswith("collegato") and status != self._nearby_status:
+                self.notify("📶 Telefono collegato", self.nearby.status())
+            self._nearby_status = status
+        except Exception:
+            pass
+        finally:
+            self._nearby_busy.release()
 
     def _bluetooth_round(self) -> None:
         from .bluetooth import share_round
@@ -213,8 +238,23 @@ class MeshService:
         if action == "sincronizza":
             return {"righe": self.sync_now()}
         if action == "stato":
-            return {"vicini": list(self.near.values()), "pagina": self.server.running,
-                    "abbinati": [d.name for d in self.server.devices.items]}
+            reply = {"vicini": list(self.near.values()), "pagina": self.server.running,
+                     "abbinati": [d.name for d in self.server.devices.items]}
+            if self.nearby is not None:
+                reply["collegamento"] = self.nearby.status()
+            return reply
+        if action == "vicino":  # «collegati al telefono», «usa internet del telefono», «scollega»
+            if self.nearby is None:
+                return {"errore": "collegamento senza Wi-Fi non disponibile su questo PC"}
+            kind = str(command.get("tipo", "auto"))
+            if kind == "chiudi":
+                return {"testo": self.nearby.release()}
+            if kind not in ("auto", "wifi", "bluetooth", "internet"):
+                return {"errore": "tipo sconosciuto"}
+            self.nearby.request(kind)
+            self.last.pop("vicini", None)  # cerca subito
+            self._nearby_round(bool(self.near), {"foto": 1, "bluetooth": 1})
+            return {"testo": self.nearby.status()}
         return {"errore": "comando sconosciuto"}
 
     def _url(self) -> str:
@@ -334,7 +374,29 @@ def build(search: Callable[[str], list[dict[str, Any]]] | None = None) -> MeshSe
     from .bluetooth import Bluetooth
 
     service.bluetooth = Bluetooth(runner)
+    from .nearby import BleAdvertiser, BleScanner, Links, Nearby
+
+    scanner, links = BleScanner(runner), Links(runner)
+    if scanner.available() and links.available():
+        service.nearby = Nearby(scanner, BleAdvertiser(), links, lambda: nearby_secrets(server.devices))
     return service
+
+
+def nearby_secrets(devices: Any) -> list:
+    """I segreti per riconoscere i propri dispositivi: telefoni abbinati (dal più recente) e identità AIOS."""
+    from ..identity import Identity
+    from .nearby import secret_from_device, secret_from_sync_key
+
+    found = [secret_from_device(d.key_hash, d.name, d.bt)
+             for d in sorted(devices.items, key=lambda d: d.last_seen or d.added, reverse=True)]
+    try:
+        identity = Identity.load()
+        key = identity.sync_key() if identity else None
+        if key:
+            found.append(secret_from_sync_key(key))
+    except Exception:
+        pass
+    return found
 
 
 def main(argv: list[str] | None = None) -> int:

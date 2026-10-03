@@ -196,7 +196,16 @@ def make_tools(runner: Runner | None = None, command: Callable[[dict[str, Any]],
         call = _safe(ofono.incoming)
         if call:
             lines.append(f"📞 Chiamata in arrivo da {call.who}.")
+        state = command({"azione": "stato"}) or {}
+        if state.get("collegamento"):
+            lines.append("Senza Wi-Fi: " + state["collegamento"])
         return "\n".join(lines)
+
+    def link_phone(kind: str = "auto") -> str:
+        reply = command({"azione": "vicino", "tipo": kind})
+        if reply is None:
+            return "Il servizio del telefono non è attivo (systemctl --user start aios-telefono)."
+        return reply.get("testo") or reply.get("errore", "Non ci sono riuscito.")
 
     def connect_phone() -> str:
         parts = []
@@ -282,6 +291,9 @@ def make_tools(runner: Runner | None = None, command: Callable[[dict[str, Any]],
              params([], who="Nome o numero"), read_sms, reads_private=True),
         Tool("send_sms", "Manda un SMS dal telefono a un contatto della rubrica o a un numero.",
              params(to="Nome o numero", text="Testo"), send_sms, requires_confirmation=True, sends_out=True),
+        Tool("link_phone", "Collega PC e telefono vicini anche senza Wi-Fi (Bluetooth o Wi-Fi diretto, scelti da "
+             "Nova), usa internet del telefono (hotspot), oppure chiude il collegamento.",
+             params([], kind=("Collegamento", ["auto", "wifi", "bluetooth", "internet", "chiudi"])), link_phone),
         Tool("phone_status", "Mostra i telefoni collegati, quelli abbinati e le chiamate in arrivo.", params(), phone_status),
         Tool("connect_phone", "Collega un telefono al PC (abbinamento KDE Connect e codice QR per aprire i file del PC "
              "dal telefono).", params(), connect_phone),
@@ -333,6 +345,12 @@ def _original(pattern: re.Pattern[str], text: str, low_match: re.Match[str], gro
     return m.group(group).strip() if m else low_match.group(group).strip()
 
 
+RE_LINK = re.compile(rf"^(?:collegati|connettiti)\s+(?:al\s+(?:mio\s+)?(?:telefono|cellulare)|{PHONE})"
+                     r"(?:\s+(?:senza\s+wi-?fi|via\s+bluetooth|anche\s+senza\s+rete))?$")
+RE_HOTSPOT = re.compile(r"^(?:usa|prendi|condividi|attiva)\s+(?:l'|la\s+)?(?:internet|connessione|rete|hotspot)\s+"
+                        r"(?:del|dal)\s+(?:mio\s+)?(?:telefono|cellulare)$|^hotspot\s+(?:del\s+)?(?:telefono|cellulare)$")
+RE_UNLINK = re.compile(r"^(?:smetti\s+di\s+usare|stacca|chiudi|spegni)\s+(?:l'|la\s+)?(?:internet|connessione|"
+                       r"collegamento|hotspot)\s+(?:del|col|con\s+il)\s+(?:mio\s+)?(?:telefono|cellulare)$")
 RE_INSTALL_PHONE = re.compile(r"^(?:installa|metti|porta)\s+aios\s+(?:sul|nel)\s+(?:mio\s+)?(?:telefono|cellulare|smartphone)$")
 RE_BT = re.compile(r"^(?:i\s+)?(?:miei\s+)?dispositivi\s+bluetooth$|^(?:quali|che)\s+dispositivi\s+bluetooth\s+ho\??$")
 RE_BT_FORGET = re.compile(r"^(?:dimentica|scollega\s+ovunque)\s+(?:le\s+|il\s+|la\s+|lo\s+|gli\s+)?(?P<n>.+?)\s+(?:dal|del)\s+bluetooth$"
@@ -345,6 +363,12 @@ RE_IMPROVE = re.compile(r"^migliora\s+(?:le\s+(?:ultime\s+)?foto|(?:questa|la)\s
 class PhoneRouter:
     def match(self, text: str) -> Intent | None:
         low = normalize(text)
+        if RE_HOTSPOT.match(low):
+            return Intent("link_phone", {"kind": "internet"})
+        if RE_UNLINK.match(low):
+            return Intent("link_phone", {"kind": "chiudi"})
+        if RE_LINK.match(low):
+            return Intent("link_phone", {"kind": "bluetooth" if "bluetooth" in low else "auto"})
         if RE_INSTALL_PHONE.match(low):
             return Intent("install_aios_phone", {})
         if RE_PHOTOS.match(low):

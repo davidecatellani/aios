@@ -4,6 +4,19 @@
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <!-- Collegamento con il PC anche senza Wi-Fi (nearby/): Bluetooth a basso consumo, rete diretta, condivisione -->
+    <uses-permission android:name="android.permission.BLUETOOTH_SCAN" android:usesPermissionFlags="neverForLocation" />
+    <uses-permission android:name="android.permission.BLUETOOTH_ADVERTISE" />
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+    <uses-permission android:name="android.permission.CHANGE_WIFI_STATE" />
+    <uses-permission android:name="android.permission.CHANGE_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE" />
+    <uses-permission android:name="android.permission.TETHER_PRIVILEGED" />
+    <uses-permission android:name="android.permission.NETWORK_SETTINGS" />
+    <uses-permission android:name="android.permission.OVERRIDE_WIFI_CONFIG" />
+    <uses-permission android:name="android.permission.LOCAL_MAC_ADDRESS" />
 
     <application
         android:name=".NovaApp"
@@ -36,6 +49,11 @@
         <!-- Lavoro in sottofondo solo tramite JobScheduler, con i vincoli di energia -->
         <service android:name=".energy.EnergyJobService" android:exported="false"
                  android:permission="android.permission.BIND_JOB_SERVICE" />
+        <!-- Vicini: la ricerca BLE sveglia Nova solo per i codici AIOS; il servizio vive solo col PC vicino -->
+        <receiver android:name=".nearby.NearbyReceiver" android:exported="false" />
+        <service android:name=".nearby.NearbyService" android:exported="false"
+                 android:foregroundServiceType="connectedDevice" />
+
         <receiver android:name=".energy.BootReceiver" android:exported="false">
             <intent-filter><action android:name="android.intent.action.BOOT_COMPLETED" /></intent-filter>
         </receiver>

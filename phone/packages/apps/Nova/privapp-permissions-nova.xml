@@ -2,5 +2,10 @@
 <permissions>
     <privapp-permissions package="org.aios.nova">
         <permission name="android.permission.RECEIVE_BOOT_COMPLETED"/>
+        <!-- collegamento diretto con il PC: condivisione via Bluetooth/Wi-Fi e rete senza conferme -->
+        <permission name="android.permission.TETHER_PRIVILEGED"/>
+        <permission name="android.permission.NETWORK_SETTINGS"/>
+        <permission name="android.permission.OVERRIDE_WIFI_CONFIG"/>
+        <permission name="android.permission.LOCAL_MAC_ADDRESS"/>
     </privapp-permissions>
 </permissions>

@@ -389,6 +389,32 @@ Il telefono e il PC si collegano da soli quando sono vicini (stessa rete):
   parte della dieta per giorno e pasto; la lista della spesa. Dal telefono il file
   arriva come link monouso, solo se è nella cartella personale e non privato.
 
+### Vicini anche senza Wi-Fi (`mesh/nearby.py`, app Nova `nearby/`)
+
+Come iPhone e Mac: fuori casa, senza una rete in comune, telefono e PC si trovano e si
+collegano da soli.
+
+- **Riconoscersi**: codice BLE di 11 byte (dati del produttore) = versione, ruolo, flag e
+  HMAC-SHA256 del tempo (finestre di 15 minuti) con un segreto che hanno solo i
+  dispositivi dell'utente (dalla chiave di abbinamento del telefono, di cui il PC
+  conserva l'impronta, o dalla chiave di sincronizzazione). Gli estranei vedono numeri
+  casuali che cambiano; le richieste nei flag non si possono falsificare.
+- **Chi ascolta, chi annuncia**: il PC si annuncia sempre (bluetoothctl) e cerca con un
+  ritmo deciso da `energy.py`; il telefono affida l'ascolto al chip Bluetooth con un
+  filtro e si sveglia solo per i codici AIOS (nessun servizio sempre acceso). Con il PC
+  vicino parte `NearbyService`, con la sua notifica, e si spegne quando il PC se ne va.
+- **Il collegamento lo sceglie Nova** (`choose_link`): Wi-Fi diretto creato dal PC
+  (rete nascosta, senza internet, nome e password ricavati dal segreto e cambiati ogni
+  giorno; il telefono ci entra con `WifiNetworkSpecifier` senza perdere i dati mobili)
+  per il lavoro pesante quando il Wi-Fi del PC è libero; rete Bluetooth (PAN) aperta dal
+  telefono per il resto; internet del telefono (hotspot) solo se richiesto o
+  permesso, mai con la batteria del telefono bassa. Il collegamento si chiude da solo.
+- **Sicurezza**: la rete diretta ha una zona firewall dedicata (`aios-vicino`: DHCP,
+  DNS, KDE Connect, pagina del telefono); l'identità del PC resta garantita
+  dall'impronta del certificato, qualunque sia l'indirizzo.
+- **Da fare**: un identificativo produttore BLE registrato (oggi 0xFFFF, riservato alle
+  prove); annunci per più telefoni contemporaneamente; prove su dispositivi veri.
+
 ### AIOS sul telefono: base AOSP e installazione dal PC (`phoneinstall.py`, `phoneapp/`)
 
 AIOS per telefono è basato su **AOSP** (Android open source): chiamate, fotocamera, rete

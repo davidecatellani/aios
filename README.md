@@ -23,7 +23,8 @@ Computer, tablet e telefono: lo stesso sistema, collegati tra loro, senza mandar
   computer — compresso o «a esperti» quando la memoria è poca.
 - **Privato per davvero.** Nova impara dai tuoi file e dalle tue abitudini, ma tutto resta sul
   dispositivo. Quando qualcosa deve uscire (una ricerca, una mail), lo vedi e lo approvi.
-- **I tuoi dispositivi sono uno solo.** Telefono e PC si collegano da soli quando sono vicini:
+- **I tuoi dispositivi sono uno solo.** Telefono e PC si collegano da soli quando sono vicini, anche
+  fuori casa senza Wi-Fi (come iPhone e Mac):
   foto salvate sul PC, chiamate e SMS dal computer, file del PC dal telefono, il telefono che usa
   l'AI del PC. Un'identità unica e la sincronizzazione cifrata end-to-end li tengono allineati.
 - **Le tue app, tutte.** Le app Linux girano nativamente, molte app Windows con Wine/Bottles, le
@@ -126,6 +127,7 @@ AIOS è in sviluppo attivo. Onestamente, ad oggi:
 | Agenda, posta (Gmail, Outlook, IMAP), consigli, abbonamenti, temi e market dei temi | ✅ |
 | Modelli AI adatti al dispositivo: catalogo firmato, compressione, modelli a esperti | ✅ |
 | Telefono ↔ PC: collegamento, foto, chiamate, SMS, tastiera, documenti, AI del PC | ✅ (con KDE Connect) |
+| Telefono ↔ PC senza Wi-Fi: Bluetooth, Wi-Fi diretto, internet del telefono | 🧪 PC provato con test; app del telefono da compilare |
 | Identità unica, sincronizzazione cifrata, relay | ✅ |
 | Aggiornamenti automatici (rpm-ostree/bootc), batteria gestita da Nova, SDK per le app | ✅ |
 | `install.sh` su Linux esistente | ✅ provato su Ubuntu 24.04 |
