@@ -33,11 +33,18 @@ class Tool:
         return f"{self.name}({shown})"
 
 
-def params(required: list[str] | None = None, **props: str) -> dict[str, Any]:
-    """Schema JSON compatto: ogni proprietà è una stringa con la sua descrizione."""
+def params(required: list[str] | None = None, **props: str | tuple[str, list[str]]) -> dict[str, Any]:
+    """Schema JSON compatto: ogni proprietà è una stringa con la sua descrizione,
+    oppure una coppia (descrizione, valori ammessi)."""
+
+    def prop(spec: str | tuple[str, list[str]]) -> dict[str, Any]:
+        if isinstance(spec, tuple):
+            return {"type": "string", "description": spec[0], "enum": spec[1]}
+        return {"type": "string", "description": spec}
+
     return {
         "type": "object",
-        "properties": {k: {"type": "string", "description": v} for k, v in props.items()},
+        "properties": {k: prop(v) for k, v in props.items()},
         "required": required if required is not None else list(props),
     }
 
@@ -70,3 +77,10 @@ class Runner:
 
     def has(self, program: str) -> bool:
         return self.which(program) is not None
+
+    def first(self, *candidates: list[str]) -> tuple[int, str] | None:
+        """Esegue il primo comando il cui programma è installato; None se nessuno lo è."""
+        for cmd in candidates:
+            if self.has(cmd[0]):
+                return self.run(cmd)
+        return None

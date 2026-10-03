@@ -17,6 +17,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 from .tools import apps
+from .xdg import resolve_folder
 
 # Riempitivi di cortesia che non cambiano il significato del comando.
 _FILLER_START = re.compile(
@@ -48,10 +49,6 @@ FOLDERS = {
     "scrivania": "DESKTOP", "desktop": "DESKTOP",
     "home": "HOME", "cartella personale": "HOME",
 }
-XDG_DEFAULTS = {
-    "DOWNLOAD": "Downloads", "DOCUMENTS": "Documents", "PICTURES": "Pictures",
-    "MUSIC": "Music", "VIDEOS": "Videos", "DESKTOP": "Desktop", "HOME": "",
-}
 
 APP_SEARCH = re.compile(
     r"^(?:un |una |dei |delle )?(?:programm[ai]|app|applicazion[ei]|software)\s+(?:per|che|to|for)\s+(?P<q>.+)$"
@@ -67,21 +64,6 @@ SYSTEM_INFO = re.compile(
 class Intent:
     tool: str
     args: dict[str, Any]
-
-
-def resolve_folder(key: str, home: Path | None = None) -> Path:
-    """Percorso reale di una cartella XDG, leggendo ~/.config/user-dirs.dirs se presente."""
-    home = home or Path.home()
-    if key == "HOME":
-        return home
-    try:
-        for line in (home / ".config/user-dirs.dirs").read_text().splitlines():
-            m = re.match(rf'^XDG_{key}_DIR="(.*)"$', line.strip())
-            if m:
-                return Path(m.group(1).replace("$HOME", str(home)))
-    except OSError:
-        pass
-    return home / XDG_DEFAULTS[key]
 
 
 def normalize(text: str) -> str:

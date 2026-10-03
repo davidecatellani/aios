@@ -23,5 +23,5 @@ aios-copilot = "aios_copilot.__main__:main"
 include = ["aios_copilot*"]
 
 [tool.pytest.ini_options]
-pythonpath = ["."]
+pythonpath = [".", "tests"]
 testpaths = ["tests"]

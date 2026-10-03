@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import json
 from datetime import date
-from typing import Any, Callable
+from typing import Any, Callable, Protocol, Sequence
 
-from .fastpath import FastPath
+from .fastpath import Intent
 from .llm import ChatModel
 from .tools import Tool
 
@@ -34,6 +34,12 @@ Confirm = Callable[[Tool, dict[str, Any]], bool]
 OnEvent = Callable[[str, dict[str, Any]], None]
 
 
+class Router(Protocol):
+    """Livello veloce: riconosce una richiesta senza l'LLM, o restituisce None."""
+
+    def match(self, text: str) -> Intent | None: ...
+
+
 class Agent:
     def __init__(
         self,
@@ -41,13 +47,14 @@ class Agent:
         tools: list[Tool],
         confirm: Confirm,
         max_steps: int = 8,
-        fastpath: FastPath | None = None,
+        routers: Sequence[Router] = (),
     ):
         self.model = model
         self.tools = {t.name: t for t in tools}
         self.confirm = confirm
         self.max_steps = max_steps
-        self.fastpath = fastpath
+        # In ordine, dal più rapido al più flessibile; l'LLM è l'ultima risorsa.
+        self.routers = list(routers)
         self.reset()
 
     def reset(self) -> None:
@@ -60,14 +67,10 @@ class Agent:
         emit = on_event or (lambda kind, data: None)
         self.messages.append({"role": "user", "content": text})
 
-        intent = self.fastpath.match(text) if self.fastpath else None
-        if intent is not None and intent.tool in self.tools:
-            emit("fast_path", {"intent": intent})
-            result = self._run_tool(intent.tool, intent.args, emit)
-            answer = "Va bene, annullato." if result == REFUSED else result
-            # Resta nella cronologia: l'LLM avrà il contesto per le richieste successive.
-            self.messages.append({"role": "assistant", "content": answer})
-            return answer
+        for level, router in enumerate(self.routers):
+            intent = router.match(text)
+            if intent is not None and intent.tool in self.tools:
+                return self._run_intent(intent, level, emit)
 
         schemas = [t.schema() for t in self.tools.values()]
 
@@ -87,6 +90,14 @@ class Agent:
                 self.messages.append({"role": "tool", "tool_name": name, "content": result})
 
         return "Mi sono fermato: la richiesta richiedeva troppi passaggi. Puoi riformularla?"
+
+    def _run_intent(self, intent: Intent, level: int, emit: OnEvent) -> str:
+        emit("routed", {"intent": intent, "level": level})
+        result = self._run_tool(intent.tool, intent.args, emit)
+        answer = "Va bene, annullato." if result == REFUSED else result
+        # Resta nella cronologia: l'LLM avrà il contesto per le richieste successive.
+        self.messages.append({"role": "assistant", "content": answer})
+        return answer
 
     def _run_tool(self, name: str, raw_args: Any, emit: OnEvent) -> str:
         tool = self.tools.get(name)

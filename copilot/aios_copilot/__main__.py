@@ -15,6 +15,7 @@ from typing import Any
 from .agent import Agent, Confirm
 from .fastpath import FastPath
 from .llm import LLMError, OllamaClient
+from .semantic import SemanticRouter, default_router
 from .status import describe_call
 from .tools import Runner, Tool, apps, default_tools
 
@@ -25,11 +26,22 @@ def make_agent(confirm: Confirm, model: str | None = None) -> Agent:
         OllamaClient(model=model),
         default_tools(runner),
         confirm,
-        fastpath=FastPath(find_apps=lambda query: apps.find_apps(runner, query)),
+        routers=[
+            FastPath(find_apps=lambda query: apps.find_apps(runner, query)),  # livello 0
+            semantic_router(),  # livello 1
+        ],
     )
     # Il modello si prepara mentre l'utente scrive la prima richiesta.
     threading.Thread(target=agent.warmup, daemon=True).start()
     return agent
+
+
+def semantic_router() -> SemanticRouter:
+    try:
+        return default_router()
+    except Exception as exc:  # modello di embedding non raggiungibile
+        print(f"Embedding neurale non disponibile ({exc}); uso il codificatore integrato.", file=sys.stderr)
+        return SemanticRouter()
 
 
 def terminal_confirm(tool: Tool, args: dict[str, Any]) -> bool:
@@ -38,7 +50,9 @@ def terminal_confirm(tool: Tool, args: dict[str, Any]) -> bool:
 
 
 def print_event(kind: str, data: dict[str, Any]) -> None:
-    if kind == "tool_call" and not data["tool"].requires_confirmation:
+    if kind == "routed":
+        print(f"  ⚡ capito al livello {data['level']}, senza modello AI")
+    elif kind == "tool_call" and not data["tool"].requires_confirmation:
         print(f"  {describe_call(data['tool'], data['args'])}")
 
 

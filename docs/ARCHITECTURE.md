@@ -103,12 +103,25 @@ altrimenti passa al successivo:
 | Livello | Cosa fa | Tempo tipico su CPU | Stato |
 |---|---|---|---|
 | **0 — Motore di intenti** | regole + conoscenza del sistema: "apri Firefox", "installa VLC", "apri i Download", "cerca …" | **~10 µs** | ✅ `copilot/aios_copilot/fastpath.py` |
-| 1 — Classificatore semantico | piccolo modello di embedding (~20–30 M parametri) che riconosce le frasi riformulate liberamente ("fammi sentire un po' di musica") e le mappa sulle azioni del sistema | 1–5 ms | prossimo |
+| **1 — Classificatore semantico** | riconosce frasi riformulate ("si sente troppo piano", "fammi sentire un po' di musica", "stacca il wifi") confrontandole con un catalogo di esempi; concetti (abbassa = riduci = più basso), regole come "troppo basso → alza", astensione su negazioni e parole ignote | **~0,3 ms** | ✅ `copilot/aios_copilot/semantic.py` (italiano e inglese) |
 | 2 — Modello linguistico piccolo | 0,5–3 miliardi di parametri quantizzati a 4 bit (o ternari, tipo BitNet), con output vincolato al formato delle azioni | 0,3–2 s | ✅ base (`qwen2.5:1.5b` via Ollama) |
 | 3 — Modello grande | sul PC dell'utente, raggiunto tramite la mesh, o nel cloud se l'utente lo sceglie | variabile | futuro |
 
 Il livello 2 ha un default piccolo perché su CPU conta la reattività. È proprio
 grazie ai livelli 0–1, che gestiscono i comandi frequenti, che basta un modello piccolo.
+
+**Qualità del livello 1, misurata.** Su frasi mai viste e scritte dopo la messa a
+punto: precisione 95%, copertura 81%, nessun falso positivo su 12 frasi-trappola
+("spegni la luce in cucina", "riavvia il router di casa", "blocca il numero di
+Marco"). Sul banco di prova permanente (`copilot/tests/semantic_eval.py`):
+precisione 100%, copertura 89%, 0 falsi positivi su 32. Quando non è sicuro il
+livello 1 non agisce: la richiesta passa all'LLM.
+
+**Lingue.** Il codificatore integrato conosce italiano e inglese; nelle altre
+lingue si astiene e risponde l'LLM, che è multilingue ma più lento. Il prossimo passo
+è un modello di embedding multilingue (es. `multilingual-e5-small`, ~10–30 ms su
+CPU, già supportato tramite `AIOS_EMBED_MODEL`, soglie da calibrare) affiancato a
+cataloghi tradotti automaticamente per le lingue principali.
 
 **Vantaggi che ha solo un sistema operativo** (e che un'app non può avere):
 

@@ -91,7 +91,7 @@ class NoModel:
 def test_agent_answers_without_llm(fp):
     launched = []
     tools = [Tool("launch_app", "", params(name="n"), lambda name: launched.append(name) or f"Avviato {name}.")]
-    agent = Agent(NoModel(), tools, confirm=lambda t, a: True, fastpath=fp)
+    agent = Agent(NoModel(), tools, confirm=lambda t, a: True, routers=[fp])
     assert agent.ask("apri firefox") == "Avviato firefox."
     assert launched == ["firefox"]
     assert [m["role"] for m in agent.messages] == ["system", "user", "assistant"]
@@ -99,5 +99,5 @@ def test_agent_answers_without_llm(fp):
 
 def test_agent_fast_path_still_asks_confirmation(fp):
     tools = [Tool("install_app", "", params(app_id="i", source="s"), lambda **a: "Installato.", requires_confirmation=True)]
-    agent = Agent(NoModel(), tools, confirm=lambda t, a: False, fastpath=fp)
+    agent = Agent(NoModel(), tools, confirm=lambda t, a: False, routers=[fp])
     assert agent.ask("installa vlc") == "Va bene, annullato."
