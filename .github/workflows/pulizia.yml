@@ -1,0 +1,29 @@
+name: Pulizia Release
+
+# Toglie le Release «anteprima» vecchie (ISO e pacchetti da diversi GB) e le loro etichette:
+# resta solo la più recente. La stessa pulizia la fa «Immagine AIOS» dopo ogni nuova Release.
+on:
+  workflow_dispatch:
+  push:
+    branches: [claude/sharp-hawking-70lzfv]
+    paths: [.github/workflows/pulizia.yml]
+
+permissions:
+  contents: write
+
+jobs:
+  pulizia:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Tieni solo l'anteprima più recente
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          tags=$(gh release list --repo "$GITHUB_REPOSITORY" --limit 200 --json tagName --jq '.[].tagName' \
+                 | grep '^anteprima-[0-9]*$' | sort -t- -k2 -n)
+          tieni=$(echo "$tags" | tail -n1)
+          for t in $tags; do
+            [ "$t" = "$tieni" ] && continue
+            echo "Tolgo $t"; gh release delete "$t" --repo "$GITHUB_REPOSITORY" --yes --cleanup-tag
+          done
+          echo "Resta: $tieni"

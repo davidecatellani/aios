@@ -113,3 +113,13 @@ jobs:
           fi
           gh release create "anteprima-${GITHUB_RUN_NUMBER}" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --prerelease \
             --title "AIOS ${VERSIONE} (anteprima$([ "$KERNEL" = lts ] && echo ', kernel LTS 6.18'))" --notes-file "$GITHUB_WORKSPACE/image/RELEASE.md" "${files[@]}"
+      - name: Togli le anteprime vecchie
+        # Resta solo quella appena creata: le vecchie ISO e i vecchi pacchetti non servono più.
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          for t in $(gh release list --repo "$GITHUB_REPOSITORY" --limit 200 --json tagName --jq '.[].tagName' \
+                     | grep '^anteprima-[0-9]*$'); do
+            [ "$t" = "anteprima-${GITHUB_RUN_NUMBER}" ] && continue
+            echo "Tolgo $t"; gh release delete "$t" --repo "$GITHUB_REPOSITORY" --yes --cleanup-tag
+          done
