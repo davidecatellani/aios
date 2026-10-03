@@ -174,7 +174,7 @@ def pinned_request(url: str, method: str, path: str, payload: Any, key: str, fin
         body = json.dumps(payload).encode() if payload is not None else None
         headers = {"Content-Type": "application/json"}
         if key:
-            headers["Authorization"] = f"Bearer {key}"
+            headers["Authorization"] = key if key.startswith("AIOS ") else f"Bearer {key}"
         conn.request(method, path, body=body, headers=headers)
         resp = conn.getresponse()
         data = json.loads(resp.read() or b"{}")
@@ -185,20 +185,63 @@ def pinned_request(url: str, method: str, path: str, payload: Any, key: str, fin
         conn.close()
 
 
-def pair_with_pc(pairing_url: str, name: str, request: Callable[..., Any] = pinned_request) -> dict[str, str]:
+def pair_with_pc(pairing_url: str, name: str, request: Callable[..., Any] = pinned_request,
+                 kind: str = "telefono") -> dict[str, str]:
     """Dal QR del PC (https://ip:porta/#abbina=codice&fp=impronta) alla chiave del telefono."""
     u = urlparse(pairing_url)
     fragment = dict(p.split("=", 1) for p in u.fragment.split("&") if "=" in p)
     if not fragment.get("abbina") or not fragment.get("fp"):
         raise ValueError("codice QR non valido: rifallo con «collega il telefono» sul PC")
+    from .. import identity as ident
+
     base = f"https://{u.netloc}"
-    reply = request(base, "POST", "/api/abbina", {"code": fragment["abbina"], "name": name}, "", fragment["fp"])
+    body = {"code": fragment["abbina"], "name": name, "kind": kind,
+            "device_key": ident.b64(ident.device_public_key())}  # per entrare nell'identità dell'utente
+    reply = request(base, "POST", "/api/abbina", body, "", fragment["fp"])
     config = {"url": base, "key": reply["key"], "fingerprint": fragment["fp"], "pc": reply.get("pc", "PC")}
+    if reply.get("identita"):
+        joined = ident.join(reply["identita"])
+        peers = [p for p in joined.data.get("pari", []) if p.get("url") != base]
+        joined.data["pari"] = peers + [{"url": base, "fingerprint": fragment["fp"], "nome": config["pc"]}]
+        joined.save()
+        config["identita"] = joined.name
     path = pc_config_path()
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(config))
     os.chmod(path, 0o600)
     return config
+
+
+def signed_requester(identity: Any, url: str, fingerprint: str,
+                     request: Callable[..., Any] = pinned_request) -> Callable[[str, str, Any], Any]:
+    """Richieste firmate con la chiave di questo dispositivo verso un altro dispositivo dell'utente."""
+    def call(method: str, path: str, payload: Any) -> Any:
+        body = json.dumps(payload).encode() if payload is not None else b""
+        reply = request(url, method, path, payload, identity.sign_request(method, path, body), fingerprint, 60)
+        if isinstance(reply, dict) and isinstance(reply.get("revoche"), dict) and reply["revoche"]:
+            identity.accept_revocations(reply["revoche"])  # accettate solo se firmate dall'utente e più recenti
+        return reply
+
+    return call
+
+
+def sync_peers(identity: Any, engine: Any, request: Callable[..., Any] = pinned_request) -> list[str]:
+    """Sincronizza con i dispositivi conosciuti raggiungibili. → righe di riepilogo."""
+    report = []
+    for peer in identity.data.get("pari", []):
+        try:
+            got, sent = engine.sync_with(peer["url"], signed_requester(identity, peer["url"], peer["fingerprint"], request))
+            report.append(f"{peer.get('nome', peer['url'])}: ricevute {got}, inviate {sent}")
+        except PinError:
+            report.append(f"{peer.get('nome', peer['url'])}: certificato diverso, sincronizzazione bloccata per sicurezza")
+        except ConnectionError as exc:
+            if "riconosciuto" in str(exc):
+                report.append(f"{peer.get('nome', peer['url'])}: non riconosce più questo dispositivo (revocato?)")
+            else:
+                report.append(f"{peer.get('nome', peer['url'])}: non raggiungibile")
+        except (OSError, ValueError, KeyError):
+            report.append(f"{peer.get('nome', peer['url'])}: non raggiungibile")
+    return report
 
 
 class RemoteBrain:

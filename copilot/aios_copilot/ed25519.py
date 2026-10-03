@@ -1,8 +1,9 @@
-"""Verifica di firme Ed25519 (RFC 8032), senza dipendenze esterne.
+"""Firme Ed25519 (RFC 8032), senza dipendenze esterne.
 
-Implementazione di riferimento della RFC 8032 §6, solo verifica: serve a controllare
-che il catalogo dei modelli arrivi davvero dal progetto AIOS. È lenta (decine di
-millisecondi) ma si usa una volta per aggiornamento.
+Implementazione di riferimento della RFC 8032 §6: verifica (catalogo dei modelli,
+market dei temi) e firma (identità dell'utente e dei suoi dispositivi, identity.py).
+È lenta (decine di millisecondi) ma si usa poche volte. Non è a tempo costante: va
+bene per chiavi che non firmano messaggi scelti da altri in quantità.
 """
 
 from __future__ import annotations
@@ -83,3 +84,33 @@ def verify(public_key: bytes, message: bytes, signature: bytes) -> bool:
         return False
     h = int.from_bytes(hashlib.sha512(signature[:32] + public_key + message).digest(), "little") % Q
     return _equal(_mul(s, BASE), _add(r, _mul(h, a)))
+
+
+def _compress(point: Point) -> bytes:
+    zinv = pow(point[2], P - 2, P)
+    x, y = point[0] * zinv % P, point[1] * zinv % P
+    return (y | ((x & 1) << 255)).to_bytes(32, "little")
+
+
+def _expand(seed: bytes) -> tuple[int, bytes]:
+    if len(seed) != 32:
+        raise ValueError("il seme Ed25519 deve essere di 32 byte")
+    h = hashlib.sha512(seed).digest()
+    a = int.from_bytes(h[:32], "little")
+    a &= (1 << 254) - 8
+    a |= 1 << 254
+    return a, h[32:]
+
+
+def public_key(seed: bytes) -> bytes:
+    a, _ = _expand(seed)
+    return _compress(_mul(a, BASE))
+
+
+def sign(seed: bytes, message: bytes) -> bytes:
+    a, prefix = _expand(seed)
+    pub = _compress(_mul(a, BASE))
+    r = int.from_bytes(hashlib.sha512(prefix + message).digest(), "little") % Q
+    big_r = _compress(_mul(r, BASE))
+    h = int.from_bytes(hashlib.sha512(big_r + pub + message).digest(), "little") % Q
+    return big_r + ((r + h * a) % Q).to_bytes(32, "little")

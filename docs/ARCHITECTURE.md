@@ -360,8 +360,31 @@ Il telefono e il PC si collegano da soli quando sono vicini (stessa rete):
     sul telefono.
 - Il copilota parla con il servizio da un socket locale leggibile solo dall'utente.
 
-Prossimi passi: identità dell'utente con una chiave principale per
-tutti i dispositivi, sincronizzazione con CRDT cifrati end-to-end.
+### Identità unica e sincronizzazione (`identity.py`, `sync.py`)
+
+- **Chiave principale dell'utente** (Ed25519) nata da un segreto di 128 bit, che
+  l'utente conserva come **frase di recupero** di 17 parole italiane (16 + una di
+  controllo; bastano le prime 4 lettere di ogni parola). Con la frase si ritrova la
+  stessa identità su un dispositivo nuovo.
+- Ogni dispositivo ha la sua chiave; la chiave principale gli firma un **certificato**.
+  L'abbinamento con il QR (pinned TLS) consegna al nuovo dispositivo certificato e
+  chiave di sincronizzazione; la chiave principale resta sul dispositivo che la custodisce.
+- **Revoche** firmate e numerate («revoca il Pixel»): si propagano con la
+  sincronizzazione e un dispositivo revocato non viene più riconosciuto.
+- Le richieste tra dispositivi sono **firmate** con la chiave del dispositivo
+  (metodo, percorso, orario, impronta del corpo; finestra di 2 minuti).
+- **Sincronizzazione cifrata end-to-end**: CRDT «vince l'ultima modifica» per chiave
+  con orologio logico ibrido (modifiche offline unite senza conflitti, cancellazioni
+  che non risorgono, orologi sbagliati tollerati). Chiave e valore cifrati con
+  ChaCha20-Poly1305; in chiaro solo un'impronta opaca e l'orologio. Si sincronizzano
+  agenda e promemoria, nome, temi creati e tema in uso; non ciò che dipende dal
+  dispositivo (modelli AI, cartelle escluse, posta). Il servizio sincronizza ogni
+  2 minuti con i dispositivi conosciuti.
+- Crittografia senza dipendenze (Ed25519, ChaCha20-Poly1305, HKDF in Python puro,
+  verificati con i vettori delle RFC); se c'è `cryptography` la si usa per la velocità.
+
+Prossimi passi: relay cifrato per sincronizzare anche lontano da casa, CRDT di testo
+per le note condivise, sincronizzazione delle immagini dei temi.
 
 ## Roadmap
 

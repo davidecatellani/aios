@@ -342,3 +342,19 @@ ci si allontana.
 ```bash
 aios-telefono servizio | stato | abbina | collega-pc URL   # collega-pc: sul telefono con AIOS
 ```
+
+### Un'identità per tutti i tuoi dispositivi
+
+«crea la mia identità» genera la tua chiave AIOS e una **frase di recupero** di 17
+parole da scrivere su carta. I dispositivi collegati con «collega il telefono» (o
+`aios-telefono collega-pc` su un altro PC con AIOS) ricevono un certificato e si
+**sincronizzano da soli**, cifrati end-to-end: agenda e promemoria, il tuo nome, i
+temi. Se perdi un dispositivo: «revoca il Pixel 8». Se li perdi tutti: «ripristina la
+mia identità: …» con le 17 parole.
+
+| Dici | Succede |
+|---|---|
+| «la mia identità» | i tuoi dispositivi e chi custodisce la chiave principale |
+| «sincronizza» | sincronizzazione immediata con gli altri dispositivi |
+| «mostra la frase di recupero» | (con conferma) le 17 parole |
+| «revoca il tablet» | quel dispositivo non viene più riconosciuto |

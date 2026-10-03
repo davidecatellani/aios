@@ -15,6 +15,7 @@ import argparse
 import calendar
 import os
 import re
+import secrets
 import sqlite3
 import subprocess
 import sys
@@ -125,7 +126,17 @@ class Agenda:
         if new:
             os.chmod(db_path, 0o600)
         self.db.executescript(SCHEMA)
+        self._add_uids()
         self.clock = clock
+
+    def _add_uids(self) -> None:
+        """Identificativo stabile di ogni voce, uguale su tutti i dispositivi (sincronizzazione)."""
+        for table in ("events", "reminders"):
+            columns = [r[1] for r in self.db.execute(f"PRAGMA table_info({table})")]
+            if "uid" not in columns:
+                self.db.execute(f"ALTER TABLE {table} ADD COLUMN uid TEXT")
+            for (rowid,) in self.db.execute(f"SELECT id FROM {table} WHERE uid IS NULL").fetchall():
+                self.db.execute(f"UPDATE {table} SET uid = ? WHERE id = ?", (secrets.token_hex(8), rowid))
 
     def now(self) -> datetime:
         return self.clock().replace(second=0, microsecond=0)
@@ -135,10 +146,10 @@ class Agenda:
                   location: str = "", notes: str = "", repeat: str = "", source: str = "user") -> int:
         assert repeat in REPEATS
         cur = self.db.execute(
-            "INSERT INTO events (title, start, end, all_day, location, notes, repeat, source, created) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            "INSERT INTO events (title, start, end, all_day, location, notes, repeat, source, created, uid) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (title, start.isoformat(), end.isoformat() if end else None, int(all_day), location, notes,
-             repeat, source, self.now().isoformat()),
+             repeat, source, self.now().isoformat(), secrets.token_hex(8)),
         )
         self._skip_past_alerts("event", cur.lastrowid)
         return cur.lastrowid
@@ -146,8 +157,8 @@ class Agenda:
     def add_reminder(self, title: str, due: datetime | None, repeat: str = "", source: str = "user") -> int:
         assert repeat in REPEATS
         cur = self.db.execute(
-            "INSERT INTO reminders (title, due, repeat, source, created) VALUES (?, ?, ?, ?, ?)",
-            (title, due.isoformat() if due else None, repeat, source, self.now().isoformat()),
+            "INSERT INTO reminders (title, due, repeat, source, created, uid) VALUES (?, ?, ?, ?, ?, ?)",
+            (title, due.isoformat() if due else None, repeat, source, self.now().isoformat(), secrets.token_hex(8)),
         )
         self._skip_past_alerts("reminder", cur.lastrowid)
         return cur.lastrowid
@@ -168,6 +179,32 @@ class Agenda:
     def delete(self, kind: str, item_id: int) -> bool:
         table = {"event": "events", "reminder": "reminders"}[kind]
         return self.db.execute(f"DELETE FROM {table} WHERE id = ?", (item_id,)).rowcount > 0
+
+    # --- sincronizzazione tra i dispositivi (sync.py) -----------------------------------
+    EVENT_FIELDS = ("title", "start", "end", "all_day", "location", "notes", "repeat", "source")
+    REMINDER_FIELDS = ("title", "due", "repeat", "done", "source")
+
+    def sync_records(self) -> dict[str, dict]:
+        records = {}
+        for kind, table, fields in (("event", "events", self.EVENT_FIELDS), ("reminder", "reminders", self.REMINDER_FIELDS)):
+            for row in self.db.execute(f"SELECT uid, {', '.join(fields)} FROM {table}"):
+                records[row[0]] = {"kind": kind, **dict(zip(fields, row[1:]))}
+        return records
+
+    def apply_record(self, uid: str, record: dict | None) -> None:
+        """Una voce arrivata da un altro dispositivo (None = cancellata là)."""
+        if record is None:
+            for table in ("events", "reminders"):
+                self.db.execute(f"DELETE FROM {table} WHERE uid = ?", (uid,))
+            return
+        table, fields = (("events", self.EVENT_FIELDS) if record.get("kind") == "event" else ("reminders", self.REMINDER_FIELDS))
+        values = [record.get(f) for f in fields]
+        if self.db.execute(f"SELECT 1 FROM {table} WHERE uid = ?", (uid,)).fetchone():
+            self.db.execute(f"UPDATE {table} SET {', '.join(f + ' = ?' for f in fields)} WHERE uid = ?", (*values, uid))
+            return
+        cur = self.db.execute(f"INSERT INTO {table} ({', '.join(fields)}, created, uid) VALUES ({', '.join('?' * len(fields))}, ?, ?)",
+                              (*values, self.now().isoformat(), uid))
+        self._skip_past_alerts(record["kind"], cur.lastrowid)  # niente avvisi già passati anche qui
 
     # --- lettura --------------------------------------------------------------------
     def _events(self) -> Iterable[tuple]:

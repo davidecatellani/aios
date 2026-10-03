@@ -63,6 +63,7 @@ class MeshService:
         self.ringing = ""
         self.bus, self.copy = bus, copy
         self.seen_codes: set[str] = set()
+        self.sync_every, self.next_sync = 120.0, 0.0
 
     def tick(self) -> None:
         try:
@@ -84,6 +85,21 @@ class MeshService:
             self.server.stop()
         self._calls()
         self._codes()
+        if self.clock() >= self.next_sync:
+            self.next_sync = self.clock() + self.sync_every
+            threading.Thread(target=self.sync_now, daemon=True).start()
+
+    def sync_now(self) -> list[str]:
+        """Sincronizzazione con gli altri dispositivi dell'utente (se c'è un'identità)."""
+        from ..identity import Identity
+        from .delegate import sync_peers
+
+        identity = Identity.load()
+        engine = self.server.sync() if getattr(self.server, "sync", None) else None
+        if identity is None or engine is None:
+            return []
+        engine.scan()
+        return sync_peers(identity, engine)
 
     def _codes(self) -> None:
         """Codice di verifica arrivato sul telefono → notifica sul PC con «Copia»."""
@@ -140,6 +156,8 @@ class MeshService:
             if not self.server.running:
                 self.server.start(**self.start_kwargs)
             return {"url": self._url()}
+        if action == "sincronizza":
+            return {"righe": self.sync_now()}
         if action == "stato":
             return {"vicini": list(self.near.values()), "pagina": self.server.running,
                     "abbinati": [d.name for d in self.server.devices.items]}
@@ -232,7 +250,22 @@ def build(search: Callable[[str], list[dict[str, Any]]] | None = None) -> MeshSe
 
         return make_agent(confirm, allowed=PHONE_ALLOWED)
 
-    server = PhoneServer(FileShare(search=search), brain=Brain(), assistant=_Lazy(lambda: Assistant(phone_agent)))
+    engine: list = []
+
+    def sync_engine():
+        from ..identity import Identity
+        from ..sync import engine_for
+
+        if not engine:
+            identity = Identity.load()
+            made = engine_for(identity) if identity else None
+            if made is None:
+                return None
+            engine.append(made)
+        return engine[0]
+
+    server = PhoneServer(FileShare(search=search), brain=Brain(), assistant=_Lazy(lambda: Assistant(phone_agent)),
+                         sync=sync_engine)
     return MeshService(KdeConnect(runner), Ofono(runner), server, bus=PhoneBus(runner),
                        copy=lambda text: copy_to_clipboard(text, runner))
 

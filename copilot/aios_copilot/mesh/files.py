@@ -194,12 +194,13 @@ class FileShare:
 
 class PhoneServer:
     def __init__(self, share: FileShare, devices: Devices | None = None, pairing: Pairing | None = None,
-                 brain: Any = None, assistant: Any = None):
+                 brain: Any = None, assistant: Any = None, sync: Callable[[], Any] | None = None):
         self.share = share
         self.devices = devices or Devices()
         self.pairing = pairing or Pairing()
         self.httpd: ThreadingHTTPServer | None = None
         self.brain, self.assistant = brain, assistant  # delega AI dal telefono (delegate.py)
+        self.sync = sync  # motore di sincronizzazione (sync.py), creato alla prima richiesta
         self.fingerprint = ""
         self.tickets: dict[str, tuple[Path, float]] = {}
 
@@ -239,6 +240,21 @@ class PhoneServer:
             self.httpd = None
 
 
+def _identity_bundle(body: dict[str, Any], name: str) -> dict[str, Any] | None:
+    """Un dispositivo con AIOS che si abbina riceve un certificato dell'identità dell'utente."""
+    from ..identity import Identity, IdentityError, unb64
+
+    identity = Identity.load()
+    key = body.get("device_key")
+    if identity is None or not isinstance(key, str):
+        return None
+    try:
+        cert = identity.add_device(unb64(key), name, str(body.get("kind", "telefono")))
+    except (IdentityError, ValueError):
+        return None
+    return identity.bundle_for(cert)
+
+
 def make_handler(server: PhoneServer) -> type[BaseHTTPRequestHandler]:
     class Handler(BaseHTTPRequestHandler):
         def log_message(self, *args: Any) -> None:
@@ -276,6 +292,8 @@ def make_handler(server: PhoneServer) -> type[BaseHTTPRequestHandler]:
                 return self.wfile.write(body)
             if url.path.startswith("/scarica/"):
                 return self._download(url.path[9:], bool(query.get("vedi")))
+            if url.path == "/api/sync":
+                return self._sync("GET", b"", query)
             if self._device() is None:
                 return self._json({"error": "telefono non abbinato"}, 403)
             if url.path == "/api/cartella":
@@ -302,14 +320,45 @@ def make_handler(server: PhoneServer) -> type[BaseHTTPRequestHandler]:
                 while chunk := f.read(1 << 16):
                     self.wfile.write(chunk)
 
+        def _member(self, method: str, body: bytes) -> Any:
+            """Un dispositivo dell'identità dell'utente (richiesta firmata, certificato valido, non revocato)."""
+            from ..identity import Identity
+
+            identity = Identity.load()
+            header = self.headers.get("Authorization", "")
+            return identity.check_request(header, method, self.path, body) if identity and header.startswith("AIOS ") else None
+
+        def _sync(self, method: str, raw: bytes, query: dict[str, str]) -> None:
+            if self._member(method, raw) is None:
+                return self._json({"error": "dispositivo non riconosciuto"}, 403)
+            engine = server.sync() if server.sync else None
+            if engine is None:
+                return self._json({"error": "sincronizzazione non attiva"}, 404)
+            if method == "GET":
+                engine.scan()
+                after = query.get("dopo", "0")
+                ops, seq = engine.ops_since(int(after) if after.isdigit() else 0)
+                from ..identity import Identity
+
+                return self._json({"ops": ops, "seq": seq, "revoche": Identity.load().data.get("revoche", {})})
+            try:
+                body = json.loads(raw or b"{}")
+            except ValueError:
+                body = {}
+            ops = body.get("ops") if isinstance(body, dict) else None
+            return self._json({"applicate": engine.merge(ops if isinstance(ops, list) else [])})
+
         def do_POST(self) -> None:
             url = urlparse(self.path)
-            limit = 2_000_000 if url.path == "/api/modello" else 8192
+            limit = 8_000_000 if url.path in ("/api/modello", "/api/sync") else 8192
             length = int(self.headers.get("Content-Length") or 0)
             if length > limit:
                 return self._json({"error": "richiesta troppo grande"}, 413)
+            raw = self.rfile.read(length)
+            if url.path == "/api/sync":
+                return self._sync("POST", raw, {})
             try:
-                body = json.loads(self.rfile.read(length) or b"{}")
+                body = json.loads(raw or b"{}")
             except ValueError:
                 body = {}
             body = body if isinstance(body, dict) else {}
@@ -317,7 +366,11 @@ def make_handler(server: PhoneServer) -> type[BaseHTTPRequestHandler]:
                 if not server.pairing.use(str(body.get("code", ""))):
                     return self._json({"error": "codice non valido o scaduto: inquadra di nuovo il QR sul PC"}, 403)
                 name = str(body.get("name") or "telefono")
-                return self._json({"key": server.devices.add(name), "pc": socket.gethostname()})
+                reply = {"key": server.devices.add(name), "pc": socket.gethostname()}
+                bundle = _identity_bundle(body, name)
+                if bundle:
+                    reply["identita"] = bundle
+                return self._json(reply)
             if self._device() is None:
                 return self._json({"error": "telefono non abbinato"}, 403)
             self._delegate("POST", url, body)
