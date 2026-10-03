@@ -31,7 +31,8 @@ from .tools import themes as theme_tools
 from .tools import phone as phone_tools
 
 
-def make_agent(confirm: Confirm, model: str | None = None) -> Agent:
+def make_agent(confirm: Confirm, model: str | None = None, allowed: frozenset[str] | None = None) -> Agent:
+    """Il copilota. `allowed` limita gli strumenti (es. richieste arrivate dal telefono: mesh/delegate.py)."""
     runner = Runner()
     index: list[FileIndex] = []  # aperto alla prima ricerca, non all'avvio
 
@@ -123,15 +124,18 @@ def make_agent(confirm: Confirm, model: str | None = None) -> Agent:
         return load_profile().get("name", "")
 
     llm = make_client(model)
-    agent = Agent(
-        llm,
-        [*default_tools(runner), *files.make_tools(get_index), *agenda_tools.make_tools(get_agenda, user_name, extras=lambda: [model_hint()]),
+    tools = [*default_tools(runner), *files.make_tools(get_index), *agenda_tools.make_tools(get_agenda, user_name, extras=lambda: [model_hint()]),
          *mail_tools.make_tools(mail_store, send, has_accounts), *taste_tools.make_tools(subs, catalog, profile),
          *ai_tools.make_management_tools(device, installed_models, downloads),
          *ai_tools.make_capability_tools(engines.available()), *organize_tools.make_tools(library),
          *theme_tools.make_tools(ask_llm=lambda prompt: llm.chat([{"role": "user", "content": prompt}], []).get("content", ""),
                                  runner=runner),
-         *phone_tools.make_tools(runner)],
+         *phone_tools.make_tools(runner)]
+    if allowed is not None:
+        tools = [t for t in tools if t.name in allowed]
+    agent = Agent(
+        llm,
+        tools,
         confirm,
         history=History().record,
         routers=[

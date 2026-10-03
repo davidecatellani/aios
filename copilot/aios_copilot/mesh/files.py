@@ -193,11 +193,14 @@ class FileShare:
 
 
 class PhoneServer:
-    def __init__(self, share: FileShare, devices: Devices | None = None, pairing: Pairing | None = None):
+    def __init__(self, share: FileShare, devices: Devices | None = None, pairing: Pairing | None = None,
+                 brain: Any = None, assistant: Any = None):
         self.share = share
         self.devices = devices or Devices()
         self.pairing = pairing or Pairing()
         self.httpd: ThreadingHTTPServer | None = None
+        self.brain, self.assistant = brain, assistant  # delega AI dal telefono (delegate.py)
+        self.fingerprint = ""
         self.tickets: dict[str, tuple[Path, float]] = {}
 
     def ticket(self, path: Path) -> str:
@@ -219,7 +222,7 @@ class PhoneServer:
     def start(self, host: str = "0.0.0.0", port: int = PORT, cert_dir: Path | None = None) -> int:
         if self.httpd is not None:
             return self.httpd.server_address[1]
-        cert, key, _ = certificate(cert_dir)
+        cert, key, self.fingerprint = certificate(cert_dir)
         ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
         ctx.minimum_version = ssl.TLSVersion.TLSv1_2
         ctx.load_cert_chain(cert, key)
@@ -285,7 +288,7 @@ def make_handler(server: PhoneServer) -> type[BaseHTTPRequestHandler]:
                 if path is None or not path.is_file():
                     return self._json({"error": "non trovato"}, 404)
                 return self._json({"url": f"/scarica/{server.ticket(path)}"})
-            self._json({"error": "non trovato"}, 404)
+            self._delegate("GET", url, {})
 
         def _download(self, ticket: str, view: bool) -> None:
             path = server.redeem(ticket)
@@ -300,15 +303,31 @@ def make_handler(server: PhoneServer) -> type[BaseHTTPRequestHandler]:
                     self.wfile.write(chunk)
 
         def do_POST(self) -> None:
-            if urlparse(self.path).path != "/api/abbina":
-                return self._json({"error": "non trovato"}, 404)
+            url = urlparse(self.path)
+            limit = 2_000_000 if url.path == "/api/modello" else 8192
+            length = int(self.headers.get("Content-Length") or 0)
+            if length > limit:
+                return self._json({"error": "richiesta troppo grande"}, 413)
             try:
-                body = json.loads(self.rfile.read(min(int(self.headers.get("Content-Length") or 0), 4096)) or b"{}")
+                body = json.loads(self.rfile.read(length) or b"{}")
             except ValueError:
                 body = {}
-            if not isinstance(body, dict) or not server.pairing.use(str(body.get("code", ""))):
-                return self._json({"error": "codice non valido o scaduto: inquadra di nuovo il QR sul PC"}, 403)
-            name = str(body.get("name") or "telefono")
-            return self._json({"key": server.devices.add(name), "pc": socket.gethostname()})
+            body = body if isinstance(body, dict) else {}
+            if url.path == "/api/abbina":
+                if not server.pairing.use(str(body.get("code", ""))):
+                    return self._json({"error": "codice non valido o scaduto: inquadra di nuovo il QR sul PC"}, 403)
+                name = str(body.get("name") or "telefono")
+                return self._json({"key": server.devices.add(name), "pc": socket.gethostname()})
+            if self._device() is None:
+                return self._json({"error": "telefono non abbinato"}, 403)
+            self._delegate("POST", url, body)
+
+        def _delegate(self, method: str, url: Any, body: dict[str, Any]) -> None:
+            from .delegate import handle_api
+
+            result = handle_api(server, method, url.path, body, url.query)
+            if result is None:
+                return self._json({"error": "non trovato"}, 404)
+            self._json(result[1], result[0])
 
     return Handler

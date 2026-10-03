@@ -54,7 +54,7 @@ class LlamaServerClient:
         pass  # llama-server tiene già il modello caricato
 
 
-def make_client(model: str | None = None) -> "OllamaClient | LlamaServerClient":
+def make_client(model: str | None = None) -> Any:
     """Il client giusto per il modello di testo: Ollama, o llama.cpp per un modello a esperti sistemato a pezzi."""
     from .models import load_config
 
@@ -63,9 +63,11 @@ def make_client(model: str | None = None) -> "OllamaClient | LlamaServerClient":
         placed = json.loads(load_config().get("_esperti", "{}")).get(name)
     except ValueError:
         placed = None
-    if placed and placed.get("url"):
-        return LlamaServerClient(placed["url"], name)
-    return OllamaClient(model=name)
+    local = LlamaServerClient(placed["url"], name) if placed and placed.get("url") else OllamaClient(model=name)
+    from .mesh.delegate import HybridModel, RemoteBrain, load_pc
+
+    pc = load_pc()  # su un telefono abbinato a un PC: il modello del PC quando è vicino
+    return HybridModel(RemoteBrain(pc), local) if pc and not model else local
 
 
 class OllamaClient:

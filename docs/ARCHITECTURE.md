@@ -346,10 +346,21 @@ Il telefono e il PC si collegano da soli quando sono vicini (stessa rete):
   servizio propone una notifica con «Copia», e «copia il codice» li mette negli
   appunti. Notifiche e SMS sono dati privati (protezione dalle fughe del copilota);
   ogni invio chiede conferma, e un nome ambiguo nella rubrica non viene indovinato.
+- **Delega AI dal telefono al PC** (`mesh/delegate.py`):
+  - *cervello prestato*: sul telefono con AIOS il copilota resta quello del telefono,
+    con i suoi strumenti, ma il ragionamento lo fa il modello del PC (`/api/modello`)
+    quando è vicino. `HybridModel` torna al modello del telefono appena il PC non
+    risponde e lo riprova dopo 30 secondi. Il certificato del PC è «fissato» al
+    momento dell'abbinamento (l'impronta è nel QR): a chi si finge il PC non arriva
+    nulla. L'abbinamento: `aios-telefono collega-pc <indirizzo del QR>`;
+  - *«Chiedi al PC»* nella pagina del telefono: il copilota del PC risponde con un
+    insieme ristretto di strumenti (`PHONE_ALLOWED`: file, posta, agenda, web,
+    consigli); niente che cambi il PC da lontano (app, impostazioni, spegnimento,
+    temi, riordino, schermo). Le conferme, per esempio per inviare una mail, si danno
+    sul telefono.
 - Il copilota parla con il servizio da un socket locale leggibile solo dall'utente.
 
-Prossimi passi: delega dei
-modelli AI dal telefono al PC, identità dell'utente con una chiave principale per
+Prossimi passi: identità dell'utente con una chiave principale per
 tutti i dispositivi, sincronizzazione con CRDT cifrati end-to-end.
 
 ## Roadmap

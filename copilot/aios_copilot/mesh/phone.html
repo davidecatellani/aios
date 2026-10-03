@@ -11,6 +11,7 @@
     :root { --bg:#0f1419; --surface:#18212b; --text:#e9eef3; --muted:#a3afbb; --accent:#4fb3e0; --on-accent:#061018; --line:#26313c; }
   }
   * { box-sizing:border-box; }
+  [hidden] { display:none !important; }
   body { margin:0; font:16px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif; background:var(--bg); color:var(--text); }
   header { position:sticky; top:0; z-index:2; background:var(--bg); padding:14px 16px 10px; border-bottom:1px solid var(--line); }
   h1 { font-size:20px; margin:0 0 10px; display:flex; align-items:center; gap:8px; }
@@ -32,15 +33,42 @@
   .card button.main { width:100%; margin-top:14px; padding:14px; border-radius:14px; border:0; background:var(--accent); color:var(--on-accent); font:600 16px system-ui; }
   .muted { color:var(--muted); }
   .empty { text-align:center; color:var(--muted); padding:40px 10px; }
+  .tabs { display:flex; gap:6px; margin-bottom:10px; }
+  .tabs button { flex:1; border:1px solid var(--line); background:var(--surface); color:var(--text); border-radius:12px; padding:9px; font:600 15px system-ui; }
+  .tabs button[aria-selected=true] { background:var(--accent); color:var(--on-accent); border-color:var(--accent); }
+  #chat { display:flex; flex-direction:column; gap:10px; padding:6px 4px 96px; scroll-padding-bottom:96px; }
+  .bubble { max-width:88%; padding:10px 14px; border-radius:18px; white-space:pre-wrap; overflow-wrap:anywhere; }
+  .me { align-self:flex-end; background:var(--accent); color:var(--on-accent); border-bottom-right-radius:6px; }
+  .pc { align-self:flex-start; background:var(--surface); border:1px solid var(--line); border-bottom-left-radius:6px; }
+  .status { align-self:flex-start; color:var(--muted); font-size:14px; }
+  .confirm { align-self:stretch; background:var(--surface); border:1px solid var(--accent); border-radius:16px; padding:12px; }
+  .confirm .row { display:flex; gap:8px; margin-top:10px; }
+  .confirm button { flex:1; padding:11px; border-radius:12px; border:1px solid var(--line); background:var(--bg); color:var(--text); font:600 15px system-ui; }
+  .confirm button.yes { background:var(--accent); color:var(--on-accent); border-color:var(--accent); }
+  form.ask { position:fixed; left:0; right:0; bottom:0; display:flex; gap:8px; padding:10px 12px calc(10px + env(safe-area-inset-bottom));
+    background:var(--bg); border-top:1px solid var(--line); }
+  form.ask input { flex:1; min-width:0; }
+  form.ask button { border:0; border-radius:14px; background:var(--accent); color:var(--on-accent); padding:0 16px; font-size:18px; }
 </style>
 </head>
 <body>
 <header id="top" hidden>
   <h1><span class="dot"></span><span id="pc">Il mio PC</span></h1>
+  <div class="tabs" role="tablist">
+    <button id="tab-files" role="tab" aria-selected="true">📁 File</button>
+    <button id="tab-ask" role="tab" aria-selected="false">💬 Chiedi al PC</button>
+  </div>
   <input id="q" type="search" placeholder="Cerca nei file del PC…" autocomplete="off">
   <nav class="crumbs" id="crumbs"></nav>
 </header>
 <main id="main"></main>
+<section id="ask-view" hidden>
+  <div id="chat"><p class="bubble pc">Chiedimi qualcosa: uso il modello AI del PC, più grande di quello del telefono. Posso cercare nei file e nella posta, leggere l'agenda, cercare sul web. Dal telefono non cambio nulla sul PC.</p></div>
+  <form class="ask" id="ask-form">
+    <input id="ask-text" type="text" placeholder="Es. trova il contratto d'affitto" autocomplete="off" maxlength="500">
+    <button aria-label="Invia">➤</button>
+  </form>
+</section>
 <script>
 const $ = (id) => document.getElementById(id);
 const store = { get(k) { try { return localStorage.getItem(k); } catch { return null; } },
@@ -126,6 +154,8 @@ $("q").addEventListener("input", () => {
 
 function showPairing(message, code) {
   $("top").hidden = true;
+  $("ask-view").hidden = true;
+  $("main").hidden = false;
   const name = el("input", { type: "text", value: /iPhone/.test(navigator.userAgent) ? "iPhone" : /Android/.test(navigator.userAgent) ? "Telefono Android" : "Telefono" });
   name.setAttribute("aria-label", "Nome del telefono");
   const button = el("button", { className: "main", textContent: "Collega questo telefono" });
@@ -152,9 +182,60 @@ function showPairing(message, code) {
 
 function start() {
   $("top").hidden = false;
+  showTab(false);
   $("pc").textContent = store.get("aios-pc") || "Il mio PC";
   browse("").catch(() => {});
 }
+
+function showTab(ask) {
+  $("tab-files").setAttribute("aria-selected", String(!ask));
+  $("tab-ask").setAttribute("aria-selected", String(ask));
+  $("q").hidden = ask; $("crumbs").hidden = ask; $("main").hidden = ask; $("ask-view").hidden = !ask;
+  if (ask) $("ask-text").focus();
+}
+$("tab-files").onclick = () => showTab(false);
+$("tab-ask").onclick = () => showTab(true);
+
+function bubble(cls, text) {
+  const b = el("div", { className: cls, textContent: text });
+  $("chat").append(b);
+  b.scrollIntoView({ block: "end" });
+  return b;
+}
+async function post(path, data) {
+  const r = await fetch(path, { method: "POST", headers: { "Content-Type": "application/json", Authorization: "Bearer " + key },
+                                body: JSON.stringify(data) });
+  return r.json();
+}
+$("ask-form").onsubmit = async (ev) => {
+  ev.preventDefault();
+  const text = $("ask-text").value.trim();
+  if (!text) return;
+  $("ask-text").value = "";
+  bubble("bubble me", text);
+  const wait = bubble("status", "Il PC ci sta pensando…");
+  const { job, error } = await post("/api/chiedi", { text });
+  if (!job) { wait.textContent = error || "Il PC non risponde."; return; }
+  let after = 0, asked = null;
+  while (true) {
+    const s = await api(`/api/job/${job}?after=${after}`);
+    after = s.next;
+    for (const e of s.events) if (e.kind === "status") wait.textContent = e.text + "…";
+    if (s.pending && !asked) {
+      asked = el("div", { className: "confirm" }, el("strong", { textContent: "Confermi? " }), s.pending.label);
+      if (s.pending.warning) asked.append(el("p", { className: "muted", textContent: s.pending.warning }));
+      const yes = el("button", { className: "yes", textContent: "Sì" }), no = el("button", { textContent: "No" });
+      const answer = async (ok) => { await post(`/api/job/${job}/conferma`, { ok }); asked.remove(); asked = null; };
+      yes.onclick = () => answer(true); no.onclick = () => answer(false);
+      asked.append(el("div", { className: "row" }, yes, no));
+      $("chat").append(asked);
+      wait.textContent = "Aspetto la tua conferma…";
+      asked.scrollIntoView({ block: "end" });
+    }
+    if (s.done) { wait.remove(); bubble("bubble pc", s.answer); break; }
+    await new Promise((r) => setTimeout(r, 600));
+  }
+};
 
 const code = new URLSearchParams(location.hash.slice(1)).get("abbina");
 if (code) showPairing("Dai un nome a questo telefono: lo vedrai sul PC e potrai scollegarlo quando vuoi.", code);

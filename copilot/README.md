@@ -330,6 +330,15 @@ privati (chiavi, password, profili dei browser).
 
 ![La pagina «Il mio PC» sul telefono](../docs/img/telefono.png)
 
+**Il telefono usa l'AI del PC.** Nella pagina «Il mio PC» la scheda «Chiedi al PC»
+risponde con il modello AI del PC, più grande di quello del telefono: cerca nei file
+e nella posta, legge l'agenda, cerca sul web. Dal telefono non si può cambiare nulla
+sul PC, e le conferme (es. inviare una mail) arrivano sul telefono. Su un telefono con
+AIOS il copilota usa da solo il modello del PC quando è vicino e torna al suo quando
+ci si allontana.
+
+![«Chiedi al PC» sul telefono (esempio con un modello simulato)](../docs/img/telefono-chiedi.png)
+
 ```bash
-aios-telefono servizio | stato | abbina
+aios-telefono servizio | stato | abbina | collega-pc URL   # collega-pc: sul telefono con AIOS
 ```

@@ -149,7 +149,8 @@ class MeshService:
         from .files import lan_address
 
         port = self.server.httpd.server_address[1] if self.server.httpd else 0
-        return f"https://{lan_address()}:{port}/#abbina={self.server.pairing.code}"
+        fp = getattr(self.server, "fingerprint", "")
+        return f"https://{lan_address()}:{port}/#abbina={self.server.pairing.code}" + (f"&fp={fp}" if fp else "")
 
     def serve_control(self, path: Path | None = None) -> socket.socket:
         path = path or control_path()
@@ -199,6 +200,20 @@ def send_command(command: dict[str, Any], path: Path | None = None) -> dict[str,
         return None
 
 
+class _Lazy:
+    """Crea il copilota per il telefono solo alla prima domanda (il servizio resta leggero)."""
+
+    def __init__(self, factory: Callable[[], Any]):
+        self._factory, self._obj = factory, None
+        self._lock = threading.Lock()
+
+    def __getattr__(self, name: str) -> Any:
+        with self._lock:
+            if self._obj is None:
+                self._obj = self._factory()
+        return getattr(self._obj, name)
+
+
 def build(search: Callable[[str], list[dict[str, Any]]] | None = None) -> MeshService:
     if search is None:
         def search(query: str) -> list[dict[str, Any]]:
@@ -210,7 +225,15 @@ def build(search: Callable[[str], list[dict[str, Any]]] | None = None) -> MeshSe
     from .messages import PhoneBus
 
     runner = Runner()
-    return MeshService(KdeConnect(runner), Ofono(runner), PhoneServer(FileShare(search=search)), bus=PhoneBus(runner),
+    from .delegate import PHONE_ALLOWED, Assistant, Brain
+
+    def phone_agent(confirm):
+        from ..__main__ import make_agent
+
+        return make_agent(confirm, allowed=PHONE_ALLOWED)
+
+    server = PhoneServer(FileShare(search=search), brain=Brain(), assistant=_Lazy(lambda: Assistant(phone_agent)))
+    return MeshService(KdeConnect(runner), Ofono(runner), server, bus=PhoneBus(runner),
                        copy=lambda text: copy_to_clipboard(text, runner))
 
 
@@ -218,6 +241,11 @@ def main(argv: list[str] | None = None) -> int:
     args = list(sys.argv[1:] if argv is None else argv) or ["stato"]
     if args[0] == "servizio":
         build().run_forever()
+    elif args[0] == "collega-pc" and len(args) > 1:  # sul telefono con AIOS: il QR mostrato dal PC
+        from .delegate import pair_with_pc
+
+        config = pair_with_pc(args[1], socket.gethostname())
+        print(f"Collegato a {config['pc']}: quando è vicino, il copilota userà il suo modello AI.")
     elif args[0] in ("stato", "abbina"):
         reply = send_command({"azione": args[0]})
         if reply is None:
@@ -225,7 +253,7 @@ def main(argv: list[str] | None = None) -> int:
             return 1
         print(json.dumps(reply, ensure_ascii=False, indent=1))
     else:
-        print("aios-telefono [servizio | stato | abbina]")
+        print("aios-telefono [servizio | stato | abbina | collega-pc URL]")
         return 1
     return 0
 
