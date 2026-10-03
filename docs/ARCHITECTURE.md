@@ -200,8 +200,9 @@ Non solo esecutore: un copilota che, conoscendo l'utente, **propone**.
   scadenze trovate nei documenti proposte nel **riepilogo del mattino** ✅ (mai
   aggiunte senza il sì dell'utente). Da fare: sincronizzazione CalDAV, email.
 - **Organizzazione della giornata**: impegni, scadenze, file su cui si sta lavorando.
-- **Consigli**: software adatti a ciò che si fa; film, serie, cartoni e video in base
-  ai gusti. I cataloghi (novità, uscite) si scaricano in forma generica e la scelta
+- **Consigli**: film, serie, cartoni, musica, software e giochi in base ai gusti,
+  **filtrati sugli abbonamenti attivi** (Netflix, Spotify…), riconosciuti in locale.
+  Vedi [DESIGN.md](DESIGN.md). I cataloghi (novità, uscite) si scaricano in forma generica e la scelta
   avviene in locale: il profilo dei gusti non lascia mai il dispositivo.
 - **Dosaggio**: pochi suggerimenti, nei momenti giusti; "non mi interessa" è a sua
   volta un segnale da cui imparare; "cosa sai di me?" mostra e corregge il profilo.

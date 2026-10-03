@@ -14,4 +14,5 @@ loro (clipboard, file, notifiche, delega del calcolo AI dal telefono al PC).
 | Cartella | Contenuto |
 |---|---|
 | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | architettura e roadmap |
+| [`docs/DESIGN.md`](docs/DESIGN.md) | interfaccia e integrazione del copilota, con tavole di progetto |
 | [`copilot/`](copilot/) | **fase 1:** il Copilota AI, già utilizzabile su qualsiasi Linux |

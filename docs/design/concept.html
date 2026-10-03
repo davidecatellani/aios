@@ -1,0 +1,324 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AIOS concept</title>
+<!-- Tavole di progetto dell'interfaccia di AIOS. Una vista per volta: concept.html#desktop,
+     #overlay, #tablet, #phones. Dati e titoli sono di fantasia. -->
+<style>
+  :root {
+    --bg: #f4f3fa; --glow1: #d9d2ff; --glow2: #c6ecff;
+    --surface: rgba(255,255,255,.80); --solid: #fff; --text: #1b1a24; --muted: #66637a;
+    --line: rgba(27,26,36,.10); --accent: #5b4cf0; --accent2: #18a7e0; --ok: #12805c; --warn: #b45309;
+    --shadow: 0 12px 40px rgba(40,30,120,.12);
+  }
+  .dark {
+    --bg: #0d0c14; --glow1: #2a2170; --glow2: #0c3a55;
+    --surface: rgba(30,28,46,.78); --solid: #1c1a2a; --text: #f1effa; --muted: #a6a2bd;
+    --line: rgba(241,239,250,.10); --accent: #8b7dff; --accent2: #3cc3f5; --ok: #4bd6a2; --warn: #f5b454;
+    --shadow: 0 12px 40px rgba(0,0,0,.4);
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 15px/1.45 Inter, Cantarell, system-ui, sans-serif; color: var(--text); background: #e9e8f2; }
+  .view { display: none; position: relative; overflow: hidden; color: var(--text); }
+  .dark { color: var(--text); }  /* il colore va ricalcolato con le variabili del tema scuro */
+  .view.on { display: block; }
+  .wall { position: absolute; inset: 0; background:
+      radial-gradient(45% 50% at 15% 10%, var(--glow1), transparent 70%),
+      radial-gradient(50% 55% at 90% 95%, var(--glow2), transparent 70%), var(--bg); }
+  .glass { background: var(--surface); border: 1px solid var(--line); border-radius: 20px; box-shadow: var(--shadow); backdrop-filter: blur(16px); }
+  .muted { color: var(--muted); }
+  .orb { width: 34px; height: 34px; border-radius: 50%; flex: none; position: relative;
+    background: conic-gradient(from 20deg, var(--accent), var(--accent2), #f06bd0, var(--accent)); }
+  .orb::after { content: ""; position: absolute; inset: 5px; border-radius: 50%;
+    background: radial-gradient(circle at 35% 30%, rgba(255,255,255,.9), rgba(255,255,255,.1) 45%, transparent 60%), var(--solid); }
+  .orb.big { width: 46px; height: 46px; } .orb.big::after { inset: 6px; }
+  .chip { display: inline-block; padding: 6px 12px; border-radius: 16px; border: 1px solid var(--line); background: var(--solid); font-size: 13px; margin: 0 6px 6px 0; }
+  .btn { display: inline-block; padding: 7px 14px; border-radius: 12px; font-size: 13px; font-weight: 600; border: 1px solid var(--line); background: var(--solid); }
+  .btn.primary { background: linear-gradient(135deg, var(--accent), var(--accent2)); color: #fff; border-color: transparent; }
+  .badge { display: inline-flex; gap: 4px; align-items: center; font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 10px;
+    color: var(--ok); background: color-mix(in srgb, var(--ok) 14%, transparent); }
+  .badge.warn { color: var(--warn); background: color-mix(in srgb, var(--warn) 14%, transparent); }
+  .label { font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin-bottom: 8px; }
+  .card { padding: 16px 18px; }
+  .card h3 { margin: 0 0 6px; font-size: 16px; }
+  .row { display: flex; gap: 10px; align-items: center; }
+  .poster { border-radius: 14px; color: #fff; padding: 10px; display: flex; flex-direction: column; justify-content: flex-end; font-weight: 700; font-size: 13px; line-height: 1.2; text-shadow: 0 1px 6px rgba(0,0,0,.4); position: relative; }
+  .poster small { font-weight: 600; opacity: .9; font-size: 11px; }
+  .poster .tag { position: absolute; top: 8px; left: 8px; font-size: 10px; background: rgba(0,0,0,.45); padding: 2px 6px; border-radius: 6px; text-shadow: none; }
+  .p1 { background: linear-gradient(160deg, #4b2c83, #f06b6b); } .p2 { background: linear-gradient(160deg, #0f766e, #a3e635); }
+  .p3 { background: linear-gradient(160deg, #1e3a8a, #38bdf8); } .p4 { background: linear-gradient(160deg, #9d174d, #fbbf24); }
+  .p5 { background: linear-gradient(160deg, #334155, #94a3b8); }
+  .bubble { padding: 10px 14px; border-radius: 18px; background: var(--solid); border: 1px solid var(--line); max-width: 85%; }
+  .bubble.me { background: var(--accent); color: #fff; border-color: transparent; margin-left: auto; }
+  .status { font-size: 13px; color: var(--muted); display: flex; gap: 8px; align-items: center; }
+  .ask { display: flex; align-items: center; gap: 12px; padding: 10px 12px 10px 14px; border-radius: 28px; }
+  .ask .ph { flex: 1; color: var(--muted); font-size: 16px; }
+  .ask .mic { width: 38px; height: 38px; border-radius: 50%; display: grid; place-items: center; background: var(--solid); border: 1px solid var(--line); }
+  kbd { font: 12px Inter, system-ui; padding: 2px 7px; border-radius: 6px; border: 1px solid var(--line); background: var(--solid); }
+  .note { position: absolute; max-width: 250px; font-size: 12px; font-weight: 700; color: #fff; background: #111827; padding: 6px 10px; border-radius: 10px; box-shadow: var(--shadow); z-index: 9; }
+  .note::before { content: attr(data-n); display: inline-grid; place-items: center; width: 18px; height: 18px; border-radius: 50%; background: #f59e0b; color: #111; margin-right: 6px; font-size: 11px; }
+
+  /* --- desktop --- */
+  #desktop, #overlay { width: 1440px; height: 900px; }
+  .topbar { position: absolute; top: 0; left: 0; right: 0; height: 34px; display: flex; align-items: center; justify-content: space-between; padding: 0 18px; font-size: 13px; font-weight: 600; background: color-mix(in srgb, var(--solid) 55%, transparent); backdrop-filter: blur(10px); border-bottom: 1px solid var(--line); z-index: 3; }
+  .topbar .brand span { color: var(--accent); }
+  .tray { display: flex; gap: 14px; align-items: center; }
+  .pill { padding: 2px 9px; border-radius: 10px; background: color-mix(in srgb, var(--ok) 14%, transparent); color: var(--ok); font-size: 12px; }
+  .today { position: absolute; left: 40px; top: 70px; width: 430px; display: grid; gap: 14px; }
+  .center { position: absolute; left: 520px; top: 70px; width: 520px; }
+  .hello { font-size: 40px; font-weight: 750; letter-spacing: -.02em; line-height: 1.1; margin: 10px 0 6px; }
+  .askbar { position: absolute; left: 50%; bottom: 112px; transform: translateX(-50%); width: 720px; }
+  .dock { position: absolute; left: 50%; bottom: 22px; transform: translateX(-50%); display: flex; gap: 12px; padding: 10px 14px; border-radius: 22px; }
+  .app { width: 54px; height: 54px; border-radius: 15px; display: grid; place-items: center; font-size: 26px; background: var(--solid); border: 1px solid var(--line); position: relative; }
+  .app.win::after { content: "Win"; position: absolute; bottom: -4px; right: -6px; font-size: 9px; font-weight: 800; background: #2563eb; color: #fff; padding: 1px 4px; border-radius: 5px; }
+  .app.and::after { content: "And"; position: absolute; bottom: -4px; right: -6px; font-size: 9px; font-weight: 800; background: #16a34a; color: #fff; padding: 1px 4px; border-radius: 5px; }
+  .right { position: absolute; right: 40px; top: 70px; width: 340px; display: grid; gap: 14px; }
+  .posters { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  .posters .poster { height: 150px; }
+  .device { display: flex; gap: 10px; align-items: center; padding: 8px 0; border-top: 1px solid var(--line); }
+  .device:first-of-type { border-top: 0; }
+
+  /* --- overlay --- */
+  .window { position: absolute; left: 90px; top: 70px; width: 820px; height: 680px; border-radius: 16px; background: var(--solid); border: 1px solid var(--line); box-shadow: var(--shadow); overflow: hidden; }
+  .window .bar { height: 44px; display: flex; align-items: center; gap: 8px; padding: 0 14px; border-bottom: 1px solid var(--line); font-weight: 600; font-size: 14px; }
+  .dot { width: 12px; height: 12px; border-radius: 50%; background: var(--line); }
+  .doc { padding: 34px 70px; font-family: Georgia, serif; font-size: 16px; line-height: 1.7; }
+  .doc h1 { font-size: 26px; margin: 0 0 14px; }
+  .sel { background: color-mix(in srgb, var(--accent) 25%, transparent); }
+  .dim { position: absolute; inset: 0; background: rgba(10,8,30,.28); }
+  .panel { position: absolute; right: 70px; top: 90px; width: 520px; padding: 18px; display: grid; gap: 12px; }
+  .confirm { border: 1.5px solid var(--warn); border-radius: 16px; padding: 14px; background: var(--solid); display: grid; gap: 10px; }
+  .quote { font-size: 13px; padding: 8px 10px; border-left: 3px solid var(--warn); background: color-mix(in srgb, var(--warn) 8%, transparent); border-radius: 6px; }
+  mark { background: color-mix(in srgb, var(--warn) 35%, transparent); color: inherit; padding: 0 2px; border-radius: 3px; }
+
+  /* --- tablet --- */
+  #tablet { width: 1180px; height: 820px; }
+  .tframe { position: absolute; inset: 24px; border-radius: 36px; border: 10px solid #15131f; overflow: hidden; }
+  .split { position: absolute; inset: 0; display: grid; grid-template-columns: 1fr 380px; }
+  .reader { padding: 50px 46px; background: var(--solid); font-family: Georgia, serif; font-size: 15px; line-height: 1.7; overflow: hidden; }
+  .reader h2 { font-family: Inter, system-ui; margin-top: 0; }
+  .side { padding: 22px 18px; display: grid; gap: 12px; align-content: start; border-left: 1px solid var(--line); background: color-mix(in srgb, var(--bg) 70%, transparent); }
+
+  /* --- telefoni --- */
+  #phones { width: 1180px; height: 900px; }
+  .phone { position: absolute; top: 30px; width: 400px; height: 840px; border-radius: 52px; border: 11px solid #15131f; overflow: hidden; box-shadow: 0 30px 60px rgba(0,0,0,.25); }
+  .phone .wall { border-radius: 40px; }
+  .ps { position: absolute; inset: 0; padding: 50px 18px 18px; display: flex; flex-direction: column; gap: 12px; }
+  .sb { position: absolute; top: 14px; left: 26px; right: 26px; display: flex; justify-content: space-between; font-size: 13px; font-weight: 700; }
+  .notch { position: absolute; top: 10px; left: 50%; transform: translateX(-50%); width: 110px; height: 28px; background: #15131f; border-radius: 16px; }
+  .carousel { display: flex; gap: 10px; }
+  .carousel .poster { width: 112px; height: 160px; flex: none; }
+  .svc { font-size: 11px; font-weight: 700; display: inline-block; padding: 1px 6px; border-radius: 6px; margin-top: 4px; background: rgba(255,255,255,.9); color: #111; text-shadow: none; }
+  .phone .ask { margin-top: auto; }
+  .reco { display: grid; grid-template-columns: 74px 1fr; gap: 10px; align-items: center; padding: 8px; border-radius: 14px; background: var(--solid); border: 1px solid var(--line); }
+  .reco .poster { height: 92px; padding: 6px; font-size: 10px; }
+  .reco b { font-size: 14px; }
+  .reco .why { font-size: 12px; color: var(--muted); }
+</style>
+</head>
+<body>
+
+<!-- ============================ DESKTOP ============================ -->
+<section class="view" id="desktop">
+  <div class="wall"></div>
+  <div class="topbar">
+    <div class="brand">AI<span>OS</span></div>
+    <div>sabato 3 ottobre · 9:12</div>
+    <div class="tray"><span class="pill">🔒 AI in locale</span><span>📱 2 dispositivi</span><span>📶</span><span>🔋 84%</span></div>
+  </div>
+
+  <div class="today">
+    <div class="label">Oggi</div>
+    <div class="glass card">
+      <div class="row"><div class="orb"></div><h3 style="margin:0">Il tuo riepilogo</h3></div>
+      <p style="margin:10px 0 6px">Oggi hai <b>2 impegni</b>: palestra alle 18:30 e cena da Luca alle 20:30.
+      Ieri è rimasta indietro la <b>bolletta della luce</b>.</p>
+      <div class="muted" style="font-size:13px">Ultimi file: preventivo-bagno.odt, tesi.odt</div>
+    </div>
+    <div class="glass card">
+      <div class="label" style="margin-bottom:6px">📌 Trovata nei tuoi documenti</div>
+      <div><b>Pagamento entro il 15 ottobre</b></div>
+      <div class="muted" style="font-size:13px;margin-bottom:10px">fattura-idraulico.pdf · «da pagare entro il 15/10/2026»</div>
+      <span class="btn primary">Aggiungi in agenda</span> <span class="btn">Ignora</span>
+    </div>
+    <div class="glass card">
+      <div class="label" style="margin-bottom:6px">↪ Continua da dove eri</div>
+      <div class="row"><div class="app" style="width:42px;height:42px;font-size:20px">📝</div>
+        <div><b>tesi.odt</b><div class="muted" style="font-size:13px">aperto sul telefono 40 minuti fa · pagina 37</div></div>
+        <span class="btn" style="margin-left:auto">Riprendi</span></div>
+    </div>
+  </div>
+
+  <div class="center">
+    <div class="hello">Buongiorno, Davide.</div>
+    <div class="muted" style="font-size:17px">Cosa facciamo oggi? Puoi chiedermi qualsiasi cosa.</div>
+    <div style="margin-top:22px">
+      <span class="chip">🔔 Ricordami di pagare la bolletta alle 12</span>
+      <span class="chip">🗂️ Cerca nei miei file il contratto d'affitto</span>
+      <span class="chip">🎵 Metti un po' di musica per lavorare</span>
+      <span class="chip">📅 Che impegni ho domani?</span>
+    </div>
+  </div>
+
+  <div class="right">
+    <div class="glass card">
+      <div class="label" style="margin-bottom:10px">🍿 Per stasera, scelti per te</div>
+      <div class="posters">
+        <div class="poster p1"><span class="tag">nuova stagione</span>Le Cronache di Nebbia<small>Netflix ✓</small></div>
+        <div class="poster p2"><span class="tag">cartone</span>Il Faro dei Gufi<small>Disney+ ✓</small></div>
+        <div class="poster p3"><span class="tag">film</span>Rotta Nord<small>RaiPlay · gratis</small></div>
+      </div>
+      <div class="muted" style="font-size:12px;margin-top:10px">Solo dai servizi che hai già · scelti sul dispositivo</div>
+    </div>
+    <div class="glass card">
+      <div class="label" style="margin-bottom:4px">Dispositivi</div>
+      <div class="device">📱 <div><b>Telefono</b><div class="muted" style="font-size:12px">vicino · appunti condivisi</div></div></div>
+      <div class="device">💻 <div><b>Portatile</b><div class="muted" style="font-size:12px">in standby · sta imparando</div></div></div>
+    </div>
+  </div>
+
+  <div class="askbar glass ask">
+    <div class="orb big"></div>
+    <div class="ph">Chiedimi qualsiasi cosa…</div>
+    <kbd>Super</kbd><kbd>Spazio</kbd>
+    <div class="mic">🎙️</div>
+  </div>
+
+  <div class="dock glass">
+    <div class="app">🗂️</div><div class="app">🌐</div><div class="app">📝</div><div class="app">🎵</div>
+    <div class="app">🎬</div><div class="app win">📊</div><div class="app">🎮</div><div class="app">⚙️</div>
+  </div>
+
+  <div class="note" data-n="1" style="left:110px;top:62px;max-width:340px">Al posto dei widget: le carte del copilota</div>
+  <div class="note" data-n="2" style="left:540px;top:672px;max-width:340px">Una sola casella per tutto, tastiera o voce</div>
+  <div class="note" data-n="3" style="left:1090px;top:826px">App Windows con Bottles, accanto alle native</div>
+</section>
+
+<!-- ============================ OVERLAY ============================ -->
+<section class="view" id="overlay">
+  <div class="wall"></div>
+  <div class="topbar">
+    <div class="brand">AI<span>OS</span></div>
+    <div>sabato 3 ottobre · 10:47</div>
+    <div class="tray"><span class="pill" style="color:var(--warn);background:color-mix(in srgb,var(--warn) 14%,transparent)">🔒 conversazione privata</span><span>📶</span><span>🔋 81%</span></div>
+  </div>
+  <div class="window">
+    <div class="bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span>&nbsp; preventivo-bagno.odt — Documenti</div>
+    <div class="doc">
+      <h1>Preventivo ristrutturazione bagno</h1>
+      <p>Cliente: Davide · Via dei Tigli 12</p>
+      <p><span class="sel">Rimozione dei vecchi sanitari e del rivestimento, posa di piastrelle 60×60 in gres porcellanato,
+      nuovo piatto doccia filo pavimento e mobile lavabo sospeso. Impianto idraulico rifatto con tubazioni multistrato.
+      Durata stimata dei lavori: 12 giorni lavorativi.</span></p>
+      <p><span class="sel">Totale: 3.200 € IVA inclusa. Acconto del 30% alla firma, saldo a fine lavori.</span></p>
+      <p class="muted">Validità dell'offerta: 30 giorni.</p>
+    </div>
+  </div>
+  <div class="dim"></div>
+  <div class="panel glass">
+    <div class="row"><div class="orb"></div><b>Copilota</b><span class="muted" style="margin-left:auto;font-size:12px">sa cosa hai selezionato in «preventivo-bagno.odt»</span></div>
+    <div class="bubble me">Riassumi questo e mandalo a Marco per email</div>
+    <div class="status">📄 Leggo la selezione <span class="badge">⚡ 2 ms</span></div>
+    <div class="status">✍️ Scrivo il riassunto con il modello locale · 1,4 s</div>
+    <div class="bubble">«Bagno: nuove piastrelle, doccia filo pavimento, impianto rifatto. 12 giorni di lavoro, <b>3.200 €</b> IVA inclusa, acconto 30%.»</div>
+    <div class="confirm">
+      <div><b>🔒 Sto per inviare un'email</b> a marco.bianchi@… </div>
+      <div class="quote">Contiene dati presi dai tuoi file: <mark>3.200 €</mark>, <mark>via dei tigli 12</mark></div>
+      <div style="display:flex;gap:8px;justify-content:flex-end"><span class="btn">Modifica</span><span class="btn">Annulla</span><span class="btn primary">Invia</span></div>
+    </div>
+    <div class="muted" style="font-size:12px">I contenuti di pagine web e documenti sono dati, mai ordini. Nulla esce senza che tu lo veda.</div>
+  </div>
+  <div class="note" data-n="1" style="left:880px;top:58px">Super+Spazio sopra qualsiasi app: conosce il contesto</div>
+  <div class="note" data-n="2" style="left:640px;top:410px">La porta di uscita sorvegliata</div>
+</section>
+
+<!-- ============================ TABLET ============================ -->
+<section class="view dark" id="tablet">
+  <div style="position:absolute;inset:0;background:#d8d6e6"></div>
+  <div class="tframe">
+    <div class="wall"></div>
+    <div class="split">
+      <div class="reader">
+        <div class="muted" style="font-family:Inter,system-ui;font-size:12px;margin-bottom:6px">📄 contratto-affitto.pdf · pagina 3 di 8</div>
+        <h2>Art. 4 — Durata e recesso</h2>
+        <p>Il contratto ha durata di quattro anni a decorrere dal 1° novembre 2024 e si rinnova tacitamente per
+        ulteriori quattro anni, salvo disdetta da comunicarsi con lettera raccomandata almeno sei mesi prima della scadenza.</p>
+        <p>Il conduttore può recedere in qualsiasi momento con un preavviso di sei mesi, per gravi motivi.</p>
+        <h2>Art. 5 — Canone</h2>
+        <p>Il canone annuo è fissato in euro 9.600, da corrispondersi in rate mensili anticipate di euro 800 entro il
+        giorno 5 di ogni mese, mediante bonifico bancario.</p>
+      </div>
+      <div class="side">
+        <div class="row"><div class="orb"></div><b>Copilota</b></div>
+        <div class="muted" style="font-size:13px">Stai leggendo <b style="color:var(--text)">contratto-affitto.pdf</b>. Posso:</div>
+        <div><span class="chip">Riassumi</span><span class="chip">Quando posso dare disdetta?</span><span class="chip">Traduci in inglese</span></div>
+        <div class="bubble me">Ricordami l'affitto ogni mese</div>
+        <div class="status"><span class="badge">⚡ capito all'istante</span></div>
+        <div class="bubble">Fatto: ti ricorderò <b>«pagare l'affitto, 800 €»</b> ogni mese il <b>5 alle 9:00</b>. L'ho letto all'art. 5.</div>
+        <div class="glass card" style="padding:12px">
+          <div class="label" style="margin-bottom:4px">📌 Ho notato anche</div>
+          <div style="font-size:14px">La disdetta va inviata <b>entro il 1° maggio 2028</b>. Te lo ricordo un mese prima?</div>
+          <div style="margin-top:8px"><span class="btn primary">Sì</span> <span class="btn">No</span></div>
+        </div>
+        <div class="ask glass" style="margin-top:6px"><div class="orb"></div><div class="ph" style="font-size:14px">Chiedimi del documento…</div><div class="mic">🎙️</div></div>
+      </div>
+    </div>
+  </div>
+  <div class="note" data-n="1" style="left:520px;top:8px">Tablet: app e copilota fianco a fianco</div>
+</section>
+
+<!-- ============================ TELEFONI ============================ -->
+<section class="view" id="phones">
+  <div style="position:absolute;inset:0;background:linear-gradient(135deg,#ece9fb,#dff3fb)"></div>
+
+  <div class="phone" style="left:60px">
+    <div class="wall"></div><div class="notch"></div>
+    <div class="sb"><span>9:12</span><span>📶 🔋</span></div>
+    <div class="ps">
+      <div style="font-size:28px;font-weight:750;line-height:1.1;margin-top:8px">Buongiorno,<br>Davide.</div>
+      <div class="glass card" style="padding:12px 14px">
+        <div class="row"><div class="orb"></div><div style="font-size:14px"><b>2 impegni oggi</b> · palestra 18:30, cena da Luca 20:30</div></div>
+      </div>
+      <div class="glass card" style="padding:12px 14px;font-size:14px">🔔 <b>Bolletta della luce</b> <span class="muted">· rimasta indietro ieri</span>
+        <div style="margin-top:8px"><span class="btn primary">Pagata</span> <span class="btn">Domani</span></div></div>
+      <div class="label" style="margin:4px 0 0">Per te stasera</div>
+      <div class="carousel">
+        <div class="poster p1"><span class="tag">serie</span>Le Cronache di Nebbia<span class="svc">Netflix ✓</span></div>
+        <div class="poster p2"><span class="tag">cartone</span>Il Faro dei Gufi<span class="svc">Disney+ ✓</span></div>
+        <div class="poster p4"><span class="tag">playlist</span>Mattina lenta<span class="svc">Spotify ✓</span></div>
+      </div>
+      <div class="ask glass"><div class="orb"></div><div class="ph" style="font-size:15px">Chiedimi qualsiasi cosa…</div><div class="mic">🎙️</div></div>
+    </div>
+  </div>
+
+  <div class="phone dark" style="left:720px">
+    <div class="wall"></div><div class="notch"></div>
+    <div class="sb"><span>20:41</span><span>📶 🔋</span></div>
+    <div class="ps" style="gap:10px">
+      <div class="row" style="margin-top:4px"><div class="orb"></div><b>Copilota</b></div>
+      <div class="bubble me">Che cartone guardiamo stasera con i bambini?</div>
+      <div class="status"><span class="badge">🔒 scelto sul telefono</span> dai tuoi abbonamenti</div>
+      <div class="bubble" style="font-size:14px">Visto che vi è piaciuto <b>«Ombre sul Lago»</b>, ecco tre cartoni adatti:</div>
+      <div class="reco"><div class="poster p2">Il Faro dei Gufi</div><div><b>Il Faro dei Gufi</b><div class="why">Disney+ · già nel tuo abbonamento · 92 min · dai 6 anni</div></div></div>
+      <div class="reco"><div class="poster p3">Rotta Nord</div><div><b>Rotta Nord</b><div class="why">RaiPlay · gratis · avventura · dai 8 anni</div></div></div>
+      <div class="reco"><div class="poster p5">Pip e il Vento</div><div><b>Pip e il Vento</b><div class="why">Netflix · già nel tuo abbonamento · 78 min</div></div></div>
+      <div class="muted" style="font-size:12px">Non vi propongo titoli a pagamento: hai detto «solo quelli inclusi».</div>
+      <div class="ask glass"><div class="orb"></div><div class="ph" style="font-size:15px">Mettilo sulla TV…</div><div class="mic">🎙️</div></div>
+    </div>
+  </div>
+
+  <div class="note" data-n="1" style="left:475px;top:520px">Consigli filtrati sugli abbonamenti attivi</div>
+  <div class="note" data-n="2" style="left:475px;top:200px">Il profilo dei gusti non esce dal telefono</div>
+</section>
+
+<script>
+  const show = () => {
+    const id = (location.hash || "#desktop").slice(1);
+    document.querySelectorAll(".view").forEach(v => v.classList.toggle("on", v.id === id));
+  };
+  addEventListener("hashchange", show); show();
+</script>
+</body>
+</html>
