@@ -304,18 +304,22 @@ il servizio si ferma e la memoria si libera.
 Ricerca futura del laboratorio AIOS: pesi compressi senza perdita, decompressi
 direttamente durante il calcolo.
 
-### Aggiornamenti del sistema
+### Aggiornamenti del sistema (`updates.py`)
 
-Previsti nell'immagine (non ancora costruita), con lo stesso schema:
-
-- **sistema base immutabile** (ostree / Fedora Atomic): l'aggiornamento intero si
-  scarica in background, a riposo e in carica, e si applica in modo atomico al
-  riavvio successivo; mai un sistema "aggiornato a metà";
-- **ritorno automatico** alla versione precedente se il nuovo sistema non si avvia
-  correttamente (controlli all'avvio in stile greenboot), e sempre possibile a mano;
-- app (Flatpak) e modelli AI (catalogo firmato) aggiornati separatamente;
-- tutto firmato; il copilota avvisa e lascia scegliere il momento del riavvio, mai
-  forzato mentre si lavora; gli aggiornamenti di sicurezza sono evidenziati.
+- **Sistema immutabile** (rpm-ostree / Fedora Atomic, oppure bootc): due volte al
+  giorno, a riposo e in carica, AIOS controlla e **prepara** il nuovo sistema accanto a
+  quello in uso; parte al riavvio successivo, in modo atomico. **Mai un riavvio
+  forzato**: una notifica avvisa, e «riavvia per aggiornare» lo applica quando vuoi.
+- Gli aggiornamenti di **sicurezza** (avvisi Important/Critical, CVE) sono evidenziati.
+- **Ritorno automatico**: un controllo di greenboot (`data/greenboot/50-aios.sh` →
+  `aios-aggiornamenti verifica`) verifica il nuovo sistema all'avvio; se fallisce,
+  greenboot torna da solo alla versione precedente. A mano: «torna alla versione
+  precedente del sistema».
+- **App** (Flatpak) aggiornate a riposo; **firmware** (fwupd) solo segnalato;
+  **modelli AI** con il loro catalogo firmato.
+- Il lavoro lungo lo fanno i servizi di sistema (rpm-ostreed, flatpak) in un thread:
+  il pianificatore a riposo resta libero. Si possono disattivare: «disattiva gli
+  aggiornamenti automatici».
 
 ### Telefono e PC (`mesh/`)
 

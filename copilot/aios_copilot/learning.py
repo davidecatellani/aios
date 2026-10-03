@@ -721,6 +721,10 @@ def build(index: FileIndex | None = None) -> tuple[Scheduler, FileIndex]:
     from .organize import Library
 
     tasks.append(OrganizeTask(Library()))
+    from .agenda import notify
+    from .updates import UpdateTask
+
+    tasks.append(UpdateTask(notify=notify))
     config = load_config()
     if config is not None:
         encoder = OllamaEncoder(config.model, prefix=config.prefix)

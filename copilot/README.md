@@ -362,3 +362,13 @@ mia identità: …» con le 17 parole.
 
 Il relay si può ospitare da sé: `aios-relay --porta 8744 --certificato cert.pem --chiave key.pem`
 (vedi `data/aios-relay.service`).
+
+### Aggiornamenti
+
+AIOS si aggiorna da solo a riposo e in carica e prepara il nuovo sistema per il
+prossimo riavvio, senza mai riavviare da solo. «ci sono aggiornamenti?», «aggiorna il
+sistema», «riavvia per aggiornare», «torna alla versione precedente del sistema».
+
+```bash
+aios-aggiornamenti stato | controlla | prepara | ripristina | verifica
+```
