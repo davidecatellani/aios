@@ -1,0 +1,9 @@
+{
+  "policies": {
+    "OverrideFirstRunPage": "",
+    "OverridePostUpdatePage": "",
+    "NoDefaultBookmarks": true,
+    "Homepage": {"URL": "about:home", "StartPage": "homepage", "Locked": false},
+    "DisableProfileImport": false
+  }
+}

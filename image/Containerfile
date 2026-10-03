@@ -1,4 +1,5 @@
-# AIOS per PC (anteprima): Fedora Silverblue immutabile + Nova e i servizi di AIOS.
+# AIOS per PC (anteprima): basato su Fedora Silverblue immutabile, con l'aspetto di AIOS, Nova (anche a voce)
+# e i servizi di AIOS.
 #
 #   podman build -t aios:44 -f image/Containerfile .          (dalla radice del repository)
 #   rpm-ostree rebase ostree-unverified-registry:ghcr.io/<utente>/aios:44   (da un Fedora Atomic già installato)
@@ -10,12 +11,31 @@ ARG FEDORA=44
 FROM quay.io/fedora-ostree-desktops/silverblue:${FEDORA}
 
 # Programmi di sistema usati da AIOS
-RUN dnf install -y \
+RUN dnf install -y --skip-unavailable \
         python3-pip python3-setuptools python3-gobject webkitgtk6.0 \
         ffmpeg-free poppler-utils libnotify wl-clipboard libsecret \
         kde-connect android-tools ydotool bluez dnsmasq \
         greenboot greenboot-default-health-checks \
+        espeak-ng pipewire-utils python3-cffi pciutils usbutils \
+        linux-firmware realtek-firmware atheros-firmware iwlwifi-mvm-firmware mt7xxx-firmware brcmfmac-firmware \
     && dnf clean all
+
+# Aspetto AIOS: niente loghi di Fedora (come chiedono le regole dei marchi Fedora per i sistemi derivati)
+# e niente giro di benvenuto di GNOME: il benvenuto è quello di Nova.
+RUN dnf swap -y fedora-logos generic-logos || echo "avviso: loghi Fedora non sostituiti"; \
+    dnf remove -y gnome-tour gnome-initial-setup || echo "avviso: benvenuto di GNOME non rimosso"; \
+    dnf clean all
+
+# Voce di Nova, tutta sul computer: Vosk (ascolto in italiano) e Piper (voce italiana naturale)
+RUN set -e; pip install --no-cache-dir --prefix=/usr vosk==0.3.45; \
+    mkdir -p /usr/share/aios/voce /usr/lib/aios; \
+    curl -fsSL -o /tmp/vosk.zip https://alphacephei.com/vosk/models/vosk-model-small-it-0.22.zip; \
+    python3 -m zipfile -e /tmp/vosk.zip /usr/share/aios/voce/; rm -f /tmp/vosk.zip; \
+    curl -fsSL https://github.com/rhasspy/piper/releases/download/2023.11.14-2/piper_linux_x86_64.tar.gz | tar -xz -C /usr/lib/aios; \
+    voce=https://huggingface.co/rhasspy/piper-voices/resolve/main/it/it_IT/paola/medium/it_IT-paola-medium.onnx; \
+    curl -fsSL -o /usr/share/aios/voce/it_IT-paola-medium.onnx "$voce"; \
+    curl -fsSL -o /usr/share/aios/voce/it_IT-paola-medium.onnx.json "$voce.json"; \
+    test -x /usr/lib/aios/piper/piper; ls /usr/share/aios/voce
 
 # Ollama (modelli AI locali), dal pacchetto ufficiale per Linux. Le librerie CUDA si tolgono:
 # senza il driver NVIDIA (non incluso in Fedora) non servono e raddoppiano la chiavetta.
@@ -32,9 +52,10 @@ RUN pip install --no-cache-dir --prefix=/usr --no-build-isolation /tmp/aios-copi
     && install -Dm644 -t /usr/share/applications /tmp/aios-copilot/data/org.aios.Copilot.desktop /tmp/aios-copilot/data/org.aios.Welcome.desktop \
     && install -Dm644 /tmp/aios-copilot/data/org.aios.Welcome-autostart.desktop /etc/xdg/autostart/org.aios.Welcome-autostart.desktop \
     && cp -r /tmp/aios-copilot/data/icons/hicolor /usr/share/icons/ \
+    && install -Dm644 /tmp/aios-copilot/aios_copilot/brand/aios-simbolo.svg /usr/share/icons/hicolor/scalable/apps/aios.svg \
     && install -Dm644 -t /usr/lib/systemd/user /tmp/aios-copilot/data/aios-chiavetta.path /tmp/aios-copilot/data/aios-chiavetta.service \
     && sed -i 's#^ExecStart=aios-#ExecStart=/usr/bin/aios-#' /usr/lib/systemd/user/aios-chiavetta.service \
-    && for s in aios-learn aios-agenda aios-mail aios-telefono; do \
+    && for s in aios-learn aios-agenda aios-mail aios-telefono aios-voce; do \
          sed 's#^ExecStart=aios-#ExecStart=/usr/bin/aios-#' "/tmp/aios-copilot/data/$s.service" > "/usr/lib/systemd/user/$s.service"; \
        done \
     && install -Dm755 /tmp/aios-copilot/data/greenboot/50-aios.sh /etc/greenboot/check/required.d/50-aios.sh \
@@ -43,9 +64,23 @@ RUN pip install --no-cache-dir --prefix=/usr --no-build-isolation /tmp/aios-copi
 # Servizi: Ollama per il sistema, quelli di AIOS per ogni utente; Super+Spazio apre Nova
 RUN systemctl enable ollama.service greenboot-healthcheck.service \
     && systemctl --global enable aios-learn.service aios-agenda.service aios-mail.service aios-telefono.service \
-       aios-chiavetta.path \
+       aios-voce.service aios-chiavetta.path \
+    && dconf update
+
+# Il marchio di AIOS: logo all'avvio e all'accesso, nome del sistema, app tecniche nascoste dal menu
+COPY image/branding/ /tmp/aios-branding/
+RUN install -Dm644 /tmp/aios-branding/aios-logo-chiaro.png /usr/share/pixmaps/aios-logo-chiaro.png \
+    && install -Dm644 /tmp/aios-branding/aios-logo-chiaro.png /usr/share/plymouth/themes/spinner/watermark.png \
+    && rm -rf /tmp/aios-branding \
+    && for app in org.gnome.Yelp nm-connection-editor system-config-printer ibus-setup org.gnome.Tour \
+                  org.freedesktop.MalcontentControl; do \
+         f="/usr/share/applications/$app.desktop"; [ -f "$f" ] || continue; \
+         if grep -q '^NoDisplay=' "$f"; then sed -i 's/^NoDisplay=.*/NoDisplay=true/' "$f"; \
+         else sed -i '0,/^\[Desktop Entry\]/s//[Desktop Entry]\nNoDisplay=true/' "$f"; fi; \
+       done \
     && dconf update \
-    && sed -i 's/^PRETTY_NAME=.*/PRETTY_NAME="AIOS (Fedora Silverblue)"/' /usr/lib/os-release
+    && KVER="$(ls /usr/lib/modules | sort -V | tail -n1)" \
+    && dracut --no-hostonly --kver "$KVER" --reproducible --zstd -v --add ostree -f "/usr/lib/modules/$KVER/initramfs.img"
 
 # Versione e provenienza degli aggiornamenti (imageupdate.py): GitHub con l'accesso dell'utente, o chiavetta
 ARG VERSIONE=sviluppo
@@ -54,7 +89,10 @@ LABEL org.opencontainers.image.version="${VERSIONE}" version="${VERSIONE}"
 RUN mkdir -p /usr/share/aios \
     && echo "${VERSIONE}" > /usr/share/aios/versione \
     && printf '{"repo": "%s"}\n' "${REPO}" > /usr/share/aios/aggiornamenti.json \
-    && sed -i "s/^PRETTY_NAME=.*/PRETTY_NAME=\"AIOS ${VERSIONE} (Fedora Silverblue)\"/" /usr/lib/os-release
+    && sed -i -e 's/^NAME=.*/NAME="AIOS"/' -e "s/^PRETTY_NAME=.*/PRETTY_NAME=\"AIOS ${VERSIONE}\"/" \
+              -e 's/^LOGO=.*/LOGO=aios/' -e 's/^DEFAULT_HOSTNAME=.*/DEFAULT_HOSTNAME="aios"/' \
+              -e 's/^VARIANT=.*/VARIANT="AIOS"/' /usr/lib/os-release \
+    && for k in LOGO=aios DEFAULT_HOSTNAME=\"aios\"; do grep -q "^${k%%=*}=" /usr/lib/os-release || echo "$k" >> /usr/lib/os-release; done
 
 # Controllo finale (gli avvisi non bloccano l'anteprima)
 RUN bootc container lint || echo "avviso: bootc container lint ha segnalato problemi"

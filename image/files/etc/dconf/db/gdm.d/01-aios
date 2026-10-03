@@ -1,0 +1,6 @@
+# Schermata di accesso: il logo di AIOS
+[org/gnome/login-screen]
+logo='/usr/share/pixmaps/aios-logo-chiaro.png'
+
+[org/gnome/desktop/interface]
+color-scheme='prefer-dark'

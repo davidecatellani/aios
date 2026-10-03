@@ -13,10 +13,13 @@ Computer, tablet e telefono: lo stesso sistema, collegati tra loro, senza mandar
 
 <p align="center"><img src="docs/img/welcome-desktop.png" alt="Il benvenuto di AIOS: una conversazione con Nova" width="820"></p>
 
+<p align="center"><img src="docs/img/nova-finestra.png" alt="Nova: di' «Nova» e parla, oppure scrivi" width="520"></p>
+
 ## Perché AIOS
 
-- **Parli, Nova fa.** Installare un programma, trovare un documento, rispondere a una mail,
-  cambiare tema: lo chiedi con parole tue. Niente menu da imparare.
+- **Parli, Nova fa.** Di' «Nova» e chiedi a voce, oppure scrivi: installare un programma, trovare
+  un documento, rispondere a una mail, cambiare tema. Nova ascolta e risponde a voce, tutto sul
+  computer (niente viene registrato o inviato). Niente menu da imparare.
 - **Veloce anche senza scheda video.** I comandi comuni sono capiti in microsecondi da un
   motore di intenti e da un classificatore semantico; il modello AI (tramite
   [Ollama](https://ollama.com)) serve solo per il resto, e AIOS sceglie quello adatto al tuo

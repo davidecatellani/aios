@@ -9,6 +9,7 @@ lang it_IT.UTF-8
 keyboard it
 timezone Europe/Rome --utc
 user --name=aios --password=aios --plaintext --groups=wheel
+network --hostname=aios
 %include /tmp/aios-dischi.ks
 
 %pre

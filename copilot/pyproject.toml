@@ -15,10 +15,12 @@ dependencies = []
 
 [project.optional-dependencies]
 gui = ["PyGObject>=3.46"]
+voce = ["vosk>=0.3.45"]
 test = ["pytest>=8"]
 
 [project.scripts]
 aios-copilot = "aios_copilot.__main__:main"
+aios-voce = "aios_copilot.voice:main"
 aios-copilot-setup = "aios_copilot.multilingual:main"
 aios-welcome = "aios_copilot.welcome:main"
 aios-learn = "aios_copilot.learning:main"

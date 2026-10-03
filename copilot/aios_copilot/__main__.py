@@ -3,6 +3,7 @@
     aios-copilot                     finestra grafica (predefinito)
     aios-copilot --cli               conversazione nel terminale
     aios-copilot "installa vlc"      singola richiesta nel terminale
+    aios-copilot --voce "testo"      richiesta detta a voce (servizio aios-voce)
 """
 
 from __future__ import annotations
@@ -34,6 +35,7 @@ from .tools import updates as update_tools
 from . import sdk
 from .tools import documents as document_tools
 from .tools import energy as energy_tools
+from .tools import voice as voice_tools
 
 
 def make_agent(confirm: Confirm, model: str | None = None, allowed: frozenset[str] | None = None) -> Agent:
@@ -137,7 +139,7 @@ def make_agent(confirm: Confirm, model: str | None = None, allowed: frozenset[st
                                  runner=runner),
          *phone_tools.make_tools(runner), *identity_tools.make_tools(user_name=user_name),
          *update_tools.make_tools(runner), *sdk.make_tools(),
-         *document_tools.make_tools(get_index, runner), *energy_tools.make_tools()]
+         *document_tools.make_tools(get_index, runner), *energy_tools.make_tools(), *voice_tools.make_tools(runner)]
     if allowed is not None:
         tools = [t for t in tools if t.name in allowed]
     agent = Agent(
@@ -154,6 +156,7 @@ def make_agent(confirm: Confirm, model: str | None = None, allowed: frozenset[st
             identity_tools.IdentityRouter(),  # livello 0: identità e sincronizzazione
             update_tools.UpdatesRouter(),  # livello 0: aggiornamenti del sistema
             energy_tools.EnergyRouter(),  # livello 0: batteria (decide Nova)
+            voice_tools.VoiceRouter(),  # livello 0: ascolto a voce
             sdk.AppsRouter(),  # livello 0: frasi delle abilità offerte dalle app
             FastPath(find_apps=lambda query: apps.find_apps(runner, query)),  # livello 0
             organize_tools.OrganizeRouter(),  # livello 0: raccolte e riordino (dopo le cartelle)
@@ -192,7 +195,7 @@ def terminal_confirm(tool: Tool, args: dict[str, Any], warning: str | None = Non
 
 def print_event(kind: str, data: dict[str, Any]) -> None:
     if kind == "routed":
-        names = ["0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "1", "1 multilingue"]
+        names = ["0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "1", "1 multilingue"]
         level = names[data["level"]] if data["level"] < len(names) else data["level"]
         print(f"  ⚡ capito al livello {level}, senza modello AI")
     elif kind == "tool_call" and not data["tool"].requires_confirmation:
@@ -222,6 +225,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("request", nargs="?", help="richiesta singola da eseguire nel terminale")
     parser.add_argument("--cli", action="store_true", help="usa il terminale invece della finestra")
     parser.add_argument("--model", help="modello Ollama da usare (default: $AIOS_MODEL)")
+    parser.add_argument("--voce", help="richiesta detta a voce (dal servizio aios-voce): risposta anche a voce")
     args = parser.parse_args(argv)
 
     if args.cli or args.request:
@@ -232,7 +236,7 @@ def main(argv: list[str] | None = None) -> int:
     except (ImportError, ValueError) as exc:
         print(f"Interfaccia grafica non disponibile ({exc}); uso il terminale.", file=sys.stderr)
         return run_cli(make_agent(terminal_confirm, args.model), None)
-    return ui_gtk.run(lambda confirm: make_agent(confirm, args.model))
+    return ui_gtk.run(lambda confirm: make_agent(confirm, args.model), args.voce)
 
 
 if __name__ == "__main__":
