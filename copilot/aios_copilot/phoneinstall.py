@@ -295,7 +295,7 @@ def plan_for(phone: PhoneInfo, system: Build, recovery: Build | None, files: dic
                  "«Unlock». Il telefono si cancella e si riavvia: quando torna, riattiva «Debug USB».",
                  wait_for="adb"),
             Step("bootloader2", "Riavvio nel bootloader", "auto", commands=[["adb", "reboot", "bootloader"]], wait_for="sbloccato"),
-            *gsi_steps(system, f),
+            *(sideload_steps(system, recovery, f) if system.kind == "dispositivo" and recovery else gsi_steps(system, f)),
         ]
     elif phone.brand == "oppo":
         steps = [Step("deep_testing", "Permesso di sblocco di Oppo", "utente",
@@ -335,8 +335,9 @@ def plan_for(phone: PhoneInfo, system: Build, recovery: Build | None, files: dic
     else:
         raise InstallError(f"{phone.label}: per ora AIOS si installa su Pixel, Samsung, Motorola, Xiaomi/Redmi e Oppo")
     steps += [
-        Step("avvio", "Primo avvio di AIOS", "auto", "Il primo avvio può richiedere qualche minuto.",
-             commands=[["fastboot", "reboot"]]),
+        *([] if phone.brand == "xiaomi" and system.kind == "dispositivo" and recovery else [
+            Step("avvio", "Primo avvio di AIOS", "auto", "Il primo avvio può richiedere qualche minuto.",
+                 commands=[["fastboot", "reboot"]])]),
         Step("debug_nuovo", "Collega il telefono nuovo", "utente",
              "Sul telefono, nella prima schermata di AIOS, scegli «Ripristina dal computer» (oppure attiva «Debug USB» "
              "dalle Opzioni sviluppatore) e tocca «Consenti» quando chiede se fidarsi di questo computer.", wait_for="adb"),
@@ -350,6 +351,21 @@ def plan_for(phone: PhoneInfo, system: Build, recovery: Build | None, files: dic
              "mostro qui (oppure attiva «Debug USB» e lo faccio io via cavo)."),
     ]
     return steps
+
+
+def sideload_steps(system: Build, recovery: Build, f: Callable[[str], str]) -> list[Step]:
+    """Immagine dedicata su base LineageOS (es. Redmi Note 9 Pro «miatoll»): recovery di AIOS, poi il
+    sistema inviato via cavo dalla recovery («adb sideload»)."""
+    return [
+        Step("recovery", "Installo la recovery di AIOS", "auto",
+             commands=[["fastboot", "flash", "recovery", f(by_partition(recovery, "recovery"))]]),
+        Step("avvia_recovery", "Avvio nella recovery", "utente",
+             "Tieni premuti Volume su + Accensione finché compare la recovery di AIOS. Poi scegli «Factory reset» › "
+             "«Format data», torna indietro e scegli «Apply update» › «Apply from ADB».", wait_for="adb"),
+        Step("installa", "Installo AIOS", "auto", "Ci vogliono alcuni minuti: non scollegare il cavo.",
+             commands=[["adb", "sideload", f(system.files[0]["nome"])]]),
+        Step("riavvio_recovery", "Riavvio", "utente", "Nella recovery scegli «Reboot system now».", wait_for="adb"),
+    ]
 
 
 def by_partition(build: Build, partition: str) -> str:
@@ -384,6 +400,10 @@ def preflight(phone: PhoneInfo, builds: list[Build]) -> list[str]:
         problems.append(f"{phone.label}: per ora AIOS si installa su Google Pixel, Samsung, Motorola, Xiaomi/Redmi e Oppo.")
     if phone.brand == "samsung" and SAMSUNG_LOCKED_SUFFIX.match(phone.model.upper()):
         problems.append(f"{phone.model} è un modello nordamericano: Samsung non permette di sbloccarlo.")
+    if phone.brand == "oppo" and phone.model.upper().startswith("CPH"):
+        problems.append(f"{phone.model} è un modello Oppo internazionale: l'app «Deep Testing», l'unico modo ufficiale "
+                        "per sbloccarlo, di solito esiste solo per i modelli venduti in Cina. Se non la trovi per il tuo "
+                        "modello, questo telefono non si può sbloccare in modo sicuro.")
     if phone.battery is not None and phone.battery < MIN_BATTERY:
         problems.append(f"Batteria al {phone.battery}%: caricala almeno al {MIN_BATTERY}% prima di iniziare.")
     if phone.mode == "adb" and phone.brand in BRANDS:

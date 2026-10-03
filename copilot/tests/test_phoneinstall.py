@@ -22,6 +22,7 @@ PROPS = {
     "google": {"ro.product.manufacturer": "Google", "ro.product.model": "Pixel 8", "ro.product.device": "shiba"},
     "motorola": {"ro.product.manufacturer": "motorola", "ro.product.model": "moto g84 5G", "ro.product.device": "bangkk"},
     "xiaomi": {"ro.product.manufacturer": "Xiaomi", "ro.product.model": "Redmi Note 13", "ro.product.device": "sapphire"},
+    "miatoll": {"ro.product.manufacturer": "Xiaomi", "ro.product.model": "M2003J6B2G", "ro.product.device": "joyeuse"},
     "oppo": {"ro.product.manufacturer": "OPPO", "ro.product.model": "CPH2525", "ro.product.device": "OP5A0BL1"},
     "samsung": {"ro.product.manufacturer": "samsung", "ro.product.model": "SM-A546B", "ro.product.device": "a54x"},
 }
@@ -123,7 +124,7 @@ def flashed(phone):
 def test_detects_every_brand():
     for brand in PROPS:
         info = pi.detect(FakePhone(brand))
-        assert info.brand == brand and info.mode == "adb" and info.battery == 80 and info.treble
+        assert info.brand == {"miatoll": "xiaomi"}.get(brand, brand) and info.mode == "adb" and info.battery == 80 and info.treble
     assert pi.detect(FakePhone("xiaomi")).label == "Xiaomi Redmi Note 13"
 
 
@@ -135,6 +136,7 @@ def test_preflight_stops_before_touching_the_phone():
     assert "non c'è ancora un'immagine" in " ".join(pi.preflight(pi.detect(pixel7), CATALOG))  # niente GSI sui Pixel
     assert pi.preflight(pi.detect(FakePhone("motorola")), CATALOG) == []
     assert "Non vedo nessun telefono" in pi.preflight(pi.PhoneInfo("nessuno"), CATALOG)[0]
+    assert "modello Oppo internazionale" in " ".join(pi.preflight(pi.detect(FakePhone("oppo")), CATALOG))  # CPH2525
 
 
 def test_pixel_install_unlocks_flashes_and_relocks():
@@ -291,3 +293,18 @@ def test_install_restores_the_backup(tmp_path):
     assert installer.run()
     assert next(s for s in steps if s.id == "ripristino").detail.startswith("Ripristinati: DCIM")
     assert installer.backup_dir.exists()  # il backup resta sul PC
+
+
+def test_redmi_note_9_pro_uses_the_dedicated_build():
+    phone = FakePhone("miatoll")
+    phone.brand = "xiaomi"  # per il finto: lo sblocco avviene con Mi Unlock
+    catalog = [build("gsi"), pi.Build("AIOS miatoll", "0.1", "dispositivo", "xiaomi", "joyeuse",
+                                      files=[{"nome": "aios-miatoll.zip", "url": "https://x/z", "sha256": "6" * 64}]),
+               pi.Build("AIOS recovery miatoll", "0.1", "recovery", "xiaomi", "joyeuse",
+                        files=[{"nome": "recovery.img", "url": "https://x/r", "sha256": "7" * 64, "partizione": "recovery"}])]
+    ok, asked, steps = run_install(phone, catalog=catalog)
+    assert ok and pi.detect(FakePhone("miatoll")).brand == "xiaomi"
+    cmds = [" ".join(c[3:] if c[1] == "-s" else c[1:]) for c in phone.ran if c[0] in ("fastboot", "adb")
+            and ("flash" in c or "sideload" in c)]
+    assert cmds == ["flash recovery recovery.img", "sideload aios-miatoll.zip"]
+    assert "avvia_recovery" in asked and not any(s.id == "avvio" for s in steps)
