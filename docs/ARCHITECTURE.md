@@ -372,6 +372,23 @@ Il telefono e il PC si collegano da soli quando sono vicini (stessa rete):
     sul telefono.
 - Il copilota parla con il servizio da un socket locale leggibile solo dall'utente.
 
+### Telefono e PC: le funzioni di tutti i giorni
+
+- **Foto della fotocamera** (`mesh/photos.py`): la memoria del telefono si apre in
+  sola lettura tramite KDE Connect (SFTP); si copiano solo DCIM/Camera e simili (mai
+  WhatsApp, Telegram, screenshot), solo ciò che manca, senza mai sovrascrivere, con
+  ripresa dopo un'interruzione, in cartelle per data di scatto. iPhone: invio dalla
+  pagina «Il mio PC». «Migliora le foto»: Real-ESRGAN o correzione con ffmpeg.
+- **Tastiera e touchpad** (`mesh/remote_input.py`): dalla pagina del telefono, con
+  ydotool, wtype o xdotool sul PC; solo da telefoni abbinati e vicini.
+- **Bluetooth condiviso** (`mesh/bluetooth.py`): le chiavi di abbinamento non si
+  possono copiare, quindi l'elenco dei dispositivi viaggia con la sincronizzazione e
+  ogni dispositivo AIOS abbina da sé quelli dell'utente quando sono vicini (audio in
+  automatico, dispositivi di input solo con conferma).
+- **Documenti** (`documents.py`): il documento giusto per mese, anno e argomento; la
+  parte della dieta per giorno e pasto; la lista della spesa. Dal telefono il file
+  arriva come link monouso, solo se è nella cartella personale e non privato.
+
 ### Identità unica e sincronizzazione (`identity.py`, `sync.py`)
 
 - **Chiave principale dell'utente** (Ed25519) nata da un segreto di 128 bit, che

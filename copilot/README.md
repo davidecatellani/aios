@@ -372,3 +372,18 @@ sistema», «riavvia per aggiornare», «torna alla versione precedente del sist
 ```bash
 aios-aggiornamenti stato | controlla | prepara | ripristina | verifica
 ```
+
+### Dal telefono: foto, tastiera, Bluetooth, documenti
+
+| Dici o fai | Succede |
+|---|---|
+| «sincronizza le foto», «salva le foto sul PC» | foto e video **della fotocamera** (non WhatsApp, non screenshot) che mancano sul PC, in Immagini e Video › Telefono › anno › mese; anche da soli quando il telefono è vicino |
+| «migliora le foto» | versione migliorata accanto all'originale (Real-ESRGAN se installato, altrimenti correzione automatica) |
+| scheda **⌨️ Tastiera** nella pagina «Il mio PC» | il telefono come tastiera a tutto schermo e touchpad del PC |
+| abbini delle cuffie al telefono | appena sono vicine, il PC le abbina da solo (tastiere e mouse: con conferma) |
+| «fammi vedere la bolletta di luglio della luce» | il PDF giusto: sul PC si apre, dal telefono arriva come pulsante «Apri» |
+| «cosa devo mangiare oggi?», «domani a cena?» | la parte giusta della tua dieta in PDF |
+| «fammi la lista della spesa» | lista per reparto dalla dieta, salvata in Documenti |
+
+![Documenti dal telefono](../docs/img/telefono-documenti.png)
+![Tastiera e touchpad dal telefono](../docs/img/telefono-tastiera.png)
