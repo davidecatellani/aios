@@ -1,0 +1,9 @@
+[Unit]
+Description=AIOS: aggiornamento su una chiavetta appena inserita
+
+[Path]
+PathExistsGlob=/run/media/%u/*/aios-aggiornamento.json
+PathExistsGlob=/run/media/%u/*/*/aios-aggiornamento.json
+
+[Install]
+WantedBy=default.target

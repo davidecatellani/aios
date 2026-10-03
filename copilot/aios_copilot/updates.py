@@ -10,8 +10,10 @@
 - **App** (Flatpak) aggiornate a riposo; **firmware** (fwupd) solo segnalato, perché
   di solito richiede un riavvio guidato; **modelli AI** con il loro catalogo firmato.
 - Gli aggiornamenti di **sicurezza** sono evidenziati e anticipati.
+- Immagine AIOS **privata**: le nuove versioni arrivano da GitHub con il permesso di sola lettura
+  dell'utente, oppure da una chiavetta (imageupdate.py).
 
-    aios-aggiornamenti stato | controlla | prepara | ripristina | verifica
+    aios-aggiornamenti stato | controlla | prepara | ripristina | verifica | github | chiavetta
 """
 
 from __future__ import annotations
@@ -144,14 +146,51 @@ def check_firmware(runner: Runner) -> Update | None:
 
 
 class Updates:
-    def __init__(self, runner: Runner | None = None, clock: Callable[[], float] = time.time):
+    def __init__(self, runner: Runner | None = None, clock: Callable[[], float] = time.time,
+                 github: Callable[[], Any] | None = None, media: Callable[[], Any] | None = None,
+                 version: Callable[[], str] | None = None):
+        from . import imageupdate
+
         self.runner = runner or Runner()
         self.system = SystemBackend(self.runner)
         self.clock = clock
+        self.github = github or github_source  # → GithubSource o None (non collegato)
+        self.media = media or imageupdate.find_on_media
+        self.version = version or imageupdate.installed_version
+        self.package: Any = None  # nuova versione trovata su GitHub o sulla chiavetta
 
-    def check(self) -> list[Update]:
-        found = [u for u in (self.system.check() if self.system.available() else None,
-                             check_apps(self.runner), check_firmware(self.runner)) if u]
+    def find_package(self, sources: tuple[str, ...] = ("chiavetta", "github")) -> Any:
+        """La versione più recente di AIOS disponibile (prima la chiavetta: è gratis e veloce)."""
+        from .imageupdate import newer
+
+        current = self.version()
+        if not current:
+            return None  # non è un'immagine AIOS
+        best = None
+        for source in sources:
+            try:
+                if source == "chiavetta":
+                    pkg = self.media()
+                else:
+                    gh = self.github()
+                    pkg = gh.latest() if gh is not None else None
+            except Exception:
+                pkg = None
+            if pkg is not None and newer(pkg.version, current) and (best is None or newer(pkg.version, best.version)):
+                best = pkg
+        return best
+
+    def check(self, sources: tuple[str, ...] = ("chiavetta", "github")) -> list[Update]:
+        system = None
+        if self.system.available():
+            self.package = self.find_package(sources)
+            if self.package is not None:
+                p = self.package
+                system = Update("sistema", f"AIOS {p.version} ({'dalla chiavetta' if p.origin == 'chiavetta' else 'da GitHub'}, "
+                                           f"{p.size / 1e9:.1f} GB)", False, p.version)
+            elif not self.version():
+                system = self.system.check()
+        found = [u for u in (system, check_apps(self.runner), check_firmware(self.runner)) if u]
         state = load_state()
         state.update(controllato=self.clock(), trovati=[asdict(u) for u in found])
         save_state(state)
@@ -162,7 +201,9 @@ class Updates:
         found = self.check() if found is None else found
         report = []
         for u in found:
-            if u.kind == "sistema":
+            if u.kind == "sistema" and self.package is not None:
+                report.append(self._prepare_package(u))
+            elif u.kind == "sistema":
                 code, out = self.runner.run(self.system.prepare_cmd())
                 report.append(f"Sistema: {'pronto per il prossimo riavvio' if code == 0 else 'non riuscito: ' + out[-200:]}")
                 if code == 0:
@@ -175,6 +216,25 @@ class Updates:
             elif u.kind == "firmware":
                 report.append(f"Firmware: {u.summary} — dimmi «aggiorna il firmware» quando puoi riavviare.")
         return report
+
+    def _prepare_package(self, u: Update) -> str:
+        from .imageupdate import assemble, stage_command
+
+        pkg = self.package
+        try:
+            archive = assemble(pkg)
+        except (OSError, ValueError) as exc:
+            return f"Sistema: AIOS {pkg.version} non preparato: {exc}"
+        try:
+            code, out = self.runner.run(stage_command(self.system.tool, archive))
+        finally:
+            archive.unlink(missing_ok=True)  # ormai è nel sistema (o andrà riportato)
+        if code != 0:
+            return f"Sistema: AIOS {pkg.version} non preparato: {out[-200:]}"
+        state = load_state()
+        state["pronto"] = {"versione": pkg.version, "sicurezza": u.security, "quando": self.clock()}
+        save_state(state)
+        return f"Sistema: AIOS {pkg.version} pronto per il prossimo riavvio (dati, impostazioni e app restano)."
 
     def rollback(self) -> str:
         if not self.system.available():
@@ -203,10 +263,52 @@ class Updates:
         pending = [Update(**u) for u in state.get("trovati", []) if u["kind"] != "sistema"]
         for u in pending:
             lines.append(("🔒 " if u.security else "• ") + u.summary)
+        if self.version():
+            lines.append(f"Versione di AIOS: {self.version()}.")
+            lines.append("Nuove versioni da GitHub: " + ("collegato con il tuo accesso." if self.github() is not None else
+                         "non collegato (dimmi «collega GitHub per gli aggiornamenti»), oppure da chiavetta."))
         when = state.get("controllato")
         lines.append(f"Ultimo controllo: {time.strftime('%d/%m %H:%M', time.localtime(when))}." if when else "Mai controllato.")
         lines.append("Aggiornamenti automatici: " + ("attivi (a riposo e in carica)." if auto_enabled() else "disattivati."))
         return "\n".join(lines)
+
+
+def github_source() -> Any:
+    from . import vault
+    from .imageupdate import TOKEN_KEY, GithubSource, configured_repo
+
+    repo = load_state().get("repo") or configured_repo()
+    token = vault.load(TOKEN_KEY)
+    return GithubSource(repo, token) if repo and token else None
+
+
+def connect_github(token: str, repo: str = "") -> str:
+    """Salva il permesso di sola lettura dell'utente, dopo averlo provato."""
+    from . import vault
+    from .imageupdate import TOKEN_KEY, GithubSource, configured_repo
+
+    repo = repo or load_state().get("repo") or configured_repo()
+    if not repo:
+        return "Non so da quale repository prendere gli aggiornamenti."
+    token = token.strip()
+    if not token:
+        return "Nessun token inserito."
+    problem = GithubSource(repo, token).check_access()
+    if problem:
+        return f"Non ha funzionato: {problem}."
+    vault.store(TOKEN_KEY, token)
+    state = load_state()
+    state["repo"] = repo
+    save_state(state)
+    return f"Collegato: le nuove versioni di AIOS arriveranno da {repo}, con il tuo accesso di sola lettura."
+
+
+GITHUB_HELP = (
+    "Per scaricare gli aggiornamenti dal tuo repository privato mi serve un permesso di sola lettura:\n"
+    "1. apri https://github.com/settings/personal-access-tokens/new\n"
+    "2. nome «AIOS aggiornamenti», scadenza a tua scelta; «Repository access» › «Only select repositories» › {repo};\n"
+    "3. «Permissions» › «Contents» › «Read-only» (nient'altro), poi «Generate token»;\n"
+    "4. incolla il token nella finestra che apro (resta nel portachiavi del PC, non passa dal modello AI).")
 
 
 def auto_enabled() -> bool:
@@ -294,12 +396,34 @@ def main(argv: list[str] | None = None) -> int:
         print("\n".join(u.prepare()) or "Niente da aggiornare.")
     elif args[0] == "ripristina":
         print(u.rollback())
+    elif args[0] == "github":
+        import getpass
+
+        from .imageupdate import configured_repo
+
+        print(GITHUB_HELP.format(repo=load_state().get("repo") or configured_repo() or "il repository di AIOS"))
+        print(connect_github(getpass.getpass("Token: ")))
+    elif args[0] == "chiavetta":
+        found = u.check(("chiavetta",))
+        system = next((x for x in found if x.kind == "sistema" and u.package is not None), None)
+        if system is None:
+            if "--avvisa" not in args:
+                print("Sulla chiavetta non c'è una versione di AIOS più recente di quella in uso.")
+            return 0
+        if "--avvisa" in args:
+            from .mesh.service import notify_with_actions
+
+            if notify_with_actions("💾 Aggiornamento di AIOS sulla chiavetta", f"{system.summary}. Lo preparo? "
+                                   "Si applica al prossimo riavvio, i tuoi dati restano.",
+                                   {"installa": "Prepara", "no": "Non ora"}) != "installa":
+                return 0
+        print("\n".join(u.prepare([system])))
     elif args[0] == "verifica":
         problems = health_check()
         print("\n".join(problems) or "Tutto a posto.")
         return 1 if problems else 0
     else:
-        print("aios-aggiornamenti [stato | controlla | prepara | ripristina | verifica]")
+        print("aios-aggiornamenti [stato | controlla | prepara | ripristina | verifica | github | chiavetta]")
         return 1
     return 0
 

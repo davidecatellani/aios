@@ -1,8 +1,9 @@
 name: Immagine AIOS
 
-# Costruisce l'immagine AIOS per PC (image/Containerfile) e, a scelta:
-# - la chiavetta d'installazione (ISO), messa in una Release «anteprima» del repository;
-# - la pubblicazione dell'immagine su ghcr.io (serve per gli aggiornamenti e per rpm-ostree rebase).
+# Costruisce l'immagine AIOS per PC (image/Containerfile) e la mette in una Release «anteprima»:
+# - sempre il pacchetto di aggiornamento (aios-aggiornamento.*): i PC installati lo scaricano con
+#   l'accesso dell'utente o lo leggono da una chiavetta, senza formattare;
+# - a scelta la chiavetta d'installazione (ISO) e la pubblicazione su ghcr.io.
 # Si avvia a mano (Actions › Immagine AIOS › Run workflow) o con un'etichetta v*.
 on:
   workflow_dispatch:
@@ -49,7 +50,10 @@ jobs:
           done
           echo "Nessuna immagine Silverblue trovata" >&2; exit 1
       - name: Costruisci
-        run: sudo podman build --build-arg FEDORA="$FEDORA" -t "${IMMAGINE}:${FEDORA}" -f image/Containerfile .
+        run: |
+          echo "VERSIONE=$(date -u +%Y.%m.%d).${GITHUB_RUN_NUMBER}" >> "$GITHUB_ENV"
+          sudo podman build --build-arg FEDORA="$FEDORA" --build-arg VERSIONE="$(date -u +%Y.%m.%d).${GITHUB_RUN_NUMBER}" \
+            --build-arg REPO="$GITHUB_REPOSITORY" -t "${IMMAGINE}:${FEDORA}" -f image/Containerfile .
       - name: Pubblica
         if: env.PUBBLICA == 'true'
         run: |
@@ -65,22 +69,41 @@ jobs:
             quay.io/centos-bootc/bootc-image-builder:latest \
             --type anaconda-iso --rootfs btrfs "${IMMAGINE}:${FEDORA}"
           ls -lh /mnt/uscita/bootiso
-      - name: Metti la ISO in una Release
-        if: env.ISO == 'true'
+      - name: Pacchetto di aggiornamento
+        # La stessa immagine come file: i PC già installati la scaricano da qui (con l'accesso dell'utente)
+        # o la leggono da una chiavetta (copilot/aios_copilot/imageupdate.py). Mai formattare per aggiornare.
+        run: |
+          sudo mkdir -p /mnt/uscita/aggiornamento
+          sudo skopeo copy "containers-storage:${IMMAGINE}:${FEDORA}" oci-archive:/mnt/uscita/aggiornamento/aios-aggiornamento.ociarchive
+          sudo chown -R "$(id -u)" /mnt/uscita
+          cd /mnt/uscita/aggiornamento
+          totale=$(sha256sum aios-aggiornamento.ociarchive | cut -d' ' -f1)
+          split -b 1900M -d -a 1 aios-aggiornamento.ociarchive aios-aggiornamento.ociarchive.parte
+          rm aios-aggiornamento.ociarchive
+          python3 - "$VERSIONE" "$FEDORA" "$totale" <<'PY'
+          import hashlib, json, pathlib, sys
+          parti = []
+          for p in sorted(pathlib.Path(".").glob("aios-aggiornamento.ociarchive.parte*"), key=lambda p: int(p.name.rsplit("parte", 1)[1])):
+              parti.append({"nome": p.name, "sha256": hashlib.sha256(p.read_bytes()).hexdigest(), "dimensione": p.stat().st_size})
+          pathlib.Path("aios-aggiornamento.json").write_text(json.dumps(
+              {"versione": sys.argv[1], "fedora": sys.argv[2], "sha256": sys.argv[3], "parti": parti}, indent=1))
+          PY
+          ls -lh
+      - name: Metti tutto in una Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # GitHub accetta file fino a 2 GB: se la ISO è più grande si divide in pezzi.
-          sudo chown -R "$(id -u)" /mnt/uscita
-          cd /mnt/uscita/bootiso
-          mv install.iso aios-installazione.iso
-          sha256sum aios-installazione.iso > aios-installazione.iso.sha256
-          if [ "$(stat -c %s aios-installazione.iso)" -gt 2000000000 ]; then
-            split -b 1900M -d -a 1 aios-installazione.iso aios-installazione.iso.parte
-            rm aios-installazione.iso
+          files=(/mnt/uscita/aggiornamento/aios-aggiornamento.*)
+          if [ "$ISO" = true ]; then
+            # GitHub accetta file fino a 2 GB: se la ISO è più grande si divide in pezzi.
+            cd /mnt/uscita/bootiso
+            mv install.iso aios-installazione.iso
+            sha256sum aios-installazione.iso > aios-installazione.iso.sha256
+            if [ "$(stat -c %s aios-installazione.iso)" -gt 2000000000 ]; then
+              split -b 1900M -d -a 1 aios-installazione.iso aios-installazione.iso.parte
+              rm aios-installazione.iso
+            fi
+            files+=(/mnt/uscita/bootiso/aios-installazione.iso*)
           fi
-          tag="anteprima-${GITHUB_RUN_NUMBER}"
-          gh release create "$tag" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --prerelease \
-            --title "AIOS per PC — anteprima ${GITHUB_RUN_NUMBER}" \
-            --notes-file "$GITHUB_WORKSPACE/image/RELEASE.md" \
-            aios-installazione.iso*
+          gh release create "anteprima-${GITHUB_RUN_NUMBER}" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --prerelease \
+            --title "AIOS ${VERSIONE} (anteprima)" --notes-file "$GITHUB_WORKSPACE/image/RELEASE.md" "${files[@]}"

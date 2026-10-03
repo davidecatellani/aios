@@ -2,7 +2,16 @@
 Non è ancora stata provata su molti PC: **provala prima in una macchina virtuale** (GNOME Boxes,
 VirtualBox) o su un PC senza dati importanti.
 
-### Preparare la chiavetta (8 GB o più)
+### Aggiornare un PC con AIOS già installato (niente formattazione)
+
+- **Da GitHub**: di' a Nova «collega GitHub per gli aggiornamenti» (una volta sola, con un tuo
+  permesso di sola lettura); poi le nuove versioni arrivano da sole e si applicano al riavvio.
+- **Da chiavetta**: copia su una chiavetta tutti i file `aios-aggiornamento…` (senza riunirli) e
+  inseriscila nel PC: Nova propone di preparare l'aggiornamento («aggiorna dalla chiavetta»).
+
+Dati, impostazioni e app restano; la versione precedente resta disponibile all'avvio.
+
+### Preparare la chiavetta d'installazione (8 GB o più, solo per la prima installazione)
 
 1. Scarica i file `aios-installazione.iso…` qui sotto.
 2. Se la ISO è divisa in pezzi (`.parte0`, `.parte1`, …), riuniscila:

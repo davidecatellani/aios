@@ -3,15 +3,33 @@
 from __future__ import annotations
 
 import re
+from typing import Callable
 
 from ..fastpath import Intent, normalize
-from ..updates import Updates, set_auto
+from ..updates import GITHUB_HELP, Updates, connect_github, load_state, set_auto
 from .base import Runner, Tool, params
 
 
-def make_tools(runner: Runner | None = None) -> list[Tool]:
+def ask_secret(runner: Runner, title: str, text: str) -> str | None:
+    """Una finestra locale per incollare un token: il segreto non passa mai dal modello AI."""
+    if not runner.has("zenity"):
+        return None
+    import subprocess
+
+    try:
+        proc = subprocess.run(["zenity", "--password", f"--title={title}", f"--text={text}"],
+                              capture_output=True, text=True, timeout=600)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    return proc.stdout.strip() if proc.returncode == 0 else ""
+
+
+def make_tools(runner: Runner | None = None, updates: Updates | None = None,
+               secret: Callable[[str, str], str | None] | None = None,
+               connect: Callable[[str], str] = connect_github) -> list[Tool]:
     runner = runner or Runner()
-    updates = Updates(runner)
+    updates = updates or Updates(runner)
+    secret = secret or (lambda title, text: ask_secret(runner, title, text))
 
     def update_status() -> str:
         return updates.describe()
@@ -31,6 +49,26 @@ def make_tools(runner: Runner | None = None) -> list[Tool]:
         return ("Aggiornamenti automatici attivi: scarico a riposo e in carica, e ti chiedo io quando riavviare."
                 if enabled else "Aggiornamenti automatici disattivati: dimmi «aggiorna il sistema» quando vuoi.")
 
+    def connect_github_updates() -> str:
+        from ..imageupdate import configured_repo
+
+        repo = load_state().get("repo") or configured_repo() or "il repository di AIOS"
+        help_text = GITHUB_HELP.format(repo=repo)
+        token = secret("Aggiornamenti da GitHub", "Incolla il token di sola lettura (Contents: read) per " + repo)
+        if token is None:
+            return help_text.replace("nella finestra che apro", "nel Terminale con «aios-aggiornamenti github»")
+        if not token:
+            return help_text + "\n\nQuando hai il token, dimmi di nuovo «collega GitHub per gli aggiornamenti»."
+        return connect(token)
+
+    def update_from_usb() -> str:
+        found = updates.check(("chiavetta",))
+        system = next((u for u in found if u.kind == "sistema" and updates.package is not None), None)
+        if system is None:
+            return ("Non trovo una versione più recente di AIOS sulla chiavetta: copia nella chiavetta i file "
+                    "«aios-aggiornamento…» della Release (tutti, senza riunirli) e inseriscila.")
+        return "\n".join(updates.prepare([system]))
+
     def restart_to_update() -> str:
         code, out = runner.run(["systemctl", "reboot"])
         return "Riavvio per applicare l'aggiornamento…" if code == 0 else f"Riavvio non riuscito: {out[-200:]}"
@@ -43,6 +81,11 @@ def make_tools(runner: Runner | None = None) -> list[Tool]:
              rollback_system, requires_confirmation=True),
         Tool("auto_updates", "Attiva o disattiva gli aggiornamenti automatici.", params(on=("Attivi?", ["sì", "no"])),
              auto_updates),
+        Tool("connect_github_updates", "Collega il PC al repository GitHub privato di AIOS per ricevere le nuove "
+             "versioni (permesso di sola lettura dell'utente, chiesto in una finestra locale).", params(),
+             connect_github_updates),
+        Tool("update_from_usb", "Prepara la nuova versione di AIOS dalla chiavetta inserita (si applica al riavvio, "
+             "senza formattare).", params(), update_from_usb, requires_confirmation=True),
         Tool("restart_to_update", "Riavvia il computer per applicare l'aggiornamento pronto.", params(),
              restart_to_update, requires_confirmation=True),
     ]
@@ -53,6 +96,10 @@ RE_STATUS = re.compile(r"^(?:ci sono|ho)\s+(?:degli\s+|nuovi\s+)?aggiornamenti\?
 RE_NOW = re.compile(r"^aggiorna\s+(?:il\s+sistema|il\s+computer|il\s+pc|tutto|aios)(?:\s+(?:ora|adesso|subito))?$")
 RE_ROLLBACK = re.compile(r"^(?:torna|ritorna)\s+alla\s+versione\s+precedente(?:\s+del\s+sistema)?$")
 RE_AUTO = re.compile(r"^(?P<v>attiva|disattiva)\s+(?:gli\s+)?aggiornamenti\s+automatici$")
+RE_GITHUB = re.compile(r"^(?:collega|configura|attiva)\s+github(?:\s+per\s+gli\s+aggiornamenti)?$"
+                       r"|^aggiornamenti\s+da\s+github$")
+RE_USB = re.compile(r"^aggiorna(?:\s+(?:il\s+sistema|aios))?\s+(?:dalla|con\s+la)\s+chiavetta$"
+                    r"|^installa\s+l'aggiornamento\s+dalla\s+chiavetta$")
 RE_RESTART = re.compile(r"^riavvia\s+per\s+aggiornare$|^applica\s+l'aggiornamento$")
 
 
@@ -70,4 +117,8 @@ class UpdatesRouter:
             return Intent("auto_updates", {"on": "sì" if m.group("v") == "attiva" else "no"})
         if RE_RESTART.match(low):
             return Intent("restart_to_update", {})
+        if RE_GITHUB.match(low):
+            return Intent("connect_github_updates", {})
+        if RE_USB.match(low):
+            return Intent("update_from_usb", {})
         return None
