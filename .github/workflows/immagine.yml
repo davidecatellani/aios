@@ -111,8 +111,17 @@ jobs:
             fi
             files+=(/mnt/uscita/bootiso/aios-installazione.iso*)
           fi
-          gh release create "anteprima-${GITHUB_RUN_NUMBER}" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --prerelease \
-            --title "AIOS ${VERSIONE} (anteprima$([ "$KERNEL" = lts ] && echo ', kernel LTS 6.18'))" --notes-file "$GITHUB_WORKSPACE/image/RELEASE.md" "${files[@]}"
+          # Qualche volta GitHub rifiuta (403/5xx) a fine caricamento: si riprova invece di buttare la costruzione.
+          tag="anteprima-${GITHUB_RUN_NUMBER}"
+          for i in 1 2 3 4; do
+            gh release create "$tag" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --prerelease \
+              --title "AIOS ${VERSIONE} (anteprima$([ "$KERNEL" = lts ] && echo ', kernel LTS 6.18'))" \
+              --notes-file "$GITHUB_WORKSPACE/image/RELEASE.md" "${files[@]}" && exit 0
+            echo "Release non creata (tentativo $i): riprovo"
+            gh release delete "$tag" --repo "$GITHUB_REPOSITORY" --yes --cleanup-tag 2>/dev/null || true
+            sleep $((60 * i))
+          done
+          exit 1
       - name: Togli le anteprime vecchie
         # Resta solo quella appena creata: le vecchie ISO e i vecchi pacchetti non servono più.
         env:
