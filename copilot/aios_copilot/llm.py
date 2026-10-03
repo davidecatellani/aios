@@ -4,8 +4,11 @@ from __future__ import annotations
 
 import json
 import os
+import re
+import time
 import urllib.error
 import urllib.request
+from pathlib import Path
 from typing import Any, Protocol
 
 DEFAULT_URL = "http://localhost:11434"
@@ -20,6 +23,23 @@ def _configured_text_model() -> str | None:
     from .models import load_config
 
     return load_config().get("testo")
+
+
+def start_pull(model: str) -> bool:
+    """Scarica in sottofondo un modello mancante (una volta sola per volta). → True se partito."""
+    import shutil
+    import subprocess
+    import tempfile
+
+    exe = shutil.which("ollama")
+    if not exe:
+        return False
+    flag = Path(tempfile.gettempdir()) / f"aios-pull-{re.sub(r'[^a-z0-9._-]', '_', model.lower())}"
+    if flag.exists() and time.time() - flag.stat().st_mtime < 3600:
+        return True  # già in corso
+    flag.touch()
+    subprocess.Popen([exe, "pull", model], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
+    return True
 
 
 class LLMError(RuntimeError):
@@ -108,7 +128,15 @@ class OllamaClient:
             with urllib.request.urlopen(req, timeout=self.timeout) as resp:
                 return json.loads(resp.read())
         except urllib.error.HTTPError as exc:
-            raise LLMError(f"Il modello ha risposto con errore {exc.code}: {exc.read().decode(errors='replace')}") from exc
+            detail = exc.read().decode(errors="replace")
+            if exc.code == 404 and "not found" in detail:
+                started = start_pull(self.model)
+                raise LLMError(
+                    "Il mio modello AI non è ancora sul computer"
+                    + (": lo sto scaricando (circa 1 GB, serve internet). " if started else ". ")
+                    + "Intanto capisco i comandi semplici, come «alza il volume» o «che ore sono»."
+                ) from exc
+            raise LLMError(f"Il modello ha risposto con errore {exc.code}: {detail}") from exc
         except urllib.error.URLError as exc:
             raise LLMError(
                 f"Non riesco a contattare il modello locale su {self.url}. "

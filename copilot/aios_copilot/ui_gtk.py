@@ -47,10 +47,10 @@ def orb_widget(size: int = 56) -> Gtk.Widget:
 
     path = BRAND_DIR / "copilota.svg"
     if path.exists():
-        pic = Gtk.Picture.new_for_filename(str(path))
-        pic.set_size_request(size, size)
-        pic.set_can_shrink(True)
-        return pic
+        image = Gtk.Image.new_from_file(str(path))  # un'icona di misura fissa (Gtk.Picture si allargava)
+        image.set_pixel_size(size)
+        image.set_valign(Gtk.Align.CENTER)
+        return image
     return Gtk.Label(label="●")
 
 

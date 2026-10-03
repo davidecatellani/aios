@@ -115,3 +115,40 @@ def test_on_off_commands(tmp_path, monkeypatch):
     assert "In ascolto" not in agent.ask("mi stai ascoltando?")
     assert agent.ask("ascoltami").startswith("Ti ascolto") and voice.listening_enabled()
     assert ["systemctl", "--user", "enable", "--now", "aios-voce.service"] in r.ran
+
+
+def test_install_recommended_models_is_understood():
+    from aios_copilot.tools.ai import ModelsRouter
+
+    for text in ("installa tutti i consigliati", "installa i modelli consigliati", "scarica i modelli"):
+        intent = ModelsRouter().match(text)
+        assert intent is not None and intent.tool == "install_models", text
+
+
+def test_missing_model_is_explained_and_downloaded(monkeypatch, tmp_path):
+    import http.server
+    import threading
+
+    from aios_copilot import llm
+
+    class H(http.server.BaseHTTPRequestHandler):
+        def do_POST(self):
+            self.send_response(404)
+            self.end_headers()
+            self.wfile.write(b'{"error":"model \'qwen2.5:1.5b-instruct\' not found"}')
+
+        def log_message(self, *a):
+            pass
+
+    srv = http.server.HTTPServer(("127.0.0.1", 0), H)
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    pulled = []
+    monkeypatch.setattr(llm, "start_pull", lambda model: pulled.append(model) or True)
+    client = llm.OllamaClient(model="qwen2.5:1.5b-instruct", url=f"http://127.0.0.1:{srv.server_address[1]}")
+    try:
+        client.chat([{"role": "user", "content": "ciao"}], [])
+        raise AssertionError("doveva fallire")
+    except llm.LLMError as exc:
+        assert "lo sto scaricando" in str(exc) and "404" not in str(exc)
+    assert pulled == ["qwen2.5:1.5b-instruct"]
+    srv.shutdown()

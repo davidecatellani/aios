@@ -139,6 +139,8 @@ RE_SUGGEST = re.compile(
     r"|^(?:posso\s+avere\s+)?modelli\s+(?:ai\s+)?migliori")
 RE_INSTALL = re.compile(
     r"^(?:aggiorna|migliora)\s+(?:i\s+modelli|l'ai|l'intelligenza artificiale|il copilota|nova)$"
+    r"|^(?:installa|scarica|metti|aggiungi)\s+(?:tutti\s+)?(?:i\s+)?(?:modelli\s+)?(?:consigliati|suggeriti|proposti)$"
+    r"|^(?:installa|scarica)\s+(?:tutti\s+)?i\s+modelli(?:\s+(?:ai|consigliati))?$"
     r"|^(?:installa|attiva|aggiungi)\s+(?:la\s+|il\s+|le\s+)?(?P<cap>vista|dettatura|riconoscimento vocale|voce|lettura|"
     r"creare immagini|generazione di immagini|modello più potente)$")
 RE_RESTORE = re.compile(r"^(?:torna|ritorna|rimetti)\s+(?:al|il)\s+modello\s+(?:di\s+)?(?:prima|precedente)")

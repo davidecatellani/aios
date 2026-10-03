@@ -80,7 +80,7 @@ RUN pip install --no-cache-dir --prefix=/usr --no-build-isolation /tmp/aios-copi
     && rm -rf /tmp/aios-copilot
 
 # Servizi: Ollama per il sistema, quelli di AIOS per ogni utente; Super+Spazio apre Nova
-RUN systemctl enable ollama.service greenboot-healthcheck.service \
+RUN systemctl enable ollama.service aios-modello-base.service greenboot-healthcheck.service \
     && systemctl --global enable aios-learn.service aios-agenda.service aios-mail.service aios-telefono.service \
        aios-voce.service aios-chiavetta.path \
     && dconf update
