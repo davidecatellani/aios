@@ -160,6 +160,10 @@ class Build:
     min_sdk: int = 0
     files: list[dict[str, str]] = field(default_factory=list)  # {nome, url, sha256, partizione}
     avb_key: dict[str, str] = field(default_factory=dict)
+    aliases: list[str] = field(default_factory=list)  # altri codici dello stesso telefono (es. joyeuse → miatoll)
+
+    def fits(self, codename: str) -> bool:
+        return bool(codename) and codename in (self.codename, *self.aliases)
 
 
 def catalog_path() -> Path:
@@ -176,7 +180,7 @@ def parse_catalog(data: bytes) -> list[Build]:
             raise InstallError(f"{raw.get('nome')}: ogni file va scaricato in https e con impronta SHA-256")
         builds.append(Build(raw["nome"], str(raw.get("versione", "")), raw.get("tipo", "gsi"), raw.get("marca", ""),
                             raw.get("codename", ""), raw.get("abi", "arm64-v8a"), int(raw.get("min_sdk", 0)), files,
-                            raw.get("chiave_avb", {})))
+                            raw.get("chiave_avb", {}), [str(c) for c in raw.get("codici", [])]))
     return builds
 
 
@@ -202,8 +206,8 @@ def load_catalog() -> list[Build]:
 
 def choose_build(phone: PhoneInfo, builds: list[Build]) -> tuple[Build | None, Build | None]:
     """→ (sistema, recovery). Prima l'immagine fatta per quel modello, poi la GSI se il telefono è compatibile."""
-    exact = next((b for b in builds if b.kind == "dispositivo" and b.codename == phone.codename), None)
-    recovery = next((b for b in builds if b.kind == "recovery" and b.codename == phone.codename), None)
+    exact = next((b for b in builds if b.kind == "dispositivo" and b.fits(phone.codename)), None)
+    recovery = next((b for b in builds if b.kind == "recovery" and b.fits(phone.codename)), None)
     if exact:
         return exact, recovery
     if phone.brand == "google":
@@ -346,9 +350,8 @@ def plan_for(phone: PhoneInfo, system: Build, recovery: Build | None, files: dic
         Step("app", "Rubrica e WhatsApp", "utente",
              "Rubrica: apri Contatti › Importa › «contatti.vcf» (in Download). WhatsApp: installalo e, quando lo chiede, "
              "tocca «Ripristina»: trova da solo il backup che ho rimesso al suo posto."),
-        Step("collega", "Collego il telefono alla tua identità", "utente",
-             "Sul telefono, nella prima schermata di AIOS, scegli «Ho già AIOS sul computer» e inquadra il codice che ti "
-             "mostro qui (oppure attiva «Debug USB» e lo faccio io via cavo)."),
+        Step("collega", "Collego il telefono alla tua identità", "auto",
+             "Lascio sul telefono, via cavo, l'indirizzo per collegarsi a questo PC: Nova lo usa al primo avvio."),
     ]
     return steps
 
@@ -503,6 +506,8 @@ class Installer:
         if step.id == "backup" and not self.dry_run:
             result = self.backup(self.phone)
             step.detail, self.backup_dir = result if isinstance(result, tuple) else (result, None)
+        if step.id == "collega" and not self.dry_run:
+            step.detail = push_pairing(self.runner, self.phone)
         if step.id == "ripristino" and not self.dry_run:
             step.detail = self.restore(self.phone, self.backup_dir) if self.backup_dir else "Nessun backup da ripristinare."
         outputs = [self._cmd(cmd) for cmd in step.commands]
@@ -602,6 +607,30 @@ def restore_phone(runner: Runner, phone: PhoneInfo, backup: Path) -> str:
     # le foto ripristinate compaiono subito in Galleria
     runner.run([*adb, "shell", "content", "call", "--uri", "content://media", "--method", "scan_volume", "--arg", "external_primary"])
     return f"Ripristinati: {', '.join(restored) or 'niente'}."
+
+
+NOVA_PAIRING_FILE = "/sdcard/Android/data/org.aios.nova/files/abbina.txt"
+
+
+def push_pairing(runner: Runner, phone: PhoneInfo, command: Callable[[dict], dict | None] | None = None) -> str:
+    """L'indirizzo del QR di collegamento, lasciato sul telefono via cavo (Nova lo legge al primo avvio)."""
+    import tempfile
+
+    from .mesh.service import send_command
+
+    reply = (command or send_command)({"azione": "abbina"})
+    if not reply or "url" not in reply:
+        return "Collega il telefono dal PC con «Nova, collega il telefono» (il servizio aios-telefono non è attivo)."
+    adb = ["adb", "-s", phone.serial] if phone.serial else ["adb"]
+    with tempfile.NamedTemporaryFile("w", suffix=".txt", delete=False) as f:
+        f.write(reply["url"])
+    try:
+        runner.run([*adb, "shell", "mkdir", "-p", str(Path(NOVA_PAIRING_FILE).parent)])
+        code, _ = runner.run([*adb, "push", f.name, NOVA_PAIRING_FILE])
+    finally:
+        os.unlink(f.name)
+    return ("Fatto: al primo avvio Nova si collega da sola a questo PC (codice valido 5 minuti)." if code == 0 else
+            "Non riesco a lasciarlo via cavo: sul telefono apri Nova › «Ripristina dal computer» e inquadra il QR del PC.")
 
 
 def download_build(build: Build, target: Path, fetch: Callable[..., Any] | None = None) -> dict[str, Path]:

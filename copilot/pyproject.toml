@@ -33,6 +33,7 @@ aios-aggiornamenti = "aios_copilot.updates:main"
 aios-abilita = "aios_copilot.sdk:main"
 aios-installa-telefono = "aios_copilot.phoneinstall:main"
 aios-installatore = "aios_copilot.phoneapp:main"
+aios-catalogo-telefoni = "aios_copilot.phonecatalog:main"
 
 [tool.setuptools.packages.find]
 include = ["aios_copilot*"]

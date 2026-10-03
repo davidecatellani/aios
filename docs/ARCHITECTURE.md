@@ -413,6 +413,12 @@ backup (che resta comunque sul PC) e collega il telefono all'identità dell'uten
 Ogni comando finisce nel registro; la modalità prova mostra i passi senza toccare
 il telefono.
 
+La compilazione dell'immagine è in [`phone/`](../phone/README.md): AOSP per Pixel e
+GSI, LineageOS per i telefoni con supporto ufficiale (primo bersaglio: Redmi Note 9 Pro
+«miatoll»); `vendor/aios` con energia, tema e Nova; l'app di sistema Nova in Kotlin;
+script di preparazione, compilazione, firma (chiavi offline) e misura della batteria;
+`aios-catalogo-telefoni` produce il catalogo firmato letto dall'installatore.
+
 ### Energia: decide Nova (`energy.py`)
 
 Nessuna soglia fissa: Nova impara (in locale) quando l'utente mette in carica, feriali

@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="org.aios.nova">
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+
+    <application
+        android:name=".NovaApp"
+        android:label="@string/app_name"
+        android:icon="@drawable/nova"
+        android:extractNativeLibs="true"
+        android:theme="@android:style/Theme.DeviceDefault.DayNight">
+
+        <activity android:name=".NovaActivity" android:exported="true" android:launchMode="singleTask">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <activity android:name=".setup.RestoreActivity" android:exported="false" />
+
+        <!-- Nova come assistente di sistema (pressione lunga del tasto di accensione) -->
+        <service android:name=".assistant.NovaInteractionService" android:exported="true"
+                 android:permission="android.permission.BIND_VOICE_INTERACTION">
+            <meta-data android:name="android.voice_interaction" android:resource="@xml/nova_interaction_service" />
+            <intent-filter><action android:name="android.service.voice.VoiceInteractionService" /></intent-filter>
+        </service>
+        <service android:name=".assistant.NovaSessionService" android:exported="true"
+                 android:permission="android.permission.BIND_VOICE_INTERACTION" />
+        <service android:name=".assistant.NovaRecognitionService" android:exported="true">
+            <intent-filter><action android:name="android.speech.RecognitionService" /></intent-filter>
+        </service>
+
+        <!-- Lavoro in sottofondo solo tramite JobScheduler, con i vincoli di energia -->
+        <service android:name=".energy.EnergyJobService" android:exported="false"
+                 android:permission="android.permission.BIND_JOB_SERVICE" />
+        <receiver android:name=".energy.BootReceiver" android:exported="false">
+            <intent-filter><action android:name="android.intent.action.BOOT_COMPLETED" /></intent-filter>
+        </receiver>
+    </application>
+</manifest>

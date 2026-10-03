@@ -1,0 +1,30 @@
+// Nova, l'assistente di AIOS, come app di sistema. Solo Kotlin e SDK di sistema:
+// nessuna libreria esterna, niente servizi sempre attivi (la batteria prima di tutto).
+android_app {
+    name: "Nova",
+    srcs: ["src/**/*.kt"],
+    resource_dirs: ["res"],
+    manifest: "AndroidManifest.xml",
+    platform_apis: true,
+    privileged: true,
+    certificate: "platform",
+    system_ext_specific: true,
+    jni_libs: ["libaios_llama_server"],
+    required: ["privapp_whitelist_org.aios.nova"],
+}
+
+// llama.cpp compilato con l'NDK (scripts/llama-android.sh), avviato solo quando serve
+cc_prebuilt_library_shared {
+    name: "libaios_llama_server",
+    srcs: ["jni/arm64-v8a/libaios_llama_server.so"],
+    compile_multilib: "64",
+    check_elf_files: false,
+    system_ext_specific: true,
+}
+
+prebuilt_etc {
+    name: "privapp_whitelist_org.aios.nova",
+    sub_dir: "permissions",
+    src: "privapp-permissions-nova.xml",
+    system_ext_specific: true,
+}

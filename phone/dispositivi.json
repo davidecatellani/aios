@@ -1,0 +1,61 @@
+{
+  "_nota": "Bersagli di compilazione di AIOS per telefono. «base»: aosp (Pixel, GSI) o lineage (gli altri telefoni, con i file hardware mantenuti da LineageOS). Rami e nomi di rilascio vanno ricontrollati prima di ogni compilazione: cambiano con le versioni di Android.",
+  "bersagli": {
+    "gsi": {
+      "nome": "AIOS GSI (arm64, telefoni Treble)",
+      "base": "aosp",
+      "manifest": "https://android.googlesource.com/platform/manifest",
+      "ramo": "android-latest-release",
+      "prodotto": "aios_gsi_arm64",
+      "rilascio": "trunk_staging",
+      "tipo_catalogo": "gsi",
+      "uscite": [
+        "system.img",
+        "vbmeta.img"
+      ],
+      "marca": ""
+    },
+    "shiba": {
+      "nome": "AIOS per Google Pixel 8",
+      "base": "aosp",
+      "manifest": "https://android.googlesource.com/platform/manifest",
+      "ramo": "android-latest-release",
+      "prodotto": "aios_shiba",
+      "rilascio": "trunk_staging",
+      "tipo_catalogo": "dispositivo",
+      "binari_fornitore": "https://developers.google.com/android/drivers",
+      "uscite": [
+        "aios-shiba-img.zip",
+        "avb_pkmd.bin"
+      ],
+      "marca": "google"
+    },
+    "miatoll": {
+      "nome": "AIOS per Redmi Note 9 Pro / 9S, POCO M2 Pro (miatoll)",
+      "modelli": [
+        "M2003J6B2G",
+        "M2003J6A1G",
+        "M2003J6B1I",
+        "M2003J6CI"
+      ],
+      "base": "lineage",
+      "manifest": "https://github.com/LineageOS/android.git",
+      "ramo": "lineage-22.2",
+      "dispositivo_lineage": "miatoll",
+      "tipo_catalogo": "dispositivo",
+      "nota": "prima di installare serve il firmware MIUI minimo indicato dal wiki di LineageOS (pagina «fw_update» di miatoll)",
+      "uscite": [
+        "aios-miatoll.zip",
+        "recovery.img"
+      ],
+      "marca": "xiaomi",
+      "codici": [
+        "joyeuse",
+        "curtana",
+        "excalibur",
+        "gram"
+      ],
+      "_codici": "come si presentano i telefoni della famiglia miatoll con MIUI (ro.product.device)"
+    }
+  }
+}

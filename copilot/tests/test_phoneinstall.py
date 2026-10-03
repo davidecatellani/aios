@@ -142,7 +142,7 @@ def test_preflight_stops_before_touching_the_phone():
 def test_pixel_install_unlocks_flashes_and_relocks():
     phone = FakePhone("google")
     ok, asked, steps = run_install(phone)
-    assert ok and asked == ["whatsapp", "conferma", "debug_nuovo", "app", "collega"]  # nessun passo superfluo
+    assert ok and asked == ["whatsapp", "conferma", "debug_nuovo", "app"]  # nessun passo superfluo
     cmds = [" ".join(c[3:] if c[1] == "-s" else c[1:]) for c in flashed(phone)]
     assert cmds == ["flashing unlock", "erase avb_custom_key", "flash avb_custom_key avb_pkmd.bin",
                     "-w update --skip-reboot aios-shiba.zip", "reboot-bootloader", "flashing lock", "reboot"]
@@ -308,3 +308,11 @@ def test_redmi_note_9_pro_uses_the_dedicated_build():
             and ("flash" in c or "sideload" in c)]
     assert cmds == ["flash recovery recovery.img", "sideload aios-miatoll.zip"]
     assert "avvia_recovery" in asked and not any(s.id == "avvio" for s in steps)
+
+
+def test_pairing_left_on_the_phone():
+    phone = FakePhone("google")
+    info = pi.detect(phone)
+    out = pi.push_pairing(phone, info, command=lambda c: {"url": "https://192.168.1.5:8743/#abbina=x&fp=y"})
+    assert out.startswith("Fatto") and phone.ran[-1][-1] == pi.NOVA_PAIRING_FILE
+    assert "non è attivo" in pi.push_pairing(phone, info, command=lambda c: None)

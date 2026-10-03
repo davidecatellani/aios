@@ -1,0 +1,7 @@
+# immagini compilate e binari: si pubblicano, non si mettono nel repository
+uscita/
+packages/apps/Nova/jni/
+# mai chiavi qui (stanno in ~/.aios-chiavi, offline)
+*.pk8
+*.pem
+*.x509.pem
