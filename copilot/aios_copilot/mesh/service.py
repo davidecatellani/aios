@@ -63,12 +63,11 @@ class MeshService:
         self.ringing = ""
         self.bus, self.copy = bus, copy
         self.seen_codes: set[str] = set()
-        self.sync_every, self.next_sync = 120.0, 0.0
+        self.energy: Any = None  # EnergyBrain: Nova decide ogni quanto fare cosa, in base alla batteria
+        self.last: dict[str, float] = {}
         self.photos: Any = None  # PhotoSync: foto della fotocamera salvate da sole quando il telefono è vicino
-        self.photos_every, self.next_photos = 1800.0, 0.0
         self._photos_busy = threading.Lock()
         self.bluetooth: Any = None  # dispositivi Bluetooth dell'utente condivisi tra i suoi dispositivi
-        self.bt_every, self.next_bt = 300.0, 0.0
 
     def tick(self) -> None:
         try:
@@ -90,15 +89,33 @@ class MeshService:
             self.server.stop()
         self._calls()
         self._codes()
-        if self.photos is not None and phones and self.bus is not None and self.clock() >= self.next_photos:
-            self.next_photos = self.clock() + self.photos_every
+        intervals = self._intervals()
+        if self.photos is not None and phones and self.bus is not None and self._due("foto", intervals):
             threading.Thread(target=self.save_photos, daemon=True).start()
-        if self.bluetooth is not None and self.clock() >= self.next_bt:
-            self.next_bt = self.clock() + self.bt_every
+        if self.bluetooth is not None and self._due("bluetooth", intervals):
             threading.Thread(target=self._bluetooth_round, daemon=True).start()
-        if self.clock() >= self.next_sync:
-            self.next_sync = self.clock() + self.sync_every
+        if self._due("sincronizzazione", intervals):
             threading.Thread(target=self.sync_now, daemon=True).start()
+
+    def _intervals(self) -> dict[str, int | None]:
+        """Ogni quanto fare cosa: lo decide Nova (energy.py); senza, i valori di quando si è in carica."""
+        from ..energy import ACTIVITIES
+
+        if self.energy is None:
+            return {k: v[0] for k, v in ACTIVITIES.items()}
+        try:
+            self.energy.observe()
+            return self.energy.decide().intervals
+        except Exception:
+            return {k: v[0] for k, v in ACTIVITIES.items()}
+
+    def _due(self, activity: str, intervals: dict[str, int | None]) -> bool:
+        interval = intervals.get(activity)
+        now = self.clock()
+        if interval is None or now - self.last.get(activity, -1e18) < interval:
+            return False
+        self.last[activity] = now
+        return True
 
     def _bluetooth_round(self) -> None:
         from .bluetooth import share_round
@@ -311,6 +328,9 @@ def build(search: Callable[[str], list[dict[str, Any]]] | None = None) -> MeshSe
     service = MeshService(KdeConnect(runner), Ofono(runner), server, bus=PhoneBus(runner),
                           copy=lambda text: copy_to_clipboard(text, runner))
     service.photos = PhotoSync()
+    from ..energy import EnergyBrain
+
+    service.energy = EnergyBrain()
     from .bluetooth import Bluetooth
 
     service.bluetooth = Bluetooth(runner)

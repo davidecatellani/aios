@@ -389,6 +389,44 @@ Il telefono e il PC si collegano da soli quando sono vicini (stessa rete):
   parte della dieta per giorno e pasto; la lista della spesa. Dal telefono il file
   arriva come link monouso, solo se è nella cartella personale e non privato.
 
+### AIOS sul telefono: base AOSP e installazione dal PC (`phoneinstall.py`, `phoneapp/`)
+
+AIOS per telefono è basato su **AOSP** (Android open source): chiamate, fotocamera, rete
+e batteria funzionano, le app Android girano; sopra ci sono l'interfaccia di AIOS e
+Nova. Si installa **dal PC, con il cavo USB**: «Nova, installa AIOS sul telefono» apre
+l'installatore guidato.
+
+| Marca | Strada |
+|---|---|
+| Google Pixel | immagine per il modello; sblocco, chiave di avvio di AIOS (`avb_custom_key`) e **richiusura**: avvio verificato |
+| Motorola | codice di sblocco di Motorola (inviato per email), poi GSI da fastbootd |
+| Xiaomi / Redmi / POCO | permesso di Xiaomi (Mi Unlock, attesa di alcuni giorni), poi GSI |
+| Oppo | solo i modelli con l'app ufficiale «Deep Testing», poi GSI |
+| Samsung | modalità download e heimdall: recovery di AIOS con fastbootd, poi GSI; avviso sul contatore Knox; modelli nordamericani non sbloccabili |
+
+Prima di tutto: batteria ≥ 50%, permesso della marca (non cancella nulla), **backup
+completo sul PC** (foto e video, documenti, musica, WhatsApp, rubrica in .vcf, SMS e
+calendario se Android lo permette) e una **conferma esplicita** prima di cancellare.
+Immagini solo dal catalogo firmato, con impronta verificata (oppure una GSI scaricata
+dall'utente, di cui si mostra l'impronta). Dopo il primo avvio Nova **ripristina** il
+backup (che resta comunque sul PC) e collega il telefono all'identità dell'utente.
+Ogni comando finisce nel registro; la modalità prova mostra i passi senza toccare
+il telefono.
+
+### Energia: decide Nova (`energy.py`)
+
+Nessuna soglia fissa: Nova impara (in locale) quando l'utente mette in carica, feriali
+e weekend a parte, e quanto consuma, e a ogni momento valuta se la batteria basta fino
+alla prossima ricarica prevista con un margine. Ne decide il lavoro in sottofondo:
+sincronizzazione, ricerca Bluetooth, copia delle foto, scaricamento dei modelli —
+normale ma più rado, rimandato alla ricarica, o solo l'essenziale; con la ricarica
+vicina aspetta comunque. Spiega ogni scelta («perché non hai copiato le foto?») e
+accetta per qualche ora «risparmia batteria» o «massime prestazioni». Sul telefono
+varranno anche: parola d'attivazione sul DSP audio, modello AI caricato solo quando
+serve (NPU) e delegato al PC quando è vicino, lavori pesanti solo in carica, processi in
+sottofondo sui core a basso consumo, limite di consumo in standby verificato a ogni
+versione.
+
 ### Identità unica e sincronizzazione (`identity.py`, `sync.py`)
 
 - **Chiave principale dell'utente** (Ed25519) nata da un segreto di 128 bit, che

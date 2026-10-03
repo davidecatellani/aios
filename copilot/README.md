@@ -389,3 +389,26 @@ aios-aggiornamenti stato | controlla | prepara | ripristina | verifica
 
 ![Documenti dal telefono](../docs/img/telefono-documenti.png)
 ![Tastiera e touchpad dal telefono](../docs/img/telefono-tastiera.png)
+
+### AIOS sul telefono
+
+«Nova, installa AIOS sul telefono» (o `aios-installatore`) apre l'installatore guidato:
+collega il telefono con il cavo USB e Nova fa backup, sblocco, installazione e
+ripristino, chiedendoti solo ciò che va fatto sul telefono. Pixel, Samsung, Motorola,
+Xiaomi/Redmi e Oppo. Servono gli strumenti Android sul PC (`adb`, `fastboot`; per
+Samsung `heimdall`).
+
+```bash
+aios-installa-telefono stato                 # cosa vede Nova e se si può procedere
+aios-installa-telefono prova                 # tutti i passi, senza toccare il telefono
+aios-installa-telefono installa --immagine system.img [--vbmeta vbmeta.img]   # GSI scaricata da te
+aios-installa-telefono backup | ripristina --cartella "…"
+```
+
+![L'installatore](../docs/img/installatore.png)
+
+### Batteria
+
+Decide Nova, imparando quando metti in carica e quanto consumi: «come gestisci la
+batteria?», «perché non hai copiato le foto?», «risparmia batteria per 2 ore»,
+«massime prestazioni», «decidi tu».

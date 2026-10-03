@@ -33,6 +33,7 @@ from .tools import identity as identity_tools
 from .tools import updates as update_tools
 from . import sdk
 from .tools import documents as document_tools
+from .tools import energy as energy_tools
 
 
 def make_agent(confirm: Confirm, model: str | None = None, allowed: frozenset[str] | None = None) -> Agent:
@@ -136,7 +137,7 @@ def make_agent(confirm: Confirm, model: str | None = None, allowed: frozenset[st
                                  runner=runner),
          *phone_tools.make_tools(runner), *identity_tools.make_tools(user_name=user_name),
          *update_tools.make_tools(runner), *sdk.make_tools(),
-         *document_tools.make_tools(get_index, runner)]
+         *document_tools.make_tools(get_index, runner), *energy_tools.make_tools()]
     if allowed is not None:
         tools = [t for t in tools if t.name in allowed]
     agent = Agent(
@@ -152,6 +153,7 @@ def make_agent(confirm: Confirm, model: str | None = None, allowed: frozenset[st
             phone_tools.PhoneRouter(),  # livello 0: telefono e chiamate
             identity_tools.IdentityRouter(),  # livello 0: identità e sincronizzazione
             update_tools.UpdatesRouter(),  # livello 0: aggiornamenti del sistema
+            energy_tools.EnergyRouter(),  # livello 0: batteria (decide Nova)
             sdk.AppsRouter(),  # livello 0: frasi delle abilità offerte dalle app
             FastPath(find_apps=lambda query: apps.find_apps(runner, query)),  # livello 0
             organize_tools.OrganizeRouter(),  # livello 0: raccolte e riordino (dopo le cartelle)
@@ -190,7 +192,7 @@ def terminal_confirm(tool: Tool, args: dict[str, Any], warning: str | None = Non
 
 def print_event(kind: str, data: dict[str, Any]) -> None:
     if kind == "routed":
-        names = ["0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "1", "1 multilingue"]
+        names = ["0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "1", "1 multilingue"]
         level = names[data["level"]] if data["level"] < len(names) else data["level"]
         print(f"  ⚡ capito al livello {level}, senza modello AI")
     elif kind == "tool_call" and not data["tool"].requires_confirmation:

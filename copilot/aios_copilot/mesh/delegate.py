@@ -36,7 +36,7 @@ PHONE_ALLOWED = frozenset({
     "mail_overview", "search_mail", "read_mail", "send_email",
     "list_collections", "show_collection", "cleanup_suggestions",
     "list_subscriptions", "recommend", "memory_status", "models_status", "suggest_models", "list_themes",
-    "show_document", "diet_today", "shopping_list",  # il file trovato arriva sul telefono come pulsante «Apri»
+    "show_document", "diet_today", "shopping_list", "energy_status",  # il file trovato arriva sul telefono come pulsante «Apri»
 })
 MAX_MESSAGES_BYTES = 1_000_000
 
