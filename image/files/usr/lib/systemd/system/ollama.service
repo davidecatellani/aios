@@ -1,0 +1,19 @@
+[Unit]
+Description=Ollama: modelli AI locali di AIOS
+After=network-online.target
+
+[Service]
+User=ollama
+Group=ollama
+StateDirectory=ollama
+Environment=HOME=/var/lib/ollama
+Environment=OLLAMA_MODELS=/var/lib/ollama/models
+# memoria della conversazione del modello compressa (memory.py)
+Environment=OLLAMA_FLASH_ATTENTION=1
+Environment=OLLAMA_KV_CACHE_TYPE=q8_0
+ExecStart=/usr/bin/ollama serve
+Restart=on-failure
+Nice=5
+
+[Install]
+WantedBy=multi-user.target

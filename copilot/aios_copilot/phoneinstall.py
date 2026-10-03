@@ -629,7 +629,7 @@ def push_pairing(runner: Runner, phone: PhoneInfo, command: Callable[[dict], dic
         code, _ = runner.run([*adb, "push", f.name, NOVA_PAIRING_FILE])
     finally:
         os.unlink(f.name)
-    return ("Fatto: al primo avvio Nova si collega da sola a questo PC (codice valido 5 minuti)." if code == 0 else
+    return ("Fatto: al primo avvio Nova si collega in automatico a questo PC (codice valido 5 minuti)." if code == 0 else
             "Non riesco a lasciarlo via cavo: sul telefono apri Nova › «Ripristina dal computer» e inquadra il QR del PC.")
 
 

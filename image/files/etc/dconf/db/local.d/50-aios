@@ -1,0 +1,15 @@
+# AIOS: Super+Spazio apre Nova; il cambio della lingua della tastiera resta sul tasto dedicato
+[org/gnome/desktop/wm/keybindings]
+switch-input-source=['XF86Keyboard']
+
+[org/gnome/settings-daemon/plugins/media-keys]
+custom-keybindings=['/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/aios-nova/']
+
+[org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/aios-nova]
+name='Nova'
+command='/usr/bin/aios-copilot'
+binding='<Super>space'
+
+[org/gnome/desktop/interface]
+color-scheme='prefer-dark'
+accent-color='blue'

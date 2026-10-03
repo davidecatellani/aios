@@ -1,0 +1,5 @@
+# bootc-image-builder: utente iniziale della chiavetta (cambia la password al primo accesso)
+[[customizations.user]]
+name = "aios"
+password = "aios"
+groups = ["wheel"]

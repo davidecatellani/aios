@@ -1,0 +1,44 @@
+# AIOS per PC (anteprima): Fedora Silverblue immutabile + Nova e i servizi di AIOS.
+#
+#   podman build -t aios:42 -f image/Containerfile .          (dalla radice del repository)
+#   rpm-ostree rebase ostree-unverified-registry:ghcr.io/<utente>/aios:42   (da un Fedora Atomic già installato)
+#
+# Per la chiavetta d'installazione: vedi image/README.md (bootc-image-builder, tipo anaconda-iso).
+# Gli aggiornamenti arrivano come nuove versioni dell'immagine: aios-aggiornamenti (rpm-ostree) le
+# prepara a riposo e si applicano al riavvio; greenboot torna indietro se qualcosa non va.
+ARG FEDORA=42
+FROM quay.io/fedora-ostree-desktops/silverblue:${FEDORA}
+
+# Programmi di sistema usati da AIOS
+RUN dnf install -y \
+        python3-pip python3-setuptools python3-gobject webkitgtk6.0 \
+        ffmpeg-free poppler-utils libnotify wl-clipboard libsecret \
+        kde-connect android-tools ydotool bluez \
+        greenboot greenboot-default-health-checks \
+    && dnf clean all
+
+# Ollama (modelli AI locali), dal pacchetto ufficiale per Linux
+ARG OLLAMA_ARCH=amd64
+RUN curl -fsSL "https://ollama.com/download/ollama-linux-${OLLAMA_ARCH}.tgz" | tar -xz -C /usr \
+    && ollama --version || true
+COPY image/files/ /
+
+# Nova e i programmi di AIOS
+COPY copilot /tmp/aios-copilot
+RUN pip install --no-cache-dir --prefix=/usr --no-build-isolation /tmp/aios-copilot \
+    && install -Dm644 -t /usr/share/applications /tmp/aios-copilot/data/org.aios.Copilot.desktop /tmp/aios-copilot/data/org.aios.Welcome.desktop \
+    && install -Dm644 /tmp/aios-copilot/data/org.aios.Welcome-autostart.desktop /etc/xdg/autostart/org.aios.Welcome-autostart.desktop \
+    && cp -r /tmp/aios-copilot/data/icons/hicolor /usr/share/icons/ \
+    && for s in aios-learn aios-agenda aios-mail aios-telefono; do \
+         sed 's#^ExecStart=aios-#ExecStart=/usr/bin/aios-#' "/tmp/aios-copilot/data/$s.service" > "/usr/lib/systemd/user/$s.service"; \
+       done \
+    && install -Dm755 /tmp/aios-copilot/data/greenboot/50-aios.sh /etc/greenboot/check/required.d/50-aios.sh \
+    && rm -rf /tmp/aios-copilot
+
+# Servizi: Ollama per il sistema, quelli di AIOS per ogni utente; Super+Spazio apre Nova
+RUN systemctl enable ollama.service greenboot-healthcheck.service \
+    && systemctl --global enable aios-learn.service aios-agenda.service aios-mail.service aios-telefono.service \
+    && dconf update \
+    && sed -i 's/^PRETTY_NAME=.*/PRETTY_NAME="AIOS (Fedora Silverblue)"/' /usr/lib/os-release
+
+RUN bootc container lint
