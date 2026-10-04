@@ -14,7 +14,7 @@
 @media (prefers-color-scheme: dark) {
   :root {
     --fondo: radial-gradient(circle at 70% 30%, #0F4A63 0%, #0A2A3A 45%, #05141D 100%);
-    --carta: rgba(18,57,75,.78); --bordo: rgba(255,255,255,.07); --testo: #EAF4F4; --tenue: #9FC1C6;
+    --carta: rgba(18,57,75,.52); --bordo: rgba(255,255,255,.09); --testo: #EAF4F4; --tenue: #9FC1C6;
     --ombra: 0 10px 30px rgba(0,0,0,.25); --barra: rgba(7,30,42,.75); --chip: rgba(18,57,75,.9);
   }
 }
@@ -45,7 +45,13 @@ button { font: inherit; cursor: pointer; }
         grid-template-columns: minmax(280px, 1fr) minmax(380px, 1.5fr) minmax(260px, 1fr); gap: 36px; padding: 40px 48px 210px; }
 .colonna { display: flex; flex-direction: column; gap: 18px; overflow: hidden; }
 .etichetta { font-size: 13px; letter-spacing: 2px; color: var(--tenue); font-weight: 700; text-transform: uppercase; }
-.carta { background: var(--carta); border: 1px solid var(--bordo); border-radius: 22px; padding: 20px 22px; box-shadow: var(--ombra); }
+.carta { background: var(--carta); border: 1px solid var(--bordo); border-radius: 22px; padding: 20px 22px;
+         box-shadow: var(--ombra), inset 0 1px 0 rgba(255,255,255,.06);
+         backdrop-filter: blur(22px) saturate(150%); -webkit-backdrop-filter: blur(22px) saturate(150%);
+         animation: entra .45s cubic-bezier(.22,1,.36,1) both; }
+.colonna .carta:nth-child(3) { animation-delay: .05s; } .colonna .carta:nth-child(4) { animation-delay: .1s; }
+.colonna .carta:nth-child(5) { animation-delay: .15s; }
+@keyframes entra { from { opacity: 0; transform: translateY(12px) scale(.985); } }
 .carta h3 { margin: 0 0 8px; font-size: 18px; display: flex; gap: 10px; align-items: center; }
 .carta p { margin: 0; line-height: 1.5; }
 .carta .nota { color: var(--tenue); font-size: 14px; margin-top: 8px; }
@@ -91,10 +97,24 @@ body.in-chat #conversazione { -webkit-mask-image: linear-gradient(to bottom, tra
 #microfono { width: 46px; height: 46px; border-radius: 50%; border: 1px solid var(--bordo); background: var(--chip); font-size: 20px; }
 #microfono.attivo { background: var(--turchese); animation: pulsa 1.2s infinite; }
 @keyframes pulsa { 50% { box-shadow: 0 0 0 10px rgba(46,196,182,.15); } }
-#sfera-nova { width: 44px; height: 44px; transition: transform .6s; }
-#sfera-nova.pensa { animation: respira 1.4s ease-in-out infinite; }
-@keyframes respira { 50% { transform: scale(1.12) rotate(20deg); } }
-#dock { display: flex; gap: 12px; background: var(--carta); border: 1px solid var(--bordo); border-radius: 26px; padding: 10px 14px; box-shadow: var(--ombra); }
+/* la sfera di Nova: respira piano quando aspetta, gira e pulsa quando pensa */
+#sfera-nova { width: 44px; height: 44px; flex: none; border-radius: 50%; filter: drop-shadow(0 0 8px rgba(46,196,182,.45));
+              animation: galleggia 5s ease-in-out infinite; }
+#sfera-nova.pensa { animation: pensa 1.1s cubic-bezier(.45,0,.55,1) infinite; filter: drop-shadow(0 0 16px rgba(46,196,182,.85)); }
+@keyframes galleggia { 50% { transform: translateY(-2px) scale(1.04); filter: drop-shadow(0 0 12px rgba(46,196,182,.6)); } }
+@keyframes pensa { 0% { transform: rotate(0) scale(1); } 50% { transform: rotate(180deg) scale(1.14); } 100% { transform: rotate(360deg) scale(1); } }
+.msg { animation: entra .3s cubic-bezier(.22,1,.36,1) both; }
+.app { transition: transform .2s cubic-bezier(.22,1,.36,1), box-shadow .2s; }
+.app:hover { box-shadow: 0 10px 24px rgba(0,0,0,.25); }
+.piastrella { display: grid; place-items: center; width: 100%; height: 100%; border-radius: 17px; box-shadow: inset 0 1px 0 rgba(255,255,255,.25); }
+.piastrella .icona { width: 32px; height: 32px; color: #fff; stroke-width: 1.7; }
+.icona { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+#microfono { display: grid; place-items: center; color: var(--testo); }
+#microfono .icona { width: 22px; height: 22px; }
+.con-icona { display: inline-flex; align-items: center; gap: 6px; }
+.con-icona .icona { width: 16px; height: 16px; }
+#dock { display: flex; gap: 12px; background: var(--carta); border: 1px solid var(--bordo); border-radius: 26px; padding: 10px 14px; box-shadow: var(--ombra);
+        backdrop-filter: blur(24px) saturate(150%); -webkit-backdrop-filter: blur(24px) saturate(150%); }
 .app { width: 64px; height: 64px; border-radius: 18px; border: 1px solid var(--bordo); background: var(--chip); position: relative;
        display: grid; place-items: center; transition: transform .15s; }
 .app:hover { transform: translateY(-4px); }
@@ -142,7 +162,7 @@ body.pannello .tasto { display: none; }
   <div id="app-aperte"></div>
   <span id="ora"></span>
   <div id="destra">
-    <span class="badge" id="privacy">🔒 AI in locale</span>
+    <span class="badge" id="privacy"></span>
     <span id="dispositivi" hidden></span>
     <span id="rete" title="Rete"></span>
     <span id="batteria"></span>
@@ -171,7 +191,7 @@ body.pannello .tasto { display: none; }
     <svg id="sfera-nova" viewBox="0 0 40 40"><use href="#orb"/></svg>
     <input id="testo" placeholder="Chiedimi qualsiasi cosa…" aria-label="Chiedi a Nova">
     <span class="tasto">Super</span><span class="tasto">Spazio</span>
-    <button id="microfono" type="button" title="Parla con Nova (oppure di' «Nova»)">🎙️</button>
+    <button id="microfono" type="button" title="Parla con Nova (oppure di' «Nova»)"></button>
   </form>
   <div id="dock"></div>
 </div>
@@ -195,6 +215,7 @@ body.pannello .tasto { display: none; }
   </defs>
 </svg>
 
+<script src="/static/icone.js"></script>
 <script>
 "use strict";
 const $ = id => document.getElementById(id);
@@ -223,12 +244,13 @@ function orologio() {
 setInterval(orologio, 10000); orologio();
 
 function stato(s) {
-  $("batteria").textContent = s.batteria != null ? `${s.in_carica ? "⚡" : "🔋"} ${s.batteria}%` : "";
-  $("rete").textContent = s.rete || "⚠️ senza rete";
+  $("batteria").replaceChildren(...(s.batteria != null ? [conIcona(s.in_carica ? "carica" : "batteria", `${s.batteria}%`)] : []));
+  $("rete").replaceChildren(s.rete ? conIcona({ ethernet: "internet_cavo", gsm: "telefono", bt: "telefono" }[s.rete_tipo] || "wifi", "")
+                                   : conIcona("avviso", "senza rete"));
   $("rete").title = s.rete_nome || "Nessuna rete: di' «Nova, collegati al Wi-Fi»";
   const disp = s.dispositivi || [];
   $("dispositivi").hidden = !disp.length;
-  $("dispositivi").textContent = `📱 ${disp.length} ${disp.length === 1 ? "dispositivo" : "dispositivi"}`;
+  $("dispositivi").replaceChildren(conIcona("telefono", `${disp.length} ${disp.length === 1 ? "dispositivo" : "dispositivi"}`));
   $("dispositivi").title = disp.join(", ");
 }
 
@@ -258,7 +280,7 @@ async function icona(app) {
   const fallback = el("span", "lettera", (app.label || app.name || "?").slice(0, 1));
   box.append(fallback);
   if (app.windows) box.append(el("span", "win", "Win"));
-  if (app.vista) { fallback.textContent = app.simbolo; fallback.style.fontSize = "32px"; return box; }
+  if (app.vista || app.piastrella) { fallback.replaceWith(piastrella(app.vista || app.piastrella)); return box; }
   try {
     if (!icone.has(app.id)) icone.set(app.id, api(`/api/icona/${encodeURIComponent(app.id)}`));
     const i = await icone.get(app.id);
@@ -316,7 +338,7 @@ async function casa() {
   const disp = (data.stato || {}).dispositivi || [];
   const dc = el("div", "carta");
   dc.append(el("div", "tipo", "Dispositivi"));
-  if (disp.length) for (const n of disp) dc.append(el("p", "", `📱 ${n} · vicino`));
+  if (disp.length) for (const n of disp) { const p = el("p"); p.append(conIcona("telefono", `${n} · vicino`)); dc.append(p); }
   else dc.append(el("p", "nota", "Nessun telefono collegato. Di' «Nova, collega il telefono»."));
   destra.append(dc);
   if (window.cartaPrimiPassi) window.cartaPrimiPassi();
@@ -398,7 +420,7 @@ async function chiedi(text, aVoce = false) {
 
 function conferma(job, label, warning, aVoce) {
   const box = el("div", "conferma");
-  box.append(el("div", "", (warning ? `🔒 ${warning}\n` : "") + `Confermi? ${label}`));
+  box.append(el("div", "", (warning ? `Attenzione: ${warning}\n` : "") + `Confermi? ${label}`));
   const bottoni = el("div", "bottoni");
   const no = el("button", "", "Annulla"), si = el("button", "si", "Procedi");
   let deciso = false;
@@ -463,6 +485,8 @@ if (PARTE === "barra") {
     setInterval(() => api("/api/stato").then(stato).catch(() => {}), 60000);
   }
 }
+$("microfono").append(svgIcona("voce"));
+$("privacy").append(conIcona("privacy", "AI in locale"));
 $("testo").focus();
 </script>
 <script src="/static/apps.js"></script>

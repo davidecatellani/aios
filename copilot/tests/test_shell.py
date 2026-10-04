@@ -91,7 +91,7 @@ def test_status_bar():
 
     st = shell.status_bar(lambda: R(), lambda cmd: (0, "wifi:connected:Casa\nloopback:connected (externally):lo"),
                           lambda: ["Pixel 8"])
-    assert st == {"ai": "AI in locale", "batteria": 84, "in_carica": False, "rete": "📶", "rete_nome": "Casa",
+    assert st == {"ai": "AI in locale", "batteria": 84, "in_carica": False, "rete": "📶", "rete_nome": "Casa", "rete_tipo": "wifi",
                   "dispositivi": ["Pixel 8"]}
     assert "rete" not in shell.status_bar(lambda: R(), lambda cmd: (0, "wifi:disconnected:"), lambda: [])
 

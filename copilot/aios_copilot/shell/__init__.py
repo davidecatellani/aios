@@ -9,7 +9,7 @@ Pezzi:
 - ShellApp: il server locale della pagina (localapp.py) con i dati delle carte, l'elenco delle
   app, le finestre aperte e le richieste a Nova (job con stato e conferme, come nel benvenuto);
 - GTK/WebKit: due finestre della stessa pagina, «casa» (sotto a tutto, a schermo intero) e
-  «pannello» (Nova sopra le app); il compositore (labwc, image/files/usr/share/aios/labwc) le
+  «pannello» (Nova sopra le app); il compositore (Hyprland, image/files/usr/share/aios/hyprland; labwc di riserva) le
   riconosce dal titolo e le tiene al loro posto.
 
     aios-shell                avvia la shell (dalla sessione AIOS)
@@ -118,7 +118,7 @@ def dock_apps(apps: dict[str, DesktopApp]) -> list[dict[str, Any]]:
     dock: list[dict[str, Any]] = [dict(a) for a in AIOS_APPS[:5]]
     browser = next((apps[c] for c in BROWSERS if c in apps), None)
     if browser is not None:
-        dock.insert(1, {**asdict(browser), "label": "Internet"})
+        dock.insert(1, {**asdict(browser), "label": "Internet", "piastrella": "internet"})
     dock.append(dict(AIOS_APPS[5]))
     return dock
 
@@ -155,9 +155,28 @@ def launch(app: DesktopApp) -> bool:
     return False
 
 
-# --- finestre (compositore wlroots: wlrctl) ---------------------------------------------------------------
+# --- finestre: Hyprland (hyprctl) o, di riserva, un compositore wlroots qualsiasi (wlrctl) ---------------------
+# Con Hyprland ogni programma ha il suo spazio di lavoro, a tutto schermo sotto la barra: passare da
+# uno all'altro scorre con un'animazione; «casa» porta su uno spazio vuoto, dove si vede la giornata.
+def hyprland() -> bool:
+    return bool(os.environ.get("HYPRLAND_INSTANCE_SIGNATURE"))
+
+
+def hypr_clients(run: Callable[[list[str]], tuple[int, str]] | None = None) -> list[dict[str, Any]]:
+    code, out = (run or _run)(["hyprctl", "clients", "-j"])
+    try:
+        clients = json.loads(out) if code == 0 else []
+    except ValueError:
+        return []
+    return [c for c in clients if isinstance(c, dict) and c.get("mapped", True) and c.get("class") != APP_ID]
+
+
 def open_windows(run: Callable[[list[str]], tuple[int, str]] | None = None) -> list[dict[str, str]]:
     run = run or _run
+    if hyprland():
+        ordered = sorted(hypr_clients(run), key=lambda c: c.get("focusHistoryID", 0))
+        return [{"app_id": c.get("class") or c.get("initialClass", ""), "title": c.get("title", "")}
+                for c in ordered if c.get("class") or c.get("initialClass")]
     code, out = run(["wlrctl", "toplevel", "list"])
     windows = []
     for line in out.splitlines() if code == 0 else []:
@@ -169,20 +188,71 @@ def open_windows(run: Callable[[list[str]], tuple[int, str]] | None = None) -> l
 
 def minimize_all(run: Callable[[list[str]], tuple[int, str]] | None = None) -> None:
     run = run or _run
+    if hyprland():
+        run(["hyprctl", "dispatch", "workspace", "empty"])
+        return
     for w in open_windows(run):
         run(["wlrctl", "toplevel", "minimize", f"app_id:{w['app_id']}"])
+
+
+def _class_rule(app_id: str) -> str:
+    return f"class:^({re.escape(app_id)})$"
 
 
 def close_window(app_id: str, run: Callable[[list[str]], tuple[int, str]] | None = None) -> bool:
     if not re.fullmatch(r"[\w.+-]+", app_id) or app_id == APP_ID:
         return False
+    if hyprland():
+        return (run or _run)(["hyprctl", "dispatch", "closewindow", _class_rule(app_id)])[0] == 0
     return (run or _run)(["wlrctl", "toplevel", "close", f"app_id:{app_id}"])[0] == 0
 
 
 def focus_window(app_id: str, run: Callable[[list[str]], tuple[int, str]] | None = None) -> bool:
     if not re.fullmatch(r"[\w.+-]+", app_id):
         return False
+    if hyprland():
+        run = run or _run
+        if not any((c.get("class") or c.get("initialClass")) == app_id for c in hypr_clients(run)):
+            return False
+        return run(["hyprctl", "dispatch", "focuswindow", _class_rule(app_id)])[0] == 0
     return (run or _run)(["wlrctl", "toplevel", "focus", f"app_id:{app_id}"])[0] == 0
+
+
+def own_workspace(address: str, run: Callable[[list[str]], tuple[int, str]] | None = None) -> bool:
+    """Una finestra nuova va su uno spazio tutto suo (a tutto schermo), se lo condivide con altre.
+    Le finestre flottanti (dialoghi, finestre di scelta file) restano sopra il programma che le ha aperte."""
+    run = run or _run
+    clients = hypr_clients(run)
+    me = next((c for c in clients if str(c.get("address", "")).removeprefix("0x") == address.removeprefix("0x")), None)
+    if me is None or me.get("floating") or me.get("class") == APP_ID:
+        return False
+    ws = (me.get("workspace") or {}).get("id")
+    if not any(c is not me and (c.get("workspace") or {}).get("id") == ws and not c.get("floating") for c in clients):
+        return False
+    return run(["hyprctl", "dispatch", "movetoworkspace", f"empty,address:0x{address.removeprefix('0x')}"])[0] == 0
+
+
+def hypr_events(handle: Callable[[str, str], None] = lambda event, data: None) -> None:
+    """Ascolta gli eventi di Hyprland (socket2): ogni finestra nuova sul suo spazio di lavoro."""
+    import socket
+
+    sock_path = Path(os.environ.get("XDG_RUNTIME_DIR", "/tmp")) / "hypr" / os.environ.get("HYPRLAND_INSTANCE_SIGNATURE", "") / ".socket2.sock"
+    while True:
+        try:
+            with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as s:
+                s.connect(str(sock_path))
+                buf = b""
+                while chunk := s.recv(4096):
+                    buf += chunk
+                    *lines, buf = buf.split(b"\n")
+                    for line in lines:
+                        event, _, data = line.decode(errors="replace").partition(">>")
+                        if event == "openwindow":
+                            threading.Timer(0.15, own_workspace, args=(data.split(",", 1)[0],)).start()
+                        handle(event, data)
+        except OSError:
+            pass
+        time.sleep(2)
 
 
 def _run(cmd: list[str]) -> tuple[int, str]:
@@ -255,6 +325,7 @@ def status_bar(read_battery: Callable[[], Any] | None = None, run: Callable[[lis
         if state.startswith("connected") and kind in ("wifi", "ethernet", "gsm") or (kind == "bt" and state.startswith("connected")):
             status["rete"] = {"wifi": "📶", "ethernet": "🔌", "gsm": "📱", "bt": "📱"}.get(kind, "🌐")
             status["rete_nome"] = name
+            status["rete_tipo"] = kind
             break
     try:
         near = (devices or _near_devices)()
@@ -272,8 +343,8 @@ def _near_devices() -> list[str]:
     return list(reply.get("vicini", []))
 
 
-EXAMPLES = ["🔔 Ricordami di pagare la bolletta alle 12", "🗂️ Cerca nei miei file il contratto d'affitto",
-            "🎵 Metti un po' di musica per lavorare", "📅 Che impegni ho domani?"]
+EXAMPLES = ["Ricordami di pagare la bolletta alle 12", "Cerca nei miei file il contratto d'affitto",
+            "Metti un po' di musica per lavorare", "Che impegni ho domani?", "Dove mi ero fermato ieri?"]
 
 
 # --- server della pagina -----------------------------------------------------------------------------------
@@ -539,6 +610,24 @@ def run_gtk(app: ShellApp, url: str, argv: list[str]) -> int:
         GLib.idle_add(handle, args)
         return 0
 
+    def dark_theme(*_: Any) -> None:
+        """AIOS è scuro di base; chiaro solo se l'utente lo sceglie («tema chiaro», gsettings prefer-light).
+        Le pagine seguono subito il cambio (prefers-color-scheme di WebKit)."""
+        gtk_settings = Gtk.Settings.get_default()
+        try:
+            iface = Gio.Settings.new("org.gnome.desktop.interface")
+        except Exception:  # schema assente: resta scuro
+            gtk_settings.set_property("gtk-application-prefer-dark-theme", True)
+            return
+
+        def apply(*_: Any) -> None:
+            gtk_settings.set_property("gtk-application-prefer-dark-theme", iface.get_string("color-scheme") != "prefer-light")
+
+        iface.connect("changed::color-scheme", apply)
+        state["interface_settings"] = iface  # tenuto vivo per ricevere i cambi
+        apply()
+
+    gtk_app.connect("startup", dark_theme)
     gtk_app.connect("command-line", command_line)
     gtk_app.hold()  # la shell resta viva anche senza finestre in primo piano
     return gtk_app.run(argv)
@@ -634,6 +723,8 @@ def main(argv: list[str] | None = None) -> int:
     from ..diario import WindowWatcher
 
     threading.Thread(target=WindowWatcher(open_windows).run, daemon=True).start()  # il diario dei programmi
+    if hyprland():
+        threading.Thread(target=hypr_events, daemon=True).start()  # ogni programma sul suo spazio
     app = ShellApp(make_agent_for_shell)
     server, url = serve(app)
     return run_gtk(app, url, [sys.argv[0], *args])

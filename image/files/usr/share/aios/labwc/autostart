@@ -1,16 +1,2 @@
-# Avviato da labwc all'inizio della sessione AIOS.
-dbus-update-activation-environment --systemd WAYLAND_DISPLAY XDG_CURRENT_DESKTOP XDG_SESSION_TYPE DISPLAY >/dev/null 2>&1
-systemctl --user start graphical-session.target >/dev/null 2>&1 &
-# finestra per le password di amministratore (aggiornamenti, installazioni)
-for agent in /usr/libexec/polkit-gnome-authentication-agent-1 /usr/libexec/lxpolkit /usr/bin/lxpolkit; do
-  [ -x "$agent" ] && { "$agent" >/dev/null 2>&1 & break; }
-done
-# notifiche con i colori di AIOS
-command -v mako >/dev/null && mako --config /usr/share/aios/labwc/mako >/dev/null 2>&1 &
-# blocco schermo dopo 10 minuti di inattività, schermo spento dopo 15
-command -v swayidle >/dev/null && swayidle -w lock 'aios-blocca' timeout 600 'aios-blocca' timeout 900 'wlopm --off "*"' \
-  resume 'wlopm --on "*"' before-sleep 'aios-blocca' >/dev/null 2>&1 &
-# la shell: la giornata, la barra e Nova
-LD_PRELOAD=$(ls /usr/lib64/libgtk4-layer-shell.so* /usr/lib/x86_64-linux-gnu/libgtk4-layer-shell.so* 2>/dev/null | head -n1) \
-  aios-shell >/dev/null 2>&1 &
-# il benvenuto è dentro la shell (primi passi con Nova)
+#!/bin/sh
+exec /usr/libexec/aios-avvio-sessione

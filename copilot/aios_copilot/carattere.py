@@ -71,8 +71,9 @@ def installed_families(run: Callable[[list[str]], str] | None = None) -> set[str
 def offered(families: set[str] | None = None) -> list[dict[str, str]]:
     """I caratteri da mostrare in Impostazioni: quelli proposti che ci sono (tutti, se non si sa)."""
     families = installed_families() if families is None else families
-    return [{"nome": key, "famiglia": fam, "descrizione": desc} for key, (fam, desc) in CHOICES.items()
-            if not families or fam in families]
+    found = [{"nome": key, "famiglia": fam, "descrizione": desc} for key, (fam, desc) in CHOICES.items()
+             if not families or fam in families]
+    return found or [{"nome": key, "famiglia": fam, "descrizione": desc} for key, (fam, desc) in CHOICES.items()]
 
 
 def _plain(text: str) -> str:

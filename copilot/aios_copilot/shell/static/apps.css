@@ -1,6 +1,7 @@
 /* Le app di AIOS dentro la shell: stesse superfici, colori e forme della schermata principale */
 #vista { position: absolute; top: 40px; bottom: 0; left: 0; right: 0; display: flex; flex-direction: column;
-         background: var(--fondo); z-index: 4; }
+         background: var(--fondo); z-index: 4; animation: vista-entra .32s cubic-bezier(.22,1,.36,1); }
+@keyframes vista-entra { from { opacity: 0; transform: translateY(16px) scale(.99); } }
 body.casa #vista { top: 0; }
 body.in-vista #casa, body.in-vista #fondo { display: none; }
 .testa-vista { display: flex; align-items: center; gap: 14px; padding: 18px 28px 10px; }
@@ -12,7 +13,7 @@ body.in-vista #casa, body.in-vista #fondo { display: none; }
            font-weight: 600; font-size: 14px; }
 .bottone.primo { background: linear-gradient(135deg, var(--blu), var(--turchese)); color: #fff; border: 0; }
 .bottone.pericolo { color: #C0392B; }
-.torna { width: 40px; height: 40px; border-radius: 12px; border: 1px solid var(--bordo); background: var(--chip); color: var(--testo); font-size: 18px; }
+.torna { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 12px; border: 1px solid var(--bordo); background: var(--chip); color: var(--testo); font-size: 18px; }
 .corpo-vista { flex: 1; overflow: auto; padding: 8px 28px 28px; }
 .vuoto { color: var(--tenue); text-align: center; margin-top: 12vh; font-size: 17px; line-height: 1.6; }
 
@@ -83,7 +84,7 @@ body.in-vista #casa, body.in-vista #fondo { display: none; }
 /* Impostazioni */
 .impostazioni { display: grid; grid-template-columns: 250px 1fr; gap: 22px; max-width: 1180px; margin: 0 auto; height: 100%; }
 .sezioni { display: flex; flex-direction: column; gap: 4px; }
-.sezioni button { border: 0; background: none; color: var(--testo); text-align: left; padding: 11px 14px; border-radius: 14px; font-size: 15px; font-weight: 600; }
+.sezioni button { display: flex; align-items: center; gap: 12px; border: 0; background: none; color: var(--testo); text-align: left; padding: 11px 14px; border-radius: 14px; font-size: 15px; font-weight: 600; }
 .sezioni button.attiva, .sezioni button:hover { background: var(--carta); }
 .pannello-imp { overflow: auto; display: flex; flex-direction: column; gap: 16px; padding-bottom: 30px; }
 .riga-imp { display: flex; align-items: center; gap: 14px; padding: 14px 4px; border-bottom: 1px solid var(--bordo); }
@@ -140,3 +141,6 @@ body.in-vista #casa, body.in-vista #fondo { display: none; }
 .carattere-scelta b { font-size: 19px; }
 .carattere-scelta small { color: var(--tenue); font-size: 13px; }
 .carattere-scelta.attiva { border-color: var(--turchese); box-shadow: 0 0 0 2px rgba(46,196,182,.35); }
+.proposta span.s .icona { width: 30px; height: 30px; color: var(--turchese); }
+.passo-casa > .icona, .riga-imp .con-icona .icona, .sezioni .icona { color: var(--turchese); }
+.icona-file .icona { width: 34px; height: 34px; color: var(--turchese); }

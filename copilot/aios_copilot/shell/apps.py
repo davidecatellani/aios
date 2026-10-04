@@ -408,7 +408,7 @@ def system_info() -> dict[str, Any]:
 
 
 POWER = {"spegni": ["systemctl", "poweroff"], "riavvia": ["systemctl", "reboot"], "sospendi": ["systemctl", "suspend"],
-         "blocca": ["loginctl", "lock-session"], "esci": ["labwc", "--exit"]}
+         "blocca": ["loginctl", "lock-session"], "esci": ["sh", "-c", "hyprctl dispatch exit || labwc --exit"]}
 
 
 # --- rotte della shell -----------------------------------------------------------------------------------

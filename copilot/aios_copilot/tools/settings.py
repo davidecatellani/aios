@@ -53,7 +53,7 @@ def make_tools(
     def set_theme(mode: str) -> str:
         if mode not in ("dark", "light"):
             return f"Tema non valido: {mode}"
-        scheme = "prefer-dark" if mode == "dark" else "default"
+        scheme = "prefer-dark" if mode == "dark" else "prefer-light"  # AIOS è scuro se non si sceglie il chiaro
         kde = "BreezeDark" if mode == "dark" else "BreezeLight"
         done = "Tema scuro attivato." if mode == "dark" else "Tema chiaro attivato."
         return _report(

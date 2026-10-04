@@ -2,7 +2,8 @@
 // Le app di AIOS dentro la shell (File, Foto, Musica, Video, Note, documenti, Impostazioni).
 // Usa api(), el(), $(), TOKEN e chiedi() di home.html.
 
-const SIMBOLI = { cartella: "📁", immagine: "🖼️", audio: "🎵", video: "🎬", testo: "📝", documento: "📄", altro: "📦" };
+const ICONA_PASSO = { internet: "wifi", posta: "posta", telefono: "telefono", aggiornamenti: "aggiornamenti" };
+const SIMBOLI = { cartella: "file", immagine: "foto", audio: "musica", video: "video", testo: "note", documento: "documento", altro: "pacco" };
 const fileUrl = p => `/file/${encodeURIComponent(p)}?t=${encodeURIComponent(TOKEN)}`;
 let vistaAttuale = null;
 const audio = new Audio();
@@ -33,8 +34,8 @@ document.addEventListener("click", e => { const m = document.querySelector(".men
 
 function testa(box, titolo, extra) {
   const t = el("div", "testa-vista");
-  const back = el("button", "torna", "←"); back.title = "Torna alla schermata (Esc)"; back.onclick = chiudiVista;
-  const h = el("h2"); h.append(titolo);
+  const back = el("button", "torna"); back.append(svgIcona("indietro")); back.title = "Torna alla schermata (Esc)"; back.onclick = chiudiVista;
+  const h = el("h2"); h.append(typeof titolo === "string" ? titolo.replace(/^[^\p{L}\p{N}«"]+\s*/u, "") : titolo);
   t.append(back, h);
   if (extra) for (const x of [].concat(extra)) t.append(x);
   box.append(t);
@@ -137,14 +138,14 @@ const VISTE = {
       const nome = await chiediTesto("Nome della nuova cartella");
       if (nome) { await api("/api/file/nuova-cartella", { p: data.cartella, nome }).catch(e => avviso(e.message)); apriVista("file", data.cartella); }
     });
-    const corpo = testa(box, "📁 File", [briciole, nuova]);
+    const corpo = testa(box, "File", [briciole, nuova]);
     if (!data.voci.length) { corpo.append(el("p", "vuoto", "Questa cartella è vuota.")); return; }
     const griglia = el("div", "elenco-file");
     for (const f of data.voci) {
       const b = el("button", "voce-file"); b.title = f.nome;
       const ic = el("div", "icona-file");
       if (f.tipo === "immagine") { const i = el("img"); i.loading = "lazy"; i.src = fileUrl(f.percorso); i.alt = ""; ic.append(i); }
-      else ic.textContent = SIMBOLI[f.tipo] || "📦";
+      else ic.replaceChildren(svgIcona(SIMBOLI[f.tipo] || "pacco"));
       const altro = el("span", "altro", "⋯");
       b.append(ic, el("span", "nome-file", f.nome), altro);
       b.onclick = e => { if (e.target === altro) return; apriFile(f); };
@@ -170,7 +171,7 @@ const VISTE = {
   },
 
   async foto(box) {
-    const corpo = testa(box, "🖼️ Foto");
+    const corpo = testa(box, "Foto");
     const { voci, cartella } = await api("/api/raccolta/foto").catch(() => ({ voci: [], cartella: "Immagini" }));
     if (!voci.length) { corpo.append(el("p", "vuoto", `Nessuna foto in «${cartella}».\nCollega il telefono e chiedi a Nova di copiare le foto.`)); return; }
     const g = el("div", "griglia-foto");
@@ -182,7 +183,7 @@ const VISTE = {
   },
 
   async musica(box, daSuonare) {
-    const corpo = testa(box, "🎵 Musica");
+    const corpo = testa(box, "Musica");
     const { voci, cartella } = await api("/api/raccolta/musica").catch(() => ({ voci: [], cartella: "Musica" }));
     let lista = voci;
     if (daSuonare && !lista.some(v => v.percorso === daSuonare)) lista = [{ nome: daSuonare.split("/").pop(), percorso: daSuonare }, ...lista];
@@ -214,7 +215,7 @@ const VISTE = {
   },
 
   async video(box) {
-    const corpo = testa(box, "🎬 Video");
+    const corpo = testa(box, "Video");
     const { voci, cartella } = await api("/api/raccolta/video").catch(() => ({ voci: [], cartella: "Video" }));
     if (!voci.length) { corpo.append(el("p", "vuoto", `Nessun video in «${cartella}».`)); return; }
     const g = el("div", "griglia-video");
@@ -227,7 +228,7 @@ const VISTE = {
 
   async note(box, daAprire) {
     const nuova = bottone("＋ Nuova nota", () => apri(null), "bottone primo");
-    const corpo = testa(box, "📝 Note", nuova);
+    const corpo = testa(box, "Note", nuova);
     const wrap = el("div", "note"); const lista = el("div", "lista-note"); const foglio = el("div", "foglio");
     const area = el("textarea"); area.placeholder = "Scrivi qui… (si salva da sola)";
     const stato = el("div", "salvata", "");
@@ -265,7 +266,7 @@ const VISTE = {
   documento(box, f) {
     const conProgramma = bottone("Apri con un programma", () => api("/api/file/apri-con", { p: f.percorso }).catch(e => avviso(e.message)));
     const chiediNova = bottone("Chiedi a Nova", () => { chiudiVista(); $("testo").value = `Riassumi «${f.nome}»`; $("testo").focus(); });
-    testa(box, "📄 " + f.nome, [chiediNova, conProgramma]).remove();
+    testa(box, f.nome, [chiediNova, conProgramma]).remove();
     const fr = el("iframe", "riquadro-doc");
     fr.setAttribute("sandbox", "");  // il documento non esegue nulla
     fr.src = `/doc/vedi?p=${encodeURIComponent(f.percorso)}&t=${encodeURIComponent(TOKEN)}`;
@@ -273,13 +274,15 @@ const VISTE = {
   },
 
   async impostazioni(box, sezione = "wifi") {
-    const corpo = testa(box, "⚙️ Impostazioni");
+    const corpo = testa(box, "Impostazioni");
     const wrap = el("div", "impostazioni"); const nav = el("div", "sezioni"); const pan = el("div", "pannello-imp");
     wrap.append(nav, pan); corpo.append(wrap);
-    const SEZ = [["wifi", "📶 Wi-Fi"], ["bluetooth", "🔵 Bluetooth"], ["suono", "🔊 Suono e schermo"], ["voce", "🗣️ Voce di Nova"], ["tastiera", "⌨️ Tastiera"], ["aspetto", "🔤 Testo e carattere"],
-                 ["aggiornamenti", "⬇️ Aggiornamenti"], ["account", "🔑 Password"], ["privacy", "🔒 Privacy e memoria"], ["info", "ℹ️ Questo computer"], ["energia", "⏻ Spegni"]];
+    const SEZ = [["wifi", "Wi-Fi"], ["bluetooth", "Bluetooth"], ["suono", "Suono e schermo"], ["voce", "Voce di Nova"], ["tastiera", "Tastiera"],
+                 ["aspetto", "Testo e carattere"], ["aggiornamenti", "Aggiornamenti"], ["account", "Password"], ["privacy", "Privacy e memoria"],
+                 ["info", "Questo computer"], ["energia", "Spegni"]];
     for (const [id, t] of SEZ) {
-      const b = bottone(t, () => apriVista("impostazioni", id), ""); b.classList.toggle("attiva", id === sezione); nav.append(b);
+      const b = bottone("", () => apriVista("impostazioni", id), ""); b.classList.toggle("attiva", id === sezione);
+      b.append(svgIcona(id), t); nav.append(b);
     }
     const carta = (...figli) => { const c = el("div", "carta"); c.append(...figli); pan.append(c); return c; };
     const riga = (titolo, nota, ...ctrl) => {
@@ -310,7 +313,7 @@ const VISTE = {
             dici(await api("/api/impostazioni/wifi", { azione: "collega", nome: n.nome, password }).catch(e => ({ ok: false, messaggio: e.message })));
             setTimeout(() => apriVista("impostazioni", "wifi"), 1500);
           }, n.attiva ? "bottone" : "bottone primo");
-          c.append(riga(`${n.protetta ? "🔒 " : ""}${n.nome}`, null, el("span", "segnale", `${n.segnale}%`), collega));
+          c.append(riga(n.protetta ? conIcona("privacy", n.nome) : n.nome, null, el("span", "segnale", `${n.segnale}%`), collega));
         }
       }
       pan.append(esito);
@@ -405,7 +408,7 @@ const VISTE = {
       const ora = await api("/api/aspetto").catch(() => ({ carattere: "Inter", scala: 1 }));
       const el_ = await api("/api/aspetto/caratteri").catch(() => ({ caratteri: [], minimo: 0.8, massimo: 1.6 }));
       const prova = el("p", "", "Ciao, sono Nova. Quanto è leggibile questo testo? 0123456789");
-      prova.style.cssText = `font-family:"${ora.carattere}";font-size:${Math.round(18 * ora.scala)}px;margin:4px 0 0`;
+      prova.style.cssText = `font-family:"${ora.carattere}",sans-serif;font-size:${Math.round(18 * ora.scala)}px;margin:4px 0 0`;
       const salva = (cambio) => api("/api/aspetto", cambio).then(r => { dici({ ok: true, messaggio: r.messaggio }); window.novaAspetto && window.novaAspetto(); })
         .catch(e => dici({ ok: false, messaggio: e.message }));
       const cursore = el("input"); cursore.type = "range"; cursore.min = el_.minimo; cursore.max = el_.massimo; cursore.step = 0.05; cursore.value = ora.scala;
@@ -416,10 +419,10 @@ const VISTE = {
             riga("", null, bottone("Normale", () => { cursore.value = 1; cursore.oninput(); salva({ scala: 1 }); }, "bottone")));
       const lista = el("div", "caratteri");
       for (const c of el_.caratteri) {
-        const b = bottone("", () => { prova.style.fontFamily = `"${c.famiglia}"`; salva({ carattere: c.famiglia });
+        const b = bottone("", () => { prova.style.fontFamily = `"${c.famiglia}", sans-serif`; salva({ carattere: c.famiglia });
                                       lista.querySelectorAll("button").forEach(x => x.classList.toggle("attiva", x === b)); }, "carattere-scelta");
         b.classList.toggle("attiva", c.famiglia === ora.carattere);
-        const nome = el("b", "", c.famiglia); nome.style.fontFamily = `"${c.famiglia}"`;
+        const nome = el("b", "", c.famiglia); nome.style.fontFamily = `"${c.famiglia}", sans-serif`;
         b.replaceChildren(nome, el("small", "", c.descrizione));
         lista.append(b);
       }
@@ -533,7 +536,7 @@ VISTE.benvenuto = async function (box, passo = 0) {
       reti.replaceChildren();
       if (w.scheda === false) reti.append(el("p", "nota", "Non trovo la scheda Wi-Fi. Puoi collegare il telefono con il cavo USB e attivare il «tethering»."));
       for (const n of (w.reti || []).slice(0, 6)) {
-        const r = el("div", "riga-imp"); const c = el("div", "cosa"); c.append(`${n.protetta ? "🔒 " : ""}${n.nome}`);
+        const r = el("div", "riga-imp"); const c = el("div", "cosa"); c.append(n.protetta ? conIcona("privacy", n.nome) : n.nome);
         const esito = el("small", "", "");
         c.append(esito);
         r.append(c, bottone(n.attiva ? "Collegato" : "Collega", async () => {
@@ -551,7 +554,7 @@ VISTE.benvenuto = async function (box, passo = 0) {
     const lista = el("div", "proposte");
     for (const p of stato.passi.filter(p => p.id !== "internet")) {
       const b = el("button", "proposta" + (p.fatto ? " fatta" : ""));
-      b.append(el("span", "s", p.simbolo), el("div", "")); b.lastChild.append(el("b", "", p.titolo + (p.fatto ? " ✓" : "")), p.testo);
+      b.append(el("span", "s"), el("div", "")); b.firstChild.append(svgIcona(ICONA_PASSO[p.id] || "info")); b.lastChild.append(el("b", "", p.titolo + (p.fatto ? " ✓" : "")), p.testo);
       b.onclick = () => fine(() => eseguiPasso(p));
       lista.append(b);
     }
@@ -575,7 +578,7 @@ window.cartaPrimiPassi = async function () {
     const r = el("div", "passo-casa");
     const via = el("button", "via", "✕"); via.title = "Non mi interessa";
     via.onclick = async () => { await api("/api/profilo", { nascondi: p.id }).catch(() => {}); r.remove(); };
-    r.append(el("span", "", p.simbolo), el("span", "t", p.titolo), bottone("Fallo", () => eseguiPasso(p), ""), via);
+    r.append(svgIcona(ICONA_PASSO[p.id] || "info"), el("span", "t", p.titolo), bottone("Fallo", () => eseguiPasso(p), ""), via);
     c.append(r);
   }
   col.prepend(c);
