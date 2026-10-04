@@ -136,6 +136,16 @@ body.con-risultati #destra-col > .carta:not(.risultati) { display: none; }
 .testo-media small { color: var(--tenue); font-size: 13px; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
 .azioni-media { display: flex; gap: 6px; flex-wrap: wrap; }
 .azioni-media button { border: 1px solid var(--bordo); background: var(--chip); color: var(--testo); border-radius: 10px; padding: 4px 10px; font-size: 13px; }
+/* indicatore del volume e della luminosità, al centro della barra */
+#livello { position: fixed; top: 6px; left: 50%; transform: translate(-50%, -140%); display: flex; align-items: center; gap: 10px;
+           padding: 4px 14px; border-radius: 999px; background: var(--carta); border: 1px solid var(--bordo); box-shadow: var(--ombra);
+           backdrop-filter: blur(18px); z-index: 50; transition: transform .25s cubic-bezier(.22,1,.36,1), opacity .25s; opacity: 0; }
+#livello.visibile { transform: translate(-50%, 0); opacity: 1; }
+#ora { transition: opacity .2s; }
+body.con-livello #ora { opacity: 0; }
+#livello .traccia { width: 140px; height: 6px; border-radius: 3px; background: var(--chip); overflow: hidden; }
+#livello .riempi { height: 100%; background: linear-gradient(90deg, var(--blu), var(--turchese)); transition: width .15s; }
+#livello b { font-size: 13px; min-width: 38px; text-align: right; }
 .con-icona { display: inline-flex; align-items: center; gap: 6px; }
 .con-icona .icona { width: 16px; height: 16px; }
 #dock { display: flex; gap: 12px; background: var(--carta); border: 1px solid var(--bordo); border-radius: 26px; padding: 10px 14px; box-shadow: var(--ombra);
@@ -189,6 +199,7 @@ body.pannello .tasto { display: none; }
   <div id="destra">
     <span class="badge" id="privacy"></span>
     <span id="dispositivi" hidden></span>
+    <span id="volume" title="Volume"></span>
     <span id="rete" title="Rete"></span>
     <span id="batteria"></span>
   </div>
@@ -268,7 +279,26 @@ function orologio() {
 }
 setInterval(orologio, 10000); orologio();
 
+function mostraVolume(livello, muto) {
+  $("volume").replaceChildren(conIcona(muto || livello === 0 ? "muto" : "suono", muto ? "muto" : `${livello}%`));
+}
+// l'indicatore a comparsa (tasti del volume e della luminosità, o cambi fatti da un programma o da Nova)
+let livelloTimer = null;
+window.mostraLivello = (tipo, livello, muto) => {
+  if (tipo === "volume") mostraVolume(livello, muto);
+  let box = $("livello");
+  if (!box) { box = el("div"); box.id = "livello"; document.body.append(box); }
+  const barra = el("div", "riempi"); barra.style.width = `${muto ? 0 : Math.min(100, livello)}%`;
+  const traccia = el("div", "traccia"); traccia.append(barra);
+  box.replaceChildren(svgIcona(tipo === "luminosita" ? "luminosita" : (muto || livello === 0 ? "muto" : "suono")), traccia,
+                      el("b", "", muto ? "muto" : `${livello}%`));
+  box.classList.add("visibile"); document.body.classList.add("con-livello");
+  clearTimeout(livelloTimer);
+  livelloTimer = setTimeout(() => { box.classList.remove("visibile"); document.body.classList.remove("con-livello"); }, 1800);
+};
+
 function stato(s) {
+  if (s.volume != null) mostraVolume(s.volume, s.muto);
   $("batteria").replaceChildren(...(s.batteria != null ? [conIcona(s.in_carica ? "carica" : "batteria", `${s.batteria}%`)] : []));
   $("rete").replaceChildren(s.rete ? conIcona({ ethernet: "internet_cavo", gsm: "telefono", bt: "telefono" }[s.rete_tipo] || "wifi", "")
                                    : conIcona("avviso", "senza rete"));

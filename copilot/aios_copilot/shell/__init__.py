@@ -396,6 +396,62 @@ def _esc(text: str) -> str:
     return (str(text).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace('"', "&quot;"))
 
 
+# --- volume e luminosità: indicatore a comparsa nella barra ---------------------------------------------
+def read_volume(run: Callable[[list[str]], tuple[int, str]] | None = None) -> tuple[int, bool] | None:
+    """(percentuale, muto) dell'uscita audio, o None."""
+    code, out = (run or _run)(["wpctl", "get-volume", "@DEFAULT_AUDIO_SINK@"])
+    m = re.search(r"Volume:\s*([\d.]+)", out) if code == 0 else None
+    return (round(float(m.group(1)) * 100), "MUTED" in out) if m else None
+
+
+def backlight_dir(base: Path = Path("/sys/class/backlight")) -> Path | None:
+    found = sorted(p for p in base.glob("*") if (p / "brightness").exists()) if base.is_dir() else []
+    return found[0] if found else None
+
+
+def read_brightness(folder: Path | None = None) -> int | None:
+    folder = folder or backlight_dir()
+    try:
+        return round(int((folder / "brightness").read_text()) * 100 / max(1, int((folder / "max_brightness").read_text())))
+    except (OSError, ValueError, TypeError):
+        return None
+
+
+def watch_levels(show: Callable[[str, int, bool], None], stop: threading.Event | None = None) -> None:
+    """Chiama show(tipo, livello, muto) quando cambiano volume o luminosità, da tasti, programmi o Nova.
+    Volume: eventi di PipeWire (pactl subscribe), niente controlli continui. Luminosità: lettura
+    del file del kernel ogni mezzo secondo (costa pochissimo, non avvia programmi)."""
+    stop = stop or threading.Event()
+
+    def volume_events() -> None:
+        last = read_volume()
+        while not stop.is_set():
+            if not shutil.which("pactl"):
+                return
+            try:
+                proc = subprocess.Popen(["pactl", "subscribe"], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True)
+            except OSError:
+                return
+            for line in proc.stdout:  # type: ignore[union-attr]
+                if stop.is_set():
+                    break
+                if "sink" in line and "change" in line:
+                    now = read_volume()
+                    if now is not None and now != last:
+                        last = now
+                        show("volume", now[0], now[1])
+            proc.kill()
+            stop.wait(5)
+
+    threading.Thread(target=volume_events, daemon=True).start()
+    last_light = read_brightness()
+    while not stop.wait(0.5):
+        light = read_brightness()
+        if light is not None and light != last_light:
+            last_light = light
+            show("luminosita", light, False)
+
+
 def status_bar(read_battery: Callable[[], Any] | None = None, run: Callable[[list[str]], tuple[int, str]] | None = None,
                devices: Callable[[], list[str]] | None = None) -> dict[str, Any]:
     from ..energy import read_battery as rb
@@ -417,6 +473,9 @@ def status_bar(read_battery: Callable[[], Any] | None = None, run: Callable[[lis
             status["rete_nome"] = name
             status["rete_tipo"] = kind
             break
+    volume = read_volume(run)
+    if volume is not None:
+        status["volume"], status["muto"] = volume
     try:
         near = (devices or _near_devices)()
         if near:
@@ -622,7 +681,7 @@ def run_gtk(app: ShellApp, url: str, argv: list[str]) -> int:
             return
         ls = layer_shell()
         home, home_view = window("AIOS", "casa")
-        bar, _ = window("AIOS barra", "barra")
+        bar, bar_view = window("AIOS barra", "barra")
         if ls is not None:
             edges = (ls.Edge.TOP, ls.Edge.BOTTOM, ls.Edge.LEFT, ls.Edge.RIGHT)
             ls.init_for_window(home)  # la giornata, sotto alle app
@@ -642,7 +701,13 @@ def run_gtk(app: ShellApp, url: str, argv: list[str]) -> int:
         else:  # senza il compositore di AIOS (es. dentro GNOME): finestre normali
             home.set_default_size(1280, 800)
         home.present()
-        state.update(home=home, home_view=home_view, bar=bar)
+        state.update(home=home, home_view=home_view, bar=bar, bar_view=bar_view)
+
+        def show_level(kind: str, level: int, muted: bool) -> None:
+            code = f"window.mostraLivello && window.mostraLivello({json.dumps(kind)}, {int(level)}, {'true' if muted else 'false'})"
+            GLib.idle_add(run_js, bar_view if ls is not None else home_view, code)
+
+        threading.Thread(target=watch_levels, args=(show_level,), daemon=True).start()
         app.on_home = lambda: GLib.idle_add(run_js, home_view, "window.chiudiVista && window.chiudiVista()")
 
     def run_js(view: Any, code: str) -> None:

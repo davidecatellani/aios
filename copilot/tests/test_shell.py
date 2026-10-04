@@ -152,3 +152,14 @@ def test_update_cards():
     assert cards[0]["azioni"][0]["chiedi"] == "riavvia per aggiornare"
     # dopo il riavvio l'aggiornamento è applicato: la carta sparisce
     assert [c["titolo"] for c in shell.update_cards(now=6000, booted=3000)] == ["App aggiornate"]
+
+
+def test_volume_and_brightness_readings(tmp_path):
+    assert shell.read_volume(lambda cmd: (0, "Volume: 0.45\n")) == (45, False)
+    assert shell.read_volume(lambda cmd: (0, "Volume: 0.30 [MUTED]\n")) == (30, True)
+    assert shell.read_volume(lambda cmd: (1, "")) is None
+    light = tmp_path / "intel_backlight"
+    light.mkdir()
+    (light / "brightness").write_text("600\n")
+    (light / "max_brightness").write_text("1200\n")
+    assert shell.backlight_dir(tmp_path) == light and shell.read_brightness(light) == 50
