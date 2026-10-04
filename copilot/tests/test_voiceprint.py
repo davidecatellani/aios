@@ -40,6 +40,6 @@ def test_unknown_voice_is_ignored_by_ears():
 
     known = vec(1, 0)
     ears = voice.Ears(recognizer=lambda g: Rec(vec(0, 1)), accept=lambda v: v == known)
-    assert ears.transcribe(iter([b"x"] * 3)) == ""  # voce sconosciuta: niente
+    assert ears.transcribe(iter([b"x"] * 3)) is None  # voce sconosciuta: niente
     ears = voice.Ears(recognizer=lambda g: Rec(known), accept=lambda v: v == known)
     assert ears.transcribe(iter([b"x"] * 3)) == "che ore sono"

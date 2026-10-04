@@ -41,12 +41,12 @@ def chunks(*words):
 def test_wake_word_then_sentence(tmp_path, monkeypatch):
     monkeypatch.setenv("XDG_RUNTIME_DIR", str(tmp_path))
     ears = voice.Ears(FakeRec)
-    audio = chunks("che", "bella", "giornata", "nova", "alza", "il", "volume", "|", "dopo")
+    audio = chunks("nova", "alza", "il", "volume", "|", "dopo")
     import collections
 
     recent = collections.deque(maxlen=15)
     assert ears.wait_for_wake(audio, recent)
-    assert ears.transcribe(audio, recent=None) == "alza il volume"
+    assert ears.transcribe(audio, recent) == "alza il volume"
 
 
 def test_does_not_hear_itself(tmp_path, monkeypatch):
@@ -171,3 +171,22 @@ def test_silence_does_not_wake_the_recognizer(tmp_path, monkeypatch):
     assert not voice.Ears(Counting).wait_for_wake(iter([quiet] * 50), collections.deque(maxlen=15))
     assert fed == []
     assert voice.Ears(Counting).wait_for_wake(iter([quiet] * 5 + [b"nova"]), collections.deque(maxlen=15))
+
+
+def test_wake_word_only_at_the_start_and_confirmed():
+    assert voice.heard_wake("nova") and voice.heard_wake("ehi nova")
+    assert not voice.heard_wake("[unk] [unk] nova")  # in mezzo a una frase
+    assert not voice.heard_wake("nove")
+    assert voice.after_wake("Nova, che ore sono") == "che ore sono"
+    assert voice.after_wake("ehi Nova metti la musica") == "metti la musica"
+    assert voice.after_wake("Nova") == ""
+    assert voice.after_wake("ho comprato una nuova macchina") is None  # la trascrizione vera smentisce
+
+
+def test_only_requests_for_the_pc_go_through():
+    assert voice.addressed_to_pc("metti la musica", ask=lambda t: ("richiesta", 0.92)) == "si"
+    assert voice.addressed_to_pc("e poi lui le ha detto di andare via", ask=lambda t: ("altro", 0.88)) == "no"
+    assert voice.addressed_to_pc("domani forse andiamo al mare", ask=lambda t: ("richiesta", 0.55)) == "forse"
+    assert voice.addressed_to_pc("allora", ask=lambda t: ("richiesta", 0.99)) == "no"  # una parola a caso
+    assert voice.addressed_to_pc("stop", ask=lambda t: ("richiesta", 0.9)) == "si"
+    assert voice.addressed_to_pc("che ore sono", ask=lambda t: None) == "si"  # senza modello si risponde

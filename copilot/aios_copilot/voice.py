@@ -26,7 +26,6 @@ import shutil
 import subprocess
 import sys
 import tempfile
-import threading
 import time
 from pathlib import Path
 from typing import Any, Callable, Iterator
@@ -38,7 +37,12 @@ CHUNK = 3200  # 0,1 s di audio a 16 bit
 SILENCE_RMS = 260
 HANGOVER = 12  # dopo un suono si continua ad ascoltare per 1,2 s
 WAKE_WORDS = ("nova", "ehi nova", "ok nova", "hey nova")
-WAKE_GRAMMAR = json.dumps(list(WAKE_WORDS) + ["[unk]"])
+# Le parole che suonano come «Nova» stanno nella grammatica come parole diverse: così il riconoscitore
+# non è costretto a scambiarle per il nome («nove», «nuova», «no va», «nonna»…).
+WAKE_DECOYS = ("nove", "nuova", "nuovo", "nuove", "novanta", "novella", "nona", "nonna", "noi", "no", "va", "mova",
+               "lava", "nave", "nevi", "bova", "boa", "rova", "prova", "trova", "cova", "ova", "uova", "nova scotia")
+WAKE_GRAMMAR = json.dumps(list(WAKE_WORDS) + list(WAKE_DECOYS) + ["[unk]"])
+WAKE_LEAD = {"ehi", "ok", "hey", "eh", "allora"}  # possono precedere il nome senza che sia «a metà frase»
 YES = re.compile(r"\b(?:s[iì]|certo|procedi|vai|conferma|ok|okay|va bene|fallo)\b")
 NO = re.compile(r"\b(?:no|annulla|lascia stare|ferma|non farlo|aspetta)\b")
 
@@ -120,7 +124,23 @@ def strip_wake(text: str) -> str:
 
 
 def heard_wake(text: str) -> bool:
-    return any(re.search(rf"\b{w}\b", text.lower()) for w in WAKE_WORDS)
+    """«Nova» all'inizio di quello che si sta dicendo (dopo una pausa), non in mezzo a una frase."""
+    words = text.lower().split()
+    if "nova" not in words:
+        return False
+    before = words[:words.index("nova")]
+    return all(w in WAKE_LEAD for w in before)
+
+
+def after_wake(text: str) -> str | None:
+    """La richiesta dopo il nome, se il nome c'è davvero tra le prime parole della trascrizione completa;
+    None se non c'è (era un falso allarme: la frase non era per Nova)."""
+    words = text.strip().split()
+    low = [re.sub(r"[^\w]", "", w.lower()) for w in words]
+    for i, w in enumerate(low[:4]):
+        if w == "nova":
+            return " ".join(words[i + 1:]).lstrip(" ,.")
+    return None
 
 
 def yes_no(text: str) -> bool | None:
@@ -325,8 +345,9 @@ class Ears:
         return False
 
     def transcribe(self, chunks: Iterator[bytes], recent: collections.deque | None = None,
-                   max_seconds: float = 12.0, silence_start: float = 4.0) -> str:
-        """Fino alla prima pausa dopo la frase (o al tempo massimo)."""
+                   max_seconds: float = 12.0, silence_start: float = 4.0, require_wake: bool = True) -> str | None:
+        """Fino alla prima pausa dopo la frase (o al tempo massimo). → la richiesta, "" se c'era solo il
+        nome, None se non era per Nova (nome non confermato, o voce che Nova non conosce)."""
         rec = self.new(None)
         for data in list(recent or []):  # la frase detta di seguito alla parola di attivazione
             rec.AcceptWaveform(data)
@@ -338,8 +359,11 @@ class Ears:
                 result = json.loads(rec.Result())
                 voice_vector = result.get("spk") or voice_vector
                 text = result.get("text", "")
-                if strip_wake(text):
-                    return strip_wake(text) if self.accept(voice_vector) else ""
+                if text and after_wake(text) is None and require_wake:
+                    return None  # la trascrizione vera non comincia con «Nova»: non era per lei
+                if after_wake(text) if require_wake else strip_wake(text):
+                    request = after_wake(text) if require_wake else strip_wake(text)
+                    return request if self.accept(voice_vector) else None
             elif json.loads(rec.PartialResult()).get("partial"):
                 spoken = True
             elapsed = time.monotonic() - started
@@ -347,8 +371,9 @@ class Ears:
                 break
         result = json.loads(rec.FinalResult())
         voice_vector = result.get("spk") or voice_vector
+        request = after_wake(result.get("text", "")) if require_wake else strip_wake(result.get("text", ""))
         # una voce che Nova non conosce (il film, un ospite) se l'utente ha scelto «solo la mia voce»
-        return strip_wake(result.get("text", "")) if self.accept(voice_vector) else ""
+        return request if request is not None and self.accept(voice_vector) else None
 
 
 def deliver(text: str, run: Callable[..., Any] = subprocess.run) -> bool:
@@ -370,10 +395,11 @@ def listen_yes_no(seconds: float = 8.0, ears: Ears | None = None,
         cmd = capture_command()
         if chunks is None and cmd is None:
             return None
-        text = ears.transcribe(chunks or audio_chunks(cmd), None, max_seconds=seconds, silence_start=seconds)
+        text = ears.transcribe(chunks or audio_chunks(cmd), None, max_seconds=seconds, silence_start=seconds,
+                               require_wake=False)
     except Exception:
         return None
-    return yes_no(text)
+    return yes_no(text or "")
 
 
 # --- servizio ------------------------------------------------------------------------------------------
@@ -392,6 +418,39 @@ def listening_enabled() -> bool:
 
 def set_listening(on: bool) -> None:
     state_file().write_text(json.dumps({"ascolto": on}))
+
+
+def addressed_to_pc(text: str, ask: Callable[[str], tuple[str, float] | None] | None = None) -> str:
+    """La frase sentita è davvero per il computer? → "si", "no" o "forse" (allora Nova chiede conferma).
+
+    Il modello decisionale (Tev1) distingue «Nova, metti la musica» da un pezzo di dialogo di un film o
+    di una chiacchierata. Senza il modello si risponde: meglio che ignorare l'utente."""
+    words = re.findall(r"\w+", text.lower())
+    if len(words) < 2 and not re.search(r"(?i)\b(?:stop|basta|grazie|pausa|avanti|indietro|annulla|sì|si|no)\b", text):
+        return "no"  # una parola sola a caso
+    ask = ask or _ask_addressed
+    try:
+        verdict = ask(text)
+    except Exception:
+        return "si"
+    if verdict is None:
+        return "si"
+    choice, confidence = verdict
+    if confidence >= 0.7:
+        return "si" if choice == "richiesta" else "no"
+    return "forse"
+
+
+def _ask_addressed(text: str) -> tuple[str, float] | None:
+    from .smistatore import Smistatore
+
+    judge = Smistatore([])
+    return judge._ask(text, "destinatario", "Was this sentence, heard by the microphone after the word Nova, "
+                      "meant for the computer assistant?",
+                      {"richiesta": "A request or question to the computer assistant: do something, open, play, "
+                                    "search, remind, answer a question",
+                       "altro": "Not for the assistant: people talking to each other, TV or film dialogue, "
+                                "song lyrics, a sentence fragment or random words"})
 
 
 def energy_allows() -> bool:
@@ -419,14 +478,21 @@ def serve(ears: Ears | None = None, send: Callable[[str], bool] = deliver) -> in
             if not ears.wait_for_wake(chunks, recent):
                 time.sleep(2)  # microfono non disponibile: si riprova
                 continue
-            chime()
             text = ears.transcribe(chunks, recent)
+            if text == "":  # solo «Nova»: un suono e si ascolta la richiesta
+                chime()
+                text = ears.transcribe(chunks, None, max_seconds=8.0, require_wake=False)
         finally:
             chunks.close()
-        if text:
+        if not text:
+            continue
+        verdict = addressed_to_pc(text)
+        if verdict == "forse":  # nel dubbio si chiede: «Dicevi a me?»
+            speak(f"Dicevi a me? {text[:80]}?")
+            verdict = "si" if listen_yes_no(6.0, ears) else "no"
+        if verdict == "si":
+            chime()
             send(text)
-        else:
-            threading.Thread(target=speak, args=("Dimmi pure.",), daemon=True).start()
 
 
 def main(argv: list[str] | None = None) -> int:
