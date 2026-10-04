@@ -29,6 +29,7 @@ from .xdg import resolve_folder
 from .tools import agenda as agenda_tools
 from .tools import foto as photo_tools
 from .tools import memoria as memory_tools
+from .tools import sessione as session_tools
 from .tools import mail as mail_tools
 from .tools import taste as taste_tools
 from .tools import ai as ai_tools
@@ -142,7 +143,7 @@ def make_agent(confirm: Confirm, model: str | None = None, allowed: frozenset[st
     # Gli strumenti divisi per ambito: lo smistatore (smistatore.py) dà al modello solo quelli giusti.
     groups = {
         "web": web_tools.make_tools(),
-        "app": [*apps_tools.make_tools(runner), *window_tools.make_tools(), *sdk.make_tools()],
+        "app": [*apps_tools.make_tools(runner), *window_tools.make_tools(), *session_tools.make_tools(), *sdk.make_tools()],
         "sistema": [*system_tools.make_tools(runner),
                     *settings_tools.make_tools(runner, pictures_dir=lambda: resolve_folder("PICTURES")),
                     *update_tools.make_tools(runner), *energy_tools.make_tools(), *voice_tools.make_tools(runner)],
@@ -171,6 +172,7 @@ def make_agent(confirm: Confirm, model: str | None = None, allowed: frozenset[st
         narrow=smistatore.narrow if os.environ.get("AIOS_SMISTATORE", "") != "spento" else None,
         planner=smistatore.plan if os.environ.get("AIOS_SMISTATORE", "") != "spento" else None,
         routers=[
+            session_tools.SessionRouter(),  # livello 0: «riapri quello che avevo aperto»
             window_tools.WindowsRouter(),  # livello 0: programmi aperti e app di AIOS (sessione AIOS)
             memory_tools.MemoryRouter(),  # livello 0: «dove mi ero fermato?», «cosa ho fatto ieri?»
             agenda_tools.AgendaRouter(),  # livello 0: promemoria, appuntamenti, riepilogo

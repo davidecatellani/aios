@@ -11,7 +11,7 @@ sincronizzazione dell'identità; in chiaro restano solo un'impronta opaca della 
 l'orologio. Un dispositivo intermedio o un futuro relay non può leggere nulla.
 
 Cosa si sincronizza (adattatori): agenda e promemoria, nome dell'utente, temi creati
-e tema in uso. Non si sincronizza ciò che dipende dal dispositivo (modelli AI, cartelle
+e tema in uso, cosa è aperto su ogni dispositivo (per riprenderlo altrove). Non si sincronizza ciò che dipende dal dispositivo (modelli AI, cartelle
 escluse, posta: ogni dispositivo la scarica da sé).
 """
 
@@ -308,12 +308,31 @@ class SettingsAdapter:
         me.save()
 
 
+class SessionAdapter:
+    """Cosa è aperto su ogni dispositivo (programmi, file, schede), da riprendere sugli altri."""
+
+    prefix = "sessione"
+
+    def records(self) -> dict[str, Any]:
+        from .sessione import Sessions, device_name
+
+        history = Sessions().load()["storia"]
+        return {device_name(): history[-1]} if history else {}
+
+    def apply(self, key: str, value: Any) -> None:
+        from .sessione import Sessions
+
+        if value is None or (isinstance(value, dict) and isinstance(value.get("programmi", []), list)):
+            Sessions().store_remote(key, value)
+
+
 def default_adapters() -> list[Adapter]:
     from .agenda import Agenda
 
     from .mesh.bluetooth import BluetoothAdapter
 
-    return [AgendaAdapter(Agenda()), ProfileAdapter(), ThemesAdapter(), SettingsAdapter(), BluetoothAdapter()]
+    return [AgendaAdapter(Agenda()), ProfileAdapter(), ThemesAdapter(), SettingsAdapter(), BluetoothAdapter(),
+            SessionAdapter()]
 
 
 def engine_for(identity: Any, adapters: list[Adapter] | None = None) -> SyncEngine | None:

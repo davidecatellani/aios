@@ -3,7 +3,7 @@
     "OverrideFirstRunPage": "",
     "OverridePostUpdatePage": "",
     "NoDefaultBookmarks": true,
-    "Homepage": {"URL": "about:home", "StartPage": "homepage", "Locked": false},
+    "Homepage": {"URL": "about:home", "StartPage": "previous-session", "Locked": false},
     "DisableProfileImport": false
   }
 }

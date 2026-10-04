@@ -308,12 +308,49 @@ def day_cards(agenda: Any, now: datetime, recent: list[str]) -> list[dict[str, A
                                      {"etichetta": "Ignora", "chiedi": f"ignora la scadenza {sid}"}]})
     except Exception:
         cards.append({"tipo": "riepilogo", "titolo": "Il tuo riepilogo", "testo": "Dimmi «buongiorno» per il riepilogo."})
-    cards += update_cards()
+    cards = session_card() + cards + update_cards()
     if recent:
         p = Path(recent[0])
         cards.append({"tipo": "riprendi", "titolo": _esc(p.name), "testo": _esc(str(p.parent).replace(str(Path.home()), "~")),
                       "azioni": [{"etichetta": "Riprendi", "apri": str(p)}]})
     return cards
+
+
+def save_session_forever(every: float = 30.0) -> None:
+    """Ogni mezzo minuto: cosa è aperto (programmi, file, schede), per riprenderlo dopo."""
+    from ..sessione import Sessions, snapshot
+
+    sessions = Sessions()
+    apps: dict[str, DesktopApp] = {}
+    apps_at = 0.0
+    while True:
+        try:
+            if time.monotonic() - apps_at > 600 or not apps:
+                apps, apps_at = installed_apps(), time.monotonic()
+            sessions.record(snapshot(open_windows(), apps))
+        except Exception:
+            pass  # il salvataggio non deve mai fermare la shell
+        time.sleep(every)
+
+
+def session_card(booted: float | None = None, now: float | None = None) -> list[dict[str, Any]]:
+    """«Riprendi da dove eri»: nella prima mezz'ora dopo l'avvio, finché non si riapre o si rifiuta."""
+    try:
+        from ..sessione import Sessions, describe
+    except Exception:
+        return []
+    booted = boot_time() if booted is None else booted
+    now = now or time.time()
+    sessions = Sessions()
+    if now - booted > 1800 or sessions.offered(booted):
+        return []
+    last = sessions.last_session()
+    if last is None or last["quando"] > booted:  # niente da prima del riavvio
+        return []
+    return [{"tipo": "sessione", "titolo": "Riprendi da dove eri",
+             "testo": _esc(describe(last)) + ".",
+             "azioni": [{"etichetta": "Riapri tutto", "chiedi": "riapri quello che avevo aperto"},
+                        {"etichetta": "No, grazie", "chiedi": "non riaprire la sessione"}]}]
 
 
 def boot_time(stat: Path = Path("/proc/stat")) -> float:
@@ -787,6 +824,7 @@ def main(argv: list[str] | None = None) -> int:
     threading.Thread(target=WindowWatcher(open_windows).run, daemon=True).start()  # il diario dei programmi
     if hyprland():
         threading.Thread(target=hypr_events, daemon=True).start()  # ogni programma sul suo spazio
+    threading.Thread(target=save_session_forever, daemon=True).start()  # da riaprire al riavvio o altrove
     app = ShellApp(make_agent_for_shell)
     server, url = serve(app)
     return run_gtk(app, url, [sys.argv[0], *args])
