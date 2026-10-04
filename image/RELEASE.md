@@ -11,13 +11,13 @@ VirtualBox) o su un PC senza dati importanti.
 
 Dati, impostazioni e app restano; la versione precedente resta disponibile all'avvio.
 
-### Preparare la chiavetta d'installazione (8 GB o più, solo per la prima installazione)
+### Preparare la chiavetta d'installazione (16 GB o più, solo per la prima installazione)
 
 1. Scarica i file `aios-installazione.iso…` qui sotto.
 2. Se la ISO è divisa in pezzi (`.parte0`, `.parte1`, …), riuniscila:
    - **Windows** (PowerShell o Prompt dei comandi, nella cartella Download):
-     `cmd /c copy /b aios-installazione.iso.parte0 + aios-installazione.iso.parte1 aios-installazione.iso`
-     (aggiungi `+ aios-installazione.iso.parte2` se c'è)
+     `cmd /c copy /b aios-installazione.iso.parte0 + aios-installazione.iso.parte1 + aios-installazione.iso.parte2 aios-installazione.iso`
+     (con tutti i pezzi che ci sono, in ordine: `+ aios-installazione.iso.parte3 + aios-installazione.iso.parte4`…)
    - **Linux / macOS**: `cat aios-installazione.iso.parte* > aios-installazione.iso`
 3. Controlla che sia integra (facoltativo): il codice di `sha256sum aios-installazione.iso`
    (Windows: `certutil -hashfile aios-installazione.iso SHA256`) deve coincidere con il file `.sha256`.

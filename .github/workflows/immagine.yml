@@ -114,9 +114,13 @@ jobs:
           # Qualche volta GitHub rifiuta (403/5xx) a fine caricamento: si riprova invece di buttare la costruzione.
           tag="anteprima-${GITHUB_RUN_NUMBER}"
           for i in 1 2 3 4; do
-            gh release create "$tag" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --prerelease \
+            # Se nel frattempo il ramo è andato avanti, GitHub rifiuta (403) l'etichetta sul commit costruito:
+            # dal secondo tentativo l'etichetta va sul ramo, e il commit costruito è scritto nelle note.
+            target="$GITHUB_SHA"; [ "$i" -gt 1 ] && target="$GITHUB_REF_NAME"
+            { cat "$GITHUB_WORKSPACE/image/RELEASE.md"; printf '\n---\nCostruita dal commit %s.\n' "$GITHUB_SHA"; } > /tmp/note.md
+            gh release create "$tag" --repo "$GITHUB_REPOSITORY" --target "$target" --prerelease \
               --title "AIOS ${VERSIONE} (anteprima$([ "$KERNEL" = lts ] && echo ', kernel LTS 6.18'))" \
-              --notes-file "$GITHUB_WORKSPACE/image/RELEASE.md" "${files[@]}" && exit 0
+              --notes-file /tmp/note.md "${files[@]}" && exit 0
             echo "Release non creata (tentativo $i): riprovo"
             gh release delete "$tag" --repo "$GITHUB_REPOSITORY" --yes --cleanup-tag 2>/dev/null || true
             sleep $((60 * i))
