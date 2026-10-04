@@ -8,7 +8,7 @@ on:
     inputs:
       minuti:
         description: "Tempo massimo di addestramento per adattatore (minuti, senza scheda video)"
-        default: "110"
+        default: "100"
       epoche:
         description: "Passate sugli esempi"
         default: "2"
@@ -68,8 +68,9 @@ jobs:
           LD_LIBRARY_PATH="$(dirname "$SERVER")" "$SERVER" -m uscita/base.gguf --lora uscita/smistamento.gguf \
             --lora uscita/campi.gguf --lora-init-without-apply --port 11436 -c 2048 -np 1 > server.log 2>&1 &
           for i in $(seq 60); do curl -sf http://127.0.0.1:11436/health && break; sleep 2; done
+          set -o pipefail
+          tail -n 20 server.log
           python copilot/addestramento/valuta.py --dati dati --url http://127.0.0.1:11436 | tee uscita/misura.md
-          cat server.log | tail -n 20
       - name: Pubblica
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

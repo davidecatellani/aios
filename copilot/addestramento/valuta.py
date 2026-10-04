@@ -50,7 +50,10 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--dati", default="dati")
     ap.add_argument("--url", default="http://127.0.0.1:11436")
+    ap.add_argument("--soglia", type=float, default=0.6,
+                    help="ambito giusto almeno in questa parte delle frasi (e meglio del modello senza adattatore)")
     args = ap.parse_args()
+    good = True
     n = Nucleo(args.url, timeout=60)
     print("| compito | senza adattatore | con adattatore | tempo medio |")
     print("|---|---|---|---|")
@@ -61,7 +64,11 @@ def main() -> int:
         for task, (ok, tot, sec) in after.items():
             b = before.get(task, (0, tot, 0))
             print(f"| {task} | {b[0]}/{tot} ({100 * b[0] / tot:.0f}%) | {ok}/{tot} ({100 * ok / tot:.0f}%) | {sec:.2f} s |")
-    return 0
+            if task == "ambito" and (ok / tot < args.soglia or ok < b[0]):
+                good = False
+    if not good:
+        print("\nGli adattatori non migliorano abbastanza lo smistamento: non si pubblicano.")
+    return 0 if good else 3
 
 
 if __name__ == "__main__":

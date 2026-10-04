@@ -20,8 +20,8 @@ from pathlib import Path
 
 BASE = "Qwen/Qwen3.5-0.8B"
 END = "<|im_end|>"
-# solo il modello di testo: niente parti per le immagini, e i nomi che llama.cpp sa convertire
-TARGETS = r"^(?!.*(?:visual|vision)).*\.(q_proj|k_proj|v_proj|o_proj|gate_proj|up_proj|down_proj)$"
+# i nomi che llama.cpp sa convertire (solo il modello di testo: Qwen3_5ForCausalLM)
+TARGETS = ["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj"]
 
 
 def load_rows(path: Path, limit: int | None) -> list[dict]:
@@ -37,7 +37,10 @@ def main() -> int:
     ap.add_argument("--epoche", type=float, default=2.0)
     ap.add_argument("--rango", type=int, default=16)
     ap.add_argument("--lr", type=float, default=2e-4)
-    ap.add_argument("--lotto", type=int, default=8, help="esempi per passo")
+    ap.add_argument("--lotto", type=int, default=4, help="esempi per passo (poca memoria: GitHub dà 7 GB)")
+    ap.add_argument("--accumula", type=int, default=2, help="passi sommati prima di aggiornare")
+    ap.add_argument("--strati", type=float, default=0.5,
+                    help="parte finale del modello che impara (0.5 = metà): meno calcoli all'indietro, più veloce")
     ap.add_argument("--max-esempi", type=int, default=None)
     ap.add_argument("--max-minuti", type=float, default=None, help="si ferma e salva dopo questo tempo")
     args = ap.parse_args()
@@ -59,8 +62,13 @@ def main() -> int:
     print("modello:", type(model).__name__, flush=True)
     model.to(device)
     model.config.use_cache = False
+    n_layers = int(getattr(model.config, "num_hidden_layers", 0) or getattr(getattr(model.config, "text_config", None),
+                                                                            "num_hidden_layers", 24))
+    first = int(n_layers * (1 - args.strati))
     model = get_peft_model(model, LoraConfig(r=args.rango, lora_alpha=args.rango * 2, lora_dropout=0.05,
-                                             target_modules=TARGETS, task_type="CAUSAL_LM"))
+                                             target_modules=TARGETS, layers_to_transform=list(range(first, n_layers)),
+                                             layers_pattern="layers", task_type="CAUSAL_LM"))
+    print(f"strati che imparano: {first}–{n_layers - 1} di {n_layers}", flush=True)
     model.print_trainable_parameters()
 
     rows = load_rows(Path(args.dati), args.max_esempi)
@@ -69,7 +77,7 @@ def main() -> int:
         p = tok(r["prompt"], add_special_tokens=False)["input_ids"]
         a = tok(r["risposta"] + END, add_special_tokens=False)["input_ids"]
         examples.append((p + a, [-100] * len(p) + a))  # la perdita conta solo sulla risposta
-    steps_per_epoch = math.ceil(len(examples) / args.lotto)
+    steps_per_epoch = math.ceil(len(examples) / (args.lotto * args.accumula))
     total = max(1, int(steps_per_epoch * args.epoche))
     opt = torch.optim.AdamW([p for p in model.parameters() if p.requires_grad], lr=args.lr, weight_decay=0.0)
     sched = torch.optim.lr_scheduler.LambdaLR(opt, lambda s: min(1.0, (s + 1) / 20) * max(0.05, 1 - s / total))
@@ -79,22 +87,23 @@ def main() -> int:
     model.train()
     order: list[int] = []
     for step in range(total):
-        if not order:
-            order = list(range(len(examples)))
-            rng.shuffle(order)
-        batch = [examples[order.pop()] for _ in range(min(args.lotto, len(order)))]
-        width = max(len(ids) for ids, _ in batch)
-        ids = torch.tensor([x + [pad] * (width - len(x)) for x, _ in batch], device=device)
-        labels = torch.tensor([y + [-100] * (width - len(y)) for _, y in batch], device=device)
-        mask = torch.tensor([[1] * len(x) + [0] * (width - len(x)) for x, _ in batch], device=device)
-        loss = model(input_ids=ids, attention_mask=mask, labels=labels).loss
-        loss.backward()
+        for _ in range(args.accumula):
+            if not order:
+                order = list(range(len(examples)))
+                rng.shuffle(order)
+            batch = [examples[order.pop()] for _ in range(min(args.lotto, len(order)))]
+            width = max(len(ids) for ids, _ in batch)
+            ids = torch.tensor([x + [pad] * (width - len(x)) for x, _ in batch], device=device)
+            labels = torch.tensor([y + [-100] * (width - len(y)) for _, y in batch], device=device)
+            mask = torch.tensor([[1] * len(x) + [0] * (width - len(x)) for x, _ in batch], device=device)
+            loss = model(input_ids=ids, attention_mask=mask, labels=labels).loss
+            (loss / args.accumula).backward()
         torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
         opt.step()
         sched.step()
         opt.zero_grad()
         elapsed = (time.monotonic() - started) / 60
-        if step % 10 == 0 or step == total - 1:
+        if step % 5 == 0 or step == total - 1:
             print(f"passo {step + 1}/{total}  perdita {loss.item():.4f}  {elapsed:.1f} min", flush=True)
         if args.max_minuti and elapsed > args.max_minuti:
             print(f"tempo finito: mi fermo al passo {step + 1}", flush=True)
