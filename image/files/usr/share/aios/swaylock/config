@@ -1,0 +1,26 @@
+# Blocco schermo con i colori di AIOS
+image=/usr/share/backgrounds/aios/aios-scuro.svg
+scaling=fill
+color=0A2A3A
+indicator-radius=90
+indicator-thickness=10
+inside-color=0A2A3Acc
+inside-clear-color=0A2A3Acc
+inside-ver-color=0B6E99cc
+inside-wrong-color=5a1f1fcc
+ring-color=2EC4B6
+ring-ver-color=0B6E99
+ring-clear-color=E9C46A
+ring-wrong-color=E76F51
+key-hl-color=E9C46A
+bs-hl-color=E76F51
+line-color=00000000
+line-uses-inside
+separator-color=00000000
+text-color=EAF4F4
+text-ver-color=EAF4F4
+text-wrong-color=EAF4F4
+text-clear-color=EAF4F4
+font=Inter
+show-failed-attempts
+ignore-empty-password

@@ -28,7 +28,9 @@
     <keybind key="A-Tab"><action name="NextWindow"/></keybind>
     <keybind key="A-F4"><action name="Close"/></keybind>
     <keybind key="W-q"><action name="Close"/></keybind>
-    <keybind key="W-l"><action name="Execute" command="swaylock -f -c 0A2A3A"/></keybind>
+    <!-- terminale nascosto, per l'assistenza (non compare tra le app) -->
+    <keybind key="C-A-t"><action name="Execute" command="sh -c 'ptyxis || gnome-terminal || foot'"/></keybind>
+    <keybind key="W-l"><action name="Execute" command="swaylock -f -C /usr/share/aios/swaylock/config"/></keybind>
     <keybind key="XF86AudioRaiseVolume"><action name="Execute" command="wpctl set-volume -l 1.0 @DEFAULT_AUDIO_SINK@ 5%+"/></keybind>
     <keybind key="XF86AudioLowerVolume"><action name="Execute" command="wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%-"/></keybind>
     <keybind key="XF86AudioMute"><action name="Execute" command="wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle"/></keybind>

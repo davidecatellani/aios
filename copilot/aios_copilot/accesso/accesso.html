@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AIOS</title>
+<style>
+:root { --blu: #0B6E99; --turchese: #2EC4B6; --ambra: #E9C46A; --testo: #EAF4F4; --tenue: #9FC1C6;
+        --carta: rgba(18,57,75,.62); --bordo: rgba(255,255,255,.10); }
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; overflow: hidden; }
+body { font-family: "Inter", "Cantarell", "DejaVu Sans", sans-serif; color: var(--testo); user-select: none; -webkit-user-select: none;
+       background: radial-gradient(circle at 70% 25%, #0F4A63 0%, #0A2A3A 45%, #05141D 100%); cursor: default;
+       display: grid; place-items: center; transition: opacity .6s, transform .6s; }
+body.entra { opacity: 0; transform: scale(1.04); }
+.aurora { position: fixed; inset: -20%; background: radial-gradient(circle at 25% 75%, rgba(46,196,182,.18), transparent 40%),
+          radial-gradient(circle at 80% 70%, rgba(233,196,106,.10), transparent 35%); animation: muovi 18s ease-in-out infinite alternate; }
+@keyframes muovi { to { transform: translate(4%, -3%) rotate(4deg); } }
+main { position: relative; display: flex; flex-direction: column; align-items: center; gap: 10px; width: min(460px, 90vw); }
+#ora { font-size: 112px; font-weight: 200; letter-spacing: -4px; line-height: 1; }
+#data { font-size: 22px; color: var(--tenue); margin-bottom: 44px; }
+.sfera { width: 86px; height: 86px; animation: respira 4s ease-in-out infinite; filter: drop-shadow(0 10px 30px rgba(46,196,182,.35)); }
+@keyframes respira { 50% { transform: scale(1.06); } }
+#nome { font-size: 30px; font-weight: 700; margin: 10px 0 6px; }
+#persone { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+#persone button { border: 1px solid var(--bordo); background: var(--carta); color: var(--testo); border-radius: 999px; padding: 8px 16px;
+                  font: inherit; font-size: 15px; }
+#persone button.scelto { border-color: var(--turchese); background: rgba(46,196,182,.18); }
+form { display: flex; width: 100%; gap: 10px; margin-top: 8px; }
+input { flex: 1; font: inherit; font-size: 20px; padding: 14px 20px; border-radius: 18px; border: 1px solid var(--bordo);
+        background: var(--carta); color: var(--testo); outline: 0; backdrop-filter: blur(16px); user-select: text; -webkit-user-select: text; }
+input:focus { border-color: var(--turchese); box-shadow: 0 0 0 4px rgba(46,196,182,.15); }
+form button { width: 56px; border: 0; border-radius: 18px; font-size: 22px; color: #fff; background: linear-gradient(135deg, var(--blu), var(--turchese)); }
+form button:disabled { opacity: .5; }
+#messaggio { min-height: 24px; color: #F4A3A3; font-size: 15px; }
+.scuoti { animation: scuoti .4s; }
+@keyframes scuoti { 20%, 60% { transform: translateX(-10px); } 40%, 80% { transform: translateX(10px); } }
+#energia { position: fixed; right: 26px; bottom: 22px; display: flex; gap: 10px; }
+#energia button { border: 1px solid var(--bordo); background: var(--carta); color: var(--testo); border-radius: 14px; padding: 9px 14px; font: inherit; font-size: 14px; }
+#marchio { position: fixed; left: 28px; bottom: 22px; font-weight: 800; letter-spacing: .5px; color: var(--tenue); }
+#marchio b { color: var(--turchese); }
+#chiedi { position: fixed; inset: 0; background: rgba(3,12,18,.6); display: grid; place-items: center; }
+#chiedi div { background: #12394b; border: 1px solid var(--bordo); border-radius: 22px; padding: 22px; display: flex; flex-direction: column; gap: 16px; min-width: 320px; }
+#chiedi .bottoni { flex-direction: row; justify-content: flex-end; padding: 0; border: 0; background: none; }
+#chiedi button { border: 1px solid var(--bordo); background: transparent; color: var(--testo); border-radius: 12px; padding: 8px 16px; font: inherit; }
+#chiedi button.si { background: linear-gradient(135deg, var(--blu), var(--turchese)); border: 0; }
+[hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<div class="aurora"></div>
+<main>
+  <div id="ora">--:--</div>
+  <div id="data"></div>
+  <svg class="sfera" viewBox="0 0 40 40" aria-hidden="true">
+    <defs>
+      <linearGradient id="og" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#2EC4B6"/><stop offset="1" stop-color="#0B6E99"/></linearGradient>
+      <linearGradient id="oa" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#FBE3A0"/><stop offset="1" stop-color="#E9C46A"/></linearGradient>
+    </defs>
+    <circle cx="20" cy="20" r="18" fill="url(#og)"/>
+    <path d="M4 17 C 12 9, 26 7, 36 14 A 18 18 0 0 0 5 13 Z" fill="url(#oa)"/>
+    <path d="M3 24 C 13 17, 27 19, 37 25" stroke="#58D8C5" stroke-width="3" fill="none" opacity=".8"/>
+  </svg>
+  <div id="nome">Ciao</div>
+  <div id="persone" hidden></div>
+  <form id="modulo" autocomplete="off">
+    <input id="password" type="password" placeholder="Password" aria-label="Password" autofocus>
+    <button id="vai" type="submit" aria-label="Entra">→</button>
+  </form>
+  <div id="messaggio" role="alert"></div>
+</main>
+<div id="marchio">AI<b>OS</b></div>
+<div id="energia">
+  <button data-a="sospendi">☾ Sospendi</button>
+  <button data-a="riavvia">↻ Riavvia</button>
+  <button data-a="spegni">⏻ Spegni</button>
+</div>
+<div id="chiedi" hidden><div><span id="domanda"></span><div class="bottoni"><button id="no">Annulla</button><button class="si" id="si">Sì</button></div></div></div>
+<script>
+"use strict";
+const $ = id => document.getElementById(id);
+const TOKEN = new URLSearchParams(location.hash.slice(1)).get("t") || "";
+async function api(path, body) {
+  const r = await fetch(path, { method: body === undefined ? "GET" : "POST",
+    headers: { "X-AIOS-Token": TOKEN, "Content-Type": "application/json" }, body: body === undefined ? undefined : JSON.stringify(body) });
+  return r.json();
+}
+const GIORNI = ["domenica", "lunedì", "martedì", "mercoledì", "giovedì", "venerdì", "sabato"];
+const MESI = ["gennaio","febbraio","marzo","aprile","maggio","giugno","luglio","agosto","settembre","ottobre","novembre","dicembre"];
+function orologio() {
+  const d = new Date();
+  $("ora").textContent = d.toTimeString().slice(0, 5);
+  $("data").textContent = `${GIORNI[d.getDay()]} ${d.getDate()} ${MESI[d.getMonth()]}`;
+}
+setInterval(orologio, 5000); orologio();
+
+let scelto = null;
+function scegli(p, tutti) {
+  scelto = p;
+  $("nome").textContent = `Ciao, ${p.nome.split(" ")[0]}`;
+  for (const b of $("persone").children) b.classList.toggle("scelto", b.dataset.u === p.utente);
+  $("password").value = ""; $("password").focus();
+}
+api("/api/persone").then(({ persone }) => {
+  if (!persone.length) return;
+  if (persone.length > 1) {
+    $("persone").hidden = false;
+    for (const p of persone) {
+      const b = document.createElement("button"); b.type = "button"; b.textContent = p.nome; b.dataset.u = p.utente;
+      b.onclick = () => scegli(p); $("persone").append(b);
+    }
+  }
+  scegli(persone[0]);
+});
+
+$("modulo").onsubmit = async e => {
+  e.preventDefault();
+  if (!scelto || !$("password").value) return;
+  $("vai").disabled = true; $("messaggio").textContent = "";
+  const r = await api("/api/entra", { utente: scelto.utente, password: $("password").value }).catch(() => ({ ok: false, messaggio: "Errore" }));
+  $("vai").disabled = false;
+  if (r.ok) { document.body.classList.add("entra"); return; }
+  $("messaggio").textContent = r.messaggio || "Non è andata, riprova.";
+  $("modulo").classList.remove("scuoti"); void $("modulo").offsetWidth; $("modulo").classList.add("scuoti");
+  $("password").select();
+};
+
+for (const b of document.querySelectorAll("#energia button")) {
+  b.onclick = () => {
+    const a = b.dataset.a;
+    if (a === "sospendi") return api("/api/energia", { azione: a });
+    $("domanda").textContent = a === "spegni" ? "Spegnere il computer?" : "Riavviare il computer?";
+    $("chiedi").hidden = false;
+    $("si").onclick = () => { $("chiedi").hidden = true; api("/api/energia", { azione: a }); };
+    $("no").onclick = () => { $("chiedi").hidden = true; $("password").focus(); };
+  };
+}
+document.addEventListener("keydown", e => { if (e.key === "Escape") $("chiedi").hidden = true; });
+</script>
+</body>
+</html>
