@@ -72,7 +72,13 @@ OPEN_LICENSES = {"apache-2.0", "mit", "bsd-2-clause", "bsd-3-clause", "cc-by-4.0
 # Le licenze indicate qui vanno ricontrollate dal laboratorio AIOS a ogni versione.
 BUILTIN_VERSION = 0
 BUILTIN: tuple[Model, ...] = (
-    # testo (con uso degli strumenti)
+    # testo (con uso degli strumenti). Qwen 3.5 (2026): a parità di peso nettamente meglio di Qwen 2.5,
+    # e vede anche le immagini; il 2B è quello incluso nell'immagine di AIOS.
+    Model("qwen3.5:0.8b", "testo", 1.0, 2, rank=1.5, note="il più leggero, per PC con poca memoria"),
+    Model("qwen3.5:2b", "testo", 2.7, 4, rank=3.2, note="incluso in AIOS: risponde anche senza internet"),
+    Model("qwen3.5:4b", "testo", 3.4, 6, rank=4.3, note="il migliore per i portatili senza scheda video"),
+    Model("qwen3.5:9b", "testo", 6.6, 10, rank=5.2, note="per PC con 16 GB o una scheda video"),
+    # generazione precedente: resta per chi l'ha già scaricata
     Model("qwen2.5:0.5b-instruct", "testo", 0.4, 1.5, rank=1),
     Model("qwen2.5:1.5b-instruct", "testo", 1.0, 3, rank=2),
     Model("qwen2.5:3b-instruct", "testo", 1.9, 5, rank=3, license="qwen-research"),

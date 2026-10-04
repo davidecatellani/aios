@@ -13,6 +13,28 @@ from aios_copilot.tools import ai as ai_tools
 
 
 @pytest.fixture(autouse=True)
+def catalogo_qwen25(monkeypatch):
+    """Queste prove controllano la logica di scelta (compressione, esperti, licenze, prove) sul catalogo
+    della generazione Qwen 2.5; la scelta con Qwen 3.5 è in test_models.py::test_qwen35_is_the_default_choice."""
+    from aios_copilot import models as _models
+
+    full = _models.catalog
+    monkeypatch.setattr(_models, "catalog", lambda: tuple(m for m in full() if not m.name.startswith("qwen3.5")))
+
+
+
+@pytest.fixture(autouse=True)
+def catalogo_qwen25(monkeypatch):
+    """Queste prove controllano la logica di scelta (compressione, esperti, licenze, prove) sul catalogo
+    della generazione Qwen 2.5; la scelta con Qwen 3.5 è in test_models.py::test_qwen35_is_the_default_choice."""
+    from aios_copilot import models as _models
+
+    full = _models.catalog
+    monkeypatch.setattr(_models, "catalog", lambda: tuple(m for m in full() if not m.name.startswith("qwen3.5")))
+
+
+
+@pytest.fixture(autouse=True)
 def dirs(tmp_path, monkeypatch):
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "config"))
     monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path / "data"))
@@ -218,3 +240,15 @@ def test_weekly_hint_in_briefing():
     assert hint.startswith("🧠 Il tuo dispositivo può usare modelli AI più completi (testo, vista")
     assert weekly_hint(d, [], now=1_000_000 + 3 * 86400) is None  # non insistere
     assert weekly_hint(d, [], now=1_000_000 + 8 * 86400) is not None
+
+
+def test_qwen35_is_the_default_choice(monkeypatch):
+    from aios_copilot import llm, models as _models
+
+    monkeypatch.setattr(_models, "catalog", lambda: _models.BUILTIN)
+    laptop = Device(8, 6, "Core i3", 4, "x86_64", True, [], disk_free_gb=100)  # come l'ASUS X540UA
+    assert best_for(laptop, "testo").name == "qwen3.5:2b" and llm.DEFAULT_MODEL == "qwen3.5:2b"
+    assert best_for(Device(16, 12, "Core i5", 8, "x86_64", True, [], disk_free_gb=100), "testo").name == "qwen3.5:4b"
+    client = llm.OllamaClient(model="qwen3.5:2b")
+    assert client._payload([], [])["think"] is False  # risposta pronta, senza ragionamento lungo
+    assert "think" not in llm.OllamaClient(model="qwen2.5:7b-instruct")._payload([], [])

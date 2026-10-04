@@ -7,7 +7,7 @@ Wants=ollama.service
 # «simple» e un ciclo, non «oneshot» con nuovi tentativi: senza internet non deve tenere il
 # sistema «in avvio» (greenboot lo prenderebbe per un guasto e riavvierebbe il PC).
 Type=simple
-ExecStart=/bin/sh -c 'until /usr/bin/ollama list 2>/dev/null | grep -q "^qwen2.5:1.5b-instruct" || /usr/bin/ollama pull qwen2.5:1.5b-instruct; do sleep 300; done'
+ExecStart=/bin/sh -c 'until /usr/bin/ollama list 2>/dev/null | grep -q "^qwen3.5:2b" || /usr/bin/ollama pull qwen3.5:2b; do sleep 300; done'
 Nice=10
 IOSchedulingClass=idle
 

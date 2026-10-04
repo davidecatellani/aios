@@ -14,7 +14,10 @@ from typing import Any, Protocol
 DEFAULT_URL = "http://localhost:11434"
 # Modello piccolo di default: deve rispondere in fretta anche su CPU senza GPU.
 # Sui PC più potenti si può alzare con AIOS_MODEL (es. qwen2.5:7b-instruct).
-DEFAULT_MODEL = "qwen2.5:1.5b-instruct"
+DEFAULT_MODEL = "qwen3.5:2b"
+# Modelli che «pensano» prima di rispondere: per Nova serve una risposta pronta, il ragionamento
+# lungo su CPU costerebbe decine di secondi.
+THINKING_PREFIXES = ("qwen3.5", "qwen3.6", "gemma4")
 # Il modello resta in memoria per sempre: niente attese di caricamento tra una richiesta e l'altra.
 KEEP_ALIVE = -1
 
@@ -98,9 +101,14 @@ class OllamaClient:
         self.timeout = timeout
 
     def chat(self, messages: list[dict[str, Any]], tools: list[dict[str, Any]]) -> dict[str, Any]:
-        return self._post(
-            {"model": self.model, "messages": messages, "tools": tools, "stream": False, "keep_alive": KEEP_ALIVE}
-        )["message"]
+        return self._post(self._payload(messages, tools))["message"]
+
+    def _payload(self, messages: list[dict[str, Any]], tools: list[dict[str, Any]], **extra: Any) -> dict[str, Any]:
+        payload = {"model": self.model, "messages": messages, "tools": tools, "stream": False,
+                   "keep_alive": KEEP_ALIVE, **extra}
+        if self.model.startswith(THINKING_PREFIXES):
+            payload["think"] = False
+        return payload
 
     def warmup(self, messages: list[dict[str, Any]], tools: list[dict[str, Any]]) -> None:
         """Carica il modello e pre-elabora il prompt di sistema e gli strumenti.
@@ -108,16 +116,7 @@ class OllamaClient:
         Ollama riusa la cache del prefisso comune, quindi alla prima vera richiesta il
         modello deve leggere solo il messaggio dell'utente: è la parte che su CPU costa di più.
         """
-        self._post(
-            {
-                "model": self.model,
-                "messages": messages,
-                "tools": tools,
-                "stream": False,
-                "keep_alive": KEEP_ALIVE,
-                "options": {"num_predict": 1},
-            }
-        )
+        self._post(self._payload(messages, tools, options={"num_predict": 1}))
 
     def _post(self, payload: dict[str, Any]) -> dict[str, Any]:
         body = json.dumps(payload).encode()
@@ -133,7 +132,7 @@ class OllamaClient:
                 started = start_pull(self.model)
                 raise LLMError(
                     "Il mio modello AI non è ancora sul computer"
-                    + (": lo sto scaricando (circa 1 GB, serve internet). " if started else ". ")
+                    + (": lo sto scaricando (circa 3 GB, serve internet). " if started else ". ")
                     + "Intanto capisco i comandi semplici, come «alza il volume» o «che ore sono»."
                 ) from exc
             raise LLMError(f"Il modello ha risposto con errore {exc.code}: {detail}") from exc

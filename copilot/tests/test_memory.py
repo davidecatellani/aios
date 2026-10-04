@@ -12,6 +12,28 @@ from aios_copilot.tools.base import Runner
 
 
 @pytest.fixture(autouse=True)
+def catalogo_qwen25(monkeypatch):
+    """Queste prove controllano la logica di scelta (compressione, esperti, licenze, prove) sul catalogo
+    della generazione Qwen 2.5; la scelta con Qwen 3.5 è in test_models.py::test_qwen35_is_the_default_choice."""
+    from aios_copilot import models as _models
+
+    full = _models.catalog
+    monkeypatch.setattr(_models, "catalog", lambda: tuple(m for m in full() if not m.name.startswith("qwen3.5")))
+
+
+
+@pytest.fixture(autouse=True)
+def catalogo_qwen25(monkeypatch):
+    """Queste prove controllano la logica di scelta (compressione, esperti, licenze, prove) sul catalogo
+    della generazione Qwen 2.5; la scelta con Qwen 3.5 è in test_models.py::test_qwen35_is_the_default_choice."""
+    from aios_copilot import models as _models
+
+    full = _models.catalog
+    monkeypatch.setattr(_models, "catalog", lambda: tuple(m for m in full() if not m.name.startswith("qwen3.5")))
+
+
+
+@pytest.fixture(autouse=True)
 def dirs(tmp_path, monkeypatch):
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "config"))
     monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path / "data"))

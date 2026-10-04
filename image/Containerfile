@@ -73,7 +73,7 @@ COPY image/files/ /
 # Il modello di base di Nova è già dentro: risponde anche senza internet dal primo avvio.
 # Sta in /usr (sola lettura); all'avvio di Ollama i file vengono collegati in /var/lib/ollama/models
 # (aios-modelli-inclusi). Con MODELLO_BASE="" si costruisce senza.
-ARG MODELLO_BASE=qwen2.5:1.5b-instruct
+ARG MODELLO_BASE=qwen3.5:2b
 RUN set -e; if [ -n "$MODELLO_BASE" ]; then \
       export OLLAMA_MODELS=/usr/share/aios/modelli HOME=/tmp; mkdir -p "$OLLAMA_MODELS"; \
       (ollama serve >/tmp/ollama.log 2>&1 &); \
