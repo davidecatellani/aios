@@ -17,7 +17,7 @@ RUN dnf install -y --skip-unavailable \
         kde-connect android-tools ydotool bluez dnsmasq \
         greenboot \
         espeak-ng pipewire-utils python3-cffi pciutils usbutils zenity \
-        hyprland labwc gtk4-layer-shell wlrctl mako swayidle swaylock wlopm grim slurp brightnessctl \
+        labwc gtk4-layer-shell wlrctl mako swayidle swaylock wlopm grim slurp brightnessctl \
         greetd greetd-selinux cage python3-openpyxl tuned-ppd gtklock powertop \
         python3-opencv \
         rsms-inter-fonts atkinson-hyperlegible-fonts google-noto-serif-fonts mozilla-fira-sans-fonts \
@@ -48,6 +48,21 @@ RUN if [ "$KERNEL" = lts ]; then \
       ls /usr/lib/modules; test "$(ls /usr/lib/modules | wc -l)" = 1; \
       test -f "/usr/lib/modules/$(ls /usr/lib/modules)/vmlinuz"; \
     fi
+
+# Hyprland, il compositore di AIOS: da Fedora se c'è, altrimenti dal COPR solopasha/hyprland (il più usato
+# su Fedora). Deve esserci: senza, la sessione ripiegherebbe su labwc senza dirlo (è successo nell'anteprima 20).
+ARG FEDORA=44
+RUN set -e; \
+    if ! dnf install -y --setopt=retries=10 hyprland; then \
+      curl -fsSL -o /etc/yum.repos.d/hyprland.repo \
+        "https://copr.fedorainfracloud.org/coprs/solopasha/hyprland/repo/fedora-${FEDORA}/solopasha-hyprland-fedora-${FEDORA}.repo"; \
+      for i in 1 2 3 4; do \
+        dnf install -y --setopt=retries=10 hyprland && break; \
+        [ "$i" = 4 ] && exit 1; echo "copr non risponde: riprovo"; sleep 60; \
+      done; \
+    fi; \
+    dnf clean all; \
+    test -x /usr/bin/Hyprland; test -x /usr/bin/hyprctl; rpm -q hyprland
 
 # Aspetto AIOS: niente loghi di Fedora (come chiedono le regole dei marchi Fedora per i sistemi derivati)
 # e niente giro di benvenuto di GNOME: il benvenuto è quello di Nova.
@@ -134,8 +149,10 @@ RUN systemctl enable ollama.service aios-modello-base.service aios-risparmio.ser
 # La sessione di AIOS: la shell (giornata, barra, Nova) al posto del desktop. All'accensione la
 # schermata d'accesso di AIOS (greetd + aios-accesso, in HTML) al posto di GDM; GDM resta installato
 # e riparte da solo solo se l'accesso di AIOS non riesce ad avviarsi (greetd.service.d/aios.conf).
+# controlli: se manca un pezzo della sessione, la costruzione si ferma (non un'anteprima a metà)
+RUN test -x /usr/bin/Hyprland && test -x /usr/bin/hyprctl && test -x /usr/bin/labwc && test -x /usr/bin/greetd \
+    && test -x /usr/bin/cage
 RUN chmod 755 /usr/bin/aios-sessione /usr/bin/aios-blocca /usr/libexec/aios-accesso-avvio /usr/libexec/aios-avvio-sessione /usr/share/aios/labwc/autostart /usr/libexec/aios-risparmio /usr/lib/systemd/system-sleep/aios-risparmio /usr/libexec/aios-credenziali-registro \
-    && test -x /usr/bin/Hyprland && test -x /usr/bin/labwc && test -x /usr/bin/greetd && test -x /usr/bin/cage \
     && rm -f /etc/systemd/system/display-manager.service \
     && (systemctl disable gdm.service || true) \
     && (systemctl enable greetd.service || true) \
@@ -144,8 +161,8 @@ RUN chmod 755 /usr/bin/aios-sessione /usr/bin/aios-blocca /usr/libexec/aios-acce
          sed -i 's/^\[daemon\]$/[daemon]\nDefaultSession=aios.desktop/' /etc/gdm/custom.conf; \
        else printf '[daemon]\nDefaultSession=aios.desktop\n' >> /etc/gdm/custom.conf; fi \
     && for f in /usr/share/wayland-sessions/gnome*.desktop /usr/share/xsessions/gnome*.desktop; do \
-         [ -f "$f" ] && sed -i -e 's/^Name=.*/Name=GNOME (riserva)/' -e '/^Name\[/d' "$f"; \
-       done; true
+         if [ -f "$f" ]; then sed -i -e 's/^Name=.*/Name=GNOME (riserva)/' -e '/^Name\[/d' "$f"; fi; \
+       done
 
 # Il marchio di AIOS: logo all'avvio e all'accesso, nome del sistema, app tecniche nascoste dal menu
 COPY image/branding/ /tmp/aios-branding/
