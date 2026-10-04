@@ -16,7 +16,7 @@ RUN dnf install -y --skip-unavailable \
         ffmpeg-free poppler-utils libnotify wl-clipboard libsecret \
         kde-connect android-tools ydotool bluez dnsmasq \
         greenboot \
-        espeak-ng pipewire-utils python3-cffi pciutils usbutils zenity \
+        espeak-ng pipewire-utils pulseaudio-utils python3-cffi pciutils usbutils zenity \
         labwc gtk4-layer-shell wlrctl mako swayidle swaylock wlopm grim slurp brightnessctl \
         greetd greetd-selinux cage python3-openpyxl tuned-ppd gtklock powertop \
         python3-opencv \
