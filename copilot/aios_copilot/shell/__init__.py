@@ -218,6 +218,19 @@ def focus_window(app_id: str, run: Callable[[list[str]], tuple[int, str]] | None
     return (run or _run)(["wlrctl", "toplevel", "focus", f"app_id:{app_id}"])[0] == 0
 
 
+def home_visible(run: Callable[[list[str]], tuple[int, str]] | None = None) -> bool:
+    """Si vede la schermata principale (nessun programma davanti)? Allora Nova risponde lì, non nel pannello."""
+    run = run or _run
+    if hyprland():
+        code, out = run(["hyprctl", "activewindow", "-j"])
+        try:
+            active = json.loads(out) if code == 0 and out.strip() else {}
+        except ValueError:
+            return False
+        return not active or not active.get("class") or active.get("class") == APP_ID
+    return not open_windows(run)
+
+
 def own_workspace(address: str, run: Callable[[list[str]], tuple[int, str]] | None = None) -> bool:
     """Una finestra nuova va su uno spazio tutto suo (a tutto schermo), se lo condivide con altre.
     Le finestre flottanti (dialoghi, finestre di scelta file) restano sopra il programma che le ha aperte."""
@@ -602,7 +615,13 @@ def run_gtk(app: ShellApp, url: str, argv: list[str]) -> int:
                 run_js(state["home_view"], f"window.apriVista && window.apriVista({json.dumps(what[0])}"
                        + (f", {json.dumps(what[1])})" if len(what) > 1 else ")"))
         elif "--voce" in args and args.index("--voce") + 1 < len(args):
-            toggle_panel(args[args.index("--voce") + 1])
+            said = args[args.index("--voce") + 1]
+            if home_visible():  # sulla schermata principale: si risponde lì, con le schede accanto
+                state["panel"].set_visible(False)
+                run_js(state["home_view"], "window.chiudiVista && window.chiudiVista(); "
+                       f"window.novaChiedi && window.novaChiedi({json.dumps(said)}, true)")
+            else:
+                toggle_panel(said)
         return False
 
     def command_line(application: Any, cmdline: Any) -> int:

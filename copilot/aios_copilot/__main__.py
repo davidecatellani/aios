@@ -27,6 +27,7 @@ from .agenda import Agenda
 from .tools import Runner, Tool, apps, default_tools, files
 from .xdg import resolve_folder
 from .tools import agenda as agenda_tools
+from .tools import foto as photo_tools
 from .tools import memoria as memory_tools
 from .tools import mail as mail_tools
 from .tools import taste as taste_tools
@@ -145,7 +146,7 @@ def make_agent(confirm: Confirm, model: str | None = None, allowed: frozenset[st
         "sistema": [*system_tools.make_tools(runner),
                     *settings_tools.make_tools(runner, pictures_dir=lambda: resolve_folder("PICTURES")),
                     *update_tools.make_tools(runner), *energy_tools.make_tools(), *voice_tools.make_tools(runner)],
-        "file": [*files.make_tools(get_index), *organize_tools.make_tools(library), *document_tools.make_tools(get_index, runner)],
+        "file": [*files.make_tools(get_index), *photo_tools.make_tools(), *organize_tools.make_tools(library), *document_tools.make_tools(get_index, runner)],
         "agenda": agenda_tools.make_tools(get_agenda, user_name, extras=lambda: [model_hint()]),
         "posta": mail_tools.make_tools(mail_store, send, has_accounts),
         "gusti": taste_tools.make_tools(subs, catalog, profile),
@@ -182,6 +183,7 @@ def make_agent(confirm: Confirm, model: str | None = None, allowed: frozenset[st
             energy_tools.EnergyRouter(),  # livello 0: batteria (decide Nova)
             voice_tools.VoiceRouter(),  # livello 0: ascolto a voce
             sdk.AppsRouter(),  # livello 0: frasi delle abilità offerte dalle app
+            photo_tools.PhotosRouter(),  # livello 0: «mostrami le foto di Aurora»
             FastPath(find_apps=lambda query: apps.find_apps(runner, query)),  # livello 0
             organize_tools.OrganizeRouter(),  # livello 0: raccolte e riordino (dopo le cartelle)
             document_tools.DocumentsRouter(),  # livello 0: «fammi vedere la bolletta…», dieta, lista della spesa

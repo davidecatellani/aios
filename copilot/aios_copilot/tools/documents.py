@@ -10,7 +10,7 @@ from typing import Any, Callable
 from .. import documents as docs
 from ..fastpath import Intent, normalize
 from ..xdg import resolve_folder
-from .base import Runner, Tool, params
+from .base import Runner, Tool, attach, params
 
 DOC_WORDS = r"(?:bollett\w*|fattur\w*|contratt\w*|document\w*|pdf|ricevut\w*|referto|referti|dieta|ricett\w*|scontrin\w*|" \
             r"preventiv\w*|estratto\s+conto|busta\s+paga|certificat\w*|lettera|modulo|curriculum|cv|biglietto|polizza)"
@@ -30,6 +30,8 @@ def make_tools(get_index: Callable[[], Any], runner: Runner | None = None,
         if not found:
             return f"Non trovo un documento per «{query}» tra i file del PC."
         best = found[0][0]
+        attach("file", [{"titolo": p.name, "percorso": str(p), "sottotitolo": str(p.parent).replace(str(Path.home()), "~")}
+                        for p, _ in found[:6]], "Documenti")
         deliver = docs.deliver_to.get() or open_on_pc
         out = deliver(best)
         others = [p.name for p, _ in found[1:3]]

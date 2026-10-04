@@ -11,7 +11,7 @@ from html import unescape
 from html.parser import HTMLParser
 from typing import Callable
 
-from .base import Tool, params
+from .base import Tool, attach, params
 
 USER_AGENT = "Mozilla/5.0 (X11; Linux x86_64) AIOS-Copilot/0.1"
 MAX_PAGE_CHARS = 6000
@@ -103,6 +103,8 @@ def make_tools(fetch: Fetch = http_get) -> list[Tool]:
             return f"Errore nella ricerca: {exc}"
         if not results:
             return "Nessun risultato."
+        attach("link", [{"titolo": r["title"], "url": r["url"], "sottotitolo": re.sub(r"^https?://(?:www\.)?([^/]+).*", r"\1", r["url"]),
+                         "estratto": r["snippet"][:140]} for r in results[:6]], "Dal web")
         return "\n\n".join(
             f"[{i}] {r['title']}\n{r['url']}\n{r['snippet']}"
             for i, r in enumerate(results, 1)

@@ -4,8 +4,27 @@ from __future__ import annotations
 
 import shutil
 import subprocess
+import threading
 from dataclasses import dataclass, field
 from typing import Any, Callable
+
+
+# Schede da mostrare accanto alla risposta (file trovati, link, film e serie): gli strumenti le
+# allegano qui, la pagina le disegna nel riquadro laterale. Una richiesta = un thread.
+_sink = threading.local()
+
+
+def attach(kind: str, items: list[dict[str, Any]], title: str = "") -> None:
+    fn = getattr(_sink, "fn", None)
+    if fn is not None and items:
+        try:
+            fn(kind, items, title)
+        except Exception:
+            pass  # le schede sono un di più: mai un errore per colpa loro
+
+
+def set_attach_sink(fn: Callable[[str, list[dict[str, Any]], str], None] | None) -> None:
+    _sink.fn = fn
 
 
 @dataclass

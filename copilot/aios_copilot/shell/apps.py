@@ -64,6 +64,33 @@ def safe_path(raw: str, base: Path | None = None) -> Path:
     return path
 
 
+def photo_thumbnail(path: Path, size: int = 320) -> Path | None:
+    """Una miniatura piccola di una foto (in ~/.cache/aios/miniature), per non caricare foto da 5 MB."""
+    import hashlib
+
+    try:
+        st = path.stat()
+    except OSError:
+        return None
+    key = hashlib.sha256(f"{path}:{st.st_mtime}:{size}".encode()).hexdigest()[:32]
+    out = Path(os.environ.get("XDG_CACHE_HOME", home() / ".cache")) / "aios" / "miniature" / f"f-{key}.jpg"
+    if out.exists():
+        return out
+    try:
+        import gi
+
+        gi.require_version("GdkPixbuf", "2.0")
+        from gi.repository import GdkPixbuf
+
+        pix = GdkPixbuf.Pixbuf.new_from_file_at_scale(str(path), size, size, True)
+        pix = pix.apply_embedded_orientation() or pix
+        out.parent.mkdir(parents=True, exist_ok=True)
+        pix.savev(str(out), "jpeg", ["quality"], ["82"])
+        return out
+    except Exception:
+        return None
+
+
 def user_folder(which: str) -> Path:
     for name in FOLDERS[which]:
         p = home() / name
@@ -615,6 +642,24 @@ def register_apps(app: Any, run: Run = _run) -> None:
             return 200, {**carattere.load(), "messaggio": msg}
         return 200, carattere.load()
 
+    def card(m: Any, b: dict[str, Any], q: dict[str, str]) -> tuple[int, Any]:
+        from .. import schede
+
+        return 200, schede.lookup(q.get("titolo", "")[:120], q.get("tipo", "film"))
+
+    def remote_thumb(m: Any, b: dict[str, Any], q: dict[str, str]) -> tuple[int, Any]:
+        from .. import schede
+
+        got = schede.thumbnail(q.get("u", ""))
+        return (200, Raw(got[0], got[1])) if got else (404, {"error": "miniatura non disponibile"})
+
+    def file_thumb(m: Any, b: dict[str, Any], q: dict[str, str]) -> tuple[int, Any]:
+        p = path_from(q.get("p", ""))
+        if not p.is_file():
+            raise FileNotFoundError
+        small = photo_thumbnail(p)
+        return 200, Raw(small, "image/jpeg") if small else file_response(p)
+
     def diary(m: Any, b: dict[str, Any], q: dict[str, str]) -> tuple[int, Any]:
         from .. import diario
 
@@ -712,6 +757,9 @@ def register_apps(app: Any, run: Run = _run) -> None:
         ("POST", r"/api/impostazioni/voce", choose_voice),
         ("POST", r"/api/impostazioni/tastiera", keyboard_layout),
         ("POST", r"/api/impostazioni/diario", diary),
+        ("GET", r"/api/scheda", card),
+        ("GET", r"/api/miniatura", remote_thumb),
+        ("GET", r"/api/miniatura-file", file_thumb),
         ("GET", r"/api/aspetto", appearance),
         ("POST", r"/api/aspetto", appearance),
         ("GET", r"/api/aspetto/caratteri", appearance),

@@ -7,7 +7,7 @@ from typing import Callable, Sequence
 
 from .. import privacy
 from ..fileindex import FileIndex
-from .base import Tool, params
+from .base import Tool, attach, params
 
 
 def make_tools(
@@ -23,6 +23,9 @@ def make_tools(
                 return ("L'indice dei file è ancora vuoto: lo costruisco quando il computer è a riposo "
                         "(oppure subito con: aios-learn --now).")
             return f"Nessun file trovato per '{query}'."
+        attach("file", [{"titolo": Path(r["path"]).name, "percorso": str(r["path"]),
+                         "sottotitolo": str(Path(r["path"]).parent).replace(str(Path.home()), "~"),
+                         "estratto": (r.get("snippet") or "")[:140]} for r in results[:8]], "File trovati")
         return "\n".join(f"- {r['path']}\n  {r['snippet']}" for r in results)
 
     def read_file(path: str) -> str:

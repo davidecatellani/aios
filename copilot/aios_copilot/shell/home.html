@@ -111,6 +111,31 @@ body.in-chat #conversazione { -webkit-mask-image: linear-gradient(to bottom, tra
 .icona { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; flex: none; }
 #microfono { display: grid; place-items: center; color: var(--testo); }
 #microfono .icona { width: 22px; height: 22px; }
+/* le schede accanto alla risposta */
+body.con-risultati #destra-col > .carta:not(.risultati) { display: none; }
+.risultati { display: flex; flex-direction: column; gap: 10px; max-height: 100%; overflow-y: auto; }
+.testa-risultati { display: flex; align-items: center; justify-content: space-between; }
+.testa-risultati .via { border: 0; background: none; color: var(--tenue); padding: 4px; }
+.voce-risultato { display: flex; gap: 12px; align-items: flex-start; text-align: left; border: 0; background: none; color: var(--testo);
+                  padding: 9px 8px; border-radius: 12px; width: 100%; }
+.voce-risultato:hover { background: var(--chip); }
+.voce-risultato .icona { color: var(--turchese); margin-top: 2px; }
+.testo-voce { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.testo-voce b { font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.testo-voce small { color: var(--tenue); font-size: 13px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.elenco-foto { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.foto-mini { border: 0; padding: 0; aspect-ratio: 1; border-radius: 10px; overflow: hidden; background: var(--chip); }
+.foto-mini img { width: 100%; height: 100%; object-fit: cover; transition: transform .2s; }
+.foto-mini:hover img { transform: scale(1.06); }
+.elenco-media { display: flex; flex-direction: column; gap: 12px; }
+.media { display: flex; gap: 12px; }
+.locandina { flex: none; width: 70px; height: 100px; border-radius: 10px; overflow: hidden; background: var(--chip);
+             display: grid; place-items: center; color: var(--tenue); }
+.locandina img { width: 100%; height: 100%; object-fit: cover; }
+.testo-media { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.testo-media small { color: var(--tenue); font-size: 13px; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.azioni-media { display: flex; gap: 6px; flex-wrap: wrap; }
+.azioni-media button { border: 1px solid var(--bordo); background: var(--chip); color: var(--testo); border-radius: 10px; padding: 4px 10px; font-size: 13px; }
 .con-icona { display: inline-flex; align-items: center; gap: 6px; }
 .con-icona .icona { width: 16px; height: 16px; }
 #dock { display: flex; gap: 12px; background: var(--carta); border: 1px solid var(--bordo); border-radius: 26px; padding: 10px 14px; box-shadow: var(--ombra);
@@ -382,6 +407,62 @@ function riga(t, veloce) {
   conv.append(s); giu();
 }
 
+// --- le schede accanto alla risposta: file, link, film e serie, foto ---------------------------------------
+const tokenQ = `t=${encodeURIComponent(TOKEN)}`;
+function mostraSchede(ev) {
+  const box = el("div", "carta risultati");
+  const testaR = el("div", "testa-risultati");
+  const chiudi = el("button", "via"); chiudi.append(svgIcona("chiudi")); chiudi.title = "Chiudi";
+  chiudi.onclick = () => { box.remove(); document.body.classList.remove("con-risultati"); };
+  testaR.append(el("div", "tipo", ev.titolo || "Risultati"), chiudi);
+  box.append(testaR);
+  const lista = el("div", `elenco-${ev.tipo}`);
+  for (const [i, it] of ev.elementi.entries()) lista.append(scheda(ev.tipo, it, ev.elementi, i));
+  box.append(lista);
+  if (PANNELLO) { conv.append(box); giu(); return; }  // nel pannello sopra le app: dentro la conversazione
+  const col = $("destra-col");
+  col.querySelector(".risultati")?.remove();
+  col.prepend(box);
+  document.body.classList.add("con-risultati");
+}
+function scheda(tipo, it, tutti, i) {
+  if (tipo === "foto") {
+    const b = el("button", "foto-mini"); b.title = `${it.titolo} · ${it.sottotitolo || ""}`;
+    const img = el("img"); img.loading = "lazy"; img.alt = it.titolo;
+    img.src = `/api/miniatura-file?p=${encodeURIComponent(it.percorso)}&${tokenQ}`;
+    b.append(img);
+    b.onclick = () => lampada(tutti.map(f => ({ ...f, nome: f.titolo })), i);
+    return b;
+  }
+  if (tipo === "media") {
+    const c = el("div", "media");
+    const img = el("div", "locandina"); img.append(svgIcona(it.tipo === "libro" ? "documento" : "video"));
+    const testo = el("div", "testo-media");
+    const nome = el("b", "", it.titolo + (it.anno ? ` (${it.anno})` : ""));
+    const est = el("small", "", it.estratto || it.sottotitolo || "");
+    const azioni = el("div", "azioni-media");
+    testo.append(nome, est, azioni);
+    c.append(img, testo);
+    const metti = (d) => {
+      const src = d.immagine || it.immagine;
+      if (src) { const im = el("img"); im.alt = ""; im.src = `/api/miniatura?u=${encodeURIComponent(src)}&${tokenQ}`; im.onerror = () => im.remove(); img.replaceChildren(im); }
+      if (d.estratto && !it.estratto) est.textContent = d.estratto;
+      if (d.dove) azioni.append(bottone("Dove vederlo", () => { location.href = d.dove; }, ""));
+      if (d.url) azioni.append(bottone("Scheda", () => { location.href = d.url; }, ""));
+    };
+    api(`/api/scheda?titolo=${encodeURIComponent(it.titolo)}&tipo=${encodeURIComponent(it.tipo || "film")}`).then(metti).catch(() => metti({}));
+    return c;
+  }
+  const r = el("button", "voce-risultato");
+  r.append(svgIcona(tipo === "link" ? "internet" : SIMBOLO_FILE(it.percorso)));
+  const t = el("div", "testo-voce");
+  t.append(el("b", "", it.titolo), el("small", "", [it.sottotitolo, it.estratto].filter(Boolean).join(" · ")));
+  r.append(t);
+  r.onclick = tipo === "link" ? () => { location.href = it.url; } : () => apriFile({ percorso: it.percorso });
+  return r;
+}
+const SIMBOLO_FILE = p => ({ immagine: "foto", audio: "musica", video: "video", testo: "note" }[tipoDa(p)] || "documento");
+
 let occupata = false;
 async function chiedi(text, aVoce = false) {
   if (!text || occupata) return;
@@ -398,6 +479,7 @@ async function chiedi(text, aVoce = false) {
       for (const ev of s.events) {
         if (ev.kind === "fast") veloce = true;
         if (ev.kind === "status") riga(ev.text);
+        if (ev.kind === "schede") mostraSchede(ev);
         if (ev.kind === "token") {  // la risposta compare mentre Nova la scrive
           if (!inCorso) { inCorso = el("div", "msg nova", ""); conv.append(inCorso); }
           inCorso.textContent += ev.text; giu();

@@ -8,7 +8,7 @@ from typing import Callable
 from ..fastpath import Intent, normalize
 from ..recommend import KINDS, Catalog, Profile, recommend
 from ..subscriptions import Subscriptions, find_service
-from .base import Tool, params
+from .base import Tool, attach, params
 
 KIND_WORDS = {"film": "film", "serie": "serie", "telefilm": "serie", "serie tv": "serie", "cartone": "cartone",
               "cartoni": "cartone", "cartone animato": "cartone", "animazione": "cartone", "app": "software",
@@ -47,6 +47,8 @@ def make_tools(get_subs: Callable[[], Subscriptions], get_catalog: Callable[[], 
                 return ("Non so ancora che abbonamenti hai: dimmelo («ho Netflix e Disney+»), oppure collega la posta. "
                         "Intanto posso proporti solo titoli gratuiti, e non ne ho trovati di adatti.")
             return "Non ho trovato niente di adatto tra i titoli disponibili per te. Riprovo dopo il prossimo aggiornamento."
+        attach("media", [{"titolo": p.item.title, "anno": p.item.year, "tipo": p.item.kind, "sottotitolo": p.where,
+                          "estratto": p.why, "immagine": p.item.poster} for p in picks], "Ti propongo")
         lines = [f"{n}. «{p.item.title}»{f' ({p.item.year})' if p.item.year else ''} — {p.where}\n   {p.why}"
                  for n, p in enumerate(picks, 1)]
         return "Ecco cosa ti propongo:\n" + "\n".join(lines)

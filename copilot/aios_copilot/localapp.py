@@ -93,7 +93,7 @@ class LocalApp:
     static_dir: Path | None = None
     # Rotte che si possono aprire da <img>, <video>, <iframe> (che non mandano l'header):
     # la chiave arriva nel parametro «t».
-    token_in_query = ("/file/", "/doc/")
+    token_in_query = ("/file/", "/doc/", "/api/miniatura")
 
     def __init__(self, make_agent: Callable[[Callable[..., bool]], Agent] | None = None):
         self.token = secrets.token_urlsafe(24)
@@ -130,15 +130,27 @@ class LocalApp:
             elif kind == "token":
                 job.add(kind="token", text=data["text"])
 
+        from .tools.base import set_attach_sink
+
+        def on_cards(kind: str, items: list[dict[str, Any]], title: str) -> None:
+            job.add(kind="schede", tipo=kind, titolo=title, elementi=items)
+
         with self._agent_lock:
             self._current = job
+            set_attach_sink(on_cards)
             try:
                 job.answer = self.agent.ask(text, on_event, context)
+                from .schede import media_cards
+
+                cards = media_cards(text, job.answer or "")
+                if cards and not any(e.get("kind") == "schede" for e in job.events):
+                    on_cards("media", cards, "Ti propongo")
             except LLMError as exc:  # messaggio già in parole semplici (llm.py) o quello generico
                 job.answer = str(exc) if str(exc).startswith("Il mio modello") else NO_MODEL
             except Exception as exc:  # la pagina deve sempre ricevere una risposta
                 job.answer = f"Qualcosa è andato storto: {exc}"
             finally:
+                set_attach_sink(None)
                 self._current = None
         if self.on_answer is not None and job.answer:
             try:

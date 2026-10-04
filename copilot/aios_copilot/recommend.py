@@ -58,6 +58,7 @@ class Item:
     providers: list[str] = field(default_factory=list)  # chiavi di SERVICES dove è incluso
     adult: bool = False
     new_season: str = ""  # data di uscita dell'ultima stagione (serie)
+    poster: str = ""  # miniatura (locandina TMDB o icona Flathub)
 
     @property
     def animated(self) -> bool:
@@ -124,7 +125,8 @@ class TMDBCatalog:
                             f"tmdb:{media}:{r['id']}", kind, r.get("title") or r.get("name") or "",
                             [GENRES[g] for g in r.get("genre_ids", []) if g in GENRES],
                             int((r.get("release_date") or r.get("first_air_date") or "0")[:4] or 0),
-                            float(r.get("popularity") or 0), (r.get("overview") or "")[:300], adult=bool(r.get("adult")))
+                            float(r.get("popularity") or 0), (r.get("overview") or "")[:300], adult=bool(r.get("adult")),
+                            poster=f"https://image.tmdb.org/t/p/w185{r['poster_path']}" if r.get("poster_path") else "")
                         items.setdefault(item.id, item)
         # Serie con episodi in onda: lista generica; il confronto con le serie piaciute è locale.
         try:
@@ -179,7 +181,8 @@ class FlathubCatalog:
                 cats = cats if isinstance(cats, list) else [str(cats)]
                 kind = forced or ("gioco" if "game" in cats else "software")
                 items.setdefault(app_id, Item(f"flathub:{app_id}", kind, h.get("name") or app_id, cats,
-                                              popularity=100.0 / (n + 1), overview=(h.get("summary") or "")[:200]))
+                                              popularity=100.0 / (n + 1), overview=(h.get("summary") or "")[:200],
+                                              poster=str(h.get("icon") or "")))
         return list(items.values())
 
 

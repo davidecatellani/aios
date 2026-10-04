@@ -44,7 +44,8 @@ class Domain:
 DOMAINS: list[tuple[str, str]] = [
     ("agenda", "Calendar, appointments, reminders, alarms, deadlines, daily summary, what's planned today or tomorrow"),
     ("posta", "Email: read, search, summarize, write or reply to mail, inbox, mail accounts"),
-    ("file", "Find, open or read files and documents on this computer: bills, contracts, shopping list, diet"),
+    ("file", "Find, open or read files, documents and photos on this computer: bills, contracts, shopping list, diet, "
+             "photos of a person, place or period"),
     ("riordino", "Tidy up and organize files and folders, clean up space, collections of files"),
     ("app", "Applications and windows: open, close, install, remove or switch between programs"),
     ("impostazioni", "Volume, brightness, keyboard layout, Wi-Fi, Bluetooth, dark or light theme, music playback control, screenshot, lock, shut down or restart"),
