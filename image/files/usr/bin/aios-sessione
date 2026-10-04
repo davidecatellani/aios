@@ -24,7 +24,16 @@ if [ "${AIOS_COMPOSITORE:-hyprland}" != labwc ] && command -v Hyprland >/dev/nul
   printf 'input {\n    kb_layout = %s\n}\n' "$XKB_DEFAULT_LAYOUT" > "$run/tastiera.conf"
   cp -f "$config_home/aios/hyprland.conf" "$run/utente.conf" 2>/dev/null || : > "$run/utente.conf"
   sed "s#@RUN@#$run#g" /usr/share/aios/hyprland/hyprland.conf > "$run/hyprland.conf"
-  exec Hyprland --config "$run/hyprland.conf"
+  # Se Hyprland non parte (si chiude entro pochi secondi), non si resta chiusi fuori: si apre la
+  # sessione con labwc e l'errore resta nel registro (journalctl -t aios-sessione).
+  started=$(date +%s)
+  Hyprland --config "$run/hyprland.conf" > "$run/hyprland-avvio.log" 2>&1
+  code=$?
+  if [ $(( $(date +%s) - started )) -ge 15 ]; then
+    exit "$code"  # sessione vera, chiusa dall'utente (uscita o spegnimento)
+  fi
+  logger -t aios-sessione "Hyprland si è chiuso all'avvio (codice $code): uso labwc. $(tail -n 20 "$run/hyprland-avvio.log" | tr '\n' ' ')"
+  mkdir -p "${XDG_STATE_HOME:-$HOME/.local/state}" && cp -f "$run/hyprland-avvio.log" "${XDG_STATE_HOME:-$HOME/.local/state}/aios-hyprland-errore.log" 2>/dev/null || true
 fi
 
 config=/usr/share/aios/labwc
