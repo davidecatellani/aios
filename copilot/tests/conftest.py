@@ -11,3 +11,4 @@ def cartelle_isolate(tmp_path, monkeypatch):
     monkeypatch.setenv("AIOS_PARAKEET", "spento")
     monkeypatch.setenv("AIOS_PARLANTI", "spento")
     monkeypatch.setenv("AIOS_KOKORO", "spento")
+    monkeypatch.setenv("AIOS_DECISORE", "spento")

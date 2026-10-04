@@ -10,8 +10,9 @@ modello piccolo sbaglia meno strumento.
 Ordine dei livelli in Nova (agent.py): regole fisse (microsecondi) → smistatore (decine di ms) →
 modello di conversazione con gli strumenti dell'ambito → se serve, tutti gli strumenti.
 Se lo smistatore non c'è, non risponde o è incerto, il modello riceve gli strumenti di base (CORE).
-Se c'è il nucleo (nucleo.py: un solo modello 0.8B con gli adattatori LoRA di AIOS) ambito, azione e campi
-li decide lui, al posto di Tev1 e del modello 0.8B separato: un modello in memoria invece di due.
+Chi decide, in ordine: Laya (decisore.py, il System One addestrato per Nova: ambito, azione e percorso in
+un colpo solo), il nucleo (nucleo.py: lo 0.8B con gli adattatori LoRA di AIOS, che compila anche i campi),
+Tev1 in Ollama.
 """
 
 from __future__ import annotations
@@ -42,6 +43,16 @@ CORE = {"launch_app", "search_apps", "open_location", "search_files", "search_we
 
 QUESTION_AMBITO = "Which area does this request to a personal computer assistant belong to?"
 QUESTION_AZIONE = "Which action should the assistant run for this request?"
+# Il percorso: comando da eseguire, risposta veloce a parole, o ragionamento (il modello pensa prima di
+# rispondere). Uguale in uso e in addestramento (addestramento/dati_laya.py).
+QUESTION_PERCORSO = "How should the assistant handle this request?"
+PERCORSI = {
+    "azione": "Do something on this computer or phone: open, set, search, play, show, remind, send, install",
+    "risposta": "Just answer in words, quickly: chat, greetings, a simple question, short advice or a short text",
+    "ragionamento": "Think carefully before answering: calculations, logic problems, programming code, long or "
+                    "careful writing, comparing options, planning, explaining something complex",
+}
+QUESTION_PERCORSO_FULL = {"type": "choice", "instructions": QUESTION_PERCORSO, "criteria": PERCORSI}
 
 
 def action_criteria(candidates: dict[str, Any]) -> dict[str, str]:
@@ -104,7 +115,7 @@ class Smistatore:
 
     def __init__(self, domains: list[Domain], model: str | None = None, url: str | None = None,
                  post: Callable[[str, dict[str, Any], float], dict[str, Any]] | None = None,
-                 nucleo: Any = "predefinito"):
+                 nucleo: Any = "predefinito", decisore: Any = None):
         self.domains = {d.name: d for d in domains}
         if nucleo == "predefinito":
             from .nucleo import Nucleo
@@ -118,6 +129,13 @@ class Smistatore:
         self.last: dict[str, Any] = {}
         self._cache: tuple[str, tuple[str, float] | None] | None = None
         self.fill_model = os.environ.get("AIOS_MODELLO_CAMPI", FILL_MODEL)
+        if decisore is None:
+            from .decisore import Decisore
+
+            # con un `post` di prova si parla solo con quello (Tev1 finto), non con un Laya vero
+            decisore = Decisore(post=self.post, laya_url="" if post is not None else None, ollama_url=self.url,
+                                tev1=self.model)
+        self.decisore = decisore
 
     def decide(self, text: str) -> tuple[str, float] | None:
         if time.monotonic() < self._off_until or not text.strip():
@@ -128,15 +146,16 @@ class Smistatore:
         self._cache = (text, decided)
         return decided
 
-    def _ask(self, text: str, name: str, instructions: str, criteria: dict[str, str]) -> tuple[str, float] | None:
-        payload = {"model": self.model, "state": text[:2000],
-                   "questions": {name: {"type": "choice", "instructions": instructions, "criteria": criteria}}}
-        try:
-            answer = self.post(f"{self.url}/v1/systemone", payload, TIMEOUT)["answers"][name]
-            return str(answer["choice"]), float(answer.get("confidence", 0.0))
-        except (OSError, ValueError, KeyError, TypeError, urllib.error.URLError):
-            self._off_until = time.monotonic() + RETRY_AFTER
-            return None
+    def _ask(self, text: str, name: str, instructions: str, criteria: dict[str, str],
+             only: str | None = None) -> tuple[str, float] | None:
+        return self.decisore.choose(text[:2000], name, {"type": "choice", "instructions": instructions,
+                                                         "criteria": criteria}, only=only)
+
+    def percorso(self, text: str) -> tuple[str, float] | None:
+        """Comando, risposta veloce o ragionamento (lo dice Laya insieme all'ambito)."""
+        self.decide(text)
+        p = self.last.get("percorso")
+        return (p, float(self.last.get("fiducia_percorso", 0.0))) if p else None
 
     def _nucleo(self) -> Any:
         return self.nucleo if self.nucleo is not None and self.nucleo.available() else None
@@ -147,6 +166,18 @@ class Smistatore:
                 "criteria": {name: d.description for name, d in self.domains.items()}}
 
     def _decide(self, text: str) -> tuple[str, float] | None:
+        if self.decisore.available("laya"):
+            answers = self.decisore.ask(text[:2000], {"ambito": self.question_ambito(),
+                                                      "percorso": QUESTION_PERCORSO_FULL}, only="laya")
+            try:
+                a, p = answers["ambito"], answers["percorso"]  # type: ignore[index]
+                choice, confidence = str(a["choice"]), float(a.get("confidence", 0.0))
+                self.last = {"ambito": choice, "fiducia": confidence, "da": "laya", "percorso": str(p["choice"]),
+                             "fiducia_percorso": float(p.get("confidence", 0.0))}
+                if choice in self.domains:
+                    return choice, confidence
+            except (KeyError, TypeError, ValueError):
+                pass
         nucleo = self._nucleo()
         if nucleo is not None:
             from .nucleo import prompt_ambito
@@ -155,14 +186,10 @@ class Smistatore:
             if got is not None:
                 self.last = {"ambito": got[0], "fiducia": got[1], "da": "nucleo"}
                 return got
-        payload = {"model": self.model, "state": text[:2000], "questions": {"ambito": self.question_ambito()}}
-        try:
-            reply = self.post(f"{self.url}/v1/systemone", payload, TIMEOUT)
-            answer = reply["answers"]["ambito"]
-            choice, confidence = str(answer["choice"]), float(answer.get("confidence", 0.0))
-        except (OSError, ValueError, KeyError, TypeError, urllib.error.URLError):
-            self._off_until = time.monotonic() + RETRY_AFTER
+        got = self._ask(text, "ambito", QUESTION_AMBITO, self.question_ambito()["criteria"], only="tev1")
+        if got is None:
             return None
+        choice, confidence = got
         self.last = {"ambito": choice, "fiducia": confidence}
         if choice not in self.domains:
             return None
@@ -178,14 +205,16 @@ class Smistatore:
         if not candidates or len(candidates) > 25:
             return None
         picked = None
+        if self.decisore.available("laya"):
+            picked = self._ask(text, "azione", QUESTION_AZIONE, action_criteria(candidates), only="laya")
         nucleo = self._nucleo()
-        if nucleo is not None:
+        if picked is None and nucleo is not None:
             from .nucleo import prompt_azione
 
             names = [*candidates, NO_ACTION]
             picked = nucleo.choose(prompt_azione(text, names), names)
         if picked is None:
-            picked = self._ask(text, "azione", QUESTION_AZIONE, action_criteria(candidates))
+            picked = self._ask(text, "azione", QUESTION_AZIONE, action_criteria(candidates), only="tev1")
         if picked is None or picked[0] not in candidates or picked[1] < MIN_ACTION_CONFIDENCE:
             return None
         tool = candidates[picked[0]]

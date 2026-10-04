@@ -5,6 +5,8 @@ Le domande sono quelle che Nova fa davvero (smistatore.py, voice.py, giochi.py),
 - «azione»: quale azione fare tra quelle dell'ambito;
 - «destinatario»: la frase sentita dal microfono è per Nova o no (persone che parlano, TV, canzoni);
 - «ricarica»: durante un gioco in secondo piano, ricaricare Nova adesso?
+- «percorso»: comando da eseguire, risposta veloce a parole, o ragionamento (il 4B pensa prima di rispondere);
+- «categoria» e «importanza» di una mail (esempi_posta.py).
 Ogni riga: {"state": testo, "questions": {...}, "gold": {domanda: {"probabilities": {...}}}} (formato di
 laya.train). Le frasi dei comandi vengono da dati.py (frasi.py, catalogo, banco di prova); quelle «non per
 Nova» sono qui sotto. Escono laya.jsonl (addestramento) e prova-laya.jsonl (frasi tenute da parte).
@@ -24,7 +26,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from aios_copilot.giochi import RELOAD_QUESTION, reload_state  # noqa: E402
-from aios_copilot.smistatore import NO_ACTION, QUESTION_AZIONE, action_criteria  # noqa: E402
+from aios_copilot.smistatore import NO_ACTION, QUESTION_AZIONE, QUESTION_PERCORSO_FULL, action_criteria  # noqa: E402
 from aios_copilot.voice import ADDRESSED_CRITERIA, ADDRESSED_QUESTION  # noqa: E402
 
 # Frasi che il microfono sente ma non sono per Nova: persone che parlano tra loro, TV e film, canzoni, pezzi.
@@ -55,6 +57,36 @@ NON_PER_NOVA = [
 AMBIGUI = {"ricordati di chiamare la nonna", "spegni la luce quando esci dalla stanza",
            "apri tu la porta che io ho le mani occupate", "alza la voce che non ti sento",
            "abbassa la musica che il bimbo dorme", "chiudi la finestra per favore", "mettiti le scarpe che usciamo"}
+
+# Richieste che vogliono un ragionamento (il modello pensa prima di rispondere) …
+RAGIONAMENTO = [
+    "quanto fa 17 per 23 più 145 diviso 5?", "se un treno parte alle 8:40 e viaggia 2 ore e 35 minuti a che ora arriva?",
+    "scrivimi una funzione python che ordina una lista di dizionari per data",
+    "spiegami la differenza tra un mutuo a tasso fisso e uno variabile e quale conviene adesso",
+    "aiutami a scrivere una lettera di reclamo formale al condominio per i rumori notturni",
+    "ho 1200 euro al mese, affitto 550, bollette 120, spesa 300: quanto posso risparmiare e come?",
+    "confronta pro e contro di comprare un'auto elettrica o ibrida per 15000 km l'anno",
+    "organizzami un itinerario di 5 giorni in Sicilia con tappe e spostamenti",
+    "perché il cielo è blu? spiegamelo bene", "risolvi l'equazione 3x al quadrato meno 12 uguale zero",
+    "correggi questo codice: for i in range(10) print(i)", "scrivi un tema di 500 parole sull'inquinamento",
+    "trova l'errore nel mio ragionamento: tutti i gatti sono animali, il mio cane è un animale, quindi è un gatto",
+    "fammi un piano di allenamento di tre mesi per correre 10 km", "calcola lo sconto del 35% su 89,90 euro e poi l'iva",
+    "come funziona la blockchain? spiegalo passo passo", "traduci e adatta questo contratto in inglese formale",
+    "riassumi in modo dettagliato i vantaggi e i rischi dell'intelligenza artificiale",
+    "un indovinello: ho le chiavi ma non apro porte, cosa sono?", "pianifica il budget per un matrimonio di 80 invitati",
+    "scrivimi uno script bash che fa il backup della cartella documenti ogni giorno",
+    "analizza questa frase e dimmi se è grammaticalmente corretta: se io avrei saputo sarei venuto",
+    "quanti giorni mancano dal 3 marzo al 18 agosto?", "dimostra che la radice di 2 è irrazionale",
+    "scrivi una mail diplomatica al mio capo per chiedere un aumento", "aiutami a scegliere tra due offerte di lavoro",
+]
+# … e richieste da risposta veloce a parole, senza azioni sul computer
+RISPOSTA = [
+    "ciao Nova", "come stai?", "grazie mille", "buongiorno", "chi sei?", "cosa sai fare?", "che bello!",
+    "raccontami una barzelletta", "qual è la capitale della Francia?", "come si dice gatto in inglese?",
+    "dammi un consiglio per dormire meglio", "cosa posso cucinare con uova e zucchine?", "sei simpatica",
+    "quanti anni ha la terra più o meno?", "scrivimi una frase di auguri per mia sorella", "buonanotte",
+    "ok perfetto", "che significa resilienza?", "chi ha scritto i promessi sposi?", "dimmi una curiosità",
+]
 
 GIOCHI = ["steam_app_570", "steam_app_1091500", "eldenring.exe", "minecraft", "retroarch", "supertuxkart"]
 
@@ -88,6 +120,9 @@ def build(seed: int = 5) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
             row["gold"]["ambito"] = soft(r["risposta"], list(q_ambito["criteria"]))
             row["questions"]["destinatario"] = q_dest
             row["gold"]["destinatario"] = soft("richiesta", list(ADDRESSED_CRITERIA))
+            row["questions"]["percorso"] = QUESTION_PERCORSO_FULL
+            route = "risposta" if r["risposta"] == "chiacchiera" else "azione"
+            row["gold"]["percorso"] = soft(route, list(QUESTION_PERCORSO_FULL["criteria"]), 0.8 if route == "risposta" else 0.92)
         elif r["compito"] == "azione" and r["risposta"] != NO_ACTION:
             names = [n for n in r["opzioni"] if n != NO_ACTION]
             crit = action_criteria({n: tools[n] for n in names if n in tools})
@@ -103,6 +138,21 @@ def build(seed: int = 5) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
             row = {"state": t, "questions": {"destinatario": q_dest},
                    "gold": {"destinatario": soft("altro", list(ADDRESSED_CRITERIA), sure)}}
             (test if i % 5 == 0 else train).append(row)
+    # percorso: ragionamento o risposta veloce (anche con l'ambito «chiacchiera»)
+    for kind, texts in (("ragionamento", RAGIONAMENTO), ("risposta", RISPOSTA)):
+        for i, text in enumerate(texts):
+            for k in range(3 if i % 5 else 1):
+                t = text if k == 0 else rng.choice(["Nova, ", "senti, ", "", "ehi "]) + text
+                row = {"state": t, "questions": {"ambito": q_ambito, "percorso": QUESTION_PERCORSO_FULL},
+                       "gold": {"ambito": soft("chiacchiera", list(q_ambito["criteria"]), 0.85),
+                                "percorso": soft(kind, list(QUESTION_PERCORSO_FULL["criteria"]))}}
+                (test if i % 5 == 0 else train).append(row)
+    # la posta: categoria e importanza
+    import esempi_posta
+
+    mail_train, mail_test = esempi_posta.rows()
+    train += mail_train
+    test += mail_test
     # durante un gioco: ricaricare Nova? (fuori dal gioco da poco: no; da parecchio e memoria libera: sì)
     for n in range(260):
         away = rng.choice([rng.uniform(10, 90), rng.uniform(90, 240), rng.uniform(240, 1800)])

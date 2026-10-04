@@ -198,9 +198,15 @@ class MailSync:
     """Sincronizzazione incrementale di un account, a lotti."""
 
     def __init__(self, account: Account, store: MailStore, connect: Callable[[Account], imaplib.IMAP4] = imap_connect,
-                 known_service: Callable[[str], str | None] = lambda sender: None, clock: Callable[[], datetime] = datetime.now):
+                 known_service: Callable[[str], str | None] = lambda sender: None, clock: Callable[[], datetime] = datetime.now,
+                 decide: Callable[[str, dict[str, Any]], dict[str, Any] | None] | None = None):
         self.account, self.store, self.connect = account, store, connect
         self.known_service, self.clock = known_service, clock
+        if decide is None and os.environ.get("AIOS_DECISORE", "") != "spento":
+            from ..decisore import shared
+
+            decide = shared().ask  # categoria e importanza dal System One (Laya), se c'è
+        self._decide = decide
         self.conn: imaplib.IMAP4 | None = None
         self._queue: list[tuple[str, int, list[int]]] = []  # (cartella, uidvalidity, uid da scaricare)
         self.new_ids: list[int] = []
@@ -269,7 +275,8 @@ class MailSync:
             verdict = classify(sender, fields["subject"], fields["body"], fields["headers"],
                                sent_to_count=self.store.sent_count(sender),
                                own_domain=self._own_domain(),
-                               known_service=self.known_service(sender), override=self.store.override_for(sender))
+                               known_service=self.known_service(sender), override=self.store.override_for(sender),
+                               decide=self._decide)
             is_sent = folder != "INBOX"
             mid = self.store.add({**fields, "account": self.account.address, "folder": folder, "uidvalidity": uidvalidity,
                                   "uid": int(m.group(1)), "seen": int(is_sent or "\\Seen" in meta),

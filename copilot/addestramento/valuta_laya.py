@@ -21,7 +21,11 @@ def score(agent, rows: list[dict]) -> dict[str, tuple[int, int, float]]:
         for q, gold in r["gold"].items():
             want = max(gold["probabilities"], key=gold["probabilities"].get)
             s = out.setdefault(q, [0, 0, 0.0])
-            s[0] += answers[q].get("choice") == want
+            got = answers[q]
+            if got.get("type") == "score":  # importanza: giusto se a meno di mezzo livello
+                s[0] += abs(float(got["score"]) - int(want)) <= 0.5
+            else:
+                s[0] += got.get("choice") == want
             s[1] += 1
             s[2] += took
     return {q: (int(a), int(n), t / max(n, 1)) for q, (a, n, t) in out.items()}
