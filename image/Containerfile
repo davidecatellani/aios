@@ -103,6 +103,17 @@ RUN mkdir -p /usr/share/aios/volti; zoo=https://github.com/opencv/opencv_zoo/raw
       || { echo "avviso: modelli dei volti non scaricati"; rm -f /usr/share/aios/volti/*.onnx; }; \
     ls -l /usr/share/aios/volti
 
+# Impronte delle foto (impronte.py): SigLIP2 di Google (Apache 2.0) in ONNX int8, per cercare le foto a parole
+# in italiano e trovare i doppioni. Foto 95 MB, frasi 283 MB; gira con onnxruntime (installato con Nova).
+ARG SIGLIP=https://huggingface.co/onnx-community/siglip2-base-patch16-256-ONNX/resolve/main
+RUN mkdir -p /usr/share/aios/siglip2 && cd /usr/share/aios/siglip2 \
+    && curl -fsSL -o vision_model_int8.onnx "$SIGLIP/onnx/vision_model_int8.onnx" \
+    && curl -fsSL -o text_model_int8.onnx "$SIGLIP/onnx/text_model_int8.onnx" \
+    && curl -fsSL -o tokenizer.json "$SIGLIP/tokenizer.json" \
+    && [ "$(stat -c%s vision_model_int8.onnx)" -gt 50000000 ] && [ "$(stat -c%s text_model_int8.onnx)" -gt 200000000 ] \
+    || { echo "avviso: impronte delle foto non scaricate"; rm -f /usr/share/aios/siglip2/*; }; \
+    chmod -R a+rX /usr/share/aios/siglip2; ls -l /usr/share/aios/siglip2
+
 # Ollama (modelli AI locali), dal pacchetto ufficiale per Linux. Le librerie CUDA si tolgono:
 # senza il driver NVIDIA (non incluso in Fedora) non servono e raddoppiano la chiavetta.
 ARG OLLAMA_ARCH=amd64
@@ -153,6 +164,10 @@ RUN mkdir -p /etc/flatpak/remotes.d \
 
 # Nova e i programmi di AIOS
 COPY copilot /tmp/aios-copilot
+# onnxruntime e tokenizers: le impronte delle foto (SigLIP2) senza torch
+# (se per questa versione di Python non ci sono ancora, Nova funziona lo stesso, senza impronte)
+RUN { pip install --no-cache-dir --prefix=/usr onnxruntime tokenizers \
+      && python3 -c "import onnxruntime, tokenizers, numpy, cv2"; } || echo "avviso: onnxruntime non installato"
 RUN pip install --no-cache-dir --prefix=/usr --no-build-isolation /tmp/aios-copilot \
     && install -Dm644 -t /usr/share/applications /tmp/aios-copilot/data/org.aios.Copilot.desktop /tmp/aios-copilot/data/org.aios.Welcome.desktop \
     && install -Dm644 /tmp/aios-copilot/data/org.aios.Welcome-autostart.desktop /etc/xdg/autostart/org.aios.Welcome-autostart.desktop \

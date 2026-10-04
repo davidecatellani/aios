@@ -93,9 +93,15 @@ def gallery_matches(query: str) -> list[Path]:
         return []
     if db is None:
         return []
-    _, period = parse_query(query)
+    words, period = parse_query(query)
+    found = [p for _, p in db.search(query)]
+    if len(found) < 6 and words:  # poche per nome o descrizione: anche per significato (impronte SigLIP2)
+        try:
+            found += [p for p in galleria.meaning_matches(db, " ".join(words)) if p not in found]
+        except Exception:
+            pass
     out = []
-    for _, p in db.search(query):
+    for p in found:
         path = Path(p)
         try:
             when = datetime.fromtimestamp(path.stat().st_mtime)
@@ -174,7 +180,33 @@ def make_tools(roots: Callable[[], list[Path]] = picture_roots,
                 f"Persone con un nome: {st['persone_con_nome']}" +
                 (f"; {len(unnamed)} da riconoscere in Foto › Persone." if unnamed else "."))
 
-    return [Tool("photo_recognition", "Accende o spegne il riconoscimento delle foto (cosa c'è, scritte, persone dal volto).",
+    def duplicate_photos() -> str:
+        from .. import galleria
+
+        if not galleria.prints_ready():
+            return "Per trovare le foto doppie mi serve il riconoscimento delle foto (arriva con il prossimo aggiornamento)."
+        db = galleria.Gallery()
+        groups = db.duplicates()
+        if not groups:
+            st = db.stats()
+            return ("Non ho trovato foto doppie." if st["impronte"] else
+                    "Non ho ancora guardato le foto: lo faccio quando il computer è a riposo, poi riprova.")
+        home = Path.home()
+        items: list[dict[str, Any]] = []
+        for n, group in enumerate(groups[:12], 1):
+            for p in group[:6]:
+                path = Path(p)
+                if path.exists():
+                    items.append({"titolo": path.name, "percorso": p, "sottotitolo": f"gruppo {n}",
+                                  "cartella": str(path.parent).replace(str(home), "~")})
+        attach("foto", items, "Foto doppie o quasi uguali")
+        extra = sum(len(g) - 1 for g in groups)
+        return (f"Ho trovato {len(groups)} gruppi di foto quasi uguali ({extra} in più dell'originale): sono qui accanto. "
+                "Non cancello niente da solo: dimmi quali tenere.")
+
+    return [Tool("duplicate_photos", "Trova le foto doppie o quasi uguali (scatti in sequenza) tra le foto dell'utente.",
+                 params(), duplicate_photos, reads_private=True),
+            Tool("photo_recognition", "Accende o spegne il riconoscimento delle foto (cosa c'è, scritte, persone dal volto).",
                  params(attiva=("Acceso o spento", ["si", "no"])), photo_recognition),
             Tool("photo_recognition_status", "Dice a che punto è il riconoscimento delle foto.", params(),
                  photo_recognition_status),
@@ -192,6 +224,9 @@ RE_RECOGNITION = re.compile(r"^(?P<v>riconosci|analizza|guarda|attiva\s+il\s+ric
 RE_RECOGNITION_STATUS = re.compile(r"^(?:a\s+che\s+punto\s+(?:è|e)|come\s+va)\s+(?:il\s+)?riconoscimento\s+delle\s+foto\??$")
 
 
+RE_DUPLICATES = re.compile(r"^(?:trova(?:mi)?|cerca(?:mi)?|mostra(?:mi)?|ci\s+sono|ho)\s+(?:delle\s+|le\s+|i\s+)?(?:foto\s+(?:doppie|uguali|duplicate|ripetute)|doppioni(?:\s+(?:delle|tra\s+le)\s+foto)?)$")
+
+
 class PhotosRouter:
     def match(self, text: str) -> Any:
         from ..fastpath import Intent, normalize
@@ -200,6 +235,8 @@ class PhotosRouter:
         m = RE_RECOGNITION.match(low)
         if m:
             return Intent("photo_recognition", {"attiva": "no" if m.group("v").startswith(("spegni", "disattiva")) else "si"})
+        if RE_DUPLICATES.match(low):
+            return Intent("duplicate_photos", {})
         if RE_RECOGNITION_STATUS.match(low):
             return Intent("photo_recognition_status", {})
         m = RE_PHOTOS.match(low)

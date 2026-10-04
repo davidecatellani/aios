@@ -29,6 +29,9 @@ from pathlib import Path
 from typing import Any, Callable, Iterable
 
 IMAGES = {".jpg", ".jpeg", ".png", ".webp", ".bmp", ".gif"}
+COLUMNS = ("descritta", "volti_fatti", "impronta_fatta")  # il lavoro fatto su ogni foto
+NEUTRAL = ["una foto", "un'immagine", "una fotografia qualsiasi"]  # per le foto che «somigliano a tutto»
+HUB = 0.5  # quanto conta la somiglianza con le frasi neutre (provato: 8 ricerche giuste su 10 invece di 6)
 FACE_MATCH = 0.40  # somiglianza (coseno) sopra cui due volti sono la stessa persona (SFace: ~0,36)
 FACE_MIN = 40  # lato minimo di un volto in pixel: più piccolo è solo rumore
 VISION_MODEL = "minicpm-v4.6:1b"
@@ -108,6 +111,12 @@ class Gallery:
                 CREATE TABLE IF NOT EXISTS persone (id INTEGER PRIMARY KEY, nome TEXT DEFAULT '', centro BLOB, quanti INTEGER DEFAULT 0);
                 CREATE INDEX IF NOT EXISTS volti_persona ON volti(persona);
             """)
+            for column in ("impronta BLOB", "impronta_fatta INTEGER DEFAULT 0"):  # archivi di prima delle impronte
+                try:
+                    self.db.execute(f"ALTER TABLE foto ADD COLUMN {column}")
+                except sqlite3.OperationalError:
+                    pass
+            self.db.commit()
         try:
             os.chmod(path, 0o600)
         except OSError:
@@ -146,7 +155,7 @@ class Gallery:
         return added
 
     def pending(self, column: str, limit: int = 1) -> list[str]:
-        assert column in ("descritta", "volti_fatti")
+        assert column in COLUMNS
         with self.lock:
             rows = self.db.execute(f"SELECT percorso FROM foto WHERE {column} = 0 ORDER BY mtime DESC LIMIT ?", (limit,))
             return [r[0] for r in rows]
@@ -160,7 +169,7 @@ class Gallery:
 
     def skip(self, path: str, column: str) -> None:
         """Una foto che non si riesce a leggere: segnata, così non si riprova all'infinito."""
-        assert column in ("descritta", "volti_fatti")
+        assert column in COLUMNS
         with self.lock:
             self.db.execute(f"UPDATE foto SET {column} = 2 WHERE percorso = ?", (path,))
             self.db.commit()
@@ -241,12 +250,65 @@ class Gallery:
                     scores[p] = scores.get(p, 0) + s
         return sorted(((s, p) for p, s in scores.items()), key=lambda t: -t[0])[:limit]
 
+    # impronte (SigLIP2): ricerca per significato e doppioni
+    def store_print(self, path: str, vec: list[float]) -> None:
+        with self.lock:
+            self.db.execute("UPDATE foto SET impronta = ?, impronta_fatta = 1 WHERE percorso = ?", (_pack(vec), path))
+            self.db.commit()
+
+    def _prints(self) -> tuple[list[str], Any]:
+        import numpy as np
+
+        with self.lock:
+            rows = self.db.execute("SELECT percorso, impronta FROM foto WHERE impronta_fatta = 1 ORDER BY mtime").fetchall()
+        if not rows:
+            return [], np.zeros((0, 0), dtype=np.float32)
+        return [r[0] for r in rows], np.array([_unpack(r[1]) for r in rows], dtype=np.float32)
+
+    def search_meaning(self, query_vec: list[float], neutral_vec: list[float], limit: int = 36,
+                       margin: float = 0.04) -> list[tuple[float, str]]:
+        """Le foto più vicine a una frase (le più alte, entro `margin` dalla migliore)."""
+        import numpy as np
+
+        paths, prints = self._prints()
+        if not paths:
+            return []
+        scores = prints @ np.asarray(query_vec, dtype=np.float32) - HUB * (prints @ np.asarray(neutral_vec, dtype=np.float32))
+        order = np.argsort(-scores)[:limit]
+        best = float(scores[order[0]])
+        return [(float(scores[i]), paths[i]) for i in order if scores[i] >= best - margin]
+
+    def duplicates(self, threshold: float = 0.95) -> list[list[str]]:
+        """Gruppi di foto quasi uguali (doppioni, scatti in sequenza), dal gruppo più grande."""
+        import numpy as np
+
+        paths, prints = self._prints()
+        parent = list(range(len(paths)))
+
+        def root(i: int) -> int:
+            while parent[i] != i:
+                parent[i] = parent[parent[i]]
+                i = parent[i]
+            return i
+
+        for start in range(0, len(paths), 512):  # a blocchi: anche con decine di migliaia di foto
+            sims = prints[start:start + 512] @ prints.T
+            for a, b in zip(*np.nonzero(sims >= threshold)):
+                i = start + int(a)
+                if i < b:
+                    parent[root(i)] = root(int(b))
+        groups: dict[int, list[str]] = {}
+        for i, p in enumerate(paths):
+            groups.setdefault(root(i), []).append(p)
+        return sorted((g for g in groups.values() if len(g) > 1), key=len, reverse=True)
+
     def stats(self) -> dict[str, int]:
         with self.lock:
-            total, described, faced = self.db.execute(
-                "SELECT COUNT(*), SUM(descritta != 0), SUM(volti_fatti != 0) FROM foto").fetchone()
+            total, described, faced, printed = self.db.execute(
+                "SELECT COUNT(*), SUM(descritta != 0), SUM(volti_fatti != 0), SUM(impronta_fatta != 0) FROM foto").fetchone()
             named = self.db.execute("SELECT COUNT(*) FROM persone WHERE nome != ''").fetchone()[0]
-        return {"foto": total or 0, "descritte": described or 0, "volti_fatti": faced or 0, "persone_con_nome": named}
+        return {"foto": total or 0, "descritte": described or 0, "volti_fatti": faced or 0, "impronte": printed or 0,
+                "persone_con_nome": named}
 
     def forget(self) -> None:
         with self.lock:
@@ -434,6 +496,46 @@ def vision_model() -> str | None:
         return None
 
 
+def prints_ready() -> bool:
+    try:
+        from . import impronte
+
+        return impronte.available()
+    except Exception:
+        return False
+
+
+def neutral_print(folder: Path | None = None) -> list[float]:
+    """L'impronta delle frasi neutre («una foto»…), calcolata una volta e tenuta da parte."""
+    from . import impronte
+
+    if folder is None:
+        from .agenda import data_dir
+
+        folder = data_dir()
+    cache = folder / "impronta-neutra.json"
+    try:
+        return json.loads(cache.read_text())
+    except (OSError, ValueError):
+        pass
+    vecs = [impronte.shared().text(t) for t in NEUTRAL]
+    mean = _normalize([sum(c) / len(c) for c in zip(*vecs)])
+    try:
+        cache.write_text(json.dumps(mean))
+    except OSError:
+        pass
+    return mean
+
+
+def meaning_matches(gallery: Gallery, query: str, limit: int = 36) -> list[str]:
+    """Le foto che somigliano alla frase (per significato), se le impronte ci sono."""
+    if not prints_ready() or not gallery.stats()["impronte"]:
+        return []
+    from . import impronte
+
+    return [p for _, p in gallery.search_meaning(impronte.shared().text(query), neutral_print(), limit)]
+
+
 # --- il lavoro a riposo ----------------------------------------------------------------------------------
 class GalleryTask:
     """Per learning.py: a riposo e in carica, una foto alla volta (prima i volti, veloci, poi le descrizioni)."""
@@ -473,7 +575,8 @@ class GalleryTask:
         if not enabled():
             return False
         self.gallery.scan()
-        return bool(self.gallery.pending("volti_fatti") or (self.model() and self.gallery.pending("descritta")))
+        return bool(self.gallery.pending("volti_fatti") or (prints_ready() and self.gallery.pending("impronta_fatta"))
+                    or (self.model() and self.gallery.pending("descritta")))
 
     def step(self, seconds: float) -> None:
         end = time.monotonic() + seconds
@@ -491,9 +594,23 @@ class GalleryTask:
                 self.gallery.skip(todo[0], "volti_fatti")  # OpenCV o modelli assenti: niente volti
             except Exception:
                 self.gallery.skip(todo[0], "volti_fatti")
+        # 2) le impronte (SigLIP2): un decimo di secondo per foto, per cercarle a parole e trovare i doppioni
+        while time.monotonic() < end and prints_ready():
+            todo = self.gallery.pending("impronta_fatta")
+            if not todo:
+                from . import impronte
+
+                impronte.shared().release_images()
+                break
+            try:
+                from . import impronte
+
+                self.gallery.store_print(todo[0], impronte.shared().image(todo[0]))
+            except Exception:
+                self.gallery.skip(todo[0], "impronta_fatta")
         if time.monotonic() >= end:
             return
-        # 2) le descrizioni: lente (decine di secondi), in un thread che si interrompe se l'utente torna
+        # 3) le descrizioni: lente (decine di secondi), in un thread che si interrompe se l'utente torna
         cap = self._captioner
         if cap is not None and cap.busy():
             cap.poke()
