@@ -626,3 +626,81 @@ def register_apps(app: Any, run: Run = _run) -> None:
         ("POST", r"/api/impostazioni/voce", choose_voice),
     ):
         app.route(method, pattern, guarded(handler))
+
+
+# --- primi passi: cosa Nova propone di collegare ------------------------------------------------------
+def _safe(check: Callable[[], bool]) -> bool:
+    try:
+        return bool(check())
+    except Exception:
+        return False
+
+
+def _has_mail() -> bool:
+    from ..mail.client import load_accounts
+
+    return bool(load_accounts())
+
+
+def _has_phone() -> bool:
+    from ..mesh.bluetooth import load_known
+
+    return bool(load_known())
+
+
+def _has_github() -> bool:
+    from .. import vault
+    from ..imageupdate import TOKEN_KEY
+
+    return bool(vault.load(TOKEN_KEY))
+
+
+def _online(run: Run = _run) -> bool:
+    code, out = run(["nmcli", "-t", "-f", "STATE", "general"])
+    return code == 0 and out.strip().startswith("connected")
+
+
+def first_steps(run: Run = _run, checks: dict[str, Callable[[], bool]] | None = None) -> list[dict[str, Any]]:
+    """Le proposte di Nova per iniziare, con quelle già fatte segnate."""
+    checks = checks or {"internet": lambda: _online(run), "posta": _has_mail, "telefono": _has_phone,
+                        "aggiornamenti": _has_github}
+    steps = [
+        {"id": "internet", "simbolo": "📶", "titolo": "Collegati a internet", "testo": "Scegli la tua rete Wi-Fi.",
+         "azione": {"vista": "impostazioni", "parte": "wifi"}},
+        {"id": "posta", "simbolo": "✉️", "titolo": "Collega la posta",
+         "testo": "Ti avviso delle mail importanti e trovo bollette e scadenze.", "azione": {"chiedi": "collega la posta"}},
+        {"id": "telefono", "simbolo": "📱", "titolo": "Collega il telefono",
+         "testo": "Foto, notifiche e chiamate anche qui; funziona anche senza Wi-Fi.", "azione": {"chiedi": "collega il telefono"}},
+        {"id": "aggiornamenti", "simbolo": "⬇️", "titolo": "Ricevi gli aggiornamenti",
+         "testo": "Le nuove versioni di AIOS arrivano da sole, senza reinstallare.",
+         "azione": {"vista": "impostazioni", "parte": "aggiornamenti"}},
+        {"id": "modelli", "simbolo": "🧠", "titolo": "Rendimi più brava",
+         "testo": "Guardo il computer e ti propongo i modelli AI più adatti.", "azione": {"chiedi": "quali modelli AI mi consigli?"}},
+    ]
+    for s in steps:
+        check = checks.get(s["id"])
+        s["fatto"] = _safe(check) if check else False
+    return steps
+
+
+def register_first_steps(app: Any, run: Run = _run) -> None:
+    from ..welcome import clean_name, load_profile, save_profile
+
+    def state(m: Any, b: dict[str, Any], q: dict[str, str]) -> tuple[int, Any]:
+        profile = load_profile()
+        hidden = set(profile.get("passi_nascosti", []))
+        steps = [s for s in first_steps(run) if s["id"] not in hidden]
+        return 200, {"benvenuto": not profile.get("welcome_done"), "nome": profile.get("name", ""), "passi": steps}
+
+    def profile(m: Any, b: dict[str, Any], q: dict[str, str]) -> tuple[int, Any]:
+        changes: dict[str, Any] = {}
+        if "nome" in b:
+            changes["name"] = clean_name(b["nome"])
+        if b.get("fatto"):
+            changes["welcome_done"] = True
+        if b.get("nascondi"):
+            changes["passi_nascosti"] = sorted(set(load_profile().get("passi_nascosti", [])) | {str(b["nascondi"])})
+        return 200, {"profilo": save_profile(**changes)}
+
+    app.route("GET", r"/api/primi-passi", state)
+    app.route("POST", r"/api/profilo", profile)

@@ -13,5 +13,4 @@ command -v swayidle >/dev/null && swayidle -w timeout 600 'swaylock -f -c 0A2A3A
 # la shell: la giornata, la barra e Nova
 LD_PRELOAD=$(ls /usr/lib64/libgtk4-layer-shell.so* /usr/lib/x86_64-linux-gnu/libgtk4-layer-shell.so* 2>/dev/null | head -n1) \
   aios-shell >/dev/null 2>&1 &
-# il benvenuto, solo al primo accesso
-aios-welcome --first-run >/dev/null 2>&1 &
+# il benvenuto è dentro la shell (primi passi con Nova)

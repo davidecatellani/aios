@@ -311,6 +311,7 @@ async function casa() {
   if (disp.length) for (const n of disp) dc.append(el("p", "", `📱 ${n} · vicino`));
   else dc.append(el("p", "nota", "Nessun telefono collegato. Di' «Nova, collega il telefono»."));
   destra.append(dc);
+  if (window.cartaPrimiPassi) window.cartaPrimiPassi();
   const dock = $("dock"); dock.replaceChildren();
   for (const app of data.dock) {
     const b = el("button", "", null); b.style.cssText = "border:0;background:none;padding:0";

@@ -109,6 +109,7 @@ BUILTIN: tuple[Model, ...] = (
     # significato (embedding multilingue)
     Model("granite-embedding:278m", "significato", 0.6, 1, rank=1),
     Model("paraphrase-multilingual", "significato", 0.6, 1, rank=2),
+    Model("nomic-embed-text-v2-moe", "significato", 0.96, 1.5, rank=2.5, note="multilingue, a esperti, tutto aperto"),
     Model("bge-m3", "significato", 1.2, 2, rank=3, license="mit"),
     # dettatura (whisper.cpp)
     Model("whisper-base", "dettatura", 0.15, 1, "file",

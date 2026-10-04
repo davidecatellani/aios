@@ -19,6 +19,7 @@ function apriVista(nome, ...args) {
   v(box, ...args);
 }
 function chiudiVista() {
+  if (!vistaAttuale) return;
   document.body.classList.remove("in-vista");
   $("vista").hidden = true; $("vista").replaceChildren();
   vistaAttuale = null;
@@ -49,6 +50,29 @@ function menu(x, y, voci) {
   document.body.append(m);
 }
 
+
+// Domande dentro la pagina (mai finestre del sistema): testo, password, conferma, avviso.
+function dialogo(titolo, { valore = "", password = false, campo = true, si = "OK", no = "Annulla" } = {}) {
+  return new Promise(resolve => {
+    const fondo = el("div"); fondo.style.cssText = "position:fixed;inset:0;z-index:50;background:rgba(3,12,18,.55);display:grid;place-items:center";
+    const c = el("div", "carta"); c.style.cssText = "width:min(460px,90vw);display:flex;flex-direction:column;gap:14px";
+    c.append(el("h3", "", titolo));
+    const input = el("input", "campo"); input.type = password ? "password" : "text"; input.value = valore;
+    if (campo) c.append(input);
+    const fine = v => { fondo.remove(); resolve(v); };
+    const a = el("div", "avanti"); a.style.cssText = "display:flex;gap:10px;justify-content:flex-end";
+    if (no) a.append(bottone(no, () => fine(null)));
+    a.append(bottone(si, () => fine(campo ? input.value : true), "bottone primo"));
+    c.append(a); fondo.append(c); document.body.append(fondo);
+    fondo.onkeydown = e => { e.stopPropagation(); if (e.key === "Escape") fine(null); if (e.key === "Enter") fine(campo ? input.value : true); };
+    setTimeout(() => (campo ? input : a.lastChild).focus(), 30);
+  });
+}
+const chiediTesto = (t, v = "") => dialogo(t, { valore: v });
+const chiediPassword = t => dialogo(t, { password: true });
+const chiediConferma = t => dialogo(t, { campo: false, si: "Sì", no: "No" });
+const avviso = t => dialogo(t, { campo: false, no: null });
+
 // --- aprire un file con la vista giusta ---------------------------------------------------------------
 function apriFile(f) {
   f = { nome: f.percorso.split("/").pop(), ...f };
@@ -71,7 +95,6 @@ function tipoDa(p) {
 }
 window.apriFile = apriFile;
 window.apriVista = apriVista;
-window.chiudiVista = () => { if (vistaAttuale) chiudiVista(); };
 
 function lampada(foto, i) {
   document.getElementById("lampada")?.remove();
@@ -111,8 +134,8 @@ const VISTE = {
     const casaB = bottone("Casa", () => apriVista("file", "")); briciole.append(casaB);
     parti.forEach((p, i) => { briciole.append(" › ", bottone(p, () => apriVista("file", parti.slice(0, i + 1).join("/")))); });
     const nuova = bottone("＋ Nuova cartella", async () => {
-      const nome = prompt("Nome della nuova cartella");
-      if (nome) { await api("/api/file/nuova-cartella", { p: data.cartella, nome }).catch(e => alert(e.message)); apriVista("file", data.cartella); }
+      const nome = await chiediTesto("Nome della nuova cartella");
+      if (nome) { await api("/api/file/nuova-cartella", { p: data.cartella, nome }).catch(e => avviso(e.message)); apriVista("file", data.cartella); }
     });
     const corpo = testa(box, "📁 File", [briciole, nuova]);
     if (!data.voci.length) { corpo.append(el("p", "vuoto", "Questa cartella è vuota.")); return; }
@@ -129,14 +152,14 @@ const VISTE = {
         ev.preventDefault(); ev.stopPropagation();
         menu(ev.clientX, ev.clientY, [
           ["Apri", () => apriFile(f)],
-          ["Apri con un programma", () => api("/api/file/apri-con", { p: f.percorso }).catch(e => alert(e.message))],
+          ["Apri con un programma", () => api("/api/file/apri-con", { p: f.percorso }).catch(e => avviso(e.message))],
           ["Rinomina", async () => {
-            const nome = prompt("Nuovo nome", f.nome);
-            if (nome && nome !== f.nome) { await api("/api/file/rinomina", { p: f.percorso, nome }).catch(e => alert(e.message)); apriVista("file", data.cartella); }
+            const nome = await chiediTesto("Nuovo nome", f.nome);
+            if (nome && nome !== f.nome) { await api("/api/file/rinomina", { p: f.percorso, nome }).catch(e => avviso(e.message)); apriVista("file", data.cartella); }
           }],
           ["Chiedi a Nova…", () => { chiudiVista(); $("testo").value = `Su «${f.nome}»: `; $("testo").focus(); }],
           ["Sposta nel cestino", async () => {
-            await api("/api/file/cestino", { p: f.percorso }).catch(e => alert(e.message)); apriVista("file", data.cartella);
+            await api("/api/file/cestino", { p: f.percorso }).catch(e => avviso(e.message)); apriVista("file", data.cartella);
           }],
         ]);
       };
@@ -240,7 +263,7 @@ const VISTE = {
   },
 
   documento(box, f) {
-    const conProgramma = bottone("Apri con un programma", () => api("/api/file/apri-con", { p: f.percorso }).catch(e => alert(e.message)));
+    const conProgramma = bottone("Apri con un programma", () => api("/api/file/apri-con", { p: f.percorso }).catch(e => avviso(e.message)));
     const chiediNova = bottone("Chiedi a Nova", () => { chiudiVista(); $("testo").value = `Riassumi «${f.nome}»`; $("testo").focus(); });
     testa(box, "📄 " + f.nome, [chiediNova, conProgramma]).remove();
     const fr = el("iframe", "riquadro-doc");
@@ -279,7 +302,7 @@ const VISTE = {
           const collega = bottone(n.attiva ? "Collegato" : "Collega", async () => {
             let password = "";
             if (n.protetta && !n.attiva) {
-              password = prompt(`Password della rete «${n.nome}»`);
+              password = await chiediPassword(`Password della rete «${n.nome}»`);
               if (password === null) return;
             }
             esito.textContent = "Mi collego…"; esito.className = "esito";
@@ -314,7 +337,7 @@ const VISTE = {
       const c = carta(el("p", "nota", "Scegli come parla Nova. Tocca una voce per sentirla."));
       for (const voce of v.voci) {
         c.append(riga(voce.nome, voce.id === v.scelta ? "In uso" : null, bottone(voce.id === v.scelta ? "Ascolta" : "Usa questa", async () => {
-          await api("/api/impostazioni/voce", { voce: voce.id }).catch(e => alert(e.message)); apriVista("impostazioni", "voce");
+          await api("/api/impostazioni/voce", { voce: voce.id }).catch(e => avviso(e.message)); apriVista("impostazioni", "voce");
         }, voce.id === v.scelta ? "bottone" : "bottone primo")));
       }
       if (!v.voci.length) c.append(el("p", "nota", "Nessuna voce installata."));
@@ -350,7 +373,7 @@ const VISTE = {
             riga("Modello AI di Nova", "Tutto sul computer, niente cloud", el("span", "", i.modello || "—"),
                  bottone("Più potente?", () => { chiudiVista(); chiedi("quali modelli AI mi consigli?"); })));
     } else if (sezione === "energia") {
-      const az = (t, a, cls) => bottone(t, () => { if (a === "spegni" || a === "riavvia" ? confirm(`${t}?`) : true) api("/api/impostazioni/energia", { azione: a }).catch(() => {}); }, cls);
+      const az = (t, a, cls) => bottone(t, () => { (async () => { if (a === "spegni" || a === "riavvia" ? await chiediConferma(`${t}?`) : true) api("/api/impostazioni/energia", { azione: a }).catch(() => {}); })(); }, cls);
       carta(riga("Blocca lo schermo", null, az("Blocca", "blocca", "bottone")),
             riga("Sospendi", "Il computer dorme, riprendi da dove eri", az("Sospendi", "sospendi", "bottone")),
             riga("Riavvia", null, az("Riavvia", "riavvia", "bottone")),
@@ -358,4 +381,106 @@ const VISTE = {
     }
     if (d.errore) pan.append(el("p", "esito no", d.errore));
   },
+};
+
+// --- primi passi ------------------------------------------------------------------------------------------
+function eseguiPasso(p) {
+  if (p.azione.vista) return apriVista(p.azione.vista, p.azione.parte);
+  chiudiVista(); chiedi(p.azione.chiedi);
+}
+
+VISTE.benvenuto = async function (box, passo = 0) {
+  const stato = await api("/api/primi-passi").catch(() => ({ passi: [], nome: "" }));
+  const wrap = el("div", "benvenuto"); const s = el("div", "scheda"); wrap.append(s); box.append(wrap);
+  const sfera = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  sfera.setAttribute("viewBox", "0 0 40 40"); sfera.classList.add("sfera-grande");
+  sfera.innerHTML = '<use href="#orb"/>';
+  const puntini = el("div", "puntini"); for (let i = 0; i < 4; i++) puntini.append(el("i", i <= passo ? "si" : ""));
+  const avanti = (...b) => { const a = el("div", "avanti"); a.append(...b); return a; };
+  const prossimo = () => apriVista("benvenuto", passo + 1);
+  const fine = async (poi) => { await api("/api/profilo", { fatto: true }).catch(() => {}); chiudiVista(); casa(); if (poi) poi(); };
+  const parla = t => api("/api/parla", { testo: t }).catch(() => {});
+
+  if (passo === 0) {
+    const nome = el("input", "campo"); nome.placeholder = "Il tuo nome"; nome.value = stato.nome || "";
+    const ok = bottone("Avanti", async () => { await api("/api/profilo", { nome: nome.value }).catch(() => {}); prossimo(); }, "bottone primo");
+    nome.onkeydown = e => { if (e.key === "Enter") ok.click(); };
+    s.append(sfera, puntini, el("h1", "", "Ciao, sono Nova."),
+             el("p", "sotto", "Sono l'assistente di questo computer: lavoro tutta qui dentro, senza mandare i tuoi dati a nessuno. Come ti chiami?"),
+             nome, avanti(ok));
+    setTimeout(() => nome.focus(), 50);
+    parla("Ciao, sono Nova. Come ti chiami?");
+  } else if (passo === 1) {
+    const d = await api("/api/impostazioni?parte=voce").catch(() => ({ voce: { voci: [] } }));
+    const lista = el("div", "proposte");
+    for (const v of d.voce.voci) {
+      const b = el("button", "proposta" + (v.id === d.voce.scelta ? "" : " fatta"));
+      b.append(el("span", "s", "🗣️"), el("div", "")); b.lastChild.append(el("b", "", v.nome), v.id === d.voce.scelta ? "In uso · tocca per sentirla" : "Tocca per sentirla");
+      b.onclick = async () => { await api("/api/impostazioni/voce", { voce: v.id }).catch(() => {}); apriVista("benvenuto", 1); };
+      lista.append(b);
+    }
+    if (!d.voce.voci.length) lista.append(el("p", "sotto", "Su questo computer c'è una sola voce."));
+    s.append(sfera, puntini, el("h1", "", `Piacere${stato.nome ? ", " + stato.nome : ""}!`),
+             el("p", "sotto", "Che voce preferisci per me? Puoi cambiarla quando vuoi dalle Impostazioni."), lista,
+             avanti(bottone("Avanti", prossimo, "bottone primo")));
+  } else if (passo === 2) {
+    const internet = stato.passi.find(p => p.id === "internet");
+    s.append(sfera, puntini, el("h1", "", "Colleghiamoci a internet"));
+    if (internet && internet.fatto) {
+      s.append(el("p", "sotto", "Sei già collegato. ✓ Posso cercare aggiornamenti e, se vuoi, scaricare modelli AI più bravi."),
+               avanti(bottone("Avanti", prossimo, "bottone primo")));
+    } else {
+      s.append(el("p", "sotto", "Anche senza internet funziono quasi del tutto. Con internet posso aggiornarmi e scaricare modelli più bravi."));
+      const reti = el("div", "carta"); reti.append(el("p", "nota", "Cerco le reti Wi-Fi…")); s.append(reti);
+      s.append(avanti(bottone("Più tardi", prossimo), bottone("Avanti", prossimo, "bottone primo")));
+      const w = (await api("/api/impostazioni?parte=wifi").catch(() => ({ wifi: {} }))).wifi || {};
+      reti.replaceChildren();
+      if (w.scheda === false) reti.append(el("p", "nota", "Non trovo la scheda Wi-Fi. Puoi collegare il telefono con il cavo USB e attivare il «tethering»."));
+      for (const n of (w.reti || []).slice(0, 6)) {
+        const r = el("div", "riga-imp"); const c = el("div", "cosa"); c.append(`${n.protetta ? "🔒 " : ""}${n.nome}`);
+        const esito = el("small", "", "");
+        c.append(esito);
+        r.append(c, bottone(n.attiva ? "Collegato" : "Collega", async () => {
+          let password = "";
+          if (n.protetta && !n.attiva) { password = await chiediPassword(`Password della rete «${n.nome}»`); if (password === null) return; }
+          esito.textContent = "Mi collego…";
+          const res = await api("/api/impostazioni/wifi", { azione: "collega", nome: n.nome, password }).catch(e => ({ messaggio: e.message }));
+          esito.textContent = res.messaggio || "";
+          if (res.ok) setTimeout(prossimo, 1200);
+        }, n.attiva ? "bottone" : "bottone primo"));
+        reti.append(r);
+      }
+    }
+  } else {
+    const lista = el("div", "proposte");
+    for (const p of stato.passi.filter(p => p.id !== "internet")) {
+      const b = el("button", "proposta" + (p.fatto ? " fatta" : ""));
+      b.append(el("span", "s", p.simbolo), el("div", "")); b.lastChild.append(el("b", "", p.titolo + (p.fatto ? " ✓" : "")), p.testo);
+      b.onclick = () => fine(() => eseguiPasso(p));
+      lista.append(b);
+    }
+    s.append(sfera, puntini, el("h1", "", "Cosa facciamo insieme?"),
+             el("p", "sotto", "Ecco cosa ti propongo per iniziare. Scegline uno, oppure inizia pure: te le ricordo nella schermata."),
+             lista, avanti(bottone("Inizia", () => fine(), "bottone primo")));
+    parla("Ecco cosa ti propongo per iniziare.");
+  }
+};
+
+// nella schermata: la carta «Per iniziare» finché c'è qualcosa da fare
+window.cartaPrimiPassi = async function () {
+  const col = $("destra-col"); if (!col) return;
+  const stato = await api("/api/primi-passi").catch(() => null);
+  if (!stato) return;
+  if (stato.benvenuto && !window._benvenutoMostrato) { window._benvenutoMostrato = true; apriVista("benvenuto"); return; }
+  const da_fare = stato.passi.filter(p => !p.fatto);
+  if (!da_fare.length) return;
+  const c = el("div", "carta"); c.append(el("div", "tipo", "Per iniziare"));
+  for (const p of da_fare.slice(0, 4)) {
+    const r = el("div", "passo-casa");
+    const via = el("button", "via", "✕"); via.title = "Non mi interessa";
+    via.onclick = async () => { await api("/api/profilo", { nascondi: p.id }).catch(() => {}); r.remove(); };
+    r.append(el("span", "", p.simbolo), el("span", "t", p.titolo), bottone("Fallo", () => eseguiPasso(p), ""), via);
+    c.append(r);
+  }
+  col.prepend(c);
 };

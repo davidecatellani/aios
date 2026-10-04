@@ -107,3 +107,28 @@ body.in-vista #casa, body.in-vista #fondo { display: none; }
 .aperta { display: inline-flex; align-items: center; gap: 6px; }
 .aperta .x { border: 0; background: none; color: var(--tenue); font-size: 13px; padding: 0 2px; border-radius: 6px; }
 .aperta .x:hover { color: #C0392B; }
+
+/* Primi passi con Nova */
+.benvenuto { flex: 1; display: grid; place-items: center; padding: 30px; }
+.benvenuto .scheda { width: min(720px, 92vw); display: flex; flex-direction: column; gap: 18px; }
+.benvenuto .sfera-grande { width: 92px; height: 92px; animation: respira 3s ease-in-out infinite; }
+.benvenuto h1 { font-size: 44px; margin: 0; letter-spacing: -1px; }
+.benvenuto p.sotto { font-size: 20px; color: var(--tenue); margin: 0; line-height: 1.5; }
+.benvenuto .campo { font-size: 22px; padding: 14px 18px; border-radius: 16px; }
+.benvenuto .avanti { display: flex; gap: 12px; justify-content: flex-end; margin-top: 8px; }
+.benvenuto .puntini { display: flex; gap: 8px; }
+.benvenuto .puntini i { width: 8px; height: 8px; border-radius: 50%; background: var(--bordo); }
+.benvenuto .puntini i.si { background: var(--turchese); }
+.proposte { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.proposta { display: flex; gap: 14px; align-items: flex-start; text-align: left; border: 1px solid var(--bordo); background: var(--carta);
+            color: var(--testo); border-radius: 18px; padding: 16px; font-size: 15px; }
+.proposta:hover { border-color: var(--turchese); }
+.proposta b { display: block; font-size: 16px; margin-bottom: 3px; }
+.proposta span.s { font-size: 26px; }
+.proposta.fatta { opacity: .55; }
+.passo-casa { display: flex; gap: 10px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--bordo); }
+.passo-casa:last-child { border-bottom: 0; }
+.passo-casa .t { flex: 1; font-size: 14px; }
+.passo-casa button { border: 0; border-radius: 10px; padding: 6px 10px; font-weight: 700; font-size: 13px;
+                     background: linear-gradient(135deg, var(--blu), var(--turchese)); color: #fff; }
+.passo-casa .via { background: none; color: var(--tenue); padding: 4px 6px; }

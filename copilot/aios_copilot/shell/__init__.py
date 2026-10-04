@@ -36,7 +36,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 from ..localapp import LocalApp, serve
-from .apps import register_apps
+from .apps import register_apps, register_first_steps
 
 PAGE = Path(__file__).with_name("home.html")
 APP_ID = "org.aios.Shell"
@@ -301,6 +301,7 @@ class ShellApp(LocalApp):
         self.route("POST", r"/api/finestra-chiudi", lambda m, b, q: (200, {"ok": close_window(str(b.get("app_id", "")))}))
         self.route("POST", r"/api/parla", self._speak)
         register_apps(self)
+        register_first_steps(self)
         self.route("POST", r"/api/ascolta", self._listen)
         self.route("POST", r"/api/ascolta-si-no", self._listen_yes_no)
 
