@@ -209,3 +209,32 @@ def test_listens_without_wake_word(tmp_path, monkeypatch):
 def test_without_the_judge_only_clear_commands_pass():
     assert voice.addressed_to_pc("apri la cartella delle foto", ask=lambda t: None) == "si"
     assert voice.addressed_to_pc("e poi siamo andati al mare", ask=lambda t: None) == "no"
+
+
+def test_parakeet_rewrites_the_whole_sentence(tmp_path, monkeypatch):
+    """Vosk si accorge della frase; la trascrizione fine (Parakeet) sostituisce la sua, che sbaglia di più."""
+    import collections
+
+    monkeypatch.setenv("XDG_RUNTIME_DIR", str(tmp_path))
+    quiet = bytes(voice.CHUNK)
+    heard = []
+
+    def fine(pcm):
+        heard.append(pcm)
+        return "Apri la cartella Foto delle vacanze."
+
+    ears = voice.Ears(FakeRec, accept=lambda v: True, fine=fine)
+    audio = iter([quiet] * 5 + [b"apri", b"la", b"cartella", b"poto", b"|"])
+    assert ears.next_utterance(audio, collections.deque(maxlen=15)) == "Apri la cartella Foto delle vacanze"
+    assert b"apri" in heard[0] and b"poto" in heard[0]  # l'audio della frase intera
+    # con il nome: se Parakeet perde «Nova», resta la richiesta capita da Vosk
+    ears = voice.Ears(FakeRec, accept=lambda v: True, fine=lambda pcm: "Noa, alza il volume.")
+    recent = collections.deque(maxlen=15)
+    audio = chunks("nova", "alza", "il", "volume", "|")
+    assert ears.wait_for_wake(audio, recent)
+    assert ears.transcribe(audio, recent) == "alza il volume"
+    ears = voice.Ears(FakeRec, accept=lambda v: True, fine=lambda pcm: "Nova, alza il volume della musica.")
+    recent = collections.deque(maxlen=15)
+    audio = chunks("nova", "alza", "il", "volume", "|")
+    assert ears.wait_for_wake(audio, recent)
+    assert ears.transcribe(audio, recent) == "alza il volume della musica"

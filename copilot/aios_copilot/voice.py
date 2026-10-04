@@ -13,7 +13,8 @@
 - **Batteria**: con la batteria quasi finita l'ascolto si sospende (energy.py), e riprende in
   carica. «Smetti di ascoltare» / «ascoltami» lo spengono e lo riaccendono.
 
-Modelli: /usr/share/aios/voce (immagine AIOS) oppure ~/.local/share/aios/voce.
+Modelli: /usr/share/aios/voce (immagine AIOS) oppure ~/.local/share/aios/voce. La frase intera, una volta
+finita, la trascrive Parakeet (parakeet.py) se c'è: molti meno errori di Vosk, che resta il «guardiano».
 """
 
 from __future__ import annotations
@@ -289,7 +290,18 @@ class Ears:
     """Parola di attivazione e trascrizione (Vosk). `recognizer(grammar)` per i test."""
 
     def __init__(self, recognizer: Callable[[str | None], Any] | None = None,
-                 accept: Callable[[list[float] | None], bool] | None = None):
+                 accept: Callable[[list[float] | None], bool] | None = None,
+                 fine: Callable[[bytes], str] | None = None):
+        # la trascrizione fine della frase intera (parakeet.py), se c'è; Vosk resta per accorgersi della voce
+        self.fine = fine
+        if recognizer is None and fine is None:
+            try:
+                from . import parakeet
+
+                if parakeet.available():
+                    self.fine = parakeet.shared().transcribe
+            except Exception:
+                self.fine = None
         if recognizer is None:
             from vosk import KaldiRecognizer, Model, SetLogLevel  # type: ignore
 
@@ -321,6 +333,16 @@ class Ears:
             from .voiceprint import accepted as accept
         self.accept = accept
 
+    def refine(self, rough: str, audio: list[bytes]) -> str:
+        """La frase trascritta da Parakeet al posto di quella di Vosk (se Parakeet c'è e capisce qualcosa)."""
+        if not rough or not audio or self.fine is None:
+            return rough
+        try:
+            better = self.fine(b"".join(audio)).strip()
+        except Exception:
+            return rough
+        return better[:-1].strip() if better.endswith(".") else (better or rough)
+
     def next_utterance(self, chunks: Iterator[bytes], recent: collections.deque,
                        max_seconds: float = 15.0) -> str | None:
         """La prossima frase detta nella stanza, trascritta per intero (senza parola di attivazione).
@@ -333,22 +355,24 @@ class Ears:
             if speaking_flag().exists() or loudness(data) < SILENCE_RMS:
                 continue  # Nova sta parlando, o silenzio
             rec = self.new(None)
-            for old in list(recent)[-6:]:  # l'inizio della frase, appena prima del suono forte
+            audio = list(recent)[-6:]  # l'inizio della frase, appena prima del suono forte
+            for old in audio:
                 rec.AcceptWaveform(old)
             started, quiet, voice_vector = time.monotonic(), 0, None
             for more in chunks:
+                audio.append(more)
                 if rec.AcceptWaveform(more):
                     result = json.loads(rec.Result())
                     voice_vector = result.get("spk") or voice_vector
                     text = result.get("text", "").strip()
-                    return text if text and self.accept(voice_vector) else ""
+                    return self.refine(text, audio) if text and self.accept(voice_vector) else ""
                 quiet = quiet + 1 if loudness(more) < SILENCE_RMS else 0
                 if quiet > HANGOVER or time.monotonic() - started > max_seconds:
                     break
             result = json.loads(rec.FinalResult())
             voice_vector = result.get("spk") or voice_vector
             text = result.get("text", "").strip()
-            return text if text and self.accept(voice_vector) else ""
+            return self.refine(text, audio) if text and self.accept(voice_vector) else ""
         return None
 
     def wait_for_wake(self, chunks: Iterator[bytes], recent: collections.deque) -> bool:
@@ -379,12 +403,21 @@ class Ears:
         """Fino alla prima pausa dopo la frase (o al tempo massimo). → la richiesta, "" se c'era solo il
         nome, None se non era per Nova (nome non confermato, o voce che Nova non conosce)."""
         rec = self.new(None)
-        for data in list(recent or []):  # la frase detta di seguito alla parola di attivazione
+        audio = list(recent or [])
+        for data in audio:  # la frase detta di seguito alla parola di attivazione
             rec.AcceptWaveform(data)
         spoken = False
         started = time.monotonic()
         voice_vector = None
+
+        def request_of(text: str) -> str | None:
+            fine = self.refine(text, audio)  # Parakeet: meno errori; se perde il nome si tiene la richiesta di Vosk
+            if require_wake:
+                return after_wake(fine) if after_wake(fine) is not None else after_wake(text)
+            return strip_wake(fine)
+
         for data in chunks:
+            audio.append(data)
             if rec.AcceptWaveform(data):
                 result = json.loads(rec.Result())
                 voice_vector = result.get("spk") or voice_vector
@@ -392,7 +425,7 @@ class Ears:
                 if text and after_wake(text) is None and require_wake:
                     return None  # la trascrizione vera non comincia con «Nova»: non era per lei
                 if after_wake(text) if require_wake else strip_wake(text):
-                    request = after_wake(text) if require_wake else strip_wake(text)
+                    request = request_of(text)
                     return request if self.accept(voice_vector) else None
             elif json.loads(rec.PartialResult()).get("partial"):
                 spoken = True
@@ -401,7 +434,8 @@ class Ears:
                 break
         result = json.loads(rec.FinalResult())
         voice_vector = result.get("spk") or voice_vector
-        request = after_wake(result.get("text", "")) if require_wake else strip_wake(result.get("text", ""))
+        request = request_of(result.get("text", "")) if result.get("text", "").strip() else (
+            None if require_wake else "")
         # una voce che Nova non conosce (il film, un ospite) se l'utente ha scelto «solo la mia voce»
         return request if request is not None and self.accept(voice_vector) else None
 

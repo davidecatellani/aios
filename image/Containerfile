@@ -114,6 +114,15 @@ RUN mkdir -p /usr/share/aios/siglip2 && cd /usr/share/aios/siglip2 \
     || { echo "avviso: impronte delle foto non scaricate"; rm -f /usr/share/aios/siglip2/*; }; \
     chmod -R a+rX /usr/share/aios/siglip2; ls -l /usr/share/aios/siglip2
 
+# Ascolto (parakeet.py): Parakeet TDT 0.6B v3 di NVIDIA (CC-BY 4.0) in ONNX int8 per sherpa-onnx; trascrive
+# in italiano le frasi che Vosk ha sentito, con molti meno errori. 670 MB, caricato solo quando si parla.
+ARG PARAKEET=https://huggingface.co/csukuangfj/sherpa-onnx-nemo-parakeet-tdt-0.6b-v3-int8/resolve/main
+RUN mkdir -p /usr/share/aios/parakeet && cd /usr/share/aios/parakeet \
+    && for f in encoder.int8.onnx decoder.int8.onnx joiner.int8.onnx tokens.txt; do curl -fsSL -o "$f" "$PARAKEET/$f"; done \
+    && [ "$(stat -c%s encoder.int8.onnx)" -gt 500000000 ] \
+    || { echo "avviso: Parakeet non scaricato (resta Vosk)"; rm -f /usr/share/aios/parakeet/*; }; \
+    chmod -R a+rX /usr/share/aios/parakeet; ls -l /usr/share/aios/parakeet
+
 # Ollama (modelli AI locali), dal pacchetto ufficiale per Linux. Le librerie CUDA si tolgono:
 # senza il driver NVIDIA (non incluso in Fedora) non servono e raddoppiano la chiavetta.
 ARG OLLAMA_ARCH=amd64
@@ -164,10 +173,12 @@ RUN mkdir -p /etc/flatpak/remotes.d \
 
 # Nova e i programmi di AIOS
 COPY copilot /tmp/aios-copilot
-# onnxruntime e tokenizers: le impronte delle foto (SigLIP2) senza torch
+# onnxruntime e tokenizers: le impronte delle foto (SigLIP2) senza torch; sherpa-onnx: Parakeet per l'ascolto
 # (se per questa versione di Python non ci sono ancora, Nova funziona lo stesso, senza impronte)
 RUN { pip install --no-cache-dir --prefix=/usr onnxruntime tokenizers \
-      && python3 -c "import onnxruntime, tokenizers, numpy, cv2"; } || echo "avviso: onnxruntime non installato"
+      && python3 -c "import onnxruntime, tokenizers, numpy, cv2"; } || echo "avviso: onnxruntime non installato"; \
+    { pip install --no-cache-dir --prefix=/usr sherpa-onnx && python3 -c "import sherpa_onnx"; } \
+      || echo "avviso: sherpa-onnx non installato (l'ascolto resta con Vosk)"
 RUN pip install --no-cache-dir --prefix=/usr --no-build-isolation /tmp/aios-copilot \
     && install -Dm644 -t /usr/share/applications /tmp/aios-copilot/data/org.aios.Copilot.desktop /tmp/aios-copilot/data/org.aios.Welcome.desktop \
     && install -Dm644 /tmp/aios-copilot/data/org.aios.Welcome-autostart.desktop /etc/xdg/autostart/org.aios.Welcome-autostart.desktop \
