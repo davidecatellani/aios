@@ -199,7 +199,7 @@ class Smistatore:
             got = nucleo.fill(prompt_campi(text, tool.name, tool.description, props, when), props,
                               tool.parameters.get("required", []))
             if got is not None:
-                return got
+                return fix_dates(got, props, text, when)
         schema = {"type": "object", "properties": tool.parameters.get("properties", {}),
                   "required": tool.parameters.get("required", [])}
         payload = {"model": self.fill_model, "stream": False, "think": False, "format": schema, "keep_alive": "30m",
@@ -223,6 +223,21 @@ class Smistatore:
         if decided[1] < MIN_CONFIDENCE:
             return CORE | set(self.domains[decided[0]].tools)
         return set(self.domains[decided[0]].tools)
+
+
+def fix_dates(args: dict[str, Any], props: dict[str, Any], text: str, now: Any) -> dict[str, Any]:
+    """Le date le calcola when.py (regole fisse, mai sbagliate su «domani» o «tra un'ora»), non il modello:
+    il modello piccolo sceglie bene i campi ma a volte sbaglia il giorno."""
+    iso = [k for k, spec in props.items() if "ISO" in str(spec.get("description", ""))]
+    if not iso:
+        return args
+    from .when import parse_when
+
+    found = parse_when(text, now)
+    if found.at is None:
+        return args
+    value = found.at.strftime("%Y-%m-%d") if found.all_day else found.at.strftime("%Y-%m-%dT%H:%M")
+    return {**args, iso[0]: value}
 
 
 def _post(url: str, payload: dict[str, Any], timeout: float) -> dict[str, Any]:

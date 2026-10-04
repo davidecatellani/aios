@@ -63,3 +63,13 @@ def test_smistatore_uses_nucleo_instead_of_tev1():
     assert plan == ("add_reminder", {"what": "il latte", "when": "2026-10-06T09:00"})
     assert not tev1 and s.last["da"] == "nucleo"
     assert srv.calls[-1]["lora"] == [{"id": 0, "scale": 0.0}, {"id": 1, "scale": 1.0}]  # campi: l'altro adattatore
+
+
+def test_dates_come_from_rules_not_from_the_model():
+    props = {"what": {"description": "Cosa ricordare"}, "when": {"description": "Quando (ISO)"}}
+    now = datetime(2026, 10, 4, 21, 30)
+    fixed = sm.fix_dates({"what": "chiamare Luca", "when": "2026-10-04T18:00"}, props,
+                         "ricordami di chiamare Luca domani alle 18", now)
+    assert fixed == {"what": "chiamare Luca", "when": "2026-10-05T18:00"}
+    assert sm.fix_dates({"what": "latte"}, props, "ricordami il latte", now) == {"what": "latte"}
+    assert sm.fix_dates({"name": "Spotify"}, {"name": {"description": "Nome"}}, "chiudi spotify domani", now) == {"name": "Spotify"}
