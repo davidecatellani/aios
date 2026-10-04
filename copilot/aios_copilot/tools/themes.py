@@ -131,6 +131,11 @@ RE_SIZE = re.compile(r"^(?:(?:ingrandisci|aumenta|rimpicciolisci|riduci|diminuis
                      r"(?P<d>(?:molto\s+|un\s+po'?\s+)?(?:più|piu)\s+(?:grand[ei]|piccol[oie])|grand[ei]|piccol[oie]|normal[ei]|"
                      r"(?:al\s+)?\d{2,3}\s*%|come\s+prima)?$")
 RE_SIZE_VERB = re.compile(r"^(?P<v>ingrandisci|aumenta|rimpicciolisci|riduci|diminuisci)\s+" + _TEXT + r"(?:\s+.*)?$")
+# «riduci il formato della pagina», «ingrandisci lo zoom», «rimpicciolisci tutto», «schermata più grande»
+RE_ZOOM = re.compile(r"^(?P<v>riduci|rimpicciolisci|diminuisci|ingrandisci|aumenta|allarga)\s+(?:il\s+|lo\s+|la\s+|l')?"
+                     r"(?:formato|zoom|dimensione|dimensioni|grandezza|scala|tutto|pagina|schermata|schermo|interfaccia)"
+                     r"(?:\s+(?:della|dello|del|di)\s+.+)?$"
+                     r"|^(?:(?:la\s+)?(?:pagina|schermata|interfaccia)|tutto|zoom)\s+(?P<d>(?:più|piu)\s+(?:grande|piccol[ao]))$")
 RE_FONT = re.compile(r"^(?:metti|usa|cambia|imposta|voglio)\s+(?:il\s+|un\s+)?(?:carattere|font)\s+(?:in\s+|a\s+|con\s+)?(?P<c>.+)$")
 
 
@@ -140,6 +145,10 @@ class ThemesRouter:
         m = RE_FONT.match(low.strip(" .!?"))
         if m:
             return Intent("set_text_style", {"carattere": m.group("c"), "dimensione": ""})
+        m = RE_ZOOM.match(low.strip(" .!?"))
+        if m:
+            bigger = (m.group("v") or "") in ("ingrandisci", "aumenta", "allarga") or "grand" in (m.group("d") or "")
+            return Intent("set_text_style", {"carattere": "", "dimensione": "più grande" if bigger else "più piccolo"})
         m = RE_SIZE_VERB.match(low.strip(" .!?"))
         if m:
             return Intent("set_text_style", {"carattere": "", "dimensione": "più grande" if m.group("v") in ("ingrandisci", "aumenta") else "più piccolo"})
