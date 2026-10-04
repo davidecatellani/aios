@@ -113,7 +113,11 @@ body.in-chat #conversazione { -webkit-mask-image: linear-gradient(to bottom, tra
 #microfono { display: grid; place-items: center; color: var(--testo); }
 #microfono .icona { width: 22px; height: 22px; }
 /* le schede accanto alla risposta */
-body.con-risultati #destra-col > .carta:not(.risultati) { display: none; }
+/* lo storico dei risultati, a sinistra: aperto su una risposta, prende il posto delle carte di oggi */
+#sinistra { overflow-y: auto; }
+.storico { display: contents; }
+body.storico-aperto #sinistra > .carta, body.storico-aperto #sinistra > .etichetta { display: none; }
+.indietro { border: 0; background: none; color: var(--turchese-scuro); font-weight: 700; padding: 4px 2px; }
 .risultati { display: flex; flex-direction: column; gap: 10px; max-height: 100%; overflow-y: auto; }
 .testa-risultati { display: flex; align-items: center; justify-content: space-between; }
 .testa-risultati .via { border: 0; background: none; color: var(--tenue); padding: 4px; }
@@ -389,6 +393,7 @@ async function casa() {
   stato(data.stato || {});
   const sin = $("sinistra"); sin.replaceChildren(el("div", "etichetta", "Oggi"));
   for (const c of data.carte) sin.append(carta(c));
+  const st = el("div", "storico"); st.id = "storico"; sin.append(st); disegnaStorico();
   const es = $("esempi"); es.replaceChildren();
   if (!$("conversazione").childElementCount) {
     for (const e of data.esempi) {
@@ -455,21 +460,64 @@ function riga(t, veloce, dove = conv) {
 
 // --- le schede accanto alla risposta: file, link, film e serie, foto ---------------------------------------
 const tokenQ = `t=${encodeURIComponent(TOKEN)}`;
-function mostraSchede(ev) {
-  const box = el("div", "carta risultati");
-  const testaR = el("div", "testa-risultati");
-  const chiudi = el("button", "via"); chiudi.append(svgIcona("chiudi")); chiudi.title = "Chiudi";
-  chiudi.onclick = () => { box.remove(); document.body.classList.remove("con-risultati"); };
-  testaR.append(el("div", "tipo", ev.titolo || "Risultati"), chiudi);
-  box.append(testaR);
+// I risultati da vedere (file, foto, link, film…) finiscono a sinistra, nello storico delle ultime 10 risposte:
+// toccandone una si vedono i suoi risultati al posto della lista, con «indietro» per tornare alla lista.
+const STORICO = "aios-risultati", STORICO_MAX = 10;
+let storico = (() => { try { return JSON.parse(localStorage.getItem(STORICO)) || []; } catch { return []; } })();
+let storicoAperto = null;
+function salvaStorico() { try { localStorage.setItem(STORICO, JSON.stringify(storico)); } catch {} }
+const SIMBOLO_RISULTATI = { file: "documento", foto: "foto", link: "internet", media: "video" };
+function boxRisultati(ev) {
   const lista = el("div", `elenco-${ev.tipo}`);
   for (const [i, it] of ev.elementi.entries()) lista.append(scheda(ev.tipo, it, ev.elementi, i));
-  box.append(lista);
-  if (PANNELLO) { conv.append(box); giu(); return; }  // nel pannello sopra le app: dentro la conversazione
-  const col = $("destra-col");
-  col.querySelector(".risultati")?.remove();
-  col.prepend(box);
-  document.body.classList.add("con-risultati");
+  return lista;
+}
+function mostraSchede(ev, domanda = "") {
+  if (PANNELLO) {  // nel pannello sopra le app: dentro la conversazione
+    const box = el("div", "carta risultati");
+    box.append(el("div", "tipo", ev.titolo || "Risultati"), boxRisultati(ev));
+    conv.append(box); giu(); return;
+  }
+  storico = [{ domanda, titolo: ev.titolo || "Risultati", tipo: ev.tipo, elementi: ev.elementi, quando: Date.now() },
+             ...storico].slice(0, STORICO_MAX);
+  salvaStorico();
+  storicoAperto = 0;  // i risultati appena arrivati si vedono subito
+  disegnaStorico();
+}
+function disegnaStorico() {
+  const box = $("storico");
+  if (!box) return;
+  box.replaceChildren();
+  const r = storicoAperto !== null ? storico[storicoAperto] : null;
+  document.body.classList.toggle("storico-aperto", !!r);
+  if (r) {
+    const testa = el("div", "testa-risultati");
+    const indietro = el("button", "indietro", "‹ Indietro");
+    indietro.onclick = () => { storicoAperto = null; disegnaStorico(); };
+    const via = el("button", "via"); via.append(svgIcona("chiudi")); via.title = "Togli dallo storico";
+    via.onclick = () => { storico.splice(storicoAperto, 1); salvaStorico(); storicoAperto = null; disegnaStorico(); };
+    testa.append(indietro, via);
+    const c = el("div", "carta risultati");
+    c.append(testa, el("div", "tipo", r.titolo));
+    if (r.domanda) c.append(el("p", "nota", `«${r.domanda}»`));
+    c.append(boxRisultati(r));
+    box.append(c);
+    return;
+  }
+  if (!storico.length) return;
+  const c = el("div", "carta risultati");
+  c.append(el("div", "tipo", "Risultati recenti"));
+  for (const [i, x] of storico.entries()) {
+    const v = el("button", "voce-risultato");
+    v.append(svgIcona(SIMBOLO_RISULTATI[x.tipo] || "documento"));
+    const t = el("div", "testo-voce");
+    const ora = new Date(x.quando).toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" });
+    t.append(el("b", "", x.domanda || x.titolo), el("small", "", `${x.titolo} · ${x.elementi.length} ${x.elementi.length === 1 ? "risultato" : "risultati"} · ${ora}`));
+    v.append(t);
+    v.onclick = () => { storicoAperto = i; disegnaStorico(); };
+    c.append(v);
+  }
+  box.append(c);
 }
 function scheda(tipo, it, tutti, i) {
   if (tipo === "foto") {
@@ -526,7 +574,7 @@ async function chiedi(text, aVoce = false) {
         if (ev.kind === "fast") veloce = true;
         if (ev.kind === "coda") coda = riga("⏳ in coda: rispondo appena finisco la richiesta di prima", null, dove);
         if (ev.kind === "status") { coda?.remove(); coda = null; riga(ev.text, null, dove); }
-        if (ev.kind === "schede") mostraSchede(ev);
+        if (ev.kind === "schede") mostraSchede(ev, text);
         if (ev.kind === "token") {  // la risposta compare mentre Nova la scrive
           if (!inCorso) { coda?.remove(); coda = null; inCorso = el("div", "msg nova", ""); dove.append(inCorso); }
           inCorso.textContent += ev.text; giu();
