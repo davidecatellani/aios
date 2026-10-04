@@ -23,6 +23,10 @@ from dataclasses import dataclass, field
 from typing import Any, Callable
 
 DEFAULT_MODEL = "tev1:0.8b"
+# Il modello piccolo che compila i campi di un'azione già scelta (formato JSON rigido): 2× più veloce del 2B.
+FILL_MODEL = "qwen3.5:0.8b"
+MIN_ACTION_CONFIDENCE = 0.6
+NO_ACTION = "conversazione"
 MIN_CONFIDENCE = 0.55  # sotto: si danno tutti gli strumenti (meglio lento che sbagliato)
 TIMEOUT = 8.0
 
@@ -83,10 +87,29 @@ class Smistatore:
         self.post = post or _post
         self._off_until = 0.0  # dopo un errore (modello assente, Ollama vecchio) si riprova più tardi
         self.last: dict[str, Any] = {}
+        self._cache: tuple[str, tuple[str, float] | None] | None = None
+        self.fill_model = os.environ.get("AIOS_MODELLO_CAMPI", FILL_MODEL)
 
     def decide(self, text: str) -> tuple[str, float] | None:
         if time.monotonic() < self._off_until or not text.strip():
             return None
+        if self._cache and self._cache[0] == text:  # la stessa frase: piano e strumenti usano la stessa scelta
+            return self._cache[1]
+        decided = self._decide(text)
+        self._cache = (text, decided)
+        return decided
+
+    def _ask(self, text: str, name: str, instructions: str, criteria: dict[str, str]) -> tuple[str, float] | None:
+        payload = {"model": self.model, "state": text[:2000],
+                   "questions": {name: {"type": "choice", "instructions": instructions, "criteria": criteria}}}
+        try:
+            answer = self.post(f"{self.url}/v1/systemone", payload, TIMEOUT)["answers"][name]
+            return str(answer["choice"]), float(answer.get("confidence", 0.0))
+        except (OSError, ValueError, KeyError, TypeError, urllib.error.URLError):
+            self._off_until = time.monotonic() + 300
+            return None
+
+    def _decide(self, text: str) -> tuple[str, float] | None:
         payload = {"model": self.model, "state": text[:2000], "questions": {"ambito": {
             "type": "choice", "instructions": "Which area does this request to a personal computer assistant belong to?",
             "criteria": {name: d.description for name, d in self.domains.items()}}}}
@@ -101,6 +124,50 @@ class Smistatore:
         if choice not in self.domains:
             return None
         return choice, confidence
+
+    # --- divisione dei compiti: azione scelta da Tev1, campi compilati dal modello piccolo -----------
+    def plan(self, text: str, tools: dict[str, Any], now: Callable[[], Any] | None = None) -> tuple[str, dict[str, Any]] | None:
+        """(strumento, argomenti) se l'azione è chiara, senza il modello grande; None per lasciar fare a lui."""
+        decided = self.decide(text)
+        if decided is None or decided[1] < MIN_CONFIDENCE or decided[0] == "chiacchiera":
+            return None
+        candidates = {n: tools[n] for n in sorted(self.domains[decided[0]].tools) if n in tools}
+        if not candidates or len(candidates) > 25:
+            return None
+        criteria = {n: t.description[:200] for n, t in candidates.items()}
+        criteria[NO_ACTION] = "None of these actions: the user wants to talk, asks a question or wants something else"
+        picked = self._ask(text, "azione", "Which action should the assistant run for this request?", criteria)
+        if picked is None or picked[0] not in candidates or picked[1] < MIN_ACTION_CONFIDENCE:
+            return None
+        tool = candidates[picked[0]]
+        props = tool.parameters.get("properties", {})
+        if not props:
+            return tool.name, {}
+        args = self.fill(text, tool, now)
+        required = set(tool.parameters.get("required", []))
+        if args is None or not required <= {k for k, v in args.items() if v not in ("", None)}:
+            return None
+        return tool.name, {k: v for k, v in args.items() if k in props}
+
+    def fill(self, text: str, tool: Any, now: Callable[[], Any] | None = None) -> dict[str, Any] | None:
+        """I campi di un'azione dalla frase dell'utente: JSON rigido (schema dello strumento) dal modello piccolo."""
+        from datetime import datetime
+
+        when = (now or datetime.now)()
+        schema = {"type": "object", "properties": tool.parameters.get("properties", {}),
+                  "required": tool.parameters.get("required", [])}
+        payload = {"model": self.fill_model, "stream": False, "think": False, "format": schema, "keep_alive": "30m",
+                   "options": {"temperature": 0},
+                   "messages": [{"role": "system", "content": f"Adesso è {when:%A %d/%m/%Y %H:%M}. Estrai dalla frase "
+                                 f"dell'utente i valori per l'azione «{tool.description}». Rispondi solo con il JSON; "
+                                 "lascia vuoto un campo che la frase non dice."},
+                                {"role": "user", "content": text[:1000]}]}
+        try:
+            reply = self.post(f"{self.url}/api/chat", payload, 30.0)
+            args = json.loads(reply["message"]["content"])
+            return args if isinstance(args, dict) else None
+        except (OSError, ValueError, KeyError, TypeError, urllib.error.URLError):
+            return None
 
     def narrow(self, text: str) -> set[str] | None:
         """Gli strumenti da dare al modello di conversazione, o None per darli tutti."""

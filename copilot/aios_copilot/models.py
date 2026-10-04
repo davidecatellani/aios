@@ -76,7 +76,7 @@ BUILTIN_VERSION = 0
 BUILTIN: tuple[Model, ...] = (
     # testo (con uso degli strumenti). Qwen 3.5 (2026): a parità di peso nettamente meglio di Qwen 2.5,
     # e vede anche le immagini; il 2B è quello incluso nell'immagine di AIOS.
-    Model("qwen3.5:0.8b", "testo", 1.0, 2, rank=1.5, note="il più leggero, per PC con poca memoria"),
+    Model("qwen3.5:0.8b", "testo", 1.0, 2, rank=1.5, note="incluso in AIOS: compila i campi delle azioni (2× più veloce del 2B)"),
     Model("qwen3.5:2b", "testo", 2.7, 4, rank=3.2, note="incluso in AIOS: risponde anche senza internet"),
     Model("qwen3.5:4b", "testo", 3.4, 6, rank=4.3, note="il migliore per i portatili senza scheda video"),
     Model("qwen3.5:9b", "testo", 6.6, 10, rank=5.2, note="per PC con 16 GB o una scheda video"),

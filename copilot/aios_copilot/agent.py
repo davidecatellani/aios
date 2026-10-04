@@ -109,6 +109,7 @@ class Agent:
         routers: Sequence[Router] = (),
         history: Callable[[str, str, dict[str, Any]], None] | None = None,
         narrow: Callable[[str], set[str] | None] | None = None,
+        planner: Callable[[str, dict[str, Any]], tuple[str, dict[str, Any]] | None] | None = None,
     ):
         self.model = model
         self.tools = {t.name: t for t in tools}
@@ -121,6 +122,8 @@ class Agent:
         self.history = history
         # Lo smistatore (smistatore.py): sceglie gli strumenti dell'ambito giusto prima del modello.
         self.narrow = narrow
+        # Divisione dei compiti (smistatore.plan): azione e campi decisi da modelli piccoli, senza il grande.
+        self.planner = planner
         self.reset()
 
     def reset(self) -> None:
@@ -150,6 +153,14 @@ class Agent:
                       "Se è il permesso per gli aggiornamenti, scrivimi «collega GitHub per gli aggiornamenti».")
             self.messages.append({"role": "assistant", "content": answer})
             return answer
+
+        if self.planner is not None:
+            try:
+                planned = self.planner(text, self.tools)
+            except Exception:
+                planned = None
+            if planned is not None and planned[0] in self.tools:
+                return self._run_intent(Intent(planned[0], planned[1]), 2, emit)
 
         allowed = None
         if self.narrow is not None:

@@ -87,3 +87,40 @@ def test_streaming_answer_arrives_piece_by_piece():
     pieces = []
     reply = client.chat([{"role": "user", "content": "ciao"}], [], on_token=pieces.append)
     assert pieces == ["Ciao", ", sono", " Nova."] and reply["content"] == "Ciao, sono Nova."
+
+
+def test_tasks_are_split_between_small_models():
+    """Tev1 sceglie ambito e azione, il modello piccolo compila i campi: il modello grande non lavora."""
+    import json as _json
+
+    calls = []
+    reminder = Tool("add_reminder", "Crea un promemoria.", params(["what"], what="Cosa ricordare", when="Quando"),
+                    lambda what, when="": f"Ok: {what} {when}")
+    status = tool("energy_status")
+
+    def post(url, payload, timeout):
+        calls.append(url.rsplit("/", 1)[-1] if "systemone" not in url else list(payload["questions"])[0])
+        if url.endswith("/v1/systemone"):
+            q = list(payload["questions"])[0]
+            choice = {"ambito": "agenda", "azione": "add_reminder"}[q]
+            return {"answers": {q: {"choice": choice, "confidence": 0.9}}}
+        assert payload["model"] == "qwen3.5:0.8b" and payload["format"]["required"] == ["what"]
+        return {"message": {"content": _json.dumps({"what": "pagare la bolletta", "when": "2026-10-05T12:00"})}}
+
+    s = sm.build({"agenda": [reminder], "computer": [status]}, post=post)
+    a = Agent(Model(), [reminder, status], confirm=lambda *x, **k: True, narrow=s.narrow, planner=s.plan)
+    assert a.ask("segnati che domani a mezzogiorno devo pagare la bolletta") == "Ok: pagare la bolletta 2026-10-05T12:00"
+    assert calls == ["ambito", "azione", "chat"]  # una sola scelta d'ambito (in cache), niente modello grande
+
+
+def test_unsure_action_goes_to_the_big_model():
+    reminder = Tool("add_reminder", "Crea un promemoria.", params(["what"], what="Cosa ricordare"), lambda what: what)
+
+    def post(url, payload, timeout):
+        q = list(payload["questions"])[0]
+        return {"answers": {q: {"choice": "agenda" if q == "ambito" else "conversazione", "confidence": 0.9}}}
+
+    s = sm.build({"agenda": [reminder]}, post=post)
+    model = Model()
+    Agent(model, [reminder], confirm=lambda *x, **k: True, narrow=s.narrow, planner=s.plan).ask("com'è organizzata l'agenda?")
+    assert model.seen[-1] == ["add_reminder"]  # il modello grande decide, con i soli strumenti dell'agenda

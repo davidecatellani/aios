@@ -166,6 +166,7 @@ def make_agent(confirm: Confirm, model: str | None = None, allowed: frozenset[st
         confirm,
         history=History().record,
         narrow=smistatore.narrow if os.environ.get("AIOS_SMISTATORE", "") != "spento" else None,
+        planner=smistatore.plan if os.environ.get("AIOS_SMISTATORE", "") != "spento" else None,
         routers=[
             window_tools.WindowsRouter(),  # livello 0: programmi aperti e app di AIOS (sessione AIOS)
             agenda_tools.AgendaRouter(),  # livello 0: promemoria, appuntamenti, riepilogo
