@@ -604,6 +604,17 @@ def register_apps(app: Any, run: Run = _run) -> None:
         code, _ = run(cmd)
         return 200, {"ok": code == 0}
 
+    def appearance(m: Any, b: dict[str, Any], q: dict[str, str]) -> tuple[int, Any]:
+        from .. import carattere
+
+        if m.re.pattern.endswith("caratteri"):
+            return 200, {"caratteri": carattere.offered(), "minimo": carattere.MIN_SCALE, "massimo": carattere.MAX_SCALE}
+        if b:
+            msg = carattere.set_appearance(str(b.get("carattere", "")),
+                                           f"{round(float(b['scala']) * 100)}%" if b.get("scala") else "")
+            return 200, {**carattere.load(), "messaggio": msg}
+        return 200, carattere.load()
+
     def diary(m: Any, b: dict[str, Any], q: dict[str, str]) -> tuple[int, Any]:
         from .. import diario
 
@@ -701,6 +712,9 @@ def register_apps(app: Any, run: Run = _run) -> None:
         ("POST", r"/api/impostazioni/voce", choose_voice),
         ("POST", r"/api/impostazioni/tastiera", keyboard_layout),
         ("POST", r"/api/impostazioni/diario", diary),
+        ("GET", r"/api/aspetto", appearance),
+        ("POST", r"/api/aspetto", appearance),
+        ("GET", r"/api/aspetto/caratteri", appearance),
     ):
         app.route(method, pattern, guarded(handler))
 

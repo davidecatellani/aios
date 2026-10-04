@@ -89,7 +89,16 @@ def make_tools(ask_llm: Callable[[str], str] | None = None, runner: Runner | Non
         out.write_bytes(data)
         return f"Tema esportato in {out}: puoi condividerlo" + (" o proporlo al market." if for_market else ".")
 
+    def set_text_style(carattere: str = "", dimensione: str = "") -> str:
+        from .. import carattere as car
+
+        return car.set_appearance(carattere, dimensione)
+
     return [
+        Tool("set_text_style", "Cambia il carattere (font) o la dimensione del testo in tutto il sistema: più grande, "
+             "più piccolo, 120%, più leggibile, per la dislessia, con le grazie, o un font per nome.",
+             params([], carattere="Carattere: leggibile, dislessia, lettura, classico, normale o un nome",
+                    dimensione="Dimensione: più grande, più piccolo, normale, 120%"), set_text_style),
         Tool("create_theme", "Crea e applica un tema da una descrizione (es. «stile marino», «autunnale», «alto contrasto»).",
              params(description="Descrizione"), create_theme),
         Tool("create_theme_from_image", "Crea e applica un tema partendo da un disegno o una foto (colori e sfondo).",
@@ -116,9 +125,27 @@ RE_APPLY = re.compile(r"^(?:metti|applica|usa|attiva)\s+(?:il\s+)?tema\s+(?P<n>.
 RE_MARKET = re.compile(r"^(?:cerca|mostra(?:mi)?)\s+(?:dei\s+)?temi\s*(?P<q>.*?)\s*(?:nel|sul|dal)\s+market$|^market\s+(?:dei\s+)?temi$")
 
 
+_TEXT = r"(?:(?:il\s+|i\s+)?(?:testo|testi|scritte|caratteri|lettere|scrittura))"
+RE_SIZE = re.compile(r"^(?:(?:ingrandisci|aumenta|rimpicciolisci|riduci|diminuisci|rendi|fai|fammi|metti)\s+)?"
+                     + _TEXT + r"(?:\s+(?:del\s+sistema|dappertutto|ovunque))?\s*"
+                     r"(?P<d>(?:molto\s+|un\s+po'?\s+)?(?:più|piu)\s+(?:grand[ei]|piccol[oie])|grand[ei]|piccol[oie]|normal[ei]|"
+                     r"(?:al\s+)?\d{2,3}\s*%|come\s+prima)?$")
+RE_SIZE_VERB = re.compile(r"^(?P<v>ingrandisci|aumenta|rimpicciolisci|riduci|diminuisci)\s+" + _TEXT + r"(?:\s+.*)?$")
+RE_FONT = re.compile(r"^(?:metti|usa|cambia|imposta|voglio)\s+(?:il\s+|un\s+)?(?:carattere|font)\s+(?:in\s+|a\s+|con\s+)?(?P<c>.+)$")
+
+
 class ThemesRouter:
     def match(self, text: str) -> Intent | None:
         low = normalize(text)
+        m = RE_FONT.match(low.strip(" .!?"))
+        if m:
+            return Intent("set_text_style", {"carattere": m.group("c"), "dimensione": ""})
+        m = RE_SIZE_VERB.match(low.strip(" .!?"))
+        if m:
+            return Intent("set_text_style", {"carattere": "", "dimensione": "più grande" if m.group("v") in ("ingrandisci", "aumenta") else "più piccolo"})
+        m = RE_SIZE.match(low.strip(" .!?"))
+        if m and m.group("d"):
+            return Intent("set_text_style", {"carattere": "", "dimensione": m.group("d")})
         m = RE_FROM_IMAGE.search(low)
         if m:
             path = re.search(r"[/~]\S+\.(?:png|jpe?g|webp|gif|bmp)", text, re.I)

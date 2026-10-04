@@ -20,7 +20,7 @@
 }
 * { box-sizing: border-box; }
 html, body { margin: 0; height: 100%; overflow: hidden; }
-body { font-family: "Inter", "Cantarell", "DejaVu Sans", sans-serif; color: var(--testo); background: var(--fondo);
+body { font-family: var(--carattere, "Inter"), "Inter", "Cantarell", "DejaVu Sans", sans-serif; color: var(--testo); background: var(--fondo);
        user-select: none; -webkit-user-select: none; cursor: default; }
 button { font: inherit; cursor: pointer; }
 [hidden] { display: none !important; }
@@ -392,6 +392,7 @@ async function chiedi(text, aVoce = false) {
   if (inCorso) inCorso.textContent = risposta; else nova(risposta);
   if (aVoce) api("/api/parla", { testo: risposta }).catch(() => {});
   occupata = false;
+  aspetto();
   if (!PANNELLO) setTimeout(casa, 500);
 }
 
@@ -428,6 +429,19 @@ document.addEventListener("keydown", e => {
   if (e.key.length === 1 && !["INPUT", "TEXTAREA"].includes(document.activeElement.tagName) && $("tutte").hidden
       && !document.body.classList.contains("in-vista")) $("testo").focus();
 });
+
+// carattere e dimensione del testo scelti dall'utente (Impostazioni › Aspetto o «ingrandisci il testo»)
+let aspettoOra = "";
+async function aspetto() {
+  const a = await api("/api/aspetto").catch(() => null);
+  if (!a || JSON.stringify(a) === aspettoOra) return;
+  aspettoOra = JSON.stringify(a);
+  document.documentElement.style.setProperty("--carattere", `"${a.carattere}"`);
+  // la barra ha un'altezza fissa: lì cambia solo il carattere
+  document.documentElement.style.zoom = PARTE === "barra" ? 1 : a.scala;
+}
+window.novaAspetto = aspetto;
+aspetto(); setInterval(aspetto, 15000);
 
 // chiamate dalla shell (Super+Spazio, voce)
 window.novaChiedi = (t, aVoce) => chiedi(t, aVoce);

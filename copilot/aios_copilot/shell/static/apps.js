@@ -276,7 +276,7 @@ const VISTE = {
     const corpo = testa(box, "⚙️ Impostazioni");
     const wrap = el("div", "impostazioni"); const nav = el("div", "sezioni"); const pan = el("div", "pannello-imp");
     wrap.append(nav, pan); corpo.append(wrap);
-    const SEZ = [["wifi", "📶 Wi-Fi"], ["bluetooth", "🔵 Bluetooth"], ["suono", "🔊 Suono e schermo"], ["voce", "🗣️ Voce di Nova"], ["tastiera", "⌨️ Tastiera"],
+    const SEZ = [["wifi", "📶 Wi-Fi"], ["bluetooth", "🔵 Bluetooth"], ["suono", "🔊 Suono e schermo"], ["voce", "🗣️ Voce di Nova"], ["tastiera", "⌨️ Tastiera"], ["aspetto", "🔤 Testo e carattere"],
                  ["aggiornamenti", "⬇️ Aggiornamenti"], ["account", "🔑 Password"], ["privacy", "🔒 Privacy e memoria"], ["info", "ℹ️ Questo computer"], ["energia", "⏻ Spegni"]];
     for (const [id, t] of SEZ) {
       const b = bottone(t, () => apriVista("impostazioni", id), ""); b.classList.toggle("attiva", id === sezione); nav.append(b);
@@ -290,7 +290,7 @@ const VISTE = {
     const esito = el("div", "esito");
     const dici = (r) => { esito.textContent = r.messaggio || (r.ok ? "Fatto." : "Non è riuscito."); esito.className = "esito " + (r.ok ? "ok" : "no"); };
     const parte = { suono: "suono", wifi: "wifi", bluetooth: "bluetooth", voce: "voce", info: "info", aggiornamenti: "info",
-                    tastiera: "tastiera" }[sezione];
+                    tastiera: "tastiera", privacy: "privacy" }[sezione];
     const d = parte ? await api(`/api/impostazioni?parte=${parte}`).catch(e => ({ errore: e.message })) : {};
 
     if (sezione === "wifi") {
@@ -401,6 +401,30 @@ const VISTE = {
             riga("Spazio libero", null, el("span", "", i.disco_libero_gb != null ? `${i.disco_libero_gb} GB` : "—")),
             riga("Modello AI di Nova", "Tutto sul computer, niente cloud", el("span", "", i.modello || "—"),
                  bottone("Più potente?", () => { chiudiVista(); chiedi("quali modelli AI mi consigli?"); })));
+    } else if (sezione === "aspetto") {
+      const ora = await api("/api/aspetto").catch(() => ({ carattere: "Inter", scala: 1 }));
+      const el_ = await api("/api/aspetto/caratteri").catch(() => ({ caratteri: [], minimo: 0.8, massimo: 1.6 }));
+      const prova = el("p", "", "Ciao, sono Nova. Quanto è leggibile questo testo? 0123456789");
+      prova.style.cssText = `font-family:"${ora.carattere}";font-size:${Math.round(18 * ora.scala)}px;margin:4px 0 0`;
+      const salva = (cambio) => api("/api/aspetto", cambio).then(r => { dici({ ok: true, messaggio: r.messaggio }); window.novaAspetto && window.novaAspetto(); })
+        .catch(e => dici({ ok: false, messaggio: e.message }));
+      const cursore = el("input"); cursore.type = "range"; cursore.min = el_.minimo; cursore.max = el_.massimo; cursore.step = 0.05; cursore.value = ora.scala;
+      const valore = el("b", "", `${Math.round(ora.scala * 100)}%`);
+      cursore.oninput = () => { valore.textContent = `${Math.round(cursore.value * 100)}%`; prova.style.fontSize = `${Math.round(18 * cursore.value)}px`; };
+      cursore.onchange = () => salva({ scala: Number(cursore.value) });
+      carta(riga("Dimensione del testo", "Vale per tutto AIOS e per i programmi", cursore, valore),
+            riga("", null, bottone("Normale", () => { cursore.value = 1; cursore.oninput(); salva({ scala: 1 }); }, "bottone")));
+      const lista = el("div", "caratteri");
+      for (const c of el_.caratteri) {
+        const b = bottone("", () => { prova.style.fontFamily = `"${c.famiglia}"`; salva({ carattere: c.famiglia });
+                                      lista.querySelectorAll("button").forEach(x => x.classList.toggle("attiva", x === b)); }, "carattere-scelta");
+        b.classList.toggle("attiva", c.famiglia === ora.carattere);
+        const nome = el("b", "", c.famiglia); nome.style.fontFamily = `"${c.famiglia}"`;
+        b.replaceChildren(nome, el("small", "", c.descrizione));
+        lista.append(b);
+      }
+      carta(riga("Carattere", "Puoi anche dirlo a Nova: «usa un carattere più leggibile»"), lista, prova);
+      pan.append(esito);
     } else if (sezione === "privacy") {
       const di = d.diario || {};
       carta(riga("Diario delle attività", `Nova ricorda programmi, file, siti e conversazioni per rispondere a «dove mi ero fermato?». Resta solo su questo computer, per ${di.conserva || 90} giorni.`,

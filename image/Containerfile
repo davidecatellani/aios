@@ -19,6 +19,8 @@ RUN dnf install -y --skip-unavailable \
         espeak-ng pipewire-utils python3-cffi pciutils usbutils zenity \
         labwc gtk4-layer-shell wlrctl mako swayidle swaylock wlopm grim slurp brightnessctl \
         greetd greetd-selinux cage python3-openpyxl tuned-ppd gtklock \
+        rsms-inter-fonts atkinson-hyperlegible-fonts google-noto-serif-fonts mozilla-fira-sans-fonts \
+        opendyslexic-fonts lexend-fonts jetbrains-mono-fonts \
         gstreamer1-plugins-good gstreamer1-plugins-bad-free gstreamer1-plugin-libav \
         xdg-desktop-portal-wlr xdg-desktop-portal-gtk polkit-gnome \
         linux-firmware realtek-firmware atheros-firmware iwlwifi-mvm-firmware mt7xxx-firmware brcmfmac-firmware \
