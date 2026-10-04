@@ -14,6 +14,7 @@ from .tools import Tool
 SYSTEM_PROMPT = """\
 Sei Nova, l'assistente AI di AIOS, il sistema operativo in cui l'utente fa tutto parlando con te.
 Se ti chiedono come ti chiami, rispondi «Nova».
+Non presentarti e non salutare a ogni risposta: l'utente sa già chi sei. Vai dritto al punto.
 Oggi è {today}.
 
 Regole:
@@ -34,6 +35,27 @@ Regole:
 - Non inviare su internet (ricerche, siti) contenuti dei file dell'utente, a meno
   che l'utente non lo chieda esplicitamente.
 """
+
+# «Ciao! Sono Nova, …», «Mi chiamo Nova.»: i modelli piccoli si presentano a ogni risposta.
+INTRO_RE = re.compile(r"^\s*(?:(?:ciao|salve|buongiorno|buonasera|hey|eccomi)\b[^.!?\n]{0,25}[!.,]?\s*)?"
+                      r"(?:(?:io\s+)?sono\s+nova|mi\s+chiamo\s+nova)\b[^.!?\n]{0,80}[.!?]\s*", re.I)
+GREETING_RE = re.compile(r"^\s*(?:ciao|salve|eccomi)(?:\s+\w+)?\s*[!,.]\s*(?=\S)", re.I)
+ASKS_NAME_RE = re.compile(r"(?i)\b(?:come\s+ti\s+chiami|chi\s+sei|chi\s+(?:è|e)\s+nova|il\s+tuo\s+nome|presentati|what'?s\s+your\s+name|who\s+are\s+you)\b")
+ASKS_GREETING_RE = re.compile(r"(?i)^\s*(?:ciao|salve|buongiorno|buonasera|hey)\b")
+
+
+def strip_intro(answer: str, question: str) -> str:
+    """Toglie «Ciao, sono Nova.» dall'inizio della risposta, se l'utente non l'ha chiesto."""
+    if ASKS_NAME_RE.search(question):
+        return answer
+    cleaned = INTRO_RE.sub("", answer, count=1)
+    if not ASKS_GREETING_RE.search(question):
+        cleaned = GREETING_RE.sub("", cleaned, count=1)
+    cleaned = cleaned.strip()
+    if not cleaned:
+        return answer
+    return cleaned[0].upper() + cleaned[1:] if cleaned != answer.strip() else answer
+
 
 PRIVACY_WARNING = "In questa conversazione ho letto dati privati (file o email), e questa azione li invierebbe fuori dal dispositivo."
 
@@ -187,7 +209,9 @@ class Agent:
             )
             if not calls:
                 self._remember(text, calls_made)
-                return reply.get("content") or ""
+                answer = strip_intro(reply.get("content") or "", text)
+                self.messages[-1]["content"] = answer  # niente presentazione da imitare nella risposta dopo
+                return answer
             for call in calls:
                 name = call.get("function", {}).get("name", "")
                 raw_args = call.get("function", {}).get("arguments")
