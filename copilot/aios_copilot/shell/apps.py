@@ -626,6 +626,43 @@ def register_apps(app: Any, run: Run = _run) -> None:
         msg = connect_github(str(b.get("token", "")))
         return 200, {"ok": msg.startswith("Collegato"), "messaggio": msg}
 
+    def mail_accounts(m: Any, b: dict[str, Any], q: dict[str, str]) -> tuple[int, Any]:
+        """Impostazioni › Posta: gli account collegati, il servizio di un indirizzo, collegarne uno nuovo."""
+        from ..mail import client, oauth
+        from ..mail.providers import provider_for
+
+        if m.re.pattern.endswith("servizio"):
+            address = q.get("indirizzo", "").strip()
+            found = provider_for(address) if "@" in address else None
+            if found is None:
+                return 200, {"noto": False, "nome": "", "oauth": False, "aiuto": "Usa la password della tua casella di posta."}
+            p = found[1]
+            ready = False
+            if p.oauth is not None:
+                try:
+                    ready = bool(oauth.client_credentials(p.oauth)[0])
+                except Exception:
+                    ready = False
+            return 200, {"noto": True, "nome": p.name, "oauth": ready, "aiuto": p.password_help}
+        if not b:
+            return 200, {"account": [a.address for a in client.load_accounts()]}
+        address, secret, use_oauth = str(b.get("indirizzo", "")).strip(), str(b.get("password", "")), bool(b.get("oauth"))
+        if "@" not in address:
+            return 200, {"ok": False, "messaggio": "Scrivi l'indirizzo completo, per esempio nome@gmail.com."}
+        if not use_oauth and not secret:
+            return 200, {"ok": False, "messaggio": "Scrivi la password."}
+        from ..mail.service import add_account
+
+        try:
+            msg = add_account(address, use_oauth, ask=lambda _prompt: secret)
+            account = next(a for a in client.load_accounts() if a.address == address)
+            client.imap_connect(account).logout()  # proviamo subito: meglio saperlo adesso
+        except Exception as exc:
+            accounts = [a for a in client.load_accounts() if a.address != address]
+            client.save_accounts(accounts)
+            return 200, {"ok": False, "messaggio": f"Non riesco ad accedere: {exc}. Controlla indirizzo e password."}
+        return 200, {"ok": True, "messaggio": msg + " Scarico le mail in sottofondo."}
+
     def power(m: Any, b: dict[str, Any], q: dict[str, str]) -> tuple[int, Any]:
         cmd = POWER.get(str(b.get("azione", "")))
         if cmd is None:
@@ -791,6 +828,9 @@ def register_apps(app: Any, run: Run = _run) -> None:
         ("POST", r"/api/impostazioni/(volume|luminosita)", level),
         ("POST", r"/api/impostazioni/password", password),
         ("POST", r"/api/impostazioni/github", github),
+        ("GET", r"/api/impostazioni/posta", mail_accounts),
+        ("POST", r"/api/impostazioni/posta", mail_accounts),
+        ("GET", r"/api/impostazioni/posta/servizio", mail_accounts),
         ("POST", r"/api/impostazioni/energia", power),
         ("POST", r"/api/impostazioni/voce", choose_voice),
         ("POST", r"/api/impostazioni/tastiera", keyboard_layout),
@@ -849,7 +889,7 @@ def first_steps(run: Run = _run, checks: dict[str, Callable[[], bool]] | None = 
         {"id": "internet", "simbolo": "📶", "titolo": "Collegati a internet", "testo": "Scegli la tua rete Wi-Fi.",
          "azione": {"vista": "impostazioni", "parte": "wifi"}},
         {"id": "posta", "simbolo": "✉️", "titolo": "Collega la posta",
-         "testo": "Ti avviso delle mail importanti e trovo bollette e scadenze.", "azione": {"chiedi": "collega la posta"}},
+         "testo": "Ti avviso delle mail importanti e trovo bollette e scadenze.", "azione": {"vista": "impostazioni", "parte": "posta"}},
         {"id": "telefono", "simbolo": "📱", "titolo": "Collega il telefono",
          "testo": "Foto, notifiche e chiamate anche qui; funziona anche senza Wi-Fi.", "azione": {"chiedi": "collega il telefono"}},
         {"id": "aggiornamenti", "simbolo": "⬇️", "titolo": "Ricevi gli aggiornamenti",

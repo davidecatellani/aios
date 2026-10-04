@@ -99,17 +99,25 @@ def free_gb() -> float:
     return 0.0
 
 
+# la domanda per il modello decisionale (uguale in uso e in addestramento, addestramento/dati_laya.py)
+RELOAD_QUESTION = {"type": "choice", "instructions": "Should the assistant reload its AI models now?",
+                   "criteria": {"si": "The user left the game to do something else on the computer and will "
+                                      "probably need the assistant soon",
+                                "no": "The user only stepped out of the game for a moment (a menu, a quick "
+                                      "message) and will go back to playing"}}
+
+
+def reload_state(game: str, away: float, free: float, clock: str) -> str:
+    return (f"Un gioco ({game}) è aperto ma non è in primo piano da {int(away // 60)} minuti e {int(away % 60)} "
+            f"secondi: l'utente lo ha ridotto a icona o è passato a un altro programma. Memoria libera: {free:.1f} GB. "
+            f"Ora: {clock}.")
+
+
 def decide_reload(game: str, away: float, free: float, ask: Callable[[str, dict[str, Any]], Any] | None = None) -> bool:
     """Il gioco è in secondo piano: ricaricare Nova adesso? Lo decide il modello decisionale (System One, quello dello smistatore);
     se non risponde, una regola semplice."""
-    state = (f"Un gioco ({game}) è aperto ma non è in primo piano da {int(away // 60)} minuti e {int(away % 60)} secondi: "
-             f"l'utente lo ha ridotto a icona o è passato a un altro programma. Memoria libera: {free:.1f} GB. "
-             f"Ora: {time.strftime('%H:%M')}.")
-    question = {"ricarica": {"type": "choice", "instructions": "Should the assistant reload its AI models now?",
-                             "criteria": {"si": "The user left the game to do something else on the computer and will "
-                                                "probably need the assistant soon",
-                                          "no": "The user only stepped out of the game for a moment (a menu, a quick "
-                                                "message) and will go back to playing"}}}
+    state = reload_state(game, away, free, time.strftime("%H:%M"))
+    question = {"ricarica": RELOAD_QUESTION}
     try:
         if ask is None:
             from .smistatore import Smistatore

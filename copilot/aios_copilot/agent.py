@@ -10,6 +10,7 @@ from typing import Any, Callable, Protocol, Sequence
 from .fastpath import Intent
 from .llm import ChatModel
 from .tools import Tool
+from .tools.base import take_offer
 
 SYSTEM_PROMPT = """\
 Sei Nova, l'assistente AI di AIOS, il sistema operativo in cui l'utente fa tutto parlando con te.
@@ -60,6 +61,16 @@ def strip_intro(answer: str, question: str) -> str:
 PRIVACY_WARNING = "In questa conversazione ho letto dati privati (file o email), e questa azione li invierebbe fuori dal dispositivo."
 
 REFUSED = "L'utente ha rifiutato questa azione."
+# «sì» a una proposta di Nova: accettazione semplice o un verbo con il pronome («collegalo», «fallo», «aprila»)
+YES_FOLLOW_UP = re.compile(r"^(?:sì|si|ok|okay|va bene|certo|certamente|dai|vai|procedi|fallo|falla|fai pure|perfetto|"
+                           r"d'accordo|volentieri|sì grazie|si grazie|sì dai|si dai|sì fallo|si fallo|"
+                           r"(?P<verbo>[a-zà-ù]{2,}[aei])(?:lo|la|li|le|ne)(?:\s+(?:pure|adesso|ora|subito))?)$")
+# frase a metà, che si capisce solo con quella prima: un verbo con pronome, «e …», «anche …», «invece …»
+# (solo all'inizio: «aprilo», «mandala a Marco»; non «apri la cartella», dove «cartella» finisce per -la)
+PARTIAL_FOLLOW_UP = re.compile(r"^(?:(?:e|anche|invece|pure|poi|allora)\b|(?!(?:quali|quale|quello|quella|quelli|quelle|"
+                               r"nella|nello|della|dello|delle|dalla|dallo|alla|allo|alle|sulla|sullo|bella|bello|"
+                               r"stella|scuola|tavola|parole|nulla|ciascuna|ognuna|qualcuna|nessuna)\b)"
+                               r"[a-zà-ù]{3,}[aei](?:lo|la|li|le|ne)\b)")
 FAILURE_PREFIXES = ("Errore", "Argomenti", "Strumento sconosciuto", "Non ci sono riuscito", "Non posso", "Non trovo")
 
 
@@ -148,7 +159,24 @@ class Agent:
         self.planner = planner
         self.reset()
 
+    def _follow_up(self, text: str) -> tuple[str | None, bool]:
+        """Una risposta che dipende da quello che si è appena detto. → (richiesta da eseguire, frase a metà).
+
+        «sì», «collegalo», «fallo» dopo una proposta di Nova → la richiesta proposta. «aprilo», «e domani?»,
+        «anche a Marco» senza proposta → frase a metà: niente regole veloci, la capisce il modello con la
+        conversazione davanti."""
+        low = text.lower().strip(" .!?")
+        yes = YES_FOLLOW_UP.match(low)
+        if self.offer and yes:
+            verb = yes.group("verbo")
+            # «collegalo» vale per «collega la posta», non «spegnilo»: il verbo deve essere quello proposto
+            if not verb or verb in ("fa", "fal") or self.offer.lower().startswith(verb):
+                return self.offer, False
+        partial = len(self.messages) > 2 and len(low.split()) <= 5 and bool(PARTIAL_FOLLOW_UP.search(low))
+        return None, partial
+
     def reset(self) -> None:
+        self.offer: str | None = None  # la proposta dell'ultima risposta (tools.base.offer)
         self.messages: list[dict[str, Any]] = [
             {"role": "system", "content": SYSTEM_PROMPT.format(today=date.today().isoformat())}
         ]
@@ -164,30 +192,38 @@ class Agent:
         emit = on_event or (lambda kind, data: None)
         # Un token incollato in chat resta qui: al modello e alla cronologia arriva solo un segnaposto.
         shown = redact_secrets(text)
+        offered, partial = self._follow_up(text)
+        previous = next((m["content"] for m in reversed(self.messages) if m["role"] == "user"), "")
+        self.offer = None
+        take_offer()
         self.messages.append({"role": "user", "content": f"{shown}\n\n(Contesto: {context})" if context else shown})
+        if offered:
+            text = offered  # «sì» / «collegalo» → quello che Nova aveva proposto
+            emit("follow_up", {"text": offered})
 
-        for level, router in enumerate(self.routers):
+        for level, router in enumerate(self.routers if not partial else []):
             intent = router.match(text)
             if intent is not None and intent.tool in self.tools:
-                return self._run_intent(intent, level, emit)
+                return self._finish(self._run_intent(intent, level, emit))
         if shown != text:
             answer = ("Questo sembra un token segreto: non lo passo al modello AI e non lo salvo. "
                       "Se è il permesso per gli aggiornamenti, scrivimi «collega GitHub per gli aggiornamenti».")
             self.messages.append({"role": "assistant", "content": answer})
             return answer
 
-        if self.planner is not None:
+        if self.planner is not None and not partial:
             try:
                 planned = self.planner(text, self.tools)
             except Exception:
                 planned = None
             if planned is not None and planned[0] in self.tools:
-                return self._run_intent(Intent(planned[0], planned[1]), 2, emit)
+                return self._finish(self._run_intent(Intent(planned[0], planned[1]), 2, emit))
 
         allowed = None
         if self.narrow is not None:
             try:
-                allowed = self.narrow(text)
+                # una frase a metà si capisce con quella prima («che mail devo leggere?» → «collegalo»)
+                allowed = self.narrow(f"{previous}\n{text}" if partial and previous else text)
             except Exception:
                 allowed = None  # lo smistatore non deve mai bloccare Nova
         tools = [t for t in self.tools.values() if allowed is None or t.name in allowed]
@@ -211,7 +247,7 @@ class Agent:
                 self._remember(text, calls_made)
                 answer = strip_intro(reply.get("content") or "", text)
                 self.messages[-1]["content"] = answer  # niente presentazione da imitare nella risposta dopo
-                return answer
+                return self._finish(answer)
             for call in calls:
                 name = call.get("function", {}).get("name", "")
                 raw_args = call.get("function", {}).get("arguments")
@@ -227,6 +263,11 @@ class Agent:
                 self.messages.append({"role": "tool", "tool_name": name, "content": result})
 
         return "Mi sono fermato: la richiesta richiedeva troppi passaggi. Puoi riformularla?"
+
+    def _finish(self, answer: str) -> str:
+        """Tiene la proposta fatta da uno strumento in questa risposta, per un «sì» detto subito dopo."""
+        self.offer = take_offer()
+        return answer
 
     def _run_intent(self, intent: Intent, level: int, emit: OnEvent) -> str:
         emit("routed", {"intent": Intent(intent.tool, {k: v for k, v in intent.args.items() if k not in SECRET_ARGS}),

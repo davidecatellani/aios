@@ -9,7 +9,7 @@ from ..fastpath import Intent, normalize
 from ..mail.classify import CATEGORIES
 from ..mail.store import MailStore
 from ..privacy import redact_secrets
-from .base import Tool, params
+from .base import Tool, offer, params
 
 CATEGORY_WORDS = {
     "newsletter": "newsletter", "pubblicità": "newsletter", "promozioni": "newsletter", "spam": "newsletter",
@@ -22,7 +22,8 @@ def make_tools(get_store: Callable[[], MailStore], send: Callable[[list[str], st
                has_accounts: Callable[[], bool]) -> list[Tool]:
     def mail_overview() -> str:
         if not has_accounts():
-            return "Non hai ancora collegato un account di posta: aios-mail aggiungi tuo@indirizzo.it"
+            offer("collega la posta")
+            return "Non hai ancora collegato la posta. Vuoi farlo adesso? Ti apro la schermata giusta."
         store = get_store()
         counts = store.counts()
         unread = sum(u for _, u in counts.values())
@@ -86,7 +87,21 @@ def make_tools(get_store: Callable[[], MailStore], send: Callable[[list[str], st
         changed = store.set_override(pattern, cat)
         return f"D'accordo: le mail di {pattern} andranno in «{CATEGORIES[cat]}» ({changed} già spostate)."
 
+    def connect_mail() -> str:
+        import shutil
+        import subprocess
+
+        exe = shutil.which("aios-shell")
+        if exe:
+            try:
+                subprocess.run([exe, "--vista", "impostazioni:posta"], timeout=10, capture_output=True)
+                return "Ecco: scrivi il tuo indirizzo e la password (o accedi con il tuo account) e la collego."
+            except (OSError, subprocess.SubprocessError):
+                pass
+        return "Apri Impostazioni › Posta: scrivi indirizzo e password e la collego."
+
     return [
+        Tool("connect_mail", "Collega un account di posta (apre Impostazioni › Posta).", params(), connect_mail),
         Tool("mail_overview", "Riepilogo della posta: non lette, importanti, categorie.", params(), mail_overview,
              reads_private=True),
         Tool("search_mail", "Cerca nelle email dell'utente.", params(query="Parole da cercare"), search_mail,
@@ -114,9 +129,15 @@ RE_CATEGORIZE = re.compile(
     + "|".join(CATEGORY_WORDS) + r")$")
 
 
+RE_CONNECT = re.compile(r"^(?:collega(?:mi)?|aggiungi|configura|imposta)\s+(?:la\s+|le\s+|il\s+|un\s+|l')?"
+                        r"(?:mia\s+|mie\s+|mio\s+)?(?:posta|mail|email|e-mail|casella(?:\s+di\s+posta)?|account\s+(?:di\s+posta|email))$")
+
+
 class MailRouter:
     def match(self, text: str) -> Intent | None:
         low = normalize(text)
+        if RE_CONNECT.match(low.strip(" .!?")):
+            return Intent("connect_mail", {})
         if RE_OVERVIEW.match(low):
             return Intent("mail_overview", {})
         m = RE_SEARCH.match(low)

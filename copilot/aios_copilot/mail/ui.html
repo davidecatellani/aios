@@ -200,7 +200,7 @@ async function loadFolders() {
     b.addEventListener("click", () => { current.category = f.key; current.q = ""; $("q").value = ""; loadFolders(); loadList(); });
     box.append(b);
   }
-  $("accounts").textContent = data.accounts.length ? data.accounts.join(" · ") : "Nessun account: aios-mail aggiungi tuo@indirizzo";
+  $("accounts").textContent = data.accounts.length ? data.accounts.join(" · ") : "Nessun account: collegalo da Impostazioni › Posta";
   return data;
 }
 

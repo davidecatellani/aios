@@ -24,7 +24,8 @@ SECTIONS = {"wifi": "wifi", "wi-fi": "wifi", "rete": "wifi", "internet": "wifi",
             "volume": "suono", "suono": "suono", "audio": "suono", "luminosita": "suono", "luminosità": "suono",
             "schermo": "suono", "voce": "voce", "password": "account", "aggiornamenti": "aggiornamenti",
             "computer": "info", "sistema": "info", "privacy": "privacy", "diario": "privacy",
-            "memoria": "privacy", "testo": "aspetto", "carattere": "aspetto", "font": "aspetto"}
+            "memoria": "privacy", "testo": "aspetto", "carattere": "aspetto", "font": "aspetto", "posta": "posta",
+            "mail": "posta", "email": "posta", "account di posta": "posta"}
 
 
 def in_aios_session() -> bool:

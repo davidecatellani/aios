@@ -301,7 +301,7 @@ const VISTE = {
     const wrap = el("div", "impostazioni"); const nav = el("div", "sezioni"); const pan = el("div", "pannello-imp");
     wrap.append(nav, pan); corpo.append(wrap);
     const SEZ = [["wifi", "Wi-Fi"], ["bluetooth", "Bluetooth"], ["suono", "Suono e schermo"], ["voce", "Voce di Nova"], ["tastiera", "Tastiera"],
-                 ["aspetto", "Testo e carattere"], ["aggiornamenti", "Aggiornamenti"], ["account", "Password"], ["privacy", "Privacy e memoria"],
+                 ["aspetto", "Testo e carattere"], ["aggiornamenti", "Aggiornamenti"], ["posta", "Posta"], ["account", "Password"], ["privacy", "Privacy e memoria"],
                  ["info", "Questo computer"], ["energia", "Spegni"]];
     for (const [id, t] of SEZ) {
       const b = bottone("", () => apriVista("impostazioni", id), ""); b.classList.toggle("attiva", id === sezione);
@@ -405,6 +405,34 @@ const VISTE = {
             el("p", "nota", "Per scaricare le nuove versioni dal repository privato: crea un token con il solo permesso «Contents: read» e incollalo qui. Resta nel portachiavi del computer."),
             riga("Token", null, tok, bottone("Collega", async () => {
               dici(await api("/api/impostazioni/github", { token: tok.value }).catch(e => ({ ok: false, messaggio: e.message }))); tok.value = "";
+            }, "bottone primo")));
+      pan.append(esito);
+    } else if (sezione === "posta") {
+      const ora = await api("/api/impostazioni/posta").catch(() => ({ account: [] }));
+      if ((ora.account || []).length) carta(riga("Account collegati", null, el("b", "", ora.account.join(" · "))));
+      const indirizzo = el("input", "campo"); indirizzo.type = "email"; indirizzo.placeholder = "nome@gmail.com";
+      const pw = el("input", "campo"); pw.type = "password"; pw.placeholder = "Password"; pw.autocomplete = "off";
+      const aiuto = el("small", "", "");
+      const conOauth = bottone("Accedi con il tuo account", async () => {
+        esito.textContent = "Si apre la pagina di accesso nel browser…";
+        dici(await api("/api/impostazioni/posta", { indirizzo: indirizzo.value, oauth: true }).catch(e => ({ ok: false, messaggio: e.message })));
+        if (esito.classList.contains("ok")) setTimeout(() => apriVista("impostazioni", "posta"), 1500);
+      }, "bottone primo");
+      conOauth.style.display = "none";
+      indirizzo.onchange = async () => {
+        const s = await api(`/api/impostazioni/posta/servizio?indirizzo=${encodeURIComponent(indirizzo.value)}`).catch(() => ({}));
+        aiuto.textContent = (s.nome ? s.nome + ": " : "") + (s.aiuto || "");
+        conOauth.style.display = s.oauth ? "" : "none";
+      };
+      carta(el("p", "nota", "Collega la tua casella: ti avviso delle mail importanti e trovo bollette e scadenze. " +
+                            "La password resta nel portachiavi di questo computer."),
+            riga("Indirizzo", null, indirizzo),
+            riga("Password", aiuto, pw),
+            riga("", null, conOauth, bottone("Collega", async () => {
+              esito.textContent = "Provo ad accedere…";
+              dici(await api("/api/impostazioni/posta", { indirizzo: indirizzo.value, password: pw.value }).catch(e => ({ ok: false, messaggio: e.message })));
+              pw.value = "";
+              if (esito.classList.contains("ok")) setTimeout(() => apriVista("impostazioni", "posta"), 1500);
             }, "bottone primo")));
       pan.append(esito);
     } else if (sezione === "account") {

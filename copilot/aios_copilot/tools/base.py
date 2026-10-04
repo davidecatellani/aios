@@ -23,6 +23,21 @@ def attach(kind: str, items: list[dict[str, Any]], title: str = "") -> None:
             pass  # le schede sono un di più: mai un errore per colpa loro
 
 
+# Il passo successivo proposto da uno strumento («Non hai collegato la posta: vuoi farlo?»): se l'utente risponde
+# «sì», «collegalo», «fallo»… Nova esegue questa richiesta (agent.py). Una richiesta = un thread.
+_offer = threading.local()
+
+
+def offer(request: str) -> None:
+    _offer.text = request
+
+
+def take_offer() -> str | None:
+    text = getattr(_offer, "text", None)
+    _offer.text = None
+    return text
+
+
 def set_attach_sink(fn: Callable[[str, list[dict[str, Any]], str], None] | None) -> None:
     _sink.fn = fn
 

@@ -40,6 +40,17 @@ CORE = {"launch_app", "search_apps", "open_location", "search_files", "search_we
         "media_control", "take_screenshot", "where_left_off", "system_info"}
 
 
+QUESTION_AMBITO = "Which area does this request to a personal computer assistant belong to?"
+QUESTION_AZIONE = "Which action should the assistant run for this request?"
+
+
+def action_criteria(candidates: dict[str, Any]) -> dict[str, str]:
+    """Le azioni possibili descritte per il modello decisionale (uguali in uso e in addestramento)."""
+    criteria = {n: t.description[:200] for n, t in candidates.items()}
+    criteria[NO_ACTION] = "None of these actions: the user wants to talk, asks a question or wants something else"
+    return criteria
+
+
 @dataclass
 class Domain:
     name: str
@@ -130,6 +141,11 @@ class Smistatore:
     def _nucleo(self) -> Any:
         return self.nucleo if self.nucleo is not None and self.nucleo.available() else None
 
+    def question_ambito(self) -> dict[str, Any]:
+        """La domanda «di che ambito è?» per il modello decisionale (uguale in uso e in addestramento)."""
+        return {"type": "choice", "instructions": QUESTION_AMBITO,
+                "criteria": {name: d.description for name, d in self.domains.items()}}
+
     def _decide(self, text: str) -> tuple[str, float] | None:
         nucleo = self._nucleo()
         if nucleo is not None:
@@ -139,9 +155,7 @@ class Smistatore:
             if got is not None:
                 self.last = {"ambito": got[0], "fiducia": got[1], "da": "nucleo"}
                 return got
-        payload = {"model": self.model, "state": text[:2000], "questions": {"ambito": {
-            "type": "choice", "instructions": "Which area does this request to a personal computer assistant belong to?",
-            "criteria": {name: d.description for name, d in self.domains.items()}}}}
+        payload = {"model": self.model, "state": text[:2000], "questions": {"ambito": self.question_ambito()}}
         try:
             reply = self.post(f"{self.url}/v1/systemone", payload, TIMEOUT)
             answer = reply["answers"]["ambito"]
@@ -171,9 +185,7 @@ class Smistatore:
             names = [*candidates, NO_ACTION]
             picked = nucleo.choose(prompt_azione(text, names), names)
         if picked is None:
-            criteria = {n: t.description[:200] for n, t in candidates.items()}
-            criteria[NO_ACTION] = "None of these actions: the user wants to talk, asks a question or wants something else"
-            picked = self._ask(text, "azione", "Which action should the assistant run for this request?", criteria)
+            picked = self._ask(text, "azione", QUESTION_AZIONE, action_criteria(candidates))
         if picked is None or picked[0] not in candidates or picked[1] < MIN_ACTION_CONFIDENCE:
             return None
         tool = candidates[picked[0]]

@@ -545,12 +545,15 @@ def _ask_addressed(text: str) -> tuple[str, float] | None:
     from .smistatore import Smistatore
 
     judge = Smistatore([])
-    return judge._ask(text, "destinatario", "Was this sentence, heard by the microphone after the word Nova, "
-                      "meant for the computer assistant?",
-                      {"richiesta": "A request or question to the computer assistant: do something, open, play, "
-                                    "search, remind, answer a question",
-                       "altro": "Not for the assistant: people talking to each other, TV or film dialogue, "
-                                "song lyrics, a sentence fragment or random words"})
+    return judge._ask(text, "destinatario", ADDRESSED_QUESTION, ADDRESSED_CRITERIA)
+
+
+# la domanda «è per Nova?» per il modello decisionale (uguale in uso e in addestramento, addestramento/dati_laya.py)
+ADDRESSED_QUESTION = "Was this sentence, heard by the microphone after the word Nova, meant for the computer assistant?"
+ADDRESSED_CRITERIA = {"richiesta": "A request or question to the computer assistant: do something, open, play, "
+                                   "search, remind, answer a question",
+                      "altro": "Not for the assistant: people talking to each other, TV or film dialogue, "
+                               "song lyrics, a sentence fragment or random words"}
 
 
 def energy_allows() -> bool:
