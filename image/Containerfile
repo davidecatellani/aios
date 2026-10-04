@@ -115,7 +115,7 @@ RUN pip install --no-cache-dir --prefix=/usr --no-build-isolation /tmp/aios-copi
     && rm -rf /tmp/aios-copilot
 
 # Servizi: Ollama per il sistema, quelli di AIOS per ogni utente; Super+Spazio apre Nova
-RUN systemctl enable ollama.service aios-modello-base.service aios-risparmio.service greenboot-healthcheck.service \
+RUN systemctl enable ollama.service aios-modello-base.service aios-risparmio.service aios-credenziali-registro.path greenboot-healthcheck.service \
     && systemctl --global enable aios-learn.service aios-agenda.service aios-mail.service aios-telefono.service \
        aios-voce.service aios-chiavetta.path \
     && dconf update
@@ -123,7 +123,7 @@ RUN systemctl enable ollama.service aios-modello-base.service aios-risparmio.ser
 # La sessione di AIOS: la shell (giornata, barra, Nova) al posto del desktop. All'accensione la
 # schermata d'accesso di AIOS (greetd + aios-accesso, in HTML) al posto di GDM; GDM resta installato
 # e riparte da solo solo se l'accesso di AIOS non riesce ad avviarsi (greetd.service.d/aios.conf).
-RUN chmod 755 /usr/bin/aios-sessione /usr/bin/aios-blocca /usr/libexec/aios-accesso-avvio /usr/libexec/aios-avvio-sessione /usr/share/aios/labwc/autostart /usr/libexec/aios-risparmio /usr/lib/systemd/system-sleep/aios-risparmio \
+RUN chmod 755 /usr/bin/aios-sessione /usr/bin/aios-blocca /usr/libexec/aios-accesso-avvio /usr/libexec/aios-avvio-sessione /usr/share/aios/labwc/autostart /usr/libexec/aios-risparmio /usr/lib/systemd/system-sleep/aios-risparmio /usr/libexec/aios-credenziali-registro \
     && test -x /usr/bin/Hyprland && test -x /usr/bin/labwc && test -x /usr/bin/greetd && test -x /usr/bin/cage \
     && rm -f /etc/systemd/system/display-manager.service \
     && (systemctl disable gdm.service || true) \

@@ -1,0 +1,6 @@
+[Unit]
+Description=AIOS: installa l'accesso al registro delle immagini (aggiornamenti incrementali)
+
+[Service]
+Type=oneshot
+ExecStart=/usr/libexec/aios-credenziali-registro

@@ -13,9 +13,9 @@ on:
         type: boolean
         default: true
       pubblica:
-        description: "Pubblica l'immagine su ghcr.io"
+        description: "Pubblica l'immagine su ghcr.io (aggiornamenti incrementali dei PC)"
         type: boolean
-        default: false
+        default: true
       kernel:
         description: "Kernel: fedora (predefinito) o lts (6.18, richiede Secure Boot disattivato)"
         type: choice
@@ -60,11 +60,27 @@ jobs:
           echo "VERSIONE=$(date -u +%Y.%m.%d).${GITHUB_RUN_NUMBER}" >> "$GITHUB_ENV"
           sudo podman build --build-arg FEDORA="$FEDORA" --build-arg VERSIONE="$(date -u +%Y.%m.%d).${GITHUB_RUN_NUMBER}" \
             --build-arg REPO="$GITHUB_REPOSITORY" --build-arg KERNEL="${KERNEL:-fedora}" -t "${IMMAGINE}:${FEDORA}" -f image/Containerfile .
+      - name: Strati per pacchetto
+        # L'immagine divisa in strati stabili (un gruppo di pacchetti per strato, i modelli a parte): un PC
+        # che si aggiorna dal registro scarica solo gli strati cambiati. Se non riesce, si tiene com'è.
+        run: |
+          if sudo podman run --rm --privileged --security-opt label=disable -v /var/lib/containers:/var/lib/containers \
+               "${IMMAGINE}:${FEDORA}" rpm-ostree compose build-chunked-oci --bootc --format-version=1 \
+               --from "${IMMAGINE}:${FEDORA}" --output "containers-storage:${IMMAGINE}:${FEDORA}-strati"; then
+            sudo podman tag "${IMMAGINE}:${FEDORA}-strati" "${IMMAGINE}:${FEDORA}"
+            sudo podman rmi "${IMMAGINE}:${FEDORA}-strati" || true
+            sudo podman image prune -f || true
+          else
+            echo "::warning::divisione in strati non riuscita: l'immagine resta com'è"
+          fi
+          sudo podman image inspect "${IMMAGINE}:${FEDORA}" --format '{{len .RootFS.Layers}} strati'
+          df -h / /mnt
       - name: Pubblica
         if: env.PUBBLICA == 'true'
+        continue-on-error: true  # se il registro non risponde, il pacchetto della Release c'è comunque
         run: |
           echo "${{ secrets.GITHUB_TOKEN }}" | sudo podman login ghcr.io -u "${{ github.actor }}" --password-stdin
-          sudo podman push "${IMMAGINE}:${FEDORA}"
+          for i in 1 2 3; do sudo podman push "${IMMAGINE}:${FEDORA}" && exit 0; sleep 30; done; exit 1
       - name: Chiavetta d'installazione
         if: env.ISO == 'true'
         run: |

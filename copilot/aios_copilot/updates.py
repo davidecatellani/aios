@@ -10,8 +10,9 @@
 - **App** (Flatpak) aggiornate a riposo; **firmware** (fwupd) solo segnalato, perché
   di solito richiede un riavvio guidato; **modelli AI** con il loro catalogo firmato.
 - Gli aggiornamenti di **sicurezza** sono evidenziati e anticipati.
-- Immagine AIOS **privata**: le nuove versioni arrivano da GitHub con il permesso di sola lettura
-  dell'utente, oppure da una chiavetta (imageupdate.py).
+- Immagine AIOS **privata**: le nuove versioni arrivano dal registro di GitHub, solo gli strati
+  cambiati (registro.py), oppure come pacchetto completo dalla Release o da una chiavetta
+  (imageupdate.py), sempre con il permesso di sola lettura dell'utente.
 
     aios-aggiornamenti stato | controlla | prepara | ripristina | verifica | github | chiavetta
 """
@@ -32,6 +33,7 @@ from .privacy import private_dir
 from .tools.base import Runner
 
 CHECK_EVERY = 12 * 3600
+REGISTRY_SWITCH = "registro"  # versione segnaposto: il primo passaggio agli aggiornamenti dal registro
 SECURITY_WORDS = re.compile(r"(?i)\b(?:critical|important|critica|importante|security|sicurezza|CVE-\d{4}-\d+)\b")
 
 
@@ -113,6 +115,29 @@ class SystemBackend:
                           version.group(1) if version else "")
         return None
 
+    def from_registry(self, ref: str) -> bool:
+        """Il sistema in uso (o quello pronto) arriva già dal registro delle immagini?"""
+        from .registro import on_registry
+
+        if self.tool == "rpm-ostree":
+            code, out = self.runner.run(["rpm-ostree", "status", "--json"])
+            return code == 0 and on_registry(out, ref)
+        if self.tool == "bootc":
+            code, out = self.runner.run(["bootc", "status", "--json"])
+            return code == 0 and ref in out
+        return False
+
+    def check_registry(self) -> Update | None:
+        """Nuova versione nel registro? (si confrontano gli strati, non si scarica niente)"""
+        if self.tool != "rpm-ostree":
+            return self.check()
+        code, out = self.runner.run(["rpm-ostree", "upgrade", "--check"])
+        if code != 0 or "No updates available" in out:
+            return None  # 77: niente di nuovo
+        version = re.search(r"Version:\s*(\S+)", out)
+        return Update("sistema", f"AIOS {version.group(1) if version else 'nuovo'} (dal registro, solo le differenze)",
+                      bool(SECURITY_WORDS.search(out)), version.group(1) if version else "")
+
     def prepare_cmd(self) -> list[str]:
         """Scarica e prepara il nuovo sistema per il prossimo avvio (quello in uso non cambia)."""
         return ["rpm-ostree", "upgrade"] if self.tool == "rpm-ostree" else ["bootc", "upgrade"]
@@ -183,6 +208,14 @@ class Updates:
     def check(self, sources: tuple[str, ...] = ("chiavetta", "github")) -> list[Update]:
         system = None
         if self.system.available():
+            self.try_registry()
+        ref = load_state().get("registro") if self.system.available() else None
+        if ref and self.system.from_registry(ref):
+            system = self.system.check_registry()  # incrementale: solo gli strati cambiati
+        elif ref and "github" in sources:
+            system = Update("sistema", "AIOS dal registro di GitHub: questa volta si scarica tutto, poi solo le "
+                                       "differenze", False, REGISTRY_SWITCH)
+        elif self.system.available():
             self.package = self.find_package(sources)
             if self.package is not None:
                 p = self.package
@@ -201,7 +234,9 @@ class Updates:
         found = self.check() if found is None else found
         report = []
         for u in found:
-            if u.kind == "sistema" and self.package is not None:
+            if u.kind == "sistema" and u.version == REGISTRY_SWITCH:
+                report.append(self._switch_to_registry())
+            elif u.kind == "sistema" and self.package is not None:
                 report.append(self._prepare_package(u))
             elif u.kind == "sistema":
                 code, out = self.runner.run(self.system.prepare_cmd())
@@ -236,6 +271,53 @@ class Updates:
         save_state(state)
         return f"Sistema: AIOS {pkg.version} pronto per il prossimo riavvio (dati, impostazioni e app restano)."
 
+    def try_registry(self, force: bool = False) -> str:
+        """Con il token già salvato si prova il registro (al massimo una volta al giorno). → "" se va."""
+        from . import vault
+        from .imageupdate import TOKEN_KEY, configured_repo
+        from .registro import image_ref
+
+        state = load_state()
+        if state.get("registro") and not force:
+            return ""
+        if not force and self.clock() - state.get("registro_provato", 0) < 86400:
+            return state.get("registro_motivo", "")
+        repo = state.get("repo") or configured_repo()
+        token = vault.load(TOKEN_KEY) if repo else None
+        if not repo or not token:
+            return "GitHub non è collegato"
+        access = self.registry_access(repo, token)
+        problem = access.check()
+        if not problem and not access.hand_over():
+            problem = "il servizio che installa l'accesso non ha risposto"
+        state = load_state()
+        state["registro_provato"] = self.clock()
+        if problem:
+            state["registro_motivo"] = problem
+        else:
+            state.pop("registro_motivo", None)
+            state["registro"] = image_ref(repo)
+        save_state(state)
+        return problem
+
+    def registry_access(self, repo: str, token: str) -> Any:
+        from .registro import Access
+
+        return Access(repo, token)
+
+    def _switch_to_registry(self) -> str:
+        from .registro import rebase_command
+
+        ref = load_state().get("registro", "")
+        code, out = self.runner.run(rebase_command(self.system.tool, ref))
+        if code != 0:
+            return f"Sistema: passaggio al registro non riuscito: {out[-200:]}"
+        state = load_state()
+        state["pronto"] = {"versione": "registro", "sicurezza": False, "quando": self.clock()}
+        save_state(state)
+        return ("Sistema: AIOS pronto per il prossimo riavvio. Da adesso gli aggiornamenti scaricano solo le "
+                "differenze.")
+
     def rollback(self) -> str:
         if not self.system.available():
             return "Questo sistema non è immutabile: il ritorno alla versione precedente non è disponibile."
@@ -267,6 +349,11 @@ class Updates:
             lines.append(f"Versione di AIOS: {self.version()}.")
             lines.append("Nuove versioni da GitHub: " + ("collegato con il tuo accesso." if self.github() is not None else
                          "non collegato (dimmi «collega GitHub per gli aggiornamenti»), oppure da chiavetta."))
+            if state.get("registro"):
+                lines.append("Aggiornamenti incrementali dal registro: attivi (si scaricano solo le differenze).")
+            elif state.get("registro_motivo") and self.github() is not None:
+                lines.append(f"Aggiornamenti incrementali: non ancora, {state['registro_motivo']}. "
+                             "Intanto arrivano come pacchetto completo.")
         when = state.get("controllato")
         lines.append(f"Ultimo controllo: {time.strftime('%d/%m %H:%M', time.localtime(when))}." if when else "Mai controllato.")
         lines.append("Aggiornamenti automatici: " + ("attivi (a riposo e in carica)." if auto_enabled() else "disattivati."))
@@ -299,8 +386,16 @@ def connect_github(token: str, repo: str = "") -> str:
     vault.store(TOKEN_KEY, token)
     state = load_state()
     state["repo"] = repo
+    state.pop("registro", None)
     save_state(state)
-    return f"Collegato: le nuove versioni di AIOS arriveranno da {repo}, con il tuo accesso di sola lettura."
+    done = f"Collegato: le nuove versioni di AIOS arriveranno da {repo}, con il tuo accesso di sola lettura."
+    try:
+        problem = Updates().try_registry(force=True)
+    except Exception as exc:
+        problem = str(exc)
+    if not problem:
+        return done + " Gli aggiornamenti scaricheranno solo le differenze."
+    return done + f" Per ora come pacchetto completo: {problem}."
 
 
 GITHUB_HELP = (
@@ -308,7 +403,9 @@ GITHUB_HELP = (
     "1. apri https://github.com/settings/personal-access-tokens/new\n"
     "2. nome «AIOS aggiornamenti», scadenza a tua scelta; «Repository access» › «Only select repositories» › {repo};\n"
     "3. «Permissions» › «Contents» › «Read-only» (nient'altro), poi «Generate token»;\n"
-    "4. incolla il token nella finestra che apro (resta nel portachiavi del PC, non passa dal modello AI);\n   se la finestra non si apre, incollalo qui in chat: lo riconosco senza modello AI.")
+    "4. incolla il token nella finestra che apro (resta nel portachiavi del PC, non passa dal modello AI);\n   se la finestra non si apre, incollalo qui in chat: lo riconosco senza modello AI.\n"
+    "Per aggiornamenti piccoli (solo le differenze) serve invece un token «classico» "
+    "(https://github.com/settings/tokens/new) con i permessi «repo» e «read:packages».")
 
 
 def auto_enabled() -> bool:
