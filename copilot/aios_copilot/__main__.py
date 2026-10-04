@@ -32,6 +32,7 @@ from .tools import themes as theme_tools
 from .tools import phone as phone_tools
 from .tools import identity as identity_tools
 from .tools import updates as update_tools
+from .tools import windows as window_tools
 from . import sdk
 from .tools import documents as document_tools
 from .tools import energy as energy_tools
@@ -138,7 +139,7 @@ def make_agent(confirm: Confirm, model: str | None = None, allowed: frozenset[st
          *theme_tools.make_tools(ask_llm=lambda prompt: llm.chat([{"role": "user", "content": prompt}], []).get("content", ""),
                                  runner=runner),
          *phone_tools.make_tools(runner), *identity_tools.make_tools(user_name=user_name),
-         *update_tools.make_tools(runner), *sdk.make_tools(),
+         *update_tools.make_tools(runner), *sdk.make_tools(), *window_tools.make_tools(),
          *document_tools.make_tools(get_index, runner), *energy_tools.make_tools(), *voice_tools.make_tools(runner)]
     if allowed is not None:
         tools = [t for t in tools if t.name in allowed]
@@ -148,6 +149,7 @@ def make_agent(confirm: Confirm, model: str | None = None, allowed: frozenset[st
         confirm,
         history=History().record,
         routers=[
+            window_tools.WindowsRouter(),  # livello 0: programmi aperti e app di AIOS (sessione AIOS)
             agenda_tools.AgendaRouter(),  # livello 0: promemoria, appuntamenti, riepilogo
             mail_tools.MailRouter(),  # livello 0: posta
             taste_tools.TasteRouter(),  # livello 0: abbonamenti e consigli

@@ -44,6 +44,51 @@ def voice_dirs() -> list[Path]:
     return [Path(os.environ["AIOS_VOCE"])] if os.environ.get("AIOS_VOCE") else [home, Path("/usr/share/aios/voce")]
 
 
+VOICE_NAMES = {"it_IT-paola-medium": "Paola", "it_IT-riccardo-x_low": "Riccardo"}
+
+
+def voice_choice_file() -> Path:
+    return Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config")) / "aios" / "voce.json"
+
+
+def available_voices() -> list[dict[str, str]]:
+    """Le voci di Nova presenti sul computer (file .onnx di Piper), con un nome da persona."""
+    seen: dict[str, dict[str, str]] = {}
+    for base in voice_dirs():
+        for f in sorted(base.glob("*.onnx")):
+            seen.setdefault(f.stem, {"id": f.stem, "nome": VOICE_NAMES.get(f.stem, f.stem.split("-")[1].title()
+                                                                        if "-" in f.stem else f.stem)})
+    return list(seen.values())
+
+
+def chosen_voice() -> str:
+    try:
+        choice = json.loads(voice_choice_file().read_text()).get("voce", "")
+    except (OSError, ValueError, AttributeError):
+        choice = ""
+    ids = [v["id"] for v in available_voices()]
+    return choice if choice in ids else (ids[0] if ids else "")
+
+
+def set_voice(voice_id: str) -> bool:
+    if voice_id not in [v["id"] for v in available_voices()]:
+        return False
+    f = voice_choice_file()
+    f.parent.mkdir(parents=True, exist_ok=True)
+    f.write_text(json.dumps({"voce": voice_id}))
+    return True
+
+
+def voice_file() -> Path | None:
+    """Il file della voce scelta dall'utente (o la prima disponibile)."""
+    choice = chosen_voice()
+    for base in voice_dirs():
+        p = base / f"{choice}.onnx"
+        if choice and p.is_file():
+            return p
+    return find_model("piper")
+
+
 def find_model(kind: str) -> Path | None:
     """kind: «vosk» (cartella del modello di riconoscimento) o «piper» (voce .onnx)."""
     for base in voice_dirs():
@@ -126,7 +171,7 @@ def speak(text: str, which: Callable[[str], str | None] = shutil.which,
     flag = speaking_flag()
     try:
         flag.touch()
-        voice = find_model("piper")
+        voice = voice_file()
         piper = which("piper") or (str(Path("/usr/lib/aios/piper/piper")) if Path("/usr/lib/aios/piper/piper").exists() else None)
         if piper and voice:
             with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp:

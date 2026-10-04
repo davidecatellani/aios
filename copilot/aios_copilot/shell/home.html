@@ -126,6 +126,7 @@ body.pannello #fondo { bottom: 18px; }
 body.pannello #casella { width: calc(100vw - 36px); }
 body.pannello .tasto { display: none; }
 </style>
+<link rel="stylesheet" href="/static/apps.css">
 </head>
 <body>
 <div id="barra">
@@ -166,6 +167,8 @@ body.pannello .tasto { display: none; }
   </form>
   <div id="dock"></div>
 </div>
+
+<div id="vista" hidden></div>
 
 <div id="tutte" hidden>
   <input id="cerca-app" placeholder="Cerca un'app…" aria-label="Cerca un'app">
@@ -226,10 +229,14 @@ async function finestre() {
     const { finestre } = await api("/api/finestre");
     const box = $("app-aperte"); box.replaceChildren();
     for (const w of finestre.slice(0, 6)) {
-      const b = el("button", "aperta", w.title || w.app_id);
-      b.title = w.title;
-      b.onclick = () => api("/api/finestra", { app_id: w.app_id }).catch(() => {});
-      box.append(b);
+      const b = el("span", "aperta");
+      const nome = el("button", "", (w.title || w.app_id).replace(/ [—–-] Mozilla Firefox$/, ""));
+      nome.style.cssText = "border:0;background:none;color:inherit;font:inherit;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:0";
+      nome.title = w.title;
+      nome.onclick = () => api("/api/finestra", { app_id: w.app_id }).catch(() => {});
+      const x = el("button", "x", "✕"); x.title = "Chiudi";
+      x.onclick = () => api("/api/finestra-chiudi", { app_id: w.app_id }).then(finestre).catch(() => {});
+      b.append(nome, x); box.append(b);
     }
   } catch {}
 }
@@ -243,6 +250,7 @@ async function icona(app) {
   const fallback = el("span", "lettera", (app.label || app.name || "?").slice(0, 1));
   box.append(fallback);
   if (app.windows) box.append(el("span", "win", "Win"));
+  if (app.vista) { fallback.textContent = app.simbolo; fallback.style.fontSize = "32px"; return box; }
   try {
     if (!icone.has(app.id)) icone.set(app.id, api(`/api/icona/${encodeURIComponent(app.id)}`));
     const i = await icone.get(app.id);
@@ -253,6 +261,7 @@ async function icona(app) {
 }
 async function avvia(id) {
   $("tutte").hidden = true;
+  if (id.startsWith("aios:")) return window.apriVista(id.slice(5));
   try { await api("/api/avvia", { id }); } catch (e) { nova(`Non riesco ad aprire l'app: ${e.message}`); }
 }
 
@@ -272,7 +281,7 @@ function carta(c) {
     const a = el("div", "azioni");
     for (const az of c.azioni) {
       const b = el("button", "", az.etichetta);
-      b.onclick = () => az.chiedi ? chiedi(az.chiedi) : api("/api/apri", { percorso: az.apri }).catch(e => nova(e.message));
+      b.onclick = () => az.chiedi ? chiedi(az.chiedi) : (az.vista ? window.apriVista(az.vista) : window.apriFile({ percorso: az.apri }));
       a.append(b);
     }
     d.append(a);
@@ -314,12 +323,13 @@ async function casa() {
 
 async function mostraTutte() {
   $("tutte").hidden = false;
-  const { app } = await api("/api/app").catch(() => ({ app: [] }));
+  const r = await api("/api/app").catch(() => ({ app: [], aios: [] }));
+  const app = [...(r.aios || []), ...r.app];
   const griglia = $("griglia");
   const disegna = async filtro => {
     griglia.replaceChildren();
     const f = filtro.toLowerCase();
-    for (const a of app.filter(a => !f || (a.name + " " + a.keywords).toLowerCase().includes(f))) {
+    for (const a of app.filter(a => !f || (a.name + " " + (a.keywords || "")).toLowerCase().includes(f))) {
       const b = el("button", "voce-app"); b.append(await icona(a), el("span", "", a.name));
       b.onclick = () => avvia(a.id); griglia.append(b);
     }
@@ -402,7 +412,8 @@ $("microfono").onclick = async () => {
   } catch (e) { m.classList.remove("attivo"); nova(`Microfono non disponibile (${e.message}).`); }
 };
 document.addEventListener("keydown", e => {
-  if (e.key.length === 1 && document.activeElement.tagName !== "INPUT" && $("tutte").hidden) $("testo").focus();
+  if (e.key.length === 1 && !["INPUT", "TEXTAREA"].includes(document.activeElement.tagName) && $("tutte").hidden
+      && !document.body.classList.contains("in-vista")) $("testo").focus();
 });
 
 // chiamate dalla shell (Super+Spazio, voce)
@@ -426,5 +437,6 @@ if (PARTE === "barra") {
 }
 $("testo").focus();
 </script>
+<script src="/static/apps.js"></script>
 </body>
 </html>

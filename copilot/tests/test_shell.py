@@ -28,9 +28,10 @@ def test_installed_apps_and_dock(tmp_path):
     desktop(d, "org.aios.Copilot", Name="Nova", Exec="aios-copilot")
     desktop(d, "giochino", Name="Giochino", Exec="flatpak run com.usebottles.bottles -b Giochino")
     apps = shell.installed_apps([d])
-    assert set(apps) == {"org.mozilla.firefox", "org.gnome.Nautilus", "giochino"}
-    assert apps["org.gnome.Nautilus"].name == "File" and apps["giochino"].windows
-    assert [a["label"] for a in shell.dock_apps(apps)] == ["File", "Internet"]
+    # le app di sistema di GNOME non si vedono: File, Foto, Impostazioni… sono le app HTML di AIOS
+    assert set(apps) == {"org.mozilla.firefox", "giochino"} and apps["giochino"].windows
+    assert [a["label"] for a in shell.dock_apps(apps)] == ["File", "Internet", "Foto", "Musica", "Video", "Note",
+                                                          "Impostazioni"]
 
 
 def test_icon_lookup_refuses_paths(tmp_path):

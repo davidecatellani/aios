@@ -1,0 +1,361 @@
+"use strict";
+// Le app di AIOS dentro la shell (File, Foto, Musica, Video, Note, documenti, Impostazioni).
+// Usa api(), el(), $(), TOKEN e chiedi() di home.html.
+
+const SIMBOLI = { cartella: "📁", immagine: "🖼️", audio: "🎵", video: "🎬", testo: "📝", documento: "📄", altro: "📦" };
+const fileUrl = p => `/file/${encodeURIComponent(p)}?t=${encodeURIComponent(TOKEN)}`;
+let vistaAttuale = null;
+const audio = new Audio();
+
+function apriVista(nome, ...args) {
+  const v = VISTE[nome];
+  if (!v) return;
+  if (nome !== "musica" && vistaAttuale === "musica" && !audio.paused) { /* la musica continua in sottofondo */ }
+  document.body.classList.add("in-vista");
+  $("tutte").hidden = true;
+  const box = $("vista"); box.hidden = false; box.replaceChildren();
+  vistaAttuale = nome;
+  api("/api/casa-vai", { chiudi_viste: false }).catch(() => {});  // i programmi a finestra si fanno da parte
+  v(box, ...args);
+}
+function chiudiVista() {
+  document.body.classList.remove("in-vista");
+  $("vista").hidden = true; $("vista").replaceChildren();
+  vistaAttuale = null;
+  $("testo") && $("testo").focus();
+}
+document.addEventListener("keydown", e => {
+  if (e.key === "Escape" && $("lampada")) { $("lampada").remove(); return; }
+  if (e.key === "Escape" && vistaAttuale && !document.querySelector(".menu")) chiudiVista();
+});
+document.addEventListener("click", e => { const m = document.querySelector(".menu"); if (m && !m.contains(e.target)) m.remove(); });
+
+function testa(box, titolo, extra) {
+  const t = el("div", "testa-vista");
+  const back = el("button", "torna", "←"); back.title = "Torna alla schermata (Esc)"; back.onclick = chiudiVista;
+  const h = el("h2"); h.append(titolo);
+  t.append(back, h);
+  if (extra) for (const x of [].concat(extra)) t.append(x);
+  box.append(t);
+  const corpo = el("div", "corpo-vista"); box.append(corpo);
+  return corpo;
+}
+function bottone(testo, fn, cls = "bottone") { const b = el("button", cls, testo); b.onclick = fn; return b; }
+function menu(x, y, voci) {
+  document.querySelector(".menu")?.remove();
+  const m = el("div", "menu");
+  for (const [t, fn] of voci) m.append(bottone(t, () => { m.remove(); fn(); }, ""));
+  m.style.left = Math.min(x, innerWidth - 230) + "px"; m.style.top = Math.min(y, innerHeight - 50 * voci.length) + "px";
+  document.body.append(m);
+}
+
+// --- aprire un file con la vista giusta ---------------------------------------------------------------
+function apriFile(f) {
+  f = { nome: f.percorso.split("/").pop(), ...f };
+  const tipo = f.tipo || tipoDa(f.percorso);
+  if (tipo === "cartella") return apriVista("file", f.percorso);
+  if (tipo === "immagine") return lampada([f], 0);
+  if (tipo === "audio") return apriVista("musica", f.percorso);
+  if (tipo === "video") return guardaVideo(f);
+  if (tipo === "testo" && /\.(txt|md)$/i.test(f.percorso)) return apriVista("note", f.percorso);
+  if (tipo === "documento" || tipo === "testo") return apriVista("documento", f);
+  api("/api/file/apri-con", { p: f.percorso }).catch(e => nova(e.message));
+}
+function tipoDa(p) {
+  const ext = (p.match(/\.[^./]+$/) || [""])[0].toLowerCase();
+  if ([".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp", ".svg", ".avif"].includes(ext)) return "immagine";
+  if ([".mp3", ".ogg", ".opus", ".flac", ".wav", ".m4a", ".aac"].includes(ext)) return "audio";
+  if ([".mp4", ".webm", ".mkv", ".mov", ".m4v", ".ogv"].includes(ext)) return "video";
+  if ([".txt", ".md", ".csv", ".log", ".json"].includes(ext)) return "testo";
+  return "documento";
+}
+window.apriFile = apriFile;
+window.apriVista = apriVista;
+window.chiudiVista = () => { if (vistaAttuale) chiudiVista(); };
+
+function lampada(foto, i) {
+  document.getElementById("lampada")?.remove();
+  const box = el("div"); box.id = "lampada";
+  const img = el("img"); const did = el("div", "didascalia");
+  const mostra = () => { img.src = fileUrl(foto[i].percorso); did.textContent = `${foto[i].nome} · ${i + 1} di ${foto.length}`; };
+  const chiudi = bottone("✕", () => box.remove(), "chiudi");
+  const prec = bottone("‹", () => { i = (i - 1 + foto.length) % foto.length; mostra(); }, "prec");
+  const succ = bottone("›", () => { i = (i + 1) % foto.length; mostra(); }, "succ");
+  box.append(img, did, chiudi);
+  if (foto.length > 1) box.append(prec, succ);
+  box.onkeydown = null;
+  document.addEventListener("keydown", function k(e) {
+    if (!document.body.contains(box)) return document.removeEventListener("keydown", k);
+    if (e.key === "ArrowLeft") prec.click(); if (e.key === "ArrowRight") succ.click();
+  });
+  document.body.append(box); mostra();
+}
+function guardaVideo(f) {
+  document.getElementById("lampada")?.remove();
+  const box = el("div"); box.id = "lampada";
+  const v = el("video"); v.src = fileUrl(f.percorso); v.controls = true; v.autoplay = true;
+  const chiudi = bottone("✕", () => { v.pause(); box.remove(); }, "chiudi");
+  box.append(v, chiudi, el("div", "didascalia", f.nome));
+  document.body.append(box);
+  v.requestFullscreen?.().catch(() => {});
+}
+
+// --- le viste ------------------------------------------------------------------------------------------
+const VISTE = {
+  async file(box, cartella = "") {
+    let data;
+    try { data = await api(`/api/cartella?p=${encodeURIComponent(cartella)}`); }
+    catch (e) { testa(box, "File").append(el("p", "vuoto", `Non riesco ad aprire la cartella (${e.message}).`)); return; }
+    const briciole = el("span", "briciole");
+    const parti = data.cartella ? data.cartella.split("/") : [];
+    const casaB = bottone("Casa", () => apriVista("file", "")); briciole.append(casaB);
+    parti.forEach((p, i) => { briciole.append(" › ", bottone(p, () => apriVista("file", parti.slice(0, i + 1).join("/")))); });
+    const nuova = bottone("＋ Nuova cartella", async () => {
+      const nome = prompt("Nome della nuova cartella");
+      if (nome) { await api("/api/file/nuova-cartella", { p: data.cartella, nome }).catch(e => alert(e.message)); apriVista("file", data.cartella); }
+    });
+    const corpo = testa(box, "📁 File", [briciole, nuova]);
+    if (!data.voci.length) { corpo.append(el("p", "vuoto", "Questa cartella è vuota.")); return; }
+    const griglia = el("div", "elenco-file");
+    for (const f of data.voci) {
+      const b = el("button", "voce-file"); b.title = f.nome;
+      const ic = el("div", "icona-file");
+      if (f.tipo === "immagine") { const i = el("img"); i.loading = "lazy"; i.src = fileUrl(f.percorso); i.alt = ""; ic.append(i); }
+      else ic.textContent = SIMBOLI[f.tipo] || "📦";
+      const altro = el("span", "altro", "⋯");
+      b.append(ic, el("span", "nome-file", f.nome), altro);
+      b.onclick = e => { if (e.target === altro) return; apriFile(f); };
+      const azioni = ev => {
+        ev.preventDefault(); ev.stopPropagation();
+        menu(ev.clientX, ev.clientY, [
+          ["Apri", () => apriFile(f)],
+          ["Apri con un programma", () => api("/api/file/apri-con", { p: f.percorso }).catch(e => alert(e.message))],
+          ["Rinomina", async () => {
+            const nome = prompt("Nuovo nome", f.nome);
+            if (nome && nome !== f.nome) { await api("/api/file/rinomina", { p: f.percorso, nome }).catch(e => alert(e.message)); apriVista("file", data.cartella); }
+          }],
+          ["Chiedi a Nova…", () => { chiudiVista(); $("testo").value = `Su «${f.nome}»: `; $("testo").focus(); }],
+          ["Sposta nel cestino", async () => {
+            await api("/api/file/cestino", { p: f.percorso }).catch(e => alert(e.message)); apriVista("file", data.cartella);
+          }],
+        ]);
+      };
+      altro.onclick = azioni; b.oncontextmenu = azioni;
+      griglia.append(b);
+    }
+    corpo.append(griglia);
+  },
+
+  async foto(box) {
+    const corpo = testa(box, "🖼️ Foto");
+    const { voci, cartella } = await api("/api/raccolta/foto").catch(() => ({ voci: [], cartella: "Immagini" }));
+    if (!voci.length) { corpo.append(el("p", "vuoto", `Nessuna foto in «${cartella}».\nCollega il telefono e chiedi a Nova di copiare le foto.`)); return; }
+    const g = el("div", "griglia-foto");
+    voci.forEach((f, i) => {
+      const b = el("button"); const img = el("img"); img.loading = "lazy"; img.alt = f.nome; img.src = fileUrl(f.percorso);
+      b.append(img); b.onclick = () => lampada(voci, i); g.append(b);
+    });
+    corpo.append(g);
+  },
+
+  async musica(box, daSuonare) {
+    const corpo = testa(box, "🎵 Musica");
+    const { voci, cartella } = await api("/api/raccolta/musica").catch(() => ({ voci: [], cartella: "Musica" }));
+    let lista = voci;
+    if (daSuonare && !lista.some(v => v.percorso === daSuonare)) lista = [{ nome: daSuonare.split("/").pop(), percorso: daSuonare }, ...lista];
+    if (!lista.length) { corpo.append(el("p", "vuoto", `Nessun brano in «${cartella}».`)); return; }
+    const elenco = el("div", "brani");
+    let attuale = -1;
+    const titolo = el("div", "titolo", "—");
+    const barra = el("input"); barra.type = "range"; barra.min = 0; barra.max = 1000; barra.value = 0;
+    const play = bottone("▶", () => { if (attuale < 0) suona(0); else if (audio.paused) audio.play(); else audio.pause(); }, "tondo grande");
+    const suona = i => {
+      attuale = (i + lista.length) % lista.length;
+      audio.src = fileUrl(lista[attuale].percorso); audio.play().catch(() => {});
+      titolo.textContent = lista[attuale].nome.replace(/\.[^.]+$/, "");
+      elenco.querySelectorAll(".brano").forEach((b, j) => b.classList.toggle("attivo", j === attuale));
+    };
+    lista.forEach((f, i) => {
+      const b = el("button", "brano"); b.append(el("span", "n", String(i + 1)), el("span", "", f.nome.replace(/\.[^.]+$/, "")));
+      b.onclick = () => suona(i); elenco.append(b);
+    });
+    audio.onplay = () => play.textContent = "⏸"; audio.onpause = () => play.textContent = "▶";
+    audio.ontimeupdate = () => { if (audio.duration) barra.value = Math.round(audio.currentTime / audio.duration * 1000); };
+    audio.onended = () => suona(attuale + 1);
+    barra.oninput = () => { if (audio.duration) audio.currentTime = barra.value / 1000 * audio.duration; };
+    corpo.append(elenco);
+    const lettore = el("div", "lettore");
+    lettore.append(bottone("⏮", () => suona(attuale - 1), "tondo"), play, bottone("⏭", () => suona(attuale + 1), "tondo"), titolo, barra);
+    box.append(lettore);
+    if (daSuonare) suona(lista.findIndex(v => v.percorso === daSuonare));
+  },
+
+  async video(box) {
+    const corpo = testa(box, "🎬 Video");
+    const { voci, cartella } = await api("/api/raccolta/video").catch(() => ({ voci: [], cartella: "Video" }));
+    if (!voci.length) { corpo.append(el("p", "vuoto", `Nessun video in «${cartella}».`)); return; }
+    const g = el("div", "griglia-video");
+    for (const f of voci) {
+      const b = el("button"); b.append(el("div", "anteprima", "▶"), el("span", "", f.nome));
+      b.onclick = () => guardaVideo(f); g.append(b);
+    }
+    corpo.append(g);
+  },
+
+  async note(box, daAprire) {
+    const nuova = bottone("＋ Nuova nota", () => apri(null), "bottone primo");
+    const corpo = testa(box, "📝 Note", nuova);
+    const wrap = el("div", "note"); const lista = el("div", "lista-note"); const foglio = el("div", "foglio");
+    const area = el("textarea"); area.placeholder = "Scrivi qui… (si salva da sola)";
+    const stato = el("div", "salvata", "");
+    foglio.append(area, stato); wrap.append(lista, foglio); corpo.append(wrap);
+    let percorso = null, timer = null;
+    const salva = async () => {
+      if (!area.value.trim() && !percorso) return;
+      try {
+        const r = await api("/api/nota", { p: percorso || "", testo: area.value });
+        const nuovaNota = !percorso; percorso = r.percorso; stato.textContent = "Salvata ✓";
+        if (nuovaNota) carica();
+      } catch (e) { stato.textContent = `Non salvata: ${e.message}`; }
+    };
+    area.oninput = () => { stato.textContent = "…"; clearTimeout(timer); timer = setTimeout(salva, 800); };
+    async function apri(p) {
+      percorso = p; area.value = ""; stato.textContent = "";
+      if (p) { try { area.value = (await api(`/api/nota?p=${encodeURIComponent(p)}`)).testo; } catch (e) { stato.textContent = e.message; } }
+      lista.querySelectorAll("button").forEach(b => b.classList.toggle("attiva", b.dataset.p === p));
+      area.focus();
+    }
+    async function carica() {
+      const { voci } = await api("/api/raccolta/note").catch(() => ({ voci: [] }));
+      lista.replaceChildren();
+      for (const n of voci) {
+        const b = el("button"); b.dataset.p = n.percorso;
+        b.append(n.nome.replace(/\.(txt|md)$/, ""), el("small", "", new Date(n.modificato * 1000).toLocaleString("it-IT", { dateStyle: "medium", timeStyle: "short" })));
+        b.onclick = () => apri(n.percorso); b.classList.toggle("attiva", n.percorso === percorso); lista.append(b);
+      }
+      if (!voci.length) lista.append(el("p", "vuoto", "Ancora nessuna nota."));
+    }
+    await carica();
+    apri(daAprire || null);
+  },
+
+  documento(box, f) {
+    const conProgramma = bottone("Apri con un programma", () => api("/api/file/apri-con", { p: f.percorso }).catch(e => alert(e.message)));
+    const chiediNova = bottone("Chiedi a Nova", () => { chiudiVista(); $("testo").value = `Riassumi «${f.nome}»`; $("testo").focus(); });
+    testa(box, "📄 " + f.nome, [chiediNova, conProgramma]).remove();
+    const fr = el("iframe", "riquadro-doc");
+    fr.setAttribute("sandbox", "");  // il documento non esegue nulla
+    fr.src = `/doc/vedi?p=${encodeURIComponent(f.percorso)}&t=${encodeURIComponent(TOKEN)}`;
+    box.append(fr);
+  },
+
+  async impostazioni(box, sezione = "wifi") {
+    const corpo = testa(box, "⚙️ Impostazioni");
+    const wrap = el("div", "impostazioni"); const nav = el("div", "sezioni"); const pan = el("div", "pannello-imp");
+    wrap.append(nav, pan); corpo.append(wrap);
+    const SEZ = [["wifi", "📶 Wi-Fi"], ["bluetooth", "🔵 Bluetooth"], ["suono", "🔊 Suono e schermo"], ["voce", "🗣️ Voce di Nova"],
+                 ["aggiornamenti", "⬇️ Aggiornamenti"], ["account", "🔑 Password"], ["info", "ℹ️ Questo computer"], ["energia", "⏻ Spegni"]];
+    for (const [id, t] of SEZ) {
+      const b = bottone(t, () => apriVista("impostazioni", id), ""); b.classList.toggle("attiva", id === sezione); nav.append(b);
+    }
+    const carta = (...figli) => { const c = el("div", "carta"); c.append(...figli); pan.append(c); return c; };
+    const riga = (titolo, nota, ...ctrl) => {
+      const r = el("div", "riga-imp"); const c = el("div", "cosa"); c.append(titolo); if (nota) c.append(el("small", "", nota));
+      r.append(c, ...ctrl); return r;
+    };
+    const interruttore = (acceso, fn) => { const b = el("button", "interruttore" + (acceso ? " acceso" : "")); b.onclick = fn; return b; };
+    const esito = el("div", "esito");
+    const dici = (r) => { esito.textContent = r.messaggio || (r.ok ? "Fatto." : "Non è riuscito."); esito.className = "esito " + (r.ok ? "ok" : "no"); };
+    const parte = { suono: "suono", wifi: "wifi", bluetooth: "bluetooth", voce: "voce", info: "info", aggiornamenti: "info" }[sezione];
+    const d = parte ? await api(`/api/impostazioni?parte=${parte}`).catch(e => ({ errore: e.message })) : {};
+
+    if (sezione === "wifi") {
+      const w = d.wifi || {};
+      const c = carta(riga("Wi-Fi", w.scheda === false ? "Non trovo la scheda Wi-Fi in questo computer." : (w.acceso ? "Acceso" : "Spento"),
+        interruttore(w.acceso, () => api("/api/impostazioni/wifi", { azione: w.acceso ? "spegni" : "accendi" }).then(() => setTimeout(() => apriVista("impostazioni", "wifi"), 1500)))));
+      if (w.acceso) {
+        if (!(w.reti || []).length) c.append(el("p", "nota", "Cerco le reti… se non ne compare nessuna, riprova tra poco."));
+        for (const n of w.reti || []) {
+          const collega = bottone(n.attiva ? "Collegato" : "Collega", async () => {
+            let password = "";
+            if (n.protetta && !n.attiva) {
+              password = prompt(`Password della rete «${n.nome}»`);
+              if (password === null) return;
+            }
+            esito.textContent = "Mi collego…"; esito.className = "esito";
+            dici(await api("/api/impostazioni/wifi", { azione: "collega", nome: n.nome, password }).catch(e => ({ ok: false, messaggio: e.message })));
+            setTimeout(() => apriVista("impostazioni", "wifi"), 1500);
+          }, n.attiva ? "bottone" : "bottone primo");
+          c.append(riga(`${n.protetta ? "🔒 " : ""}${n.nome}`, null, el("span", "segnale", `${n.segnale}%`), collega));
+        }
+      }
+      pan.append(esito);
+    } else if (sezione === "bluetooth") {
+      const bt = d.bluetooth || {};
+      const c = carta(riga("Bluetooth", bt.presente ? (bt.acceso ? "Acceso" : "Spento") : "Non trovo il Bluetooth in questo computer.",
+        interruttore(bt.acceso, () => api("/api/impostazioni/bluetooth", { azione: bt.acceso ? "spegni" : "accendi" }).then(() => apriVista("impostazioni", "bluetooth")))));
+      for (const dev of bt.dispositivi || []) {
+        c.append(riga(dev.nome, dev.collegato ? "Collegato" : "Non collegato", bottone(dev.collegato ? "Scollega" : "Collega", async () => {
+          dici(await api("/api/impostazioni/bluetooth", { azione: dev.collegato ? "scollega" : "collega", indirizzo: dev.indirizzo }));
+          apriVista("impostazioni", "bluetooth");
+        })));
+      }
+      c.append(el("p", "nota", "Per abbinare un dispositivo nuovo (cuffie, telefono) di' a Nova: «abbina le cuffie Bluetooth»."));
+      pan.append(esito);
+    } else if (sezione === "suono") {
+      const cursore = (valore, rotta) => {
+        const r = el("input"); r.type = "range"; r.min = 0; r.max = 100; r.value = valore ?? 50; r.disabled = valore == null;
+        r.onchange = () => api(`/api/impostazioni/${rotta}`, { livello: +r.value }).catch(() => {}); return r;
+      };
+      carta(riga("🔊 Volume", d.volume?.livello == null ? "Audio non disponibile" : null, cursore(d.volume?.livello, "volume")),
+            riga("☀️ Luminosità", d.luminosita?.livello == null ? "Questo schermo non la regola da qui" : null, cursore(d.luminosita?.livello, "luminosita")));
+    } else if (sezione === "voce") {
+      const v = d.voce || { voci: [] };
+      const c = carta(el("p", "nota", "Scegli come parla Nova. Tocca una voce per sentirla."));
+      for (const voce of v.voci) {
+        c.append(riga(voce.nome, voce.id === v.scelta ? "In uso" : null, bottone(voce.id === v.scelta ? "Ascolta" : "Usa questa", async () => {
+          await api("/api/impostazioni/voce", { voce: voce.id }).catch(e => alert(e.message)); apriVista("impostazioni", "voce");
+        }, voce.id === v.scelta ? "bottone" : "bottone primo")));
+      }
+      if (!v.voci.length) c.append(el("p", "nota", "Nessuna voce installata."));
+    } else if (sezione === "aggiornamenti") {
+      const c = carta(el("p", "", d.aggiornamenti || ""));
+      c.append(el("div", "azioni"));
+      c.lastChild.append(bottone("Cerca aggiornamenti", () => { chiudiVista(); chiedi("aggiorna il sistema"); }, "bottone primo"));
+      const tok = el("input", "campo"); tok.type = "password"; tok.placeholder = "Token di GitHub (sola lettura)";
+      carta(el("h3", "", "Aggiornamenti da GitHub"),
+            el("p", "nota", "Per scaricare le nuove versioni dal repository privato: crea un token con il solo permesso «Contents: read» e incollalo qui. Resta nel portachiavi del computer."),
+            riga("Token", null, tok, bottone("Collega", async () => {
+              dici(await api("/api/impostazioni/github", { token: tok.value }).catch(e => ({ ok: false, messaggio: e.message }))); tok.value = "";
+            }, "bottone primo")));
+      pan.append(esito);
+    } else if (sezione === "account") {
+      const vecchia = el("input", "campo"); vecchia.type = "password"; vecchia.placeholder = "Password attuale";
+      const nuova = el("input", "campo"); nuova.type = "password"; nuova.placeholder = "Nuova password";
+      const ripeti = el("input", "campo"); ripeti.type = "password"; ripeti.placeholder = "Ripeti la nuova password";
+      carta(riga("Password attuale", null, vecchia), riga("Nuova password", "Almeno 6 caratteri", nuova), riga("Ripeti", null, ripeti),
+            riga("", null, bottone("Cambia password", async () => {
+              if (nuova.value !== ripeti.value) return dici({ ok: false, messaggio: "Le due password nuove non sono uguali." });
+              esito.textContent = "Un momento…";
+              dici(await api("/api/impostazioni/password", { vecchia: vecchia.value, nuova: nuova.value }).catch(e => ({ ok: false, messaggio: e.message })));
+              vecchia.value = nuova.value = ripeti.value = "";
+            }, "bottone primo")));
+      pan.append(esito);
+    } else if (sezione === "info") {
+      const i = d.info || {};
+      carta(riga("Versione di AIOS", null, el("b", "", i.versione || "—")),
+            riga("Processore", null, el("span", "", i.processore || "—")),
+            riga("Memoria", null, el("span", "", i.memoria_gb ? `${i.memoria_gb} GB` : "—")),
+            riga("Spazio libero", null, el("span", "", i.disco_libero_gb != null ? `${i.disco_libero_gb} GB` : "—")),
+            riga("Modello AI di Nova", "Tutto sul computer, niente cloud", el("span", "", i.modello || "—"),
+                 bottone("Più potente?", () => { chiudiVista(); chiedi("quali modelli AI mi consigli?"); })));
+    } else if (sezione === "energia") {
+      const az = (t, a, cls) => bottone(t, () => { if (a === "spegni" || a === "riavvia" ? confirm(`${t}?`) : true) api("/api/impostazioni/energia", { azione: a }).catch(() => {}); }, cls);
+      carta(riga("Blocca lo schermo", null, az("Blocca", "blocca", "bottone")),
+            riga("Sospendi", "Il computer dorme, riprendi da dove eri", az("Sospendi", "sospendi", "bottone")),
+            riga("Riavvia", null, az("Riavvia", "riavvia", "bottone")),
+            riga("Spegni", null, az("Spegni", "spegni", "bottone pericolo")));
+    }
+    if (d.errore) pan.append(el("p", "esito no", d.errore));
+  },
+};

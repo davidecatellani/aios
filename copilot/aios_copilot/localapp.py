@@ -35,7 +35,19 @@ NO_MODEL = (
 )
 MAX_BODY = 256 * 1024
 
-Response = tuple[int, Any]  # (stato HTTP, contenuto JSON)
+Response = tuple[int, Any]  # (stato HTTP, contenuto JSON, o Raw)
+CSP = ("default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; "
+       "img-src 'self' data: blob:; media-src 'self' blob:; frame-src 'self'; connect-src 'self'; frame-ancestors 'self'")
+
+
+@dataclass
+class Raw:
+    """Una risposta che non è JSON: un file dell'utente (con Range, per audio e video) o una pagina."""
+
+    body: bytes | Path
+    content_type: str
+    csp: str = CSP
+    filename: str = ""
 
 
 @dataclass
@@ -77,6 +89,11 @@ class LocalApp:
     """Stato condiviso dal server: agente, richieste in corso, chiave di accesso, rotte."""
 
     page: Path
+    # File statici della pagina (/static/nome): script e stili, niente di privato.
+    static_dir: Path | None = None
+    # Rotte che si possono aprire da <img>, <video>, <iframe> (che non mandano l'header):
+    # la chiave arriva nel parametro «t».
+    token_in_query = ("/file/", "/doc/")
 
     def __init__(self, make_agent: Callable[[Callable[..., bool]], Agent] | None = None):
         self.token = secrets.token_urlsafe(24)
@@ -152,20 +169,60 @@ def make_handler(app: LocalApp, port_ref: list[int]) -> type[BaseHTTPRequestHand
         def log_message(self, *args: Any) -> None:
             pass
 
-        def _send(self, status: int, body: bytes, content_type: str) -> None:
+        def _send(self, status: int, body: bytes, content_type: str, csp: str = CSP,
+                  extra: dict[str, str] | None = None) -> None:
             self.send_response(status)
             self.send_header("Content-Type", content_type)
             self.send_header("Content-Length", str(len(body)))
             self.send_header("Cache-Control", "no-store")
             self.send_header("X-Content-Type-Options", "nosniff")
             self.send_header("Referrer-Policy", "no-referrer")
-            self.send_header(
-                "Content-Security-Policy",
-                "default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; "
-                "img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'",
-            )
+            self.send_header("Content-Security-Policy", csp)
+            for k, v in (extra or {}).items():
+                self.send_header(k, v)
             self.end_headers()
             self.wfile.write(body)
+
+        def _raw(self, status: int, raw: Raw) -> None:
+            if isinstance(raw.body, bytes):
+                return self._send(status, raw.body, raw.content_type, raw.csp)
+            size = raw.body.stat().st_size
+            start, end = 0, size - 1
+            m = re.fullmatch(r"bytes=(\d*)-(\d*)", self.headers.get("Range", "").strip())
+            if m and (m.group(1) or m.group(2)):
+                if m.group(1):
+                    start = int(m.group(1))
+                    end = min(int(m.group(2)), size - 1) if m.group(2) else size - 1
+                else:  # gli ultimi N byte
+                    start = max(0, size - int(m.group(2)))
+                if start > end:
+                    self.send_response(416)
+                    self.send_header("Content-Range", f"bytes */{size}")
+                    self.end_headers()
+                    return
+                status = 206
+            self.send_response(status)
+            self.send_header("Content-Type", raw.content_type)
+            self.send_header("Content-Length", str(end - start + 1))
+            self.send_header("Accept-Ranges", "bytes")
+            if status == 206:
+                self.send_header("Content-Range", f"bytes {start}-{end}/{size}")
+            self.send_header("Cache-Control", "private, max-age=60")
+            self.send_header("X-Content-Type-Options", "nosniff")
+            self.send_header("Content-Security-Policy", raw.csp)
+            self.end_headers()
+            with raw.body.open("rb") as f:
+                f.seek(start)
+                left = end - start + 1
+                while left > 0:
+                    chunk = f.read(min(256 * 1024, left))
+                    if not chunk:
+                        break
+                    try:
+                        self.wfile.write(chunk)
+                    except (BrokenPipeError, ConnectionResetError):
+                        return  # il lettore video ha chiesto un altro pezzo
+                    left -= len(chunk)
 
         def _json(self, payload: Any, status: int = 200) -> None:
             self._send(status, json.dumps(payload, ensure_ascii=False, default=str).encode(), "application/json; charset=utf-8")
@@ -173,8 +230,10 @@ def make_handler(app: LocalApp, port_ref: list[int]) -> type[BaseHTTPRequestHand
         def _host_ok(self) -> bool:
             return self.headers.get("Host", "") in (f"127.0.0.1:{port_ref[0]}", f"localhost:{port_ref[0]}")
 
-        def _authorized(self) -> bool:
+        def _authorized(self, path: str = "", query: dict[str, str] | None = None) -> bool:
             token = self.headers.get("X-AIOS-Token", "")
+            if not token and path.startswith(app.token_in_query):
+                token = (query or {}).get("t", "")
             return self._host_ok() and hmac.compare_digest(token.encode(), app.token.encode())
 
         def _body(self) -> dict[str, Any]:
@@ -212,10 +271,12 @@ def make_handler(app: LocalApp, port_ref: list[int]) -> type[BaseHTTPRequestHand
                 from .themeapply import current_css
 
                 return self._send(200, current_css().encode(), "text/css; charset=utf-8")
-            if not self._authorized():
+            if method == "GET" and url.path.startswith("/static/") and app.static_dir is not None:
+                return self._static(url.path[8:])
+            query = {k: v[0] for k, v in parse_qs(url.query).items()}
+            if not self._authorized(url.path, query):
                 return self._json({"error": "non autorizzato"}, 403)
             body = self._body() if method == "POST" else {}
-            query = {k: v[0] for k, v in parse_qs(url.query).items()}
             for pattern, handler in app.routes[method]:
                 m = pattern.fullmatch(url.path)
                 if m:
@@ -223,8 +284,18 @@ def make_handler(app: LocalApp, port_ref: list[int]) -> type[BaseHTTPRequestHand
                         status, payload = handler(m, body, query)
                     except Exception as exc:  # mai un errore muto per la pagina
                         status, payload = 500, {"error": str(exc)}
+                    if isinstance(payload, Raw):
+                        return self._raw(status, payload)
                     return self._json(payload, status)
             self._json({"error": "non trovato"}, 404)
+
+        def _static(self, name: str) -> None:
+            kinds = {".js": "text/javascript; charset=utf-8", ".css": "text/css; charset=utf-8",
+                     ".svg": "image/svg+xml", ".html": "text/html; charset=utf-8"}
+            path = (app.static_dir / name) if re.fullmatch(r"[\w-]+\.(js|css|svg|html)", name) else None
+            if path is None or not path.is_file():
+                return self._json({"error": "non trovato"}, 404)
+            self._send(200, path.read_bytes(), kinds[path.suffix])
 
         def do_GET(self) -> None:
             self._dispatch("GET")

@@ -43,7 +43,7 @@ aios-catalogo-telefoni = "aios_copilot.phonecatalog:main"
 include = ["aios_copilot*"]
 
 [tool.setuptools.package-data]
-aios_copilot = ["welcome/*.html", "mail/*.html", "mesh/*.html", "brand/*", "phoneapp/*.html", "shell/*.html"]
+aios_copilot = ["welcome/*.html", "mail/*.html", "mesh/*.html", "brand/*", "phoneapp/*.html", "shell/*.html", "shell/static/*"]
 
 [tool.pytest.ini_options]
 pythonpath = [".", "tests"]

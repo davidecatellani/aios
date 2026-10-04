@@ -78,6 +78,8 @@ BUILTIN: tuple[Model, ...] = (
     Model("qwen3.5:2b", "testo", 2.7, 4, rank=3.2, note="incluso in AIOS: risponde anche senza internet"),
     Model("qwen3.5:4b", "testo", 3.4, 6, rank=4.3, note="il migliore per i portatili senza scheda video"),
     Model("qwen3.5:9b", "testo", 6.6, 10, rank=5.2, note="per PC con 16 GB o una scheda video"),
+    # Qwen 3.8 (2026): solo in taglie grandi; la versione Flash Next (125B a esperti) per ora è solo per Mac
+    Model("qwen3.8:27b", "testo", 18.0, 22, needs_gpu=True, rank=6.6, note="27B: per schede video da 24 GB"),
     # generazione precedente: resta per chi l'ha già scaricata
     Model("qwen2.5:0.5b-instruct", "testo", 0.4, 1.5, rank=1),
     Model("qwen2.5:1.5b-instruct", "testo", 1.0, 3, rank=2),

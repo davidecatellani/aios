@@ -16,6 +16,7 @@ Pezzi:
     aios-shell --nova         mostra/nasconde il pannello di Nova (Super+Spazio)
     aios-shell --casa         torna alla schermata (Super): riduce le app aperte
     aios-shell --voce TESTO   richiesta detta a voce (servizio aios-voce)
+    aios-shell --vista NOME[:PARTE]  apre un'app di AIOS (file, foto, musica, video, note, impostazioni:wifi…)
 """
 
 from __future__ import annotations
@@ -35,22 +36,27 @@ from pathlib import Path
 from typing import Any, Callable
 
 from ..localapp import LocalApp, serve
+from .apps import register_apps
 
 PAGE = Path(__file__).with_name("home.html")
 APP_ID = "org.aios.Shell"
 DAYS = ["lunedì", "martedì", "mercoledì", "giovedì", "venerdì", "sabato", "domenica"]
 MONTHS = ["gennaio", "febbraio", "marzo", "aprile", "maggio", "giugno", "luglio", "agosto",
           "settembre", "ottobre", "novembre", "dicembre"]
-# Il dock: le app di tutti i giorni (la prima presente per ogni posto), poi quelle che usi di più.
-DOCK = [
-    ("File", ["org.gnome.Nautilus", "nautilus"]),
-    ("Internet", ["org.mozilla.firefox", "firefox", "org.chromium.Chromium", "chromium-browser"]),
-    ("Documenti", ["org.libreoffice.LibreOffice.writer", "libreoffice-writer", "org.gnome.TextEditor"]),
-    ("Musica", ["org.gnome.Music", "io.bassi.Amberol", "rhythmbox"]),
-    ("Video", ["org.gnome.Showtime", "org.gnome.Totem", "vlc", "org.videolan.VLC"]),
-    ("Foto", ["org.gnome.Loupe", "org.gnome.eog", "org.gnome.Photos"]),
-    ("Impostazioni", ["org.gnome.Settings", "gnome-control-center"]),
+# Il dock: le app di AIOS (viste HTML della shell), poi il browser. Gli altri programmi sono in «Tutte».
+AIOS_APPS = [
+    {"id": "aios:file", "label": "File", "name": "File", "vista": "file", "simbolo": "📁"},
+    {"id": "aios:foto", "label": "Foto", "name": "Foto", "vista": "foto", "simbolo": "🖼️"},
+    {"id": "aios:musica", "label": "Musica", "name": "Musica", "vista": "musica", "simbolo": "🎵"},
+    {"id": "aios:video", "label": "Video", "name": "Video", "vista": "video", "simbolo": "🎬"},
+    {"id": "aios:note", "label": "Note", "name": "Note", "vista": "note", "simbolo": "📝"},
+    {"id": "aios:impostazioni", "label": "Impostazioni", "name": "Impostazioni", "vista": "impostazioni", "simbolo": "⚙️"},
 ]
+BROWSERS = ["org.mozilla.firefox", "firefox", "org.chromium.Chromium", "chromium-browser", "com.google.Chrome"]
+# Le app di sistema di GNOME e Fedora non si mostrano: le loro funzioni le fanno le app di AIOS.
+SYSTEM_HIDDEN = re.compile(r"^(org\.gnome\.|gnome-|org\.freedesktop\.|org\.fedoraproject\.|nm-|ibus|yelp|"
+                           r"system-config|htop|fedora-|anaconda|liveinst|setroubleshoot|org\.kde\.kdeconnect|"
+                           r"kde-connect|kdeconnect|mpv|org\.aios\.|com\.mitchellh\.ptyxis|org\.gnome\.Ptyxis|ptyxis)", re.I)
 HIDDEN_APPS = {"org.aios.Shell", "org.aios.Copilot", "org.aios.Welcome", "org.aios.Welcome-autostart"}
 
 
@@ -100,6 +106,8 @@ def installed_apps(dirs: list[Path] | None = None) -> dict[str, DesktopApp]:
         for path in sorted(d.glob("*.desktop")) if d.is_dir() else ():
             if path.stem in found or path.stem in HIDDEN_APPS:
                 continue
+            if SYSTEM_HIDDEN.match(path.stem) and not str(d).startswith(str(Path.home())) and "flatpak" not in str(d):
+                continue
             app = read_desktop(path)
             if app is not None:
                 found[path.stem] = app
@@ -107,11 +115,11 @@ def installed_apps(dirs: list[Path] | None = None) -> dict[str, DesktopApp]:
 
 
 def dock_apps(apps: dict[str, DesktopApp]) -> list[dict[str, Any]]:
-    dock = []
-    for label, choices in DOCK:
-        app = next((apps[c] for c in choices if c in apps), None)
-        if app is not None:
-            dock.append({**asdict(app), "label": label})
+    dock: list[dict[str, Any]] = [dict(a) for a in AIOS_APPS[:5]]
+    browser = next((apps[c] for c in BROWSERS if c in apps), None)
+    if browser is not None:
+        dock.insert(1, {**asdict(browser), "label": "Internet"})
+    dock.append(dict(AIOS_APPS[5]))
     return dock
 
 
@@ -163,6 +171,12 @@ def minimize_all(run: Callable[[list[str]], tuple[int, str]] | None = None) -> N
     run = run or _run
     for w in open_windows(run):
         run(["wlrctl", "toplevel", "minimize", f"app_id:{w['app_id']}"])
+
+
+def close_window(app_id: str, run: Callable[[list[str]], tuple[int, str]] | None = None) -> bool:
+    if not re.fullmatch(r"[\w.+-]+", app_id) or app_id == APP_ID:
+        return False
+    return (run or _run)(["wlrctl", "toplevel", "close", f"app_id:{app_id}"])[0] == 0
 
 
 def focus_window(app_id: str, run: Callable[[list[str]], tuple[int, str]] | None = None) -> bool:
@@ -264,6 +278,7 @@ EXAMPLES = ["🔔 Ricordami di pagare la bolletta alle 12", "🗂️ Cerca nei m
 # --- server della pagina -----------------------------------------------------------------------------------
 class ShellApp(LocalApp):
     page = PAGE
+    static_dir = PAGE.parent / "static"
 
     def __init__(self, make_agent: Callable[..., Any] | None = None, clock: Callable[[], datetime] = datetime.now,
                  agenda: Callable[[], Any] | None = None, apps: Callable[[], dict[str, DesktopApp]] = installed_apps,
@@ -281,11 +296,19 @@ class ShellApp(LocalApp):
         self.route("POST", r"/api/apri", self._open_file)
         self.route("GET", r"/api/finestre", lambda m, b, q: (200, {"finestre": open_windows()}))
         self.route("POST", r"/api/finestra", self._focus)
-        self.route("POST", r"/api/casa-vai", lambda m, b, q: (threading.Thread(target=minimize_all, daemon=True).start(),
-                                                               (200, {"ok": True}))[1])
+        self.on_home: Callable[[], None] = lambda: None  # la shell GTK chiude le viste aperte
+        self.route("POST", r"/api/casa-vai", self._go_home)
+        self.route("POST", r"/api/finestra-chiudi", lambda m, b, q: (200, {"ok": close_window(str(b.get("app_id", "")))}))
         self.route("POST", r"/api/parla", self._speak)
+        register_apps(self)
         self.route("POST", r"/api/ascolta", self._listen)
         self.route("POST", r"/api/ascolta-si-no", self._listen_yes_no)
+
+    def _go_home(self, match: Any, body: dict[str, Any], query: dict[str, str]) -> tuple[int, Any]:
+        threading.Thread(target=minimize_all, daemon=True).start()
+        if body.get("chiudi_viste", True):
+            self.on_home()
+        return 200, {"ok": True}
 
     def apps(self) -> dict[str, DesktopApp]:
         if time.monotonic() - self._apps_at > 30:  # nuove app installate: si vedono da sole
@@ -314,7 +337,7 @@ class ShellApp(LocalApp):
 
     def _all_apps(self, match: Any, body: dict[str, Any], query: dict[str, str]) -> tuple[int, Any]:
         apps = sorted(self.apps().values(), key=lambda a: a.name.lower())
-        return 200, {"app": [asdict(a) for a in apps]}
+        return 200, {"aios": AIOS_APPS, "app": [asdict(a) for a in apps]}
 
     def _icon(self, match: Any, body: dict[str, Any], query: dict[str, str]) -> tuple[int, Any]:
         app = self.apps().get(match.group(1))
@@ -465,6 +488,7 @@ def run_gtk(app: ShellApp, url: str, argv: list[str]) -> int:
             panel.set_default_size(PANEL_WIDTH, 720)
         home.present()
         state.update(home=home, home_view=home_view, bar=bar, panel=panel, panel_view=panel_view)
+        app.on_home = lambda: GLib.idle_add(run_js, home_view, "window.chiudiVista && window.chiudiVista()")
 
     def run_js(view: Any, code: str) -> None:
         view.evaluate_javascript(code, -1, None, None, None, None, None)
@@ -488,7 +512,15 @@ def run_gtk(app: ShellApp, url: str, argv: list[str]) -> int:
         elif "--casa" in args:
             state["panel"].set_visible(False)
             threading.Thread(target=minimize_all, daemon=True).start()
-            run_js(state["home_view"], "window.novaFocus && window.novaFocus()")
+            run_js(state["home_view"], "window.chiudiVista && window.chiudiVista(); window.novaFocus && window.novaFocus()")
+        elif "--vista" in args and args.index("--vista") + 1 < len(args):
+            # da Nova: «apri le impostazioni del Wi-Fi», «mostrami le foto»
+            what = args[args.index("--vista") + 1].split(":")
+            if re.fullmatch(r"[a-z]+", what[0]):
+                state["panel"].set_visible(False)
+                threading.Thread(target=minimize_all, daemon=True).start()
+                run_js(state["home_view"], f"window.apriVista && window.apriVista({json.dumps(what[0])}"
+                       + (f", {json.dumps(what[1])})" if len(what) > 1 else ")"))
         elif "--voce" in args and args.index("--voce") + 1 < len(args):
             toggle_panel(args[args.index("--voce") + 1])
         return False
