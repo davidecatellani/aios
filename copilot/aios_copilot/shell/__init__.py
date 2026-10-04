@@ -69,6 +69,7 @@ class DesktopApp:
     exec: str
     keywords: str = ""
     windows: bool = False  # app Windows (Bottles/Wine): segno distintivo nel dock
+    game: bool = False  # un gioco (Categories=Game): quando è aperto AIOS libera la memoria (giochi.py)
 
 
 def app_dirs() -> list[Path]:
@@ -96,8 +97,10 @@ def read_desktop(path: Path) -> DesktopApp | None:
     keywords = " ".join(filter(None, [entry.get("Keywords[it]", ""), entry.get("Keywords", ""),
                                       entry.get("GenericName[it]", ""), entry.get("Comment[it]", "")]))
     exe = entry.get("Exec", "")
+    categories = entry.get("Categories", "").split(";")
     return DesktopApp(path.stem, name, entry.get("Icon", ""), exe, keywords,
-                      windows="bottles" in exe.lower() or "wine" in exe.lower())
+                      windows="bottles" in exe.lower() or "wine" in exe.lower(),
+                      game="Game" in categories and "Utility" not in categories)
 
 
 def installed_apps(dirs: list[Path] | None = None) -> dict[str, DesktopApp]:
@@ -860,7 +863,26 @@ def main(argv: list[str] | None = None) -> int:
 
     threading.Thread(target=WindowWatcher(open_windows).run, daemon=True).start()  # il diario dei programmi
     if hyprland():
-        threading.Thread(target=hypr_events, daemon=True).start()  # ogni programma sul suo spazio
+        from .. import giochi
+
+        try:
+            giochi.flag().unlink()  # sessione nuova: nessun gioco aperto
+        except OSError:
+            pass
+        apps_cache: list[Any] = []
+
+        def apps_now() -> dict[str, DesktopApp]:
+            if not apps_cache or time.monotonic() - apps_cache[0] > 300:
+                apps_cache[:] = [time.monotonic(), installed_apps()]
+            return apps_cache[1]
+
+        def notify(text: str) -> None:
+            _run(["notify-send", "-a", "Nova", "Nova", text])
+
+        game_mode = giochi.GameMode(apps_now, notify=notify)
+        threading.Thread(target=giochi.run, args=(game_mode,), daemon=True).start()
+        # ogni programma sul suo spazio; i giochi liberano la memoria di AIOS (giochi.py)
+        threading.Thread(target=hypr_events, args=(game_mode.handle,), daemon=True).start()
     threading.Thread(target=save_session_forever, daemon=True).start()  # da riaprire al riavvio o altrove
     app = ShellApp(make_agent_for_shell)
     server, url = serve(app)

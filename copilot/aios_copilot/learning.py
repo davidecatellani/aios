@@ -684,6 +684,10 @@ class Scheduler:
         return woke
 
     def can_run(self) -> tuple[bool, str]:
+        from .giochi import active as playing
+
+        if playing():
+            return False, "gioco in corso"
         if self.clock() < self._paused_until:
             return False, "appena risvegliato dallo standby"
         if not self.conditions.on_ac():

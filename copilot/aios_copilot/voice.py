@@ -348,6 +348,10 @@ class Ears:
         """La frase trascritta da Parakeet al posto di quella di Vosk (se Parakeet c'è e capisce qualcosa)."""
         if not rough or not audio or self.fine is None:
             return rough
+        from .giochi import active as playing
+
+        if playing():
+            return rough  # durante un gioco niente modelli in più: basta Vosk
         pcm = b"".join(audio)
         try:
             pcm = self.main_voice(pcm)
