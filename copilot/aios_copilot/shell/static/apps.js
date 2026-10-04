@@ -174,9 +174,32 @@ const VISTE = {
     const corpo = testa(box, "Foto");
     const { voci, cartella } = await api("/api/raccolta/foto").catch(() => ({ voci: [], cartella: "Immagini" }));
     if (!voci.length) { corpo.append(el("p", "vuoto", `Nessuna foto in «${cartella}».\nCollega il telefono e chiedi a Nova di copiare le foto.`)); return; }
+    // le persone riconosciute dai volti: un tocco su chi non ha nome per dirlo a Nova
+    const pers = await api("/api/persone").catch(() => ({ persone: [], attivo: false }));
+    if (pers.persone.length) {
+      const fila = el("div", "persone");
+      for (const p of pers.persone) {
+        const b = el("button", "persona" + (p.nome ? "" : " senza-nome"));
+        const img = el("img"); img.alt = p.nome || "?"; img.src = `/api/miniatura-volto/${p.volto}?t=${encodeURIComponent(TOKEN)}`;
+        b.append(img, el("span", "", p.nome || "Chi è?"), el("small", "", `${p.foto} foto`));
+        b.onclick = async () => {
+          if (p.nome) { chiudiVista(); chiedi(`mostrami le foto di ${p.nome}`); return; }
+          const nome = await chiediTesto("Chi è questa persona?");
+          if (nome) { await api("/api/persona", { id: p.id, nome }).catch(e => avviso(e.message)); apriVista("foto"); }
+        };
+        fila.append(b);
+      }
+      corpo.append(el("div", "etichetta-sez", "Persone"), fila);
+    } else if (!pers.attivo) {
+      const invito = el("div", "invito");
+      invito.append(el("span", "", "Vuoi cercare le foto per persone e per cosa c'è dentro («il mare», «la torta»)?"),
+                    bottone("Riconosci le foto", () => { chiudiVista(); chiedi("riconosci le mie foto"); }, "bottone primo"));
+      corpo.append(invito);
+    }
     const g = el("div", "griglia-foto");
     voci.forEach((f, i) => {
-      const b = el("button"); const img = el("img"); img.loading = "lazy"; img.alt = f.nome; img.src = fileUrl(f.percorso);
+      const b = el("button"); const img = el("img"); img.loading = "lazy"; img.alt = f.nome;
+      img.src = `/api/miniatura-file?p=${encodeURIComponent(f.percorso)}&t=${encodeURIComponent(TOKEN)}`;
       b.append(img); b.onclick = () => lampada(voci, i); g.append(b);
     });
     corpo.append(g);
@@ -430,6 +453,15 @@ const VISTE = {
       pan.append(esito);
     } else if (sezione === "privacy") {
       const di = d.diario || {};
+      const ga = d.galleria || {};
+      carta(riga("Riconoscimento delle foto", ga.attivo ? `Foto guardate: ${ga.descritte || 0} su ${ga.foto || 0}. Cosa c'è, scritte e persone, solo su questo computer.`
+                   : "Nova guarda le foto a riposo e in carica: cosa c'è, scritte e persone. Niente esce dal computer.",
+                 interruttore(ga.attivo, () => api("/api/impostazioni/galleria", { attivo: !ga.attivo }).then(r => { dici(r); apriVista("impostazioni", "privacy"); }))),
+            riga("Dimentica le foto", "Cancella descrizioni, volti e nomi delle persone",
+                 bottone("Cancella", async () => {
+                   if (!await chiediConferma("Cancello tutto quello che Nova ha imparato dalle foto (le foto restano)?")) return;
+                   dici(await api("/api/impostazioni/galleria", { cancella: true }).catch(e => ({ ok: false, messaggio: e.message })));
+                 }, "bottone pericolo")));
       carta(riga("Diario delle attività", `Nova ricorda programmi, file, siti e conversazioni per rispondere a «dove mi ero fermato?». Resta solo su questo computer, per ${di.conserva || 90} giorni.`,
                  interruttore(di.attivo, () => api("/api/impostazioni/diario", { attivo: !di.attivo }).then(() => apriVista("impostazioni", "privacy")))),
             riga("Cancella il diario", di.giorni ? `${di.giorni} giorni annotati` : "Il diario è vuoto",

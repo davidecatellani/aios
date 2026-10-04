@@ -144,3 +144,13 @@ body.in-vista #casa, body.in-vista #fondo { display: none; }
 .proposta span.s .icona { width: 30px; height: 30px; color: var(--turchese); }
 .passo-casa > .icona, .riga-imp .con-icona .icona, .sezioni .icona { color: var(--turchese); }
 .icona-file .icona { width: 34px; height: 34px; color: var(--turchese); }
+
+/* Foto › Persone */
+.etichetta-sez { font-size: 13px; letter-spacing: 2px; color: var(--tenue); font-weight: 700; text-transform: uppercase; margin: 4px 28px 8px; }
+.persone { display: flex; gap: 14px; overflow-x: auto; padding: 4px 28px 16px; }
+.persona { display: flex; flex-direction: column; align-items: center; gap: 4px; border: 0; background: none; color: var(--testo); min-width: 84px; }
+.persona img { width: 72px; height: 72px; border-radius: 50%; object-fit: cover; border: 2px solid var(--bordo); }
+.persona.senza-nome img { border: 2px dashed var(--turchese); }
+.persona span { font-weight: 700; font-size: 14px; } .persona small { color: var(--tenue); font-size: 12px; }
+.invito { display: flex; gap: 14px; align-items: center; justify-content: space-between; margin: 4px 28px 16px; padding: 14px 18px;
+          border-radius: 16px; background: var(--carta); border: 1px solid var(--bordo); }

@@ -721,6 +721,9 @@ def build(index: FileIndex | None = None) -> tuple[Scheduler, FileIndex]:
     from .organize import Library
 
     tasks.append(OrganizeTask(Library()))
+    from .galleria import GalleryTask
+
+    tasks.append(GalleryTask())  # foto: cosa c'è, scritte, persone (solo se l'utente l'ha acceso)
     from .agenda import notify
     from .updates import UpdateTask
 

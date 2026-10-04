@@ -260,12 +260,15 @@ class Updates:
             archive = assemble(pkg)
         except (OSError, ValueError) as exc:
             return f"Sistema: AIOS {pkg.version} non preparato: {exc}"
-        try:
-            code, out = self.runner.run(stage_command(self.system.tool, archive))
-        finally:
-            archive.unlink(missing_ok=True)  # ormai è nel sistema (o andrà riportato)
+        code, out = self.runner.run(stage_command(self.system.tool, archive))
         if code != 0:
+            # il file scaricato resta: al prossimo tentativo non si riscaricano gigabyte
+            if "not allowed" in out or "Not authorized" in out:
+                return (f"Sistema: AIOS {pkg.version} è scaricato ma il sistema non mi dà il permesso di installarlo. "
+                        "Serve una regola di AIOS che manca in questa versione: chiedi all'assistenza il comando, "
+                        "poi dimmi di nuovo «aggiorna il sistema» (non riscarico niente).")
             return f"Sistema: AIOS {pkg.version} non preparato: {out[-200:]}"
+        archive.unlink(missing_ok=True)  # ormai è nel sistema
         state = load_state()
         state["pronto"] = {"versione": pkg.version, "sicurezza": u.security, "quando": self.clock()}
         save_state(state)

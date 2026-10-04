@@ -19,6 +19,7 @@ RUN dnf install -y --skip-unavailable \
         espeak-ng pipewire-utils python3-cffi pciutils usbutils zenity \
         hyprland labwc gtk4-layer-shell wlrctl mako swayidle swaylock wlopm grim slurp brightnessctl \
         greetd greetd-selinux cage python3-openpyxl tuned-ppd gtklock powertop \
+        python3-opencv \
         rsms-inter-fonts atkinson-hyperlegible-fonts google-noto-serif-fonts mozilla-fira-sans-fonts \
         opendyslexic-fonts lexend-fonts jetbrains-mono-fonts \
         gstreamer1-plugins-good gstreamer1-plugins-bad-free gstreamer1-plugin-libav \
@@ -69,6 +70,16 @@ RUN set -e; pip install --no-cache-dir --prefix=/usr vosk==0.3.45 mammoth; \
     curl -fsSL -o /usr/share/aios/voce/it_IT-riccardo-x_low.onnx "$voce"; \
     curl -fsSL -o /usr/share/aios/voce/it_IT-riccardo-x_low.onnx.json "$voce.json"; \
     test -x /usr/lib/aios/piper/piper; ls /usr/share/aios/voce
+
+# Volti nelle foto (galleria.py): due modellini ONNX di OpenCV, trovare i volti (YuNet, 230 KB) e
+# riconoscerli (SFace, 37 MB). Se lo scaricamento non riesce, il resto del riconoscimento funziona lo stesso.
+RUN mkdir -p /usr/share/aios/volti; zoo=https://github.com/opencv/opencv_zoo/raw/main/models; \
+    curl -fsSL -o /usr/share/aios/volti/face_detection_yunet_2023mar.onnx "$zoo/face_detection_yunet/face_detection_yunet_2023mar.onnx" \
+      && curl -fsSL -o /usr/share/aios/volti/face_recognition_sface_2021dec.onnx "$zoo/face_recognition_sface/face_recognition_sface_2021dec.onnx" \
+      && [ "$(stat -c%s /usr/share/aios/volti/face_detection_yunet_2023mar.onnx)" -gt 100000 ] \
+      && [ "$(stat -c%s /usr/share/aios/volti/face_recognition_sface_2021dec.onnx)" -gt 1000000 ] \
+      || { echo "avviso: modelli dei volti non scaricati"; rm -f /usr/share/aios/volti/*.onnx; }; \
+    ls -l /usr/share/aios/volti
 
 # Ollama (modelli AI locali), dal pacchetto ufficiale per Linux. Le librerie CUDA si tolgono:
 # senza il driver NVIDIA (non incluso in Fedora) non servono e raddoppiano la chiavetta.

@@ -567,7 +567,9 @@ def register_apps(app: Any, run: Run = _run) -> None:
 
             data["tastiera"] = {"scelta": keyboard.current(), "lingue": keyboard.LAYOUTS}
         if part in ("", "privacy"):
-            from .. import diario
+            from .. import diario, galleria
+
+            data["galleria"] = {"attivo": galleria.enabled(), **(galleria.Gallery().stats() if galleria.enabled() else {})}
 
             data["diario"] = {"attivo": diario.enabled(), "giorni": len(diario.days_with_events()),
                               "conserva": diario.KEEP_DAYS}
@@ -659,6 +661,39 @@ def register_apps(app: Any, run: Run = _run) -> None:
             raise FileNotFoundError
         small = photo_thumbnail(p)
         return 200, Raw(small, "image/jpeg") if small else file_response(p)
+
+    def people(m: Any, b: dict[str, Any], q: dict[str, str]) -> tuple[int, Any]:
+        from .. import galleria
+        from ..tools.foto import galleria_has_data
+
+        if not galleria_has_data():
+            return 200, {"persone": [], "attivo": galleria.enabled()}
+        return 200, {"persone": galleria.Gallery().people()[:40], "attivo": galleria.enabled()}
+
+    def name_person(m: Any, b: dict[str, Any], q: dict[str, str]) -> tuple[int, Any]:
+        from .. import galleria
+
+        name = str(b.get("nome", "")).strip()
+        if not name or not str(b.get("id", "")).isdigit():
+            return 400, {"error": "nome mancante"}
+        return 200, {"ok": True, "nome": galleria.Gallery().name_person(int(b["id"]), name)}
+
+    def face_thumb(m: Any, b: dict[str, Any], q: dict[str, str]) -> tuple[int, Any]:
+        from .. import galleria
+
+        found = galleria.Gallery().face(int(m.group(1)))
+        data = galleria.small_jpeg(found[0], 200, found[1]) if found else None
+        return (200, Raw(data, "image/jpeg")) if data else (404, {"error": "volto non trovato"})
+
+    def gallery_setting(m: Any, b: dict[str, Any], q: dict[str, str]) -> tuple[int, Any]:
+        from .. import galleria
+        from ..tools.foto import make_tools
+
+        if b.get("cancella"):
+            galleria.Gallery().forget()
+            return 200, {"ok": True, "messaggio": "Fatto: Nova ha dimenticato quello che aveva visto nelle foto."}
+        tool = next(t for t in make_tools() if t.name == "photo_recognition")
+        return 200, {"ok": True, "messaggio": tool.func("si" if b.get("attivo") else "no")}
 
     def diary(m: Any, b: dict[str, Any], q: dict[str, str]) -> tuple[int, Any]:
         from .. import diario
@@ -758,6 +793,10 @@ def register_apps(app: Any, run: Run = _run) -> None:
         ("POST", r"/api/impostazioni/tastiera", keyboard_layout),
         ("POST", r"/api/impostazioni/diario", diary),
         ("GET", r"/api/scheda", card),
+        ("GET", r"/api/persone", people),
+        ("POST", r"/api/persona", name_person),
+        ("GET", r"/api/miniatura-volto/(\d+)", face_thumb),
+        ("POST", r"/api/impostazioni/galleria", gallery_setting),
         ("GET", r"/api/miniatura", remote_thumb),
         ("GET", r"/api/miniatura-file", file_thumb),
         ("GET", r"/api/aspetto", appearance),

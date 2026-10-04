@@ -1,0 +1,9 @@
+// AIOS: gli aggiornamenti del sistema (rpm-ostree e bootc) li prepara Nova per l'utente amministratore
+// seduto al computer, senza finestre di password: in AIOS non ci sono finestre di sistema. Gli altri
+// utenti e gli accessi da remoto restano soggetti alle regole normali.
+polkit.addRule(function (action, subject) {
+    if ((action.id.indexOf("org.projectatomic.rpmostree1.") === 0 || action.id.indexOf("org.containers.bootc.") === 0) &&
+        subject.local && subject.active && subject.isInGroup("wheel")) {
+        return polkit.Result.YES;
+    }
+});

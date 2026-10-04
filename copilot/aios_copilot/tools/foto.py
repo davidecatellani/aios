@@ -1,8 +1,8 @@
 """Cercare le foto dell'utente: «le foto di Aurora», «le foto di agosto», «foto del mare dell'anno scorso».
 
-Si cerca nei nomi delle cartelle e dei file (album come «Compleanno Aurora», foto dal telefono) e nelle
-date; le foto trovate compaiono come miniature accanto alla risposta. Riconoscere le persone dai volti
-è un passo successivo (un modello locale che impara i volti indicati dall'utente).
+Si cerca nei nomi delle cartelle e dei file (album come «Compleanno Aurora») e nelle date; se il
+riconoscimento delle foto è acceso (galleria.py), anche in cosa c'è nella foto, nelle scritte e nelle
+persone riconosciute dal volto. Le foto trovate compaiono come miniature accanto alla risposta.
 """
 
 from __future__ import annotations
@@ -83,13 +83,49 @@ def find_photos(query: str, roots: list[Path] | None = None, today: date | None 
     return [p for _, _, p in found[:limit]]
 
 
-def make_tools(roots: Callable[[], list[Path]] = picture_roots) -> list[Tool]:
+def gallery_matches(query: str) -> list[Path]:
+    """Le foto riconosciute per contenuto o persona (se il riconoscimento ha già lavorato)."""
+    from .. import galleria
+
+    try:
+        db = galleria.Gallery() if galleria.enabled() or galleria_has_data() else None
+    except Exception:
+        return []
+    if db is None:
+        return []
+    _, period = parse_query(query)
+    out = []
+    for _, p in db.search(query):
+        path = Path(p)
+        try:
+            when = datetime.fromtimestamp(path.stat().st_mtime)
+        except OSError:
+            continue
+        if period and (when.year != period[0] or (period[1] and when.month != period[1])):
+            continue
+        out.append(path)
+    return out
+
+
+def galleria_has_data() -> bool:
+    from ..agenda import data_dir
+
+    return (data_dir() / "galleria.db").exists()
+
+
+def make_tools(roots: Callable[[], list[Path]] = picture_roots,
+               recognized: Callable[[str], list[Path]] = gallery_matches) -> list[Tool]:
     def show_photos(query: str) -> str:
-        photos = find_photos(query, roots())
+        by_content = recognized(query)
+        photos = list(dict.fromkeys(by_content + find_photos(query, roots())))[:36]
         if not photos:
             words, _ = parse_query(query)
             hint = (f" Per ora le riconosco dai nomi delle cartelle e dei file: se le foto di {words[0].capitalize()} "
                     f"sono in un album con un altro nome, dimmelo.") if words else ""
+            from .. import galleria
+
+            if not galleria.enabled():
+                hint += " Se accendi il riconoscimento delle foto le trovo anche da cosa c'è dentro e dai volti."
             return f"Non ho trovato foto per «{query}».{hint}"
         home = Path.home()
         items: list[dict[str, Any]] = []
@@ -102,7 +138,47 @@ def make_tools(roots: Callable[[], list[Path]] = picture_roots) -> list[Tool]:
         return (f"Ho trovato {len(photos)} foto" + (f" (in {', '.join(folders[:3])})" if folders else "") +
                 ": sono qui accanto, toccane una per vederla grande.")
 
-    return [Tool("show_photos", "Cerca e mostra le foto dell'utente per persona, luogo, evento o periodo "
+    def photo_recognition(attiva: str = "si") -> str:
+        from .. import galleria
+
+        on = str(attiva).lower() in ("si", "sì", "true", "acceso", "attiva", "on")
+        galleria.set_enabled(on)
+        if not on:
+            return "Riconoscimento delle foto spento. Quello già fatto resta finché non lo cancelli (Impostazioni › Privacy)."
+        extra = ""
+        if galleria.vision_model() is None:
+            try:
+                from ..models import Queue, find_model
+
+                model = find_model(galleria.VISION_MODEL)
+                if model is not None and Queue().add(model):
+                    extra = (f" Prima scarico il modello per guardare le foto ({model.size_gb:.1f} GB), quando il computer è a "
+                             "riposo e in carica.")
+            except Exception:
+                pass
+        faces = "" if galleria.faces_available() else " (i volti arrivano con il prossimo aggiornamento di AIOS)"
+        return ("Acceso: quando il computer è a riposo e in carica guardo le tue foto una alla volta: cosa c'è, le "
+                f"scritte e le persone{faces}. Resta tutto qui sul computer." + extra +
+                " Quando trovo delle persone ti chiedo chi sono: le vedi in Foto › Persone.")
+
+    def photo_recognition_status() -> str:
+        from .. import galleria
+
+        if not galleria.enabled():
+            return "Il riconoscimento delle foto è spento: dimmi «riconosci le mie foto» per accenderlo."
+        st = galleria.Gallery().stats()
+        if not st["foto"]:
+            return "Il riconoscimento è acceso: comincio appena il computer è a riposo e in carica."
+        unnamed = [p for p in galleria.Gallery().people() if not p["nome"]]
+        return (f"Ho guardato {st['descritte']} foto su {st['foto']} e cercato i volti in {st['volti_fatti']}. "
+                f"Persone con un nome: {st['persone_con_nome']}" +
+                (f"; {len(unnamed)} da riconoscere in Foto › Persone." if unnamed else "."))
+
+    return [Tool("photo_recognition", "Accende o spegne il riconoscimento delle foto (cosa c'è, scritte, persone dal volto).",
+                 params(attiva=("Acceso o spento", ["si", "no"])), photo_recognition),
+            Tool("photo_recognition_status", "Dice a che punto è il riconoscimento delle foto.", params(),
+                 photo_recognition_status),
+            Tool("show_photos", "Cerca e mostra le foto dell'utente per persona, luogo, evento o periodo "
                  "(es. «le foto di Aurora», «le foto di agosto», «il mare dell'anno scorso»).",
                  params(query="Cosa o chi cercare nelle foto, con il periodo se c'è"), show_photos, reads_private=True)]
 
@@ -111,9 +187,20 @@ RE_PHOTOS = re.compile(r"^(?:mostra(?:mi)?|fammi\s+vedere|trova(?:mi)?|cerca(?:m
                        r"(?:mie\s+)?(?:foto|fotografie|immagini)\s+(?P<q>(?:di|del|della|dei|delle|con|in|a|al|alla|da|su|sul|sulla|che)\b.+)$")
 
 
+RE_RECOGNITION = re.compile(r"^(?P<v>riconosci|analizza|guarda|attiva\s+il\s+riconoscimento\s+del(?:le)?|accendi\s+il\s+riconoscimento\s+del(?:le)?"
+                            r"|spegni\s+il\s+riconoscimento\s+del(?:le)?|disattiva\s+il\s+riconoscimento\s+del(?:le)?)\s+(?:le\s+)?(?:mie\s+)?foto$")
+RE_RECOGNITION_STATUS = re.compile(r"^(?:a\s+che\s+punto\s+(?:è|e)|come\s+va)\s+(?:il\s+)?riconoscimento\s+delle\s+foto\??$")
+
+
 class PhotosRouter:
     def match(self, text: str) -> Any:
         from ..fastpath import Intent, normalize
 
-        m = RE_PHOTOS.match(normalize(text).strip(" .!?"))
+        low = normalize(text).strip(" .!?")
+        m = RE_RECOGNITION.match(low)
+        if m:
+            return Intent("photo_recognition", {"attiva": "no" if m.group("v").startswith(("spegni", "disattiva")) else "si"})
+        if RE_RECOGNITION_STATUS.match(low):
+            return Intent("photo_recognition_status", {})
+        m = RE_PHOTOS.match(low)
         return Intent("show_photos", {"query": m.group("q")}) if m else None

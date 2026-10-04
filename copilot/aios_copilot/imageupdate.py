@@ -107,6 +107,9 @@ def assemble(pkg: Package, work: Path | None = None, progress: Callable[[str], N
     """Porta i pezzi, li verifica e ricompone l'immagine. → percorso del file pronto."""
     work = work or workdir()
     work.mkdir(parents=True, exist_ok=True)
+    ready = work / ARCHIVE
+    if ready.exists() and ready.stat().st_size == pkg.size and sha256_file(ready) == pkg.sha256:
+        return ready  # già scaricata e ricomposta (es. preparazione non riuscita la volta prima)
     free = shutil.disk_usage(work).free
     have = sum((work / p.name).stat().st_size for p in pkg.parts if (work / p.name).exists())
     if free < (pkg.size - have) + pkg.size + (1 << 30):
