@@ -89,6 +89,16 @@ def _ollama(path: str, payload: dict, timeout: int = 600) -> dict:
 
 # --- vista --------------------------------------------------------------------------------
 READ_DOCUMENT = "<|grounding|>Convert the document to markdown."
+# ogni modello di lettura vuole la sua istruzione per trascrivere un documento
+OCR_PROMPTS = {"glm-ocr": "Text Recognition:", "deepseek-ocr": READ_DOCUMENT}
+
+
+def read_document(path: Path, model: str, chat: Callable[[str, dict], dict] | None = None) -> str:
+    """Trascrive un documento fotografato o scansionato con il modello di lettura scelto."""
+    if model == NUCLEO:
+        return describe_image(path, READ_DOCUMENT, model)
+    prompt = OCR_PROMPTS.get(model.split(":")[0], READ_DOCUMENT)
+    return describe_image(path, prompt, model, chat) if chat else describe_image(path, prompt, model)
 
 
 def describe_image(path: Path, question: str, model: str, chat: Callable[[str, dict], dict] = _ollama) -> str:

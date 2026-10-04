@@ -29,3 +29,20 @@ def test_bundled_meaning_model_activates_once():
     task.step(1)
     assert done == [("embeddinggemma", "significato")]
     assert not MeaningModelTask(installed=lambda: {"qwen3.5:2b"}).has_work()
+
+
+def test_glm_ocr_gets_its_own_prompt(tmp_path):
+    from aios_copilot import engines
+
+    img = tmp_path / "bolletta.png"
+    img.write_bytes(b"\x89PNG\r\n\x1a\n" + b"0" * 32)
+    seen = []
+
+    def chat(path, payload):
+        seen.append(payload["messages"][0]["content"])
+        return {"message": {"content": "Totale 12,30"}}
+
+    assert engines.read_document(img, "glm-ocr:q8_0", chat) == "Totale 12,30"
+    assert seen == ["Text Recognition:"]
+    engines.read_document(img, "deepseek-ocr:3b", chat)
+    assert seen[-1] == engines.READ_DOCUMENT

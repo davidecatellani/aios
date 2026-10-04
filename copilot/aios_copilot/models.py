@@ -109,6 +109,8 @@ BUILTIN: tuple[Model, ...] = (
     Model("tev1:0.8b", "smistamento", 0.8, 1.5, rank=1, license="together", note="incluso in AIOS: sceglie gli strumenti giusti per Nova"),
     Model("tev1:4b", "smistamento", 4.5, 6, rank=2, license="together", note="più preciso, per PC con 16 GB"),
     # lettura (OCR specializzato): trascrive pagine intere, tabelle comprese
+    # GLM-OCR (Z.ai, 2026): 0,9B, primo su OmniDocBench; legge testo, tabelle e formule (q8_0: 1,6 GB)
+    Model("glm-ocr:q8_0", "lettura", 1.6, 2.5, rank=2, license="mit", note="leggero, legge testo e tabelle"),
     Model("deepseek-ocr:3b", "lettura", 6.7, 8, rank=1, license="mit", note="legge documenti e tabelle quasi senza errori"),
     # significato (embedding multilingue)
     # EmbeddingGemma (Google, 2025): 308M, oltre 100 lingue, sotto i 200 MB di memoria; sopra bge-m3 nelle prove multilingue (MMTEB)
