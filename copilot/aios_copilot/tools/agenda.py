@@ -176,7 +176,9 @@ RE_EVENT = re.compile(
     rf"(?:un\s+|una\s+|un'|l'|il\s+|la\s+)?|ho\s+(?:un\s+|una\s+|un'|l'|il\s+|la\s+)?)?(?:{EVENT_WORDS})\b"
 )
 RE_SUGGESTION = re.compile(r"^(?P<verb>aggiungi|accetta|metti in agenda|ignora|scarta|rifiuta)\s+(?:la\s+)?(?:scadenza|proposta)\s+(?P<n>\d+)$")
-RE_DONE = re.compile(r"^(?:segna come fatto|ho fatto|fatto:?|completato:?|ho finito di)\s+(?P<x>.+)$")
+# «ho fatto l'associazione con kde» non è un promemoria da spuntare: solo le frasi esplicite qui,
+# le altre («ho fatto…», «ho finito di…») le capisce il modello con il contesto.
+RE_DONE = re.compile(r"^(?:segna(?:mi)? come fatt[oa]|spunta(?: il promemoria)?|fatto:|completato:)\s+(?P<x>.+)$")
 RE_DELETE = re.compile(
     rf"^(?:cancella|elimina|togli|annulla|rimuovi)\s+(?:l'|il\s+|lo\s+|la\s+)?(?:(?:appuntamento|promemoria|evento|impegno)\s+(?:del(?:la|lo|l')?\s+|di\s+)?)"
     rf"(?P<x>.+)$"

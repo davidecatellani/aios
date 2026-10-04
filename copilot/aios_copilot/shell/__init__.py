@@ -198,6 +198,7 @@ def _run(cmd: list[str]) -> tuple[int, str]:
 # --- la giornata: le carte --------------------------------------------------------------------------------
 def greeting(name: str, now: datetime) -> dict[str, str]:
     hello = "Buongiorno" if 5 <= now.hour < 13 else ("Buon pomeriggio" if now.hour < 18 else "Buonasera")
+    name = " ".join(part[:1].upper() + part[1:] for part in name.split())
     return {"saluto": f"{hello}{', ' + name if name else ''}.",
             "data": f"{DAYS[now.weekday()]} {now.day} {MONTHS[now.month - 1]}"}
 

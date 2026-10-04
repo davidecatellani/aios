@@ -49,7 +49,8 @@ def clean_name(name: Any) -> str:
     """Nome dell'utente: solo lettere, spazi, apostrofi e trattini, max 40 caratteri."""
     if not isinstance(name, str):
         return ""
-    return re.sub(r"[^\w\s'’-]|\d|_", "", name).strip()[:40]
+    clean = re.sub(r"[^\w\s'’-]|\d|_", "", name).strip()[:40]
+    return " ".join(part[:1].upper() + part[1:] for part in clean.split())  # «davide» → «Davide»
 
 
 class WelcomeApp(LocalApp):

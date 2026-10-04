@@ -36,8 +36,9 @@ class Tool:
         }
 
     def describe_call(self, args: dict[str, Any]) -> str:
-        shown = ", ".join(f"{k}={v!r}" for k, v in args.items())
-        return f"{self.name}({shown})"
+        """Per l'utente: la prima frase della descrizione, mai il nome tecnico dello strumento."""
+        first = self.description.split(". ")[0].split(" (")[0].rstrip(".")
+        return f"⚙️ {first}…" if first else "⚙️ Un momento…"
 
 
 def params(required: list[str] | None = None, **props: str | tuple[str, list[str]]) -> dict[str, Any]:
