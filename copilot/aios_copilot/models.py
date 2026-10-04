@@ -25,6 +25,7 @@ CAPABILITIES = {
     "testo": "capire e scrivere (Nova)",
     "vista": "descrivere immagini, leggere documenti fotografati e schermate",
     "lettura": "trascrivere fedelmente documenti scansionati, bollette e tabelle (OCR)",
+    "smistamento": "capire al volo di cosa parla una richiesta, per rispondere più in fretta",
     "dettatura": "parlare invece di scrivere",
     "voce": "leggere ad alta voce con una voce naturale",
     "significato": "capire frasi in tutte le lingue e cercare i documenti per significato",
@@ -104,6 +105,9 @@ BUILTIN: tuple[Model, ...] = (
     Model("qwen2.5vl:3b", "vista", 3.2, 6, rank=2, license="qwen-research"),
     Model("qwen2.5vl:7b", "vista", 6.0, 7, rank=3, note="legge bene testi e documenti"),
     Model("llama3.2-vision:11b", "vista", 7.9, 12, needs_gpu=True, rank=4, license="llama3.2"),
+    # smistamento: modelli decisionali (API System One di Ollama), vedi smistatore.py
+    Model("tev1:0.8b", "smistamento", 0.8, 1.5, rank=1, license="together", note="incluso in AIOS: sceglie gli strumenti giusti per Nova"),
+    Model("tev1:4b", "smistamento", 4.5, 6, rank=2, license="together", note="più preciso, per PC con 16 GB"),
     # lettura (OCR specializzato): trascrive pagine intere, tabelle comprese
     Model("deepseek-ocr:3b", "lettura", 6.7, 8, rank=1, license="mit", note="legge documenti e tabelle quasi senza errori"),
     # significato (embedding multilingue)

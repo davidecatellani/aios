@@ -8,6 +8,8 @@
 
 from __future__ import annotations
 
+import os
+
 import argparse
 import sys
 import threading
@@ -23,6 +25,7 @@ from .semantic import SemanticRouter, default_router
 from .status import describe_call
 from .agenda import Agenda
 from .tools import Runner, Tool, apps, default_tools, files
+from .xdg import resolve_folder
 from .tools import agenda as agenda_tools
 from .tools import mail as mail_tools
 from .tools import taste as taste_tools
@@ -132,22 +135,37 @@ def make_agent(confirm: Confirm, model: str | None = None, allowed: frozenset[st
         return load_profile().get("name", "")
 
     llm = make_client(model)
-    tools = [*default_tools(runner), *files.make_tools(get_index), *agenda_tools.make_tools(get_agenda, user_name, extras=lambda: [model_hint()]),
-         *mail_tools.make_tools(mail_store, send, has_accounts), *taste_tools.make_tools(subs, catalog, profile),
-         *ai_tools.make_management_tools(device, installed_models, downloads),
-         *ai_tools.make_capability_tools(engines.available()), *organize_tools.make_tools(library),
-         *theme_tools.make_tools(ask_llm=lambda prompt: llm.chat([{"role": "user", "content": prompt}], []).get("content", ""),
-                                 runner=runner),
-         *phone_tools.make_tools(runner), *identity_tools.make_tools(user_name=user_name),
-         *update_tools.make_tools(runner), *sdk.make_tools(), *window_tools.make_tools(),
-         *document_tools.make_tools(get_index, runner), *energy_tools.make_tools(), *voice_tools.make_tools(runner)]
+    from .tools import apps as apps_tools, settings as settings_tools, system as system_tools, web as web_tools
+
+    # Gli strumenti divisi per ambito: lo smistatore (smistatore.py) dà al modello solo quelli giusti.
+    groups = {
+        "web": web_tools.make_tools(),
+        "app": [*apps_tools.make_tools(runner), *window_tools.make_tools(), *sdk.make_tools()],
+        "sistema": [*system_tools.make_tools(runner),
+                    *settings_tools.make_tools(runner, pictures_dir=lambda: resolve_folder("PICTURES")),
+                    *update_tools.make_tools(runner), *energy_tools.make_tools(), *voice_tools.make_tools(runner)],
+        "file": [*files.make_tools(get_index), *organize_tools.make_tools(library), *document_tools.make_tools(get_index, runner)],
+        "agenda": agenda_tools.make_tools(get_agenda, user_name, extras=lambda: [model_hint()]),
+        "posta": mail_tools.make_tools(mail_store, send, has_accounts),
+        "gusti": taste_tools.make_tools(subs, catalog, profile),
+        "ai": [*ai_tools.make_management_tools(device, installed_models, downloads),
+               *ai_tools.make_capability_tools(engines.available())],
+        "aspetto": theme_tools.make_tools(ask_llm=lambda prompt: llm.chat([{"role": "user", "content": prompt}], []).get("content", ""),
+                                          runner=runner),
+        "telefono": [*phone_tools.make_tools(runner), *identity_tools.make_tools(user_name=user_name)],
+    }
+    tools = [t for group in groups.values() for t in group]
     if allowed is not None:
         tools = [t for t in tools if t.name in allowed]
+    from .smistatore import build as build_smistatore
+
+    smistatore = build_smistatore(groups)
     agent = Agent(
         llm,
         tools,
         confirm,
         history=History().record,
+        narrow=smistatore.narrow if os.environ.get("AIOS_SMISTATORE", "") != "spento" else None,
         routers=[
             window_tools.WindowsRouter(),  # livello 0: programmi aperti e app di AIOS (sessione AIOS)
             agenda_tools.AgendaRouter(),  # livello 0: promemoria, appuntamenti, riepilogo

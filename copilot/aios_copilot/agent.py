@@ -108,6 +108,7 @@ class Agent:
         max_steps: int = 8,
         routers: Sequence[Router] = (),
         history: Callable[[str, str, dict[str, Any]], None] | None = None,
+        narrow: Callable[[str], set[str] | None] | None = None,
     ):
         self.model = model
         self.tools = {t.name: t for t in tools}
@@ -118,6 +119,8 @@ class Agent:
         # Registra le richieste risolte dall'LLM con una sola azione riuscita: il
         # copilota le impara e la volta dopo le esegue all'istante.
         self.history = history
+        # Lo smistatore (smistatore.py): sceglie gli strumenti dell'ambito giusto prima del modello.
+        self.narrow = narrow
         self.reset()
 
     def reset(self) -> None:
@@ -148,7 +151,16 @@ class Agent:
             self.messages.append({"role": "assistant", "content": answer})
             return answer
 
-        schemas = [t.schema() for t in self.tools.values()]
+        allowed = None
+        if self.narrow is not None:
+            try:
+                allowed = self.narrow(text)
+            except Exception:
+                allowed = None  # lo smistatore non deve mai bloccare Nova
+        tools = [t for t in self.tools.values() if allowed is None or t.name in allowed]
+        if allowed is not None:
+            emit("narrowed", {"tools": len(tools), "of": len(self.tools)})
+        schemas = [t.schema() for t in tools]
         calls_made: list[tuple[str, dict[str, Any], str]] = []
 
         for _ in range(self.max_steps):

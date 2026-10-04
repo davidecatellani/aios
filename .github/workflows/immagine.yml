@@ -123,12 +123,11 @@ jobs:
           done
           exit 1
       - name: Togli le anteprime vecchie
-        # Resta solo quella appena creata: le vecchie ISO e i vecchi pacchetti non servono più.
+        # Restano le ultime due: quella appena creata e la precedente (se la nuova ha un problema).
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          for t in $(gh release list --repo "$GITHUB_REPOSITORY" --limit 200 --json tagName --jq '.[].tagName' \
-                     | grep '^anteprima-[0-9]*$'); do
-            [ "$t" = "anteprima-${GITHUB_RUN_NUMBER}" ] && continue
+          gh release list --repo "$GITHUB_REPOSITORY" --limit 200 --json tagName --jq '.[].tagName' \
+            | grep '^anteprima-[0-9]*$' | sort -t- -k2 -nr | tail -n +3 | while read -r t; do
             echo "Tolgo $t"; gh release delete "$t" --repo "$GITHUB_REPOSITORY" --yes --cleanup-tag
           done
