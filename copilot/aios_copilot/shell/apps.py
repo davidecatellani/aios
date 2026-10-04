@@ -518,6 +518,28 @@ def register_apps(app: Any, run: Run = _run) -> None:
         (parent / name).mkdir(exist_ok=False)
         return 200, {"ok": True}
 
+    def save_image(m: Any, b: dict[str, Any], q: dict[str, str]) -> tuple[int, Any]:
+        """L'immagine modificata nell'editor: una copia accanto all'originale («… (modificato).png») o al suo posto."""
+        import base64
+
+        original = path_from(b.get("p"))
+        raw = str(b.get("dati", ""))
+        data = base64.b64decode(raw.split(",", 1)[-1], validate=False)
+        if not data.startswith(b"\x89PNG\r\n\x1a\n") or len(data) > 60_000_000:
+            return 400, {"error": "immagine non valida"}
+        if b.get("copia", True) or original.suffix.lower() != ".png":
+            target = original.with_name(f"{original.stem} (modificato).png")
+            n = 2
+            while target.exists():
+                target = original.with_name(f"{original.stem} (modificato {n}).png")
+                n += 1
+        else:
+            target = original
+        tmp = target.with_name(f".{target.name}.tmp")
+        tmp.write_bytes(data)
+        tmp.replace(target)
+        return 200, {"percorso": str(target), "nome": target.name}
+
     def note_read(m: Any, b: dict[str, Any], q: dict[str, str]) -> tuple[int, Any]:
         p = path_from(q.get("p"))
         return 200, {"testo": p.read_text(errors="replace")[:1_000_000], "nome": p.name}
@@ -819,6 +841,7 @@ def register_apps(app: Any, run: Run = _run) -> None:
         ("POST", r"/api/file/cestino", trash),
         ("POST", r"/api/file/rinomina", rename),
         ("POST", r"/api/file/nuova-cartella", new_folder),
+        ("POST", r"/api/file/salva-immagine", save_image),
         ("POST", r"/api/file/apri-con", open_with),
         ("GET", r"/api/nota", note_read),
         ("POST", r"/api/nota", note_save),

@@ -740,7 +740,7 @@ def run_gtk(app: ShellApp, url: str, argv: list[str]) -> int:
             run_js(state["home_view"], "window.chiudiVista && window.chiudiVista(); window.novaFocus && window.novaFocus()")
         elif "--vista" in args and args.index("--vista") + 1 < len(args):
             # da Nova: «apri le impostazioni del Wi-Fi», «mostrami le foto»
-            what = args[args.index("--vista") + 1].split(":")
+            what = args[args.index("--vista") + 1].split(":", 1)  # «modifica:/percorso/con:due punti.png»
             if re.fullmatch(r"[a-z]+", what[0]):
                 threading.Thread(target=minimize_all, daemon=True).start()
                 run_js(state["home_view"], f"window.apriVista && window.apriVista({json.dumps(what[0])}"

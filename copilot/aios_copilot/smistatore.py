@@ -38,7 +38,7 @@ RETRY_AFTER = 60.0  # dopo un errore del modello decisionale si riprova fra un m
 # processore senza scheda video servono minuti solo per leggerle.
 CORE = {"launch_app", "search_apps", "open_location", "search_files", "search_web", "set_volume", "set_brightness",
         "add_reminder", "list_agenda", "show_photos", "list_windows", "switch_window", "close_window", "go_home",
-        "media_control", "take_screenshot", "where_left_off", "system_info"}
+        "media_control", "take_screenshot", "edit_image", "where_left_off", "system_info"}
 
 
 QUESTION_AMBITO = "Which area does this request to a personal computer assistant belong to?"
@@ -96,7 +96,7 @@ DOMAINS: list[tuple[str, str]] = [
 # Strumenti assegnati per nome; gli altri seguono il loro gruppo (vedi GROUP_DOMAIN).
 DOMAIN_TOOLS: dict[str, set[str]] = {
     "impostazioni": {"set_volume", "set_brightness", "set_radio", "set_theme", "media_control", "take_screenshot",
-                     "lock_screen", "power", "bluetooth_devices", "forget_bluetooth", "set_keyboard"},
+                     "lock_screen", "power", "bluetooth_devices", "forget_bluetooth", "set_keyboard", "edit_image"},
     "computer": {"current_time", "system_info", "energy_choice", "energy_status", "voice_listening", "voice_status",
                  "open_location"},
     "aggiornamenti": {"auto_updates", "connect_github_updates", "update_from_usb", "update_now", "update_status",

@@ -154,3 +154,14 @@ body.in-vista #casa, body.in-vista #fondo { display: none; }
 .persona span { font-weight: 700; font-size: 14px; } .persona small { color: var(--tenue); font-size: 12px; }
 .invito { display: flex; gap: 14px; align-items: center; justify-content: space-between; margin: 4px 28px 16px; padding: 14px 18px;
           border-radius: 16px; background: var(--carta); border: 1px solid var(--bordo); }
+
+/* editor delle immagini */
+.strumenti-modifica { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 12px; }
+.strumenti-modifica .bottone.attivo { background: var(--turchese); color: #fff; border-color: transparent; }
+.tavolozza { display: flex; gap: 6px; margin-left: 8px; }
+.tavolozza .colore { width: 26px; height: 26px; border-radius: 50%; border: 2px solid var(--bordo); padding: 0; }
+.tavolozza .colore.attivo { outline: 3px solid var(--turchese); outline-offset: 2px; }
+.area-modifica { flex: 1; min-height: 0; display: grid; place-items: center; overflow: auto; background: var(--chip); border-radius: 14px; padding: 12px; }
+.tela { max-width: 100%; max-height: calc(100vh - 260px); cursor: crosshair; box-shadow: 0 8px 30px rgba(0,0,0,.18); touch-action: none; }
+#lampada .modifica { position: fixed; top: 54px; right: 84px; border-radius: 12px; padding: 8px 14px; border: 0;
+                     background: rgba(255,255,255,.92); color: #111; font-weight: 700; }

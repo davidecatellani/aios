@@ -105,7 +105,9 @@ function lampada(foto, i) {
   const chiudi = bottone("✕", () => box.remove(), "chiudi");
   const prec = bottone("‹", () => { i = (i - 1 + foto.length) % foto.length; mostra(); }, "prec");
   const succ = bottone("›", () => { i = (i + 1) % foto.length; mostra(); }, "succ");
-  box.append(img, did, chiudi);
+  const modifica = bottone("✏️ Modifica", () => { box.remove(); apriVista("modifica", foto[i].percorso); }, "modifica");
+  modifica.title = "Disegna, evidenzia, scrivi, oscura o ritaglia";
+  box.append(img, did, chiudi, modifica);
   if (foto.length > 1) box.append(prec, succ);
   box.onkeydown = null;
   document.addEventListener("keydown", function k(e) {
@@ -541,6 +543,131 @@ function eseguiPasso(p) {
   if (p.azione.vista) return apriVista(p.azione.vista, p.azione.parte);
   chiudiVista(); chiedi(p.azione.chiedi);
 }
+
+// --- modificare un'immagine (screenshot, foto): penna, evidenziatore, freccia, riquadro, testo, oscura, ritaglia ---
+VISTE.modifica = async function (box, percorso) {
+  const nome = percorso.split("/").pop();
+  const COLORI = ["#E5484D", "#FFD60A", "#0A84FF", "#30A46C", "#111111", "#FFFFFF"];
+  const STRUMENTI = [["penna", "✏️ Penna"], ["evidenzia", "🖍️ Evidenzia"], ["freccia", "↗ Freccia"], ["riquadro", "▭ Riquadro"],
+                     ["testo", "T Testo"], ["oscura", "▦ Oscura"], ["ritaglia", "✂ Ritaglia"]];
+  let strumento = "freccia", colore = COLORI[0];
+  const canvas = el("canvas", "tela"), ctx = canvas.getContext("2d");
+  const indietro = [];  // per «annulla»: com'era prima di ogni modifica
+  const salva = async copia => {
+    const dati = canvas.toDataURL("image/png");
+    try {
+      const r = await api("/api/file/salva-immagine", { p: percorso, dati, copia });
+      avviso(`Salvata: ${r.nome}`);
+      if (copia) { percorso = r.percorso; h.textContent = r.nome; }
+    } catch (e) { avviso(`Non sono riuscita a salvarla: ${e.message}`); }
+  };
+  const annulla = bottone("↶ Annulla", () => { const prima = indietro.pop(); if (prima) ripristina(prima); });
+  const corpo = testa(box, `Modifica · ${nome}`, [annulla, bottone("Salva una copia", () => salva(true), "bottone primo"),
+                                                 bottone("Sovrascrivi", async () => { if (await chiediConferma(`Sostituisco «${nome}» con la versione modificata?`)) salva(false); })]);
+  const h = box.querySelector(".testa-vista h2");
+  const barra = el("div", "strumenti-modifica");
+  const bottoni = {};
+  for (const [id, etichetta] of STRUMENTI) {
+    const b = bottone(etichetta, () => { strumento = id; for (const x of Object.values(bottoni)) x.classList.toggle("attivo", x === b); });
+    bottoni[id] = b; barra.append(b);
+  }
+  bottoni[strumento].classList.add("attivo");
+  const tavolozza = el("div", "tavolozza");
+  for (const c of COLORI) {
+    const b = el("button", "colore"); b.style.background = c; b.title = c;
+    b.onclick = () => { colore = c; tavolozza.querySelectorAll(".colore").forEach(x => x.classList.toggle("attivo", x === b)); };
+    if (c === colore) b.classList.add("attivo");
+    tavolozza.append(b);
+  }
+  barra.append(tavolozza);
+  const area = el("div", "area-modifica"); area.append(canvas);
+  corpo.append(barra, area);
+
+  const img = new Image();
+  img.src = fileUrl(percorso);
+  try { await img.decode(); } catch { corpo.append(el("p", "vuoto", "Non riesco ad aprire l'immagine.")); return; }
+  canvas.width = img.naturalWidth; canvas.height = img.naturalHeight;
+  ctx.drawImage(img, 0, 0);
+
+  const istantanea = () => ({ w: canvas.width, h: canvas.height, dati: ctx.getImageData(0, 0, canvas.width, canvas.height) });
+  // la dimensione si tocca solo se cambia (un ritaglio annullato): reimpostarla cancella anche il tratto in corso
+  const ripristina = s => { if (canvas.width !== s.w || canvas.height !== s.h) { canvas.width = s.w; canvas.height = s.h; } ctx.putImageData(s.dati, 0, 0); };
+  const punto = e => { const r = canvas.getBoundingClientRect(); return [(e.clientX - r.left) * canvas.width / r.width, (e.clientY - r.top) * canvas.height / r.height]; };
+  const spessore = () => Math.max(3, Math.round(canvas.width / 400));
+  const freccia = (x0, y0, x1, y1) => {
+    const w = spessore() * 1.4, a = Math.atan2(y1 - y0, x1 - x0), l = w * 5;
+    ctx.strokeStyle = ctx.fillStyle = colore; ctx.lineWidth = w; ctx.lineCap = "round";
+    ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1 - Math.cos(a) * l * .6, y1 - Math.sin(a) * l * .6); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(x1, y1);
+    ctx.lineTo(x1 - l * Math.cos(a - .45), y1 - l * Math.sin(a - .45)); ctx.lineTo(x1 - l * Math.cos(a + .45), y1 - l * Math.sin(a + .45));
+    ctx.closePath(); ctx.fill();
+  };
+  const oscura = (x, y, w, hh) => {
+    [x, w] = w < 0 ? [x + w, -w] : [x, w]; [y, hh] = hh < 0 ? [y + hh, -hh] : [y, hh];
+    if (w < 2 || hh < 2) return;
+    const passo = Math.max(8, Math.round(canvas.width / 90));
+    const d = ctx.getImageData(x, y, w, hh);
+    for (let by = 0; by < hh; by += passo) for (let bx = 0; bx < w; bx += passo) {
+      const i = (by * w + bx) * 4;
+      ctx.fillStyle = `rgb(${d.data[i]},${d.data[i + 1]},${d.data[i + 2]})`;
+      ctx.fillRect(x + bx, y + by, Math.min(passo, w - bx), Math.min(passo, hh - by));
+    }
+  };
+  let inizio = null, prima = null;
+  canvas.onpointerdown = async e => {
+    const [x, y] = punto(e);
+    indietro.push(istantanea()); if (indietro.length > 25) indietro.shift();
+    if (strumento === "testo") {
+      const t = await chiediTesto("Testo da scrivere");
+      if (!t) { indietro.pop(); return; }
+      const px = Math.max(18, Math.round(canvas.width / 45));
+      ctx.font = `700 ${px}px system-ui, sans-serif`; ctx.textBaseline = "top"; ctx.lineJoin = "round";
+      ctx.lineWidth = px / 5; ctx.strokeStyle = colore === "#FFFFFF" ? "#111" : "#fff"; ctx.strokeText(t, x, y);
+      ctx.fillStyle = colore; ctx.fillText(t, x, y);
+      return;
+    }
+    canvas.setPointerCapture(e.pointerId);
+    inizio = [x, y]; prima = istantanea();
+    if (strumento === "penna" || strumento === "evidenzia") {
+      ctx.globalAlpha = strumento === "evidenzia" ? .35 : 1;
+      ctx.strokeStyle = colore; ctx.lineWidth = strumento === "evidenzia" ? spessore() * 6 : spessore();
+      ctx.lineCap = ctx.lineJoin = "round"; ctx.beginPath(); ctx.moveTo(x, y);
+    }
+  };
+  canvas.onpointermove = e => {
+    if (!inizio) return;
+    const [x, y] = punto(e);
+    if (strumento === "penna" || strumento === "evidenzia") {
+      if (strumento === "evidenzia") { ripristina(prima); ctx.globalAlpha = .35; }
+      ctx.lineTo(x, y); ctx.stroke(); return;
+    }
+    ripristina(prima);
+    const [x0, y0] = inizio;
+    if (strumento === "freccia") freccia(x0, y0, x, y);
+    else {
+      ctx.setLineDash(strumento === "riquadro" ? [] : [12, 8]);
+      ctx.strokeStyle = strumento === "riquadro" ? colore : "#fff"; ctx.lineWidth = spessore();
+      ctx.strokeRect(x0, y0, x - x0, y - y0); ctx.setLineDash([]);
+    }
+  };
+  canvas.onpointerup = e => {
+    if (!inizio) return;
+    const [x, y] = punto(e), [x0, y0] = inizio;
+    inizio = null; ctx.globalAlpha = 1;
+    if (strumento === "oscura") { ripristina(prima); oscura(Math.round(x0), Math.round(y0), Math.round(x - x0), Math.round(y - y0)); }
+    if (strumento === "ritaglia") {
+      ripristina(prima);
+      const rx = Math.round(Math.min(x, x0)), ry = Math.round(Math.min(y, y0)), rw = Math.round(Math.abs(x - x0)), rh = Math.round(Math.abs(y - y0));
+      if (rw > 10 && rh > 10) { const d = ctx.getImageData(rx, ry, rw, rh); canvas.width = rw; canvas.height = rh; ctx.putImageData(d, 0, 0); }
+      else indietro.pop();
+    }
+  };
+  document.addEventListener("keydown", function k(e) {
+    if (vistaAttuale !== "modifica") return document.removeEventListener("keydown", k);
+    if ((e.ctrlKey || e.metaKey) && e.key === "z") { e.preventDefault(); annulla.click(); }
+    if ((e.ctrlKey || e.metaKey) && e.key === "s") { e.preventDefault(); salva(true); }
+  });
+};
 
 VISTE.benvenuto = async function (box, passo = 0) {
   const stato = await api("/api/primi-passi").catch(() => ({ passi: [], nome: "" }));

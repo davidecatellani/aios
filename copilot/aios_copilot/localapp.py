@@ -34,6 +34,7 @@ NO_MODEL = (
     "internet. Intanto posso già fare molte cose: prova «alza il volume», «che ore sono» o «quanta memoria ho?»."
 )
 MAX_BODY = 256 * 1024
+BIG_BODY = 48 * 1024 * 1024  # solo per le rotte in LocalApp.big_body (es. un'immagine modificata)
 
 Response = tuple[int, Any]  # (stato HTTP, contenuto JSON, o Raw)
 CSP = ("default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; "
@@ -94,6 +95,7 @@ class LocalApp:
     # Rotte che si possono aprire da <img>, <video>, <iframe> (che non mandano l'header):
     # la chiave arriva nel parametro «t».
     token_in_query = ("/file/", "/doc/", "/api/miniatura")
+    big_body = ("/api/file/salva-immagine",)
 
     def __init__(self, make_agent: Callable[[Callable[..., bool]], Agent] | None = None):
         self.token = secrets.token_urlsafe(24)
@@ -275,7 +277,8 @@ def make_handler(app: LocalApp, port_ref: list[int]) -> type[BaseHTTPRequestHand
             return self._host_ok() and hmac.compare_digest(token.encode(), app.token.encode())
 
         def _body(self) -> dict[str, Any]:
-            length = min(int(self.headers.get("Content-Length") or 0), MAX_BODY)
+            limit = BIG_BODY if self.path.split("?", 1)[0] in app.big_body else MAX_BODY
+            length = min(int(self.headers.get("Content-Length") or 0), limit)
             try:
                 data = json.loads(self.rfile.read(length) or b"{}")
                 return data if isinstance(data, dict) else {}

@@ -216,6 +216,7 @@ def make_agent(confirm: Confirm, model: str | None = None, allowed: frozenset[st
             document_tools.DocumentsRouter(),  # livello 0: «fammi vedere la bolletta…», dieta, lista della spesa
             theme_tools.ThemesRouter(),  # livello 0: temi
             widget_tools.WidgetRouter(),  # livello 0: «inserisci un widget per il meteo»
+            settings_tools.ScreenshotRouter(),  # livello 0: «modifica lo screenshot»
             semantic_router(),  # livello 1: italiano e inglese, < 1 ms
             *multilingual_router(),  # livello 1b: tutte le lingue, se configurato
         ],

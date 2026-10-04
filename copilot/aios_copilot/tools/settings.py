@@ -6,12 +6,13 @@ GNOME, KDE, wlroots) e usa il primo disponibile.
 
 from __future__ import annotations
 
+import re
 from datetime import datetime
 from pathlib import Path
-from typing import Callable
+from typing import Any, Callable
 
 from .apps import find_desktop_entry
-from .base import Runner, Tool, params
+from .base import Runner, Tool, attach, offer, params
 
 MUSIC_PLAYERS = ["rhythmbox", "lollypop", "elisa", "amberol", "spotify", "audacious", "vlc"]
 
@@ -98,20 +99,38 @@ def make_tools(
             return "Non trovo un lettore musicale: chiedimi di installarne uno."
         return "Non c'è nessun lettore multimediale attivo."
 
+    def screenshot_folder() -> Path:
+        return (pictures_dir() if pictures_dir else Path.home() / "Pictures") / "Screenshots"
+
     def take_screenshot() -> str:
-        folder = (pictures_dir() if pictures_dir else Path.home() / "Pictures") / "Screenshots"
+        folder = screenshot_folder()
         path = folder / f"Screenshot {datetime.now():%Y-%m-%d %H-%M-%S}.png"
         if runner.has("grim"):
             folder.mkdir(parents=True, exist_ok=True)
-        return _report(
-            runner.first(
-                ["gnome-screenshot", "-f", str(path)],
-                ["spectacle", "-b", "-n", "-f", "-o", str(path)],
-                ["grim", str(path)],
-            ),
-            f"Screenshot salvato in {path}.",
-            "Nessun programma per screenshot trovato.",
+        result = runner.first(
+            ["gnome-screenshot", "-f", str(path)],
+            ["spectacle", "-b", "-n", "-f", "-o", str(path)],
+            ["grim", str(path)],
         )
+        if result is not None and result[0] == 0:
+            attach("file", [{"titolo": path.name, "percorso": str(path), "sottotitolo": "Screenshot"}], "Screenshot")
+            offer("modifica lo screenshot")  # «modificalo» / «sì» subito dopo apre l'editor
+            return f"Screenshot salvato in {path}. Vuoi modificarlo (frecce, evidenziatore, testo, oscurare, ritagliare)?"
+        return _report(result, "", "Nessun programma per screenshot trovato.")
+
+    def edit_image(percorso: str = "") -> str:
+        """Apre l'editor della shell: l'immagine indicata o l'ultimo screenshot."""
+        from .windows import _shell
+
+        target = Path(percorso).expanduser() if percorso else None
+        if target is None:
+            shots = sorted(screenshot_folder().glob("*.png"), key=lambda f: f.stat().st_mtime) if screenshot_folder().is_dir() else []
+            target = shots[-1] if shots else None
+        if target is None or not target.is_file():
+            return "Non trovo uno screenshot da modificare: dimmi «fai uno screenshot»." if not percorso else f"Non trovo {percorso}."
+        if not _shell("--vista", f"modifica:{target}"):
+            return "La shell di AIOS non è in esecuzione."
+        return f"Apro {target.name} per modificarlo: penna, evidenziatore, frecce, testo, oscura e ritaglia."
 
     def lock_screen() -> str:
         return _report(runner.first(["loginctl", "lock-session"]), "Schermo bloccato.", "Non riesco a bloccare lo schermo.")
@@ -134,7 +153,23 @@ def make_tools(
         Tool("media_control", "Controlla la musica o il video in riproduzione; 'play' apre un lettore se nessuno è attivo.",
              params(action=("Comando", ["play", "pause", "play-pause", "next", "previous"])), media_control),
         Tool("take_screenshot", "Cattura lo schermo e salva l'immagine.", params(), take_screenshot),
+        Tool("edit_image", "Apre l'editor di immagini (frecce, evidenziatore, testo, oscura dati, ritaglio) sull'ultimo "
+             "screenshot o su un'immagine indicata.", params(percorso="Percorso dell'immagine (vuoto = ultimo screenshot)"),
+             edit_image),
         Tool("lock_screen", "Blocca lo schermo.", params(), lock_screen),
         Tool("power", "Sospende, spegne o riavvia il dispositivo.",
              params(action=("Azione", ["suspend", "poweroff", "reboot"])), power, requires_confirmation=True),
     ]
+
+
+RE_EDIT = re.compile(r"^(?:modifica(?:mi)?|annota|ritaglia|oscura|evidenzia)\s+(?:lo\s+|la\s+|l')?(?:ultim[oa]\s+)?"
+                     r"(?:screenshot|schermata|cattura(?:\s+dello\s+schermo)?)(?:\s+(?:di\s+prima|appena\s+fatt[oa]))?$")
+
+
+class ScreenshotRouter:
+    """«modifica lo screenshot», «ritaglia l'ultima schermata» → l'editor della shell."""
+
+    def match(self, text: str) -> Any:
+        from ..fastpath import Intent, normalize
+
+        return Intent("edit_image", {}) if RE_EDIT.match(normalize(text).strip(" .!?")) else None
