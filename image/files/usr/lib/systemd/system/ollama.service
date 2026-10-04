@@ -14,7 +14,7 @@ Environment=OLLAMA_KV_CACHE_TYPE=q8_0
 # i modelli già inclusi nell'immagine (/usr/share/aios/modelli)
 ExecStartPre=-/usr/libexec/aios-modelli-inclusi
 ExecStart=/usr/bin/ollama serve
-# una richiesta alla volta; in memoria i tre modelli di Nova (2B, 0.8B, Tev1: circa 4 GB)
+# una richiesta alla volta; in memoria il 4B di Nova (circa 3,4 GB) più Tev1 o embeddinggemma se servono
 Environment=OLLAMA_NUM_PARALLEL=1
 Environment=OLLAMA_MAX_LOADED_MODELS=3
 Restart=on-failure

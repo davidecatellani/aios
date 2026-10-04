@@ -247,7 +247,7 @@ def test_qwen35_is_the_default_choice(monkeypatch):
 
     monkeypatch.setattr(_models, "catalog", lambda: _models.BUILTIN)
     laptop = Device(8, 6, "Core i3", 4, "x86_64", True, [], disk_free_gb=100)  # come l'ASUS X540UA
-    assert best_for(laptop, "testo").name == "qwen3.5:2b" and llm.DEFAULT_MODEL == "qwen3.5:2b"
+    assert best_for(laptop, "testo").name == "qwen3.5:2b" and llm.DEFAULT_MODEL == "qwen3.5:4b"
     assert best_for(Device(16, 12, "Core i5", 8, "x86_64", True, [], disk_free_gb=100), "testo").name == "qwen3.5:4b"
     client = llm.OllamaClient(model="qwen3.5:2b")
     assert client._payload([], [])["think"] is False  # risposta pronta, senza ragionamento lungo

@@ -12,9 +12,10 @@ from pathlib import Path
 from typing import Callable, Any, Protocol
 
 DEFAULT_URL = "http://localhost:11434"
-# Modello piccolo di default: deve rispondere in fretta anche su CPU senza GPU.
-# Sui PC più potenti si può alzare con AIOS_MODEL (es. qwen2.5:7b-instruct).
-DEFAULT_MODEL = "qwen3.5:2b"
+# Modello di default: Qwen3.5 4B, il più piccolo che capisce davvero le richieste in italiano (il 2B
+# fraintendeva troppo); gira anche su CPU senza GPU. Si cambia con AIOS_MODEL o dalle impostazioni.
+DEFAULT_MODEL = "qwen3.5:4b"
+OLD_DEFAULTS = {"qwen3.5:2b"}  # i vecchi predefiniti salvati nella configurazione passano al nuovo
 # Modelli che «pensano» prima di rispondere: per Nova serve una risposta pronta, il ragionamento
 # lungo su CPU costerebbe decine di secondi.
 THINKING_PREFIXES = ("qwen3.5", "qwen3.6", "gemma4")
@@ -37,7 +38,8 @@ KEEP_ALIVE = _keep_alive()
 def _configured_text_model() -> str | None:
     from .models import load_config
 
-    return load_config().get("testo")
+    name = load_config().get("testo")
+    return None if name in OLD_DEFAULTS else name
 
 
 def start_pull(model: str) -> bool:

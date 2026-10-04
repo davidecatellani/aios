@@ -152,12 +152,12 @@ RUN set -e; base="https://ollama.com/download/ollama-linux-${OLLAMA_ARCH}"; \
 COPY image/files/ /
 
 # I modelli di base di Nova sono già dentro: risponde anche senza internet dal primo avvio.
-# qwen3.5:2b parla e scrive; tev1:0.8b (decisionale) sceglie ambito e azione; qwen3.5:0.8b ne compila i
-# campi (smistatore.py: la divisione dei compiti tra modelli piccoli); embeddinggemma dà il significato
+# qwen3.5:4b parla e scrive; tev1:0.8b (decisionale) decide quando non c'è il nucleo o Laya; ambito, azione
+# e campi li fa il nucleo (sotto), il 2B e lo 0.8B si scaricano solo se servono; embeddinggemma dà il significato
 # (ricerca nei documenti, frasi in tutte le lingue), 300M.
 # Stanno in /usr (sola lettura); all'avvio di Ollama i file vengono collegati in /var/lib/ollama/models
 # (aios-modelli-inclusi). Con MODELLI_INCLUSI="" si costruisce senza.
-ARG MODELLI_INCLUSI="qwen3.5:2b qwen3.5:0.8b tev1:0.8b embeddinggemma"
+ARG MODELLI_INCLUSI="qwen3.5:4b tev1:0.8b embeddinggemma"
 RUN set -e; if [ -n "$MODELLI_INCLUSI" ]; then \
       export OLLAMA_MODELS=/usr/share/aios/modelli HOME=/tmp; mkdir -p "$OLLAMA_MODELS"; \
       (ollama serve >/tmp/ollama.log 2>&1 &); \
