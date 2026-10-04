@@ -291,9 +291,12 @@ class Ears:
 
     def __init__(self, recognizer: Callable[[str | None], Any] | None = None,
                  accept: Callable[[list[float] | None], bool] | None = None,
-                 fine: Callable[[bytes], str] | None = None):
-        # la trascrizione fine della frase intera (parakeet.py), se c'è; Vosk resta per accorgersi della voce
+                 fine: Callable[[bytes], str] | None = None,
+                 voices: Callable[[Any], list[tuple[float, float, int]]] | None = None):
+        # la trascrizione fine della frase intera (parakeet.py), se c'è; Vosk resta per accorgersi della voce.
+        # `voices(audio) → [(inizio, fine, persona)]`: chi parla nella frase (parlanti.py), per tenere la voce principale
         self.fine = fine
+        self.voices = voices
         if recognizer is None and fine is None:
             try:
                 from . import parakeet
@@ -302,6 +305,14 @@ class Ears:
                     self.fine = parakeet.shared().transcribe
             except Exception:
                 self.fine = None
+        if recognizer is None and voices is None:
+            try:
+                from . import parlanti
+
+                if parlanti.available():
+                    self.voices = parlanti.shared().turns
+            except Exception:
+                self.voices = None
         if recognizer is None:
             from vosk import KaldiRecognizer, Model, SetLogLevel  # type: ignore
 
@@ -337,11 +348,25 @@ class Ears:
         """La frase trascritta da Parakeet al posto di quella di Vosk (se Parakeet c'è e capisce qualcosa)."""
         if not rough or not audio or self.fine is None:
             return rough
+        pcm = b"".join(audio)
         try:
-            better = self.fine(b"".join(audio)).strip()
+            pcm = self.main_voice(pcm)
+            better = self.fine(pcm).strip()
         except Exception:
             return rough
         return better[:-1].strip() if better.endswith(".") else (better or rough)
+
+    def main_voice(self, pcm: bytes) -> bytes:
+        """Con più voci nella frase (TV, ospiti) si tiene quella che parla di più (parlanti.py), se c'è."""
+        if self.voices is None:
+            return pcm
+        import numpy as np
+
+        from . import parlanti
+
+        samples = parlanti.from_pcm(pcm)
+        kept = parlanti.main_voice(samples, self.voices(samples))
+        return (np.clip(kept, -1, 1) * 32767).astype(np.int16).tobytes()
 
     def next_utterance(self, chunks: Iterator[bytes], recent: collections.deque,
                        max_seconds: float = 15.0) -> str | None:

@@ -160,6 +160,21 @@ def transcribe(audio: Path, model: str, run: Callable[[list[str]], subprocess.Co
         wav.unlink(missing_ok=True)
 
 
+def transcribe_speakers(audio: Path, run: Callable[[list[str]], subprocess.CompletedProcess] | None = None) -> str | None:
+    """Riunioni e vocali divisi per persona (parlanti.py + parakeet.py). None se mancano i modelli."""
+    from . import parakeet, parlanti
+
+    if not (parakeet.available() and parlanti.available() and shutil.which("ffmpeg")):
+        return None
+    run = run or (lambda c: subprocess.run(c, capture_output=True, timeout=600))
+    out = run(["ffmpeg", "-loglevel", "error", "-i", str(audio), "-ar", "16000", "-ac", "1", "-f", "s16le", "-"])
+    pcm = out.stdout if isinstance(out.stdout, bytes) else b""
+    if not pcm:
+        return None
+    text = parlanti.transcript(parlanti.from_pcm(pcm), parakeet.shared().transcribe)
+    return text or "Non ho sentito niente."
+
+
 def record(seconds: int, run: Callable[[list[str]], int] = lambda c: subprocess.run(c).returncode,
            which: Callable[[str], str | None] = shutil.which) -> Path | None:
     target = Path(tempfile.mkstemp(prefix="aios-voce-", suffix=".wav")[1])

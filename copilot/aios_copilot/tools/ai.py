@@ -123,10 +123,19 @@ def make_capability_tools(ready: dict[str, str]) -> list[Tool]:
         voice = ready["voce"]
         tools.append(Tool("read_aloud", "Legge un testo ad alta voce.", params(text="Testo"),
                           lambda text: engines.speak(text, voice)))
-    if "dettatura" in ready:
-        whisper = ready["dettatura"]
-        tools.append(Tool("transcribe_audio", "Trascrive un file audio (riunione, messaggio vocale).",
-                          params(path="Percorso del file audio"), lambda path: engines.transcribe(Path(path), whisper),
+    from .. import parakeet, parlanti
+
+    by_speaker = parakeet.available() and parlanti.available()
+    if "dettatura" in ready or by_speaker:
+        whisper = ready.get("dettatura", "")
+
+        def transcribe_audio(path: str) -> str:
+            # prima divisa per persona (Parakeet + chi parla), altrimenti whisper.cpp
+            text = engines.transcribe_speakers(Path(path)) if by_speaker else None
+            return text if text is not None else engines.transcribe(Path(path), whisper)
+
+        tools.append(Tool("transcribe_audio", "Trascrive un file audio (riunione, messaggio vocale), divisa per persona "
+                          "quando parlano in più.", params(path="Percorso del file audio"), transcribe_audio,
                           reads_private=True))
     if "immagini" in ready:
         sd = ready["immagini"]

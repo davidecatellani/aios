@@ -123,6 +123,16 @@ RUN mkdir -p /usr/share/aios/parakeet && cd /usr/share/aios/parakeet \
     || { echo "avviso: Parakeet non scaricato (resta Vosk)"; rm -f /usr/share/aios/parakeet/*; }; \
     chmod -R a+rX /usr/share/aios/parakeet; ls -l /usr/share/aios/parakeet
 
+# Chi parla e quando (parlanti.py): Nemotron 3 Diarization di NVIDIA (OpenMDW 1.1) in ONNX int8, 120 MB. Nell'ascolto
+# tiene solo la voce principale (TV, ospiti); trascrive riunioni e vocali divisi per persona (con Parakeet).
+ARG PARLANTI=https://huggingface.co/onnx-community/Nemotron-3-Diarization-ONNX/resolve/main/onnx
+RUN mkdir -p /usr/share/aios/parlanti && cd /usr/share/aios/parlanti \
+    && curl -fsSL -o model_quantized.onnx "$PARLANTI/model_quantized.onnx" \
+    && curl -fsSL -o model_quantized.onnx_data "$PARLANTI/model_quantized.onnx_data" \
+    && [ "$(stat -c%s model_quantized.onnx_data)" -gt 100000000 ] \
+    || { echo "avviso: modello di chi parla non scaricato"; rm -f /usr/share/aios/parlanti/*; }; \
+    chmod -R a+rX /usr/share/aios/parlanti; ls -l /usr/share/aios/parlanti
+
 # Ollama (modelli AI locali), dal pacchetto ufficiale per Linux. Le librerie CUDA si tolgono:
 # senza il driver NVIDIA (non incluso in Fedora) non servono e raddoppiano la chiavetta.
 ARG OLLAMA_ARCH=amd64

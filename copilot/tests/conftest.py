@@ -8,4 +8,5 @@ def cartelle_isolate(tmp_path, monkeypatch):
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "xdg-config"))
     monkeypatch.delenv("HYPRLAND_INSTANCE_SIGNATURE", raising=False)
     monkeypatch.setenv("AIOS_NUCLEO", "spento")
-    monkeypatch.setenv("AIOS_PARAKEET", "spento")  # nessuna prova parla con un nucleo vero acceso sulla macchina
+    monkeypatch.setenv("AIOS_PARAKEET", "spento")
+    monkeypatch.setenv("AIOS_PARLANTI", "spento")  # nessuna prova parla con un nucleo vero acceso sulla macchina
