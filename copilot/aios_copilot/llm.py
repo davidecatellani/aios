@@ -18,8 +18,20 @@ DEFAULT_MODEL = "qwen3.5:2b"
 # Modelli che «pensano» prima di rispondere: per Nova serve una risposta pronta, il ragionamento
 # lungo su CPU costerebbe decine di secondi.
 THINKING_PREFIXES = ("qwen3.5", "qwen3.6", "gemma4")
-# Il modello resta in memoria per sempre: niente attese di caricamento tra una richiesta e l'altra.
-KEEP_ALIVE = -1
+
+
+def _keep_alive() -> int | str:
+    """Con molta memoria il modello resta caricato per sempre (niente attese tra una richiesta e l'altra);
+    con 8 GB si libera dopo 10 minuti di silenzio, così programmi e sistema non finiscono nello swap."""
+    try:
+        with open("/proc/meminfo") as f:
+            total_mb = int(f.readline().split()[1]) // 1024
+    except (OSError, ValueError, IndexError):
+        return -1
+    return -1 if total_mb >= 12000 else "10m"
+
+
+KEEP_ALIVE = _keep_alive()
 
 
 def _configured_text_model() -> str | None:

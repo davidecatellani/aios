@@ -39,21 +39,21 @@ def test_only_the_domain_tools_reach_the_model():
     assert calls[0][0].endswith("/v1/systemone") and calls[0][1]["model"] == "tev1:0.8b"
 
 
-def test_unsure_or_missing_decision_model_gives_all_tools():
-    groups = {"agenda": [tool("add_reminder")], "posta": [tool("read_mail")]}
+def test_unsure_or_missing_decision_model_gives_core_tools():
+    groups = {"agenda": [tool("add_reminder")], "posta": [tool("read_mail")], "app": [tool("launch_app")]}
     unsure = sm.build(groups, post=fake_post("agenda", 0.3, []))
-    assert unsure.narrow("boh") is None
+    assert unsure.narrow("boh") == sm.CORE | {"add_reminder"}  # incerto: le basi più l'ambito probabile
 
     def broken(url, payload, timeout):
         raise OSError("model 'tev1:0.8b' not found")
     missing = sm.build(groups, post=broken)
-    assert missing.narrow("leggi la posta") is None
+    assert missing.narrow("leggi la posta") == sm.CORE  # mai tutti gli strumenti: istruzioni troppo lunghe
     calls = []
     missing.post = fake_post("posta", 0.99, calls)
-    assert missing.narrow("leggi la posta") is None and not calls  # dopo un errore si riprova più tardi, non a ogni frase
+    assert missing.narrow("leggi la posta") == sm.CORE and not calls  # dopo un errore si riprova più tardi, non a ogni frase
     model = Model()
     Agent(model, [t for g in groups.values() for t in g], confirm=lambda *x, **k: True, narrow=unsure.narrow).ask("boh")
-    assert model.seen[-1] == ["add_reminder", "read_mail"]
+    assert model.seen[-1] == ["add_reminder", "launch_app"]
 
 
 def test_chat_domain_has_no_tools():

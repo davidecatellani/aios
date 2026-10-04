@@ -27,8 +27,15 @@ DEFAULT_MODEL = "tev1:0.8b"
 FILL_MODEL = "qwen3.5:0.8b"
 MIN_ACTION_CONFIDENCE = 0.6
 NO_ACTION = "conversazione"
-MIN_CONFIDENCE = 0.55  # sotto: si danno tutti gli strumenti (meglio lento che sbagliato)
+MIN_CONFIDENCE = 0.55  # sotto: si danno gli strumenti di base (CORE) più quelli dell'ambito incerto
 TIMEOUT = 8.0
+RETRY_AFTER = 60.0  # dopo un errore del modello decisionale si riprova fra un minuto
+# Se lo smistatore non sa o non risponde, il modello di conversazione riceve solo questi (più quelli
+# dell'ambito più probabile): con tutti gli strumenti le istruzioni sono ~10.000 parole e su un
+# processore senza scheda video servono minuti solo per leggerle.
+CORE = {"launch_app", "search_apps", "open_location", "search_files", "search_web", "set_volume", "set_brightness",
+        "add_reminder", "list_agenda", "show_photos", "list_windows", "switch_window", "close_window", "go_home",
+        "media_control", "take_screenshot", "where_left_off", "system_info"}
 
 
 @dataclass
@@ -109,7 +116,7 @@ class Smistatore:
             answer = self.post(f"{self.url}/v1/systemone", payload, TIMEOUT)["answers"][name]
             return str(answer["choice"]), float(answer.get("confidence", 0.0))
         except (OSError, ValueError, KeyError, TypeError, urllib.error.URLError):
-            self._off_until = time.monotonic() + 300
+            self._off_until = time.monotonic() + RETRY_AFTER
             return None
 
     def _decide(self, text: str) -> tuple[str, float] | None:
@@ -121,7 +128,7 @@ class Smistatore:
             answer = reply["answers"]["ambito"]
             choice, confidence = str(answer["choice"]), float(answer.get("confidence", 0.0))
         except (OSError, ValueError, KeyError, TypeError, urllib.error.URLError):
-            self._off_until = time.monotonic() + 300
+            self._off_until = time.monotonic() + RETRY_AFTER
             return None
         self.last = {"ambito": choice, "fiducia": confidence}
         if choice not in self.domains:
@@ -173,10 +180,12 @@ class Smistatore:
             return None
 
     def narrow(self, text: str) -> set[str] | None:
-        """Gli strumenti da dare al modello di conversazione, o None per darli tutti."""
+        """Gli strumenti da dare al modello di conversazione: quelli dell'ambito, o quelli di base se è incerto."""
         decided = self.decide(text)
-        if decided is None or decided[1] < MIN_CONFIDENCE:
-            return None
+        if decided is None:
+            return set(CORE)
+        if decided[1] < MIN_CONFIDENCE:
+            return CORE | set(self.domains[decided[0]].tools)
         return set(self.domains[decided[0]].tools)
 
 
