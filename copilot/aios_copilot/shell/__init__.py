@@ -595,7 +595,8 @@ def run_gtk(app: ShellApp, url: str, argv: list[str]) -> int:
     from gi.repository import Gio, GLib, Gtk, WebKit
 
     gtk_app = Gtk.Application(application_id=APP_ID, flags=Gio.ApplicationFlags.HANDLES_COMMAND_LINE)
-    state: dict[str, Any] = {}
+    state: dict[str, Any] = {}  # le finestre, create una volta sola da build()
+    keep_alive: list[Any] = []
 
     def view_for(part: str) -> Any:
         settings = WebKit.Settings()
@@ -616,7 +617,7 @@ def run_gtk(app: ShellApp, url: str, argv: list[str]) -> int:
         return win, view
 
     def build() -> None:
-        if state:
+        if "home" in state:
             return
         ls = layer_shell()
         home, home_view = window("AIOS", "casa")
@@ -696,7 +697,7 @@ def run_gtk(app: ShellApp, url: str, argv: list[str]) -> int:
             gtk_settings.set_property("gtk-application-prefer-dark-theme", iface.get_string("color-scheme") != "prefer-light")
 
         iface.connect("changed::color-scheme", apply)
-        state["interface_settings"] = iface  # tenuto vivo per ricevere i cambi
+        keep_alive.append(iface)  # tenuto vivo per ricevere i cambi (non in «state»: lì solo le finestre)
         apply()
 
     gtk_app.connect("startup", dark_theme)
