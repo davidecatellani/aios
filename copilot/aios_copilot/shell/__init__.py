@@ -593,6 +593,9 @@ def forward(args: list[str]) -> bool:
 
 
 def main(argv: list[str] | None = None) -> int:
+    # gtk4-layer-shell serve solo a questo processo (aios-sessione lo carica con LD_PRELOAD): i programmi
+    # aperti da qui non devono ereditarlo, o quelli GTK3 come Firefox si bloccano all'avvio.
+    os.environ.pop("LD_PRELOAD", None)
     args = list(sys.argv[1:] if argv is None else argv)
     if args and forward(args):
         return 0
