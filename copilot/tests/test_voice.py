@@ -152,3 +152,22 @@ def test_missing_model_is_explained_and_downloaded(monkeypatch, tmp_path):
         assert "lo sto scaricando" in str(exc) and "404" not in str(exc)
     assert pulled == ["qwen2.5:1.5b-instruct"]
     srv.shutdown()
+
+
+def test_silence_does_not_wake_the_recognizer(tmp_path, monkeypatch):
+    """In una stanza silenziosa il riconoscitore non lavora (batteria)."""
+    import collections
+
+    monkeypatch.setenv("XDG_RUNTIME_DIR", str(tmp_path))
+    fed = []
+
+    class Counting(FakeRec):
+        def AcceptWaveform(self, data):
+            fed.append(data)
+            return super().AcceptWaveform(data)
+
+    quiet = bytes(voice.CHUNK)
+    assert voice.loudness(quiet) == 0
+    assert not voice.Ears(Counting).wait_for_wake(iter([quiet] * 50), collections.deque(maxlen=15))
+    assert fed == []
+    assert voice.Ears(Counting).wait_for_wake(iter([quiet] * 5 + [b"nova"]), collections.deque(maxlen=15))

@@ -99,7 +99,7 @@ body.in-chat #conversazione { -webkit-mask-image: linear-gradient(to bottom, tra
 @keyframes pulsa { 50% { box-shadow: 0 0 0 10px rgba(46,196,182,.15); } }
 /* la sfera di Nova: respira piano quando aspetta, gira e pulsa quando pensa */
 #sfera-nova { width: 44px; height: 44px; flex: none; border-radius: 50%; filter: drop-shadow(0 0 8px rgba(46,196,182,.45));
-              animation: galleggia 5s ease-in-out infinite; }
+              animation: galleggia 5s ease-in-out 3; }  /* poche volte: un'animazione continua consuma batteria */
 #sfera-nova.pensa { animation: pensa 1.1s cubic-bezier(.45,0,.55,1) infinite; filter: drop-shadow(0 0 16px rgba(46,196,182,.85)); }
 @keyframes galleggia { 50% { transform: translateY(-2px) scale(1.04); filter: drop-shadow(0 0 12px rgba(46,196,182,.6)); } }
 @keyframes pensa { 0% { transform: rotate(0) scale(1); } 50% { transform: rotate(180deg) scale(1.14); } 100% { transform: rotate(360deg) scale(1); } }

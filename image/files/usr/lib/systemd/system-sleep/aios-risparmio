@@ -1,0 +1,4 @@
+#!/bin/sh
+# Dopo lo standby alcune regolazioni di risparmio si perdono: si rimettono.
+[ "$1" = post ] && /usr/libexec/aios-risparmio
+exit 0

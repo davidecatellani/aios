@@ -33,6 +33,10 @@ from typing import Any, Callable, Iterator
 
 RATE = 16000
 CHUNK = 3200  # 0,1 s di audio a 16 bit
+# Sotto questo livello (stanza in silenzio) la parola di attivazione non si cerca: il riconoscitore
+# lavora solo quando c'è un suono, e a batteria la CPU resta ferma quasi sempre.
+SILENCE_RMS = 260
+HANGOVER = 12  # dopo un suono si continua ad ascoltare per 1,2 s
 WAKE_WORDS = ("nova", "ehi nova", "ok nova", "hey nova")
 WAKE_GRAMMAR = json.dumps(list(WAKE_WORDS) + ["[unk]"])
 YES = re.compile(r"\b(?:s[iì]|certo|procedi|vai|conferma|ok|okay|va bene|fallo)\b")
@@ -248,6 +252,18 @@ def audio_chunks(cmd: list[str]) -> Iterator[bytes]:
         proc.kill()
 
 
+def loudness(data: bytes) -> float:
+    """Volume medio (RMS) di un pezzo di audio a 16 bit, campionato ogni 4 valori: costa pochissimo."""
+    import array
+    import math
+
+    samples = array.array("h", data[: len(data) - len(data) % 2])
+    if sys.byteorder == "big":
+        samples.byteswap()
+    picked = samples[::4]
+    return math.sqrt(sum(x * x for x in picked) / len(picked)) if picked else 0.0
+
+
 # --- riconoscimento --------------------------------------------------------------------------------------
 class Ears:
     """Parola di attivazione e trascrizione (Vosk). `recognizer(grammar)` per i test."""
@@ -287,10 +303,19 @@ class Ears:
 
     def wait_for_wake(self, chunks: Iterator[bytes], recent: collections.deque) -> bool:
         rec = self.new(WAKE_GRAMMAR)
+        awake = 0  # pezzi ancora da ascoltare dopo l'ultimo suono
         for data in chunks:
             recent.append(data)
             if speaking_flag().exists():
                 continue  # Nova sta parlando
+            if loudness(data) >= SILENCE_RMS:
+                if not awake and len(recent) > 1:
+                    rec.AcceptWaveform(recent[-2])  # l'inizio della parola, appena prima del suono forte
+                awake = HANGOVER
+            elif awake:
+                awake -= 1
+            else:
+                continue  # silenzio: niente lavoro per il riconoscitore
             done = rec.AcceptWaveform(data)
             text = json.loads(rec.Result() if done else rec.PartialResult()).get("text" if done else "partial", "")
             if heard_wake(text):

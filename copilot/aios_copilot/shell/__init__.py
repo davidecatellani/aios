@@ -707,6 +707,9 @@ def auto_power_profile(read: Callable[[], Any] | None = None, run: Callable[[lis
             wanted = power_profile_for(r.charging, r.level)
             if wanted and wanted != current and run(["powerprofilesctl", "set", wanted])[0] == 0:
                 current = wanted
+                if hyprland():  # a batteria niente sfocatura e ombre (la scheda video lavora meno)
+                    on = "false" if wanted == "power-saver" else "true"
+                    run(["hyprctl", "--batch", f"keyword decoration:blur:enabled {on} ; keyword decoration:shadow:enabled {on}"])
         except Exception:
             pass
         stop.wait(interval)
