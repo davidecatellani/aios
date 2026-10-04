@@ -68,7 +68,7 @@ def test_prepare_stages_without_rebooting():
     r = FakeSystem()
     report = updates.Updates(r).prepare()
     assert report[0] == "Sistema: pronto per il prossimo riavvio" and "Firefox" in report[1] and "firmware" in report[2].lower()
-    assert ["rpm-ostree", "upgrade"] in r.ran and ["flatpak", "update", "-y", "--noninteractive"] in r.ran
+    assert ["rpm-ostree", "upgrade"] in r.ran and ["flatpak", "update", "--user", "-y", "--noninteractive"] in r.ran
     assert not any("reboot" in " ".join(c) for c in r.ran)  # mai riavviare da solo
     assert not any(c[0] == "fwupdmgr" and "update" in c[1:2] for c in r.ran)  # il firmware solo segnalato
     assert updates.load_state()["pronto"]["sicurezza"] is True
@@ -103,7 +103,8 @@ def test_idle_task_checks_twice_a_day_and_notifies():
     deadline = time.time() + 5
     while task.has_work() and time.time() < deadline:
         task.step(0.1)
-    assert notes == ["🔒 Aggiornamento di sicurezza pronto"] and not task.has_work()
+    assert notes == ["Aggiornamento di sicurezza pronto", "App aggiornate", "Aggiornamento del firmware"]
+    assert not task.has_work()
     updates.set_auto(False)
     state = updates.load_state()
     state["controllato"] = 0

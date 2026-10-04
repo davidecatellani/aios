@@ -147,10 +147,16 @@ class SystemBackend:
 
 
 def check_apps(runner: Runner) -> Update | None:
+    """App da aggiornare, sia quelle per l'utente (come le installa Nova) sia quelle di sistema."""
     if not runner.has("flatpak"):
         return None
-    code, out = runner.run(["flatpak", "remote-ls", "--updates", "--columns=name,application"])
-    apps = [line.split("\t")[0].strip() for line in out.splitlines() if line.strip()] if code == 0 else []
+    apps: list[str] = []
+    for where in ("--user", "--system"):
+        code, out = runner.run(["flatpak", "remote-ls", where, "--updates", "--app", "--columns=name,application"])
+        for line in out.splitlines() if code == 0 else []:
+            name = line.split("\t")[0].strip()
+            if name and name not in apps:
+                apps.append(name)
     return Update("app", f"{len(apps)} app da aggiornare", False, "", apps) if apps else None
 
 
@@ -246,8 +252,14 @@ class Updates:
                     state["pronto"] = {"versione": u.version, "sicurezza": u.security, "quando": self.clock()}
                     save_state(state)
             elif u.kind == "app":
-                code, out = self.runner.run(["flatpak", "update", "-y", "--noninteractive"])
-                report.append(f"App: {'aggiornate' if code == 0 else 'non riuscito: ' + out[-200:]} ({', '.join(u.items[:5])})")
+                results = [self.runner.run(["flatpak", "update", where, "-y", "--noninteractive"])
+                           for where in ("--user", "--system")]
+                ok = any(code == 0 for code, _ in results)
+                report.append(f"App: {'aggiornate' if ok else 'non riuscito: ' + results[-1][1][-200:]} ({', '.join(u.items[:5])})")
+                if ok:
+                    state = load_state()
+                    state["app_aggiornate"] = {"quando": self.clock(), "nomi": u.items[:10]}
+                    save_state(state)
             elif u.kind == "firmware":
                 report.append(f"Firmware: {u.summary} — dimmi «aggiorna il firmware» quando puoi riavviare.")
         return report
@@ -521,17 +533,42 @@ class UpdateTask:
 
     def _work(self) -> None:
         updates = self.updates or Updates()
+        report: list[str] = []
         try:
             found = updates.check()
             if found:
-                updates.prepare(found)
-        except Exception:
+                report = updates.prepare(found)
+        except Exception as exc:
             self._retry_at = time.monotonic() + 3600
+            if self.notify is not None:
+                self.notify("Aggiornamenti", f"Non sono riuscita a controllare gli aggiornamenti: {exc}")
             return
-        system = next((u for u in found if u.kind == "sistema"), None)
-        if system is not None and self.notify is not None:
-            title = "🔒 Aggiornamento di sicurezza pronto" if system.security else "⬆️ Aggiornamento di AIOS pronto"
-            self.notify(title, "Si applica al prossimo riavvio, quando vuoi tu. Dimmi «riavvia per aggiornare».")
+        if self.notify is not None:
+            for title, text in announcements(found, report):
+                self.notify(title, text)
+
+
+def announcements(found: list[Update], report: list[str]) -> list[tuple[str, str]]:
+    """Cosa dire all'utente dopo un giro di aggiornamenti automatici (niente se non è cambiato niente)."""
+    out: list[tuple[str, str]] = []
+    system = next((u for u in found if u.kind == "sistema"), None)
+    sys_line = next((r for r in report if r.startswith("Sistema")), "")
+    if system is not None and "pronto" in sys_line:
+        out.append(("Aggiornamento di sicurezza pronto" if system.security else "Nuova versione di AIOS pronta",
+                    "Si applica al prossimo riavvio, quando vuoi tu: dimmi «riavvia per aggiornare»."))
+    elif system is not None and sys_line:
+        out.append(("Aggiornamento di AIOS non riuscito", sys_line.removeprefix("Sistema: ")[:240]))
+    apps = next((u for u in found if u.kind == "app"), None)
+    app_line = next((r for r in report if r.startswith("App")), "")
+    if apps is not None and "aggiornate" in app_line:
+        names = ", ".join(apps.items[:4]) + (f" e altre {len(apps.items) - 4}" if len(apps.items) > 4 else "")
+        out.append(("App aggiornate", f"Ho aggiornato {names}. Se una era aperta, la versione nuova parte alla prossima apertura."))
+    elif apps is not None and app_line:
+        out.append(("Aggiornamento delle app non riuscito", app_line.removeprefix("App: ")[:240]))
+    firmware = next((u for u in found if u.kind == "firmware"), None)
+    if firmware is not None:
+        out.append(("Aggiornamento del firmware", firmware.summary.capitalize() + ": dimmi «aggiorna il firmware» quando puoi riavviare."))
+    return out
 
 
 def main(argv: list[str] | None = None) -> int:

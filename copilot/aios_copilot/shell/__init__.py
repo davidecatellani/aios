@@ -308,10 +308,50 @@ def day_cards(agenda: Any, now: datetime, recent: list[str]) -> list[dict[str, A
                                      {"etichetta": "Ignora", "chiedi": f"ignora la scadenza {sid}"}]})
     except Exception:
         cards.append({"tipo": "riepilogo", "titolo": "Il tuo riepilogo", "testo": "Dimmi «buongiorno» per il riepilogo."})
+    cards += update_cards()
     if recent:
         p = Path(recent[0])
         cards.append({"tipo": "riprendi", "titolo": _esc(p.name), "testo": _esc(str(p.parent).replace(str(Path.home()), "~")),
                       "azioni": [{"etichetta": "Riprendi", "apri": str(p)}]})
+    return cards
+
+
+def boot_time(stat: Path = Path("/proc/stat")) -> float:
+    try:
+        for line in stat.read_text().splitlines():
+            if line.startswith("btime "):
+                return float(line.split()[1])
+    except (OSError, ValueError):
+        pass
+    return 0.0
+
+
+def update_cards(now: float | None = None, booted: float | None = None) -> list[dict[str, Any]]:
+    """Aggiornamenti sulla schermata: in corso, pronto (si applica al riavvio), app aggiornate di recente."""
+    try:
+        from ..updates import load_state
+    except Exception:
+        return []
+    state = load_state()
+    now = now or time.time()
+    booted = boot_time() if booted is None else booted
+    cards: list[dict[str, Any]] = []
+    if state.get("in_corso"):
+        cards.append({"tipo": "aggiornamento", "titolo": "Sto aggiornando AIOS",
+                      "testo": "Scarico in sottofondo: puoi continuare a usare il computer.",
+                      "azioni": [{"etichetta": "A che punto è?", "chiedi": "come va l'aggiornamento?"}]})
+    ready = state.get("pronto") or {}
+    if ready and ready.get("quando", 0) > booted:  # preparato dopo l'ultimo avvio: non ancora applicato
+        version = ready.get("versione", "")
+        cards.append({"tipo": "aggiornamento",
+                      "titolo": "Aggiornamento di sicurezza pronto" if ready.get("sicurezza") else "Nuova versione di AIOS pronta",
+                      "testo": (f"AIOS {_esc(version)}: " if version and version != "registro" else "") +
+                               "si applica al riavvio, dati e app restano.",
+                      "azioni": [{"etichetta": "Riavvia ora", "chiedi": "riavvia per aggiornare"}]})
+    apps = state.get("app_aggiornate") or {}
+    if apps and now - apps.get("quando", 0) < 86400 and apps.get("nomi"):
+        cards.append({"tipo": "aggiornamento", "titolo": "App aggiornate",
+                      "testo": _esc(", ".join(apps["nomi"][:4])) + (" e altre" if len(apps["nomi"]) > 4 else "") + "."})
     return cards
 
 

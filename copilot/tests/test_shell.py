@@ -140,3 +140,15 @@ def test_power_profile_follows_the_plug():
     assert shell.power_profile_for(False, 80) == "power-saver"
     assert shell.power_profile_for(True, 80) == "balanced"
     assert shell.power_profile_for(False, None) is None  # PC fisso: non si tocca
+
+
+def test_update_cards():
+    from aios_copilot import updates
+
+    updates.save_state({"pronto": {"versione": "2026.10.05.21", "sicurezza": False, "quando": 2000},
+                        "app_aggiornate": {"quando": 5000, "nomi": ["Firefox", "VLC"]}})
+    cards = shell.update_cards(now=6000, booted=1000)
+    assert [c["titolo"] for c in cards] == ["Nuova versione di AIOS pronta", "App aggiornate"]
+    assert cards[0]["azioni"][0]["chiedi"] == "riavvia per aggiornare"
+    # dopo il riavvio l'aggiornamento è applicato: la carta sparisce
+    assert [c["titolo"] for c in shell.update_cards(now=6000, booted=3000)] == ["App aggiornate"]
