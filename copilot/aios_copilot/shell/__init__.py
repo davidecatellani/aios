@@ -433,6 +433,7 @@ def run_gtk(app: ShellApp, url: str, argv: list[str]) -> int:
     def view_for(part: str) -> Any:
         settings = WebKit.Settings()
         settings.set_enable_developer_extras(False)
+        settings.set_enable_write_console_messages_to_stdout(True)  # errori della pagina nel registro (journalctl)
         settings.set_enable_back_forward_navigation_gestures(False)
         view = WebKit.WebView(settings=settings)
         view.set_background_color(_rgba("rgba(0,0,0,0)" if part != "casa" else "#0A2A3A"))

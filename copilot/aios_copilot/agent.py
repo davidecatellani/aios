@@ -246,6 +246,8 @@ class Agent:
     def warmup(self) -> None:
         """Prepara il modello in background, così la prima risposta è già veloce."""
         try:
-            self.model.warmup(self.messages[:1], [t.schema() for t in self.tools.values()])
+            # Solo il prompt di sistema: con lo smistatore gli strumenti cambiano a ogni richiesta, e
+            # far leggere tutti gli strumenti a un modello su CPU costa minuti a processore pieno.
+            self.model.warmup(self.messages[:1], [] if self.narrow is not None else [t.schema() for t in self.tools.values()])
         except Exception:
             pass  # facoltativo: se il modello non è raggiungibile se ne accorgerà ask()
