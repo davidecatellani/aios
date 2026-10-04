@@ -132,6 +132,9 @@ def redact_secrets(text: str) -> str:
     return SECRET_RE.sub("[token segreto]", text)
 
 
+MIN_THINK_CONFIDENCE = 0.6
+
+
 class Agent:
     def __init__(
         self,
@@ -143,6 +146,7 @@ class Agent:
         history: Callable[[str, str, dict[str, Any]], None] | None = None,
         narrow: Callable[[str], set[str] | None] | None = None,
         planner: Callable[[str, dict[str, Any]], tuple[str, dict[str, Any]] | None] | None = None,
+        percorso: Callable[[str], tuple[str, float] | None] | None = None,
     ):
         self.model = model
         self.tools = {t.name: t for t in tools}
@@ -157,6 +161,8 @@ class Agent:
         self.narrow = narrow
         # Divisione dei compiti (smistatore.plan): azione e campi decisi da modelli piccoli, senza il grande.
         self.planner = planner
+        # Il percorso deciso dal System One (smistatore.percorso): «ragionamento» → il modello pensa prima di rispondere.
+        self.percorso = percorso
         self.reset()
 
     def _follow_up(self, text: str) -> tuple[str | None, bool]:
@@ -231,7 +237,29 @@ class Agent:
             emit("narrowed", {"tools": len(tools), "of": len(self.tools)})
         schemas = [t.schema() for t in tools]
         calls_made: list[tuple[str, dict[str, Any], str]] = []
+        think = self._should_think(text, partial)
+        if think:
+            emit("thinking", {})
+        try:
+            return self._loop(text, schemas, calls_made, emit, think)
+        finally:
+            if think:
+                self.model.think = False
 
+    def _should_think(self, text: str, partial: bool) -> bool:
+        if self.percorso is None or partial or not hasattr(self.model, "think"):
+            return False
+        try:
+            route = self.percorso(text)
+        except Exception:
+            return False
+        if route is None or route[0] != "ragionamento" or route[1] < MIN_THINK_CONFIDENCE:
+            return False
+        self.model.think = True
+        return True
+
+    def _loop(self, text: str, schemas: list[dict[str, Any]], calls_made: list[tuple[str, Any, str]], emit: OnEvent,
+              think: bool) -> str:
         for _ in range(self.max_steps):
             if getattr(self.model, "supports_stream", False):
                 reply = self.model.chat(self.messages, schemas, on_token=lambda piece: emit("token", {"text": piece}))

@@ -34,6 +34,11 @@ AWAY_ASK = 45.0  # dopo quanti secondi fuori dal gioco si chiede al modello deci
 ASK_EVERY = 60.0  # e ogni quanto si richiede, se ha detto di aspettare
 RULE_AWAY = 180.0  # senza modello decisionale: ricarica dopo 3 minuti fuori dal gioco…
 RULE_FREE_GB = 2.5  # …se c'è almeno questa memoria libera
+# Fuori dai giochi i modelli di Nova restano caricati (risposte senza attese); se però la memoria libera scende
+# sotto questa soglia (un programma pesante), il modello di conversazione si scarica e si ricarica alla
+# prossima domanda (qualche secondo). Laya resta: è piccolo e ricaricarlo costa di più.
+LOW_FREE_GB = 0.8
+GUARD_EVERY = 60.0
 OLLAMA = os.environ.get("AIOS_OLLAMA_URL", "http://localhost:11434").rstrip("/")
 
 
@@ -147,6 +152,7 @@ class GameMode:
         self._left_at: float | None = None
         self._away_since: float | None = None  # il gioco è aperto ma in secondo piano da…
         self._asked_at = float("-inf")
+        self._guard_at = float("-inf")
         self.decide = decide
         self._lock = threading.Lock()
 
@@ -181,6 +187,9 @@ class GameMode:
         """Da chiamare ogni tanto: esce dalla modalità gioco mezzo minuto dopo la chiusura dell'ultimo gioco."""
         with self._lock:
             now = self.clock()
+            if not self.on and now - self._guard_at >= GUARD_EVERY and self.free() < LOW_FREE_GB:
+                self._guard_at = now
+                self.unload()  # memoria quasi finita: il modello di conversazione lascia il posto
             if self.on and not self.games and self._left_at is not None and now - self._left_at >= LEAVE_DELAY:
                 self._left_at = None
                 self.leave()

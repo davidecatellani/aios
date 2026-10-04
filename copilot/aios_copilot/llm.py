@@ -22,14 +22,9 @@ THINKING_PREFIXES = ("qwen3.5", "qwen3.6", "gemma4")
 
 
 def _keep_alive() -> int | str:
-    """Con molta memoria il modello resta caricato per sempre (niente attese tra una richiesta e l'altra);
-    con 8 GB si libera dopo 10 minuti di silenzio, così programmi e sistema non finiscono nello swap."""
-    try:
-        with open("/proc/meminfo") as f:
-            total_mb = int(f.readline().split()[1]) // 1024
-    except (OSError, ValueError, IndexError):
-        return -1
-    return -1 if total_mb >= 12000 else "10m"
+    """Il modello resta caricato (niente attese tra una richiesta e l'altra). Se la memoria serve ad altro lo
+    scarica AIOS stesso (giochi.GameMode: giochi e memoria quasi finita), non un timer."""
+    return os.environ.get("AIOS_KEEP_ALIVE", -1)
 
 
 KEEP_ALIVE = _keep_alive()
@@ -113,6 +108,9 @@ class OllamaClient:
         # Ordine: scelta esplicita, variabile d'ambiente, modello installato dal consigliere, predefinito.
         self.model = model or os.environ.get("AIOS_MODEL") or _configured_text_model() or DEFAULT_MODEL
         self.timeout = timeout
+        # True per una richiesta che chiede di ragionare (il percorso deciso da Laya): il modello pensa
+        # prima di rispondere. Di solito False: risposta pronta.
+        self.think = False
 
     supports_stream = True
 
@@ -158,7 +156,7 @@ class OllamaClient:
         payload = {"model": self.model, "messages": messages, "tools": tools, "stream": False,
                    "keep_alive": KEEP_ALIVE, **extra}
         if self.model.startswith(THINKING_PREFIXES):
-            payload["think"] = False
+            payload["think"] = bool(self.think)
         return payload
 
     def warmup(self, messages: list[dict[str, Any]], tools: list[dict[str, Any]]) -> None:

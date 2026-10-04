@@ -38,7 +38,10 @@ class Decisore:
         self.post = post or _post
         off = os.environ.get("AIOS_DECISORE", "") == "spento"
         # laya_url="" → senza Laya (prove, o chi vuole solo Tev1)
-        self.laya = None if off or laya_url == "" else (laya_url or os.environ.get("AIOS_DECISORE_URL", LAYA_URL)).rstrip("/")
+        if laya_url == "" or (laya_url is None and off):
+            self.laya = None
+        else:
+            self.laya = (laya_url or os.environ.get("AIOS_DECISORE_URL", LAYA_URL)).rstrip("/")
         self.ollama = (ollama_url or os.environ.get("AIOS_OLLAMA_URL", "http://localhost:11434")).rstrip("/")
         self.tev1 = tev1 or os.environ.get("AIOS_SMISTATORE", TEV1_MODEL)
         self._off: dict[str, float] = {}
