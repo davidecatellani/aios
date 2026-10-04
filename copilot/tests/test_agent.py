@@ -52,11 +52,12 @@ def test_confirmation_required_and_refusal_respected():
         return False
 
     agent = Agent(model, make_tools(log), confirm=refuse)
-    agent.ask("installa vlc")
+    answer = agent.ask("installa vlc")
 
     assert asked == [("install_app", {"app_id": "org.videolan.VLC", "source": "flatpak"})]
     assert log == []
-    assert "rifiutato" in model.seen[1][-1]["content"]
+    # ci si ferma subito: niente commento del modello («L'utente ha rifiutato…») in terza persona
+    assert answer == "Va bene, non lo faccio." and len(model.seen) == 1
 
 
 def test_confirmation_accepted_runs_tool():
@@ -109,3 +110,34 @@ def test_nova_does_not_introduce_itself_every_time():
     assert strip_intro("Sono Nova, l'assistente di AIOS.", "chi è Nova?") == "Sono Nova, l'assistente di AIOS."
     assert strip_intro("Ciao! Come stai?", "ciao") == "Ciao! Come stai?"
     assert strip_intro("Il sistema è aggiornato.", "aggiorna") == "Il sistema è aggiornato."
+
+
+def test_dead_end_shortcut_goes_to_the_model():
+    from aios_copilot.agent import Intent
+
+    class Shortcut:
+        def match(self, text):
+            return Intent("search_web", {"query": text})
+
+    tools = [Tool("search_web", "Cerca", {"type": "object", "properties": {"query": {"type": "string"}}},
+                  lambda query: "Nessun risultato.")]
+    model = ScriptedModel([{"content": "Ti consiglio Dark e The Bear."}])
+    agent = Agent(model, tools, confirm=lambda *a: True, routers=[Shortcut()])
+    assert agent.ask("mi consigli una serie tv?") == "Ti consiglio Dark e The Bear."
+    sent = model.seen[0]
+    assert "Nessun risultato" in sent[-1]["content"] and "non per l'utente" in sent[-1]["content"]
+
+
+def test_laya_route_skips_shortcuts_for_questions():
+    from aios_copilot.agent import Intent
+
+    class Shortcut:
+        def match(self, text):
+            return Intent("search_web", {"query": text})
+
+    used = []
+    tools = [Tool("search_web", "Cerca", {"type": "object", "properties": {"query": {"type": "string"}}},
+                  lambda query: used.append(query) or "catalogo")]
+    model = ScriptedModel([{"content": "Prova Hollow Knight o Stardew Valley."}])
+    agent = Agent(model, tools, confirm=lambda *a: True, routers=[Shortcut()], percorso=lambda t: ("risposta", 0.9))
+    assert agent.ask("che giochi mi proponi?") == "Prova Hollow Knight o Stardew Valley." and used == []

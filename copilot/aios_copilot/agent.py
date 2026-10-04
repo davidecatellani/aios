@@ -72,6 +72,16 @@ PARTIAL_FOLLOW_UP = re.compile(r"^(?:(?:e|anche|invece|pure|poi|allora)\b|(?!(?:
                                r"stella|scuola|tavola|parole|nulla|ciascuna|ognuna|qualcuna|nessuna)\b)"
                                r"[a-zà-ù]{3,}[aei](?:lo|la|li|le|ne)\b)")
 FAILURE_PREFIXES = ("Errore", "Argomenti", "Strumento sconosciuto", "Non ci sono riuscito", "Non posso", "Non trovo")
+# Risposte di uno strumento che non chiudono la richiesta: niente trovato, non ancora pronto, manca una
+# configurazione. Da una scorciatoia non arrivano all'utente così: le legge il modello, che risponde lui
+# (con quello che sa o con un altro strumento), come un assistente e non come un menu.
+DEAD_END = re.compile(r"^(?:Nessun risultato|Il catalogo non è ancora)|"
+                      r"\bserve (?:una|un) (?:chiave|token)\b", re.I)
+REFUSED_ANSWER = "Va bene, non lo faccio."
+
+
+def dead_end(result: str) -> bool:
+    return bool(DEAD_END.search(result))
 
 
 def shared_fragment(outgoing: str, private_texts: Sequence[str]) -> str | None:
@@ -133,6 +143,7 @@ def redact_secrets(text: str) -> str:
 
 
 MIN_THINK_CONFIDENCE = 0.6
+MIN_TALK_CONFIDENCE = 0.75  # da qui Laya può saltare le scorciatoie («mi consigli una serie?» → risponde il modello)
 
 
 class Agent:
@@ -161,6 +172,7 @@ class Agent:
         self.narrow = narrow
         # Divisione dei compiti (smistatore.plan): azione e campi decisi da modelli piccoli, senza il grande.
         self.planner = planner
+        self._last_result = ""
         # Il percorso deciso dal System One (smistatore.percorso): «ragionamento» → il modello pensa prima di rispondere.
         self.percorso = percorso
         self.reset()
@@ -207,23 +219,33 @@ class Agent:
             text = offered  # «sì» / «collegalo» → quello che Nova aveva proposto
             emit("follow_up", {"text": offered})
 
-        for level, router in enumerate(self.routers if not partial else []):
+        tried: list[tuple[str, str]] = []  # scorciatoie finite nel vuoto: le legge il modello
+        # Laya dice che è una domanda o una chiacchierata, non un comando: niente scorciatoie, risponde il modello
+        talk = self._route(text) in ("risposta", "ragionamento") if not partial else False
+        for level, router in enumerate(self.routers if not (partial or talk) else []):
             intent = router.match(text)
             if intent is not None and intent.tool in self.tools:
-                return self._finish(self._run_intent(intent, level, emit))
+                answer = self._run_intent(intent, level, emit, final=False)
+                if answer is not None:
+                    return self._finish(answer)
+                tried.append((intent.tool, self._last_result))
+                break
         if shown != text:
             answer = ("Questo sembra un token segreto: non lo passo al modello AI e non lo salvo. "
                       "Se è il permesso per gli aggiornamenti, scrivimi «collega GitHub per gli aggiornamenti».")
             self.messages.append({"role": "assistant", "content": answer})
             return answer
 
-        if self.planner is not None and not partial:
+        if self.planner is not None and not partial and not talk:
             try:
                 planned = self.planner(text, self.tools)
             except Exception:
                 planned = None
-            if planned is not None and planned[0] in self.tools:
-                return self._finish(self._run_intent(Intent(planned[0], planned[1]), 2, emit))
+            if planned is not None and planned[0] in self.tools and planned[0] not in {t for t, _ in tried}:
+                answer = self._run_intent(Intent(planned[0], planned[1]), 2, emit, final=False)
+                if answer is not None:
+                    return self._finish(answer)
+                tried.append((planned[0], self._last_result))
 
         allowed = None
         if self.narrow is not None:
@@ -232,7 +254,14 @@ class Agent:
                 allowed = self.narrow(f"{previous}\n{text}" if partial and previous else text)
             except Exception:
                 allowed = None  # lo smistatore non deve mai bloccare Nova
-        tools = [t for t in self.tools.values() if allowed is None or t.name in allowed]
+        tools = [t for t in self.tools.values() if (allowed is None or t.name in allowed)
+                 and t.name not in {name for name, _ in tried}]
+        if tried:
+            notes = "; ".join(f"«{name}» ha risposto: «{result[:300]}»" for name, result in tried)
+            self.messages[-1]["content"] += (f"\n\n(Nota per te, non per l'utente: ho già provato {notes}. Non ripeterlo "
+                                             "come risposta: rispondi tu alla richiesta, con quello che sai o con un "
+                                             "altro strumento.)")
+            emit("fallback", {"tools": [name for name, _ in tried]})
         if allowed is not None:
             emit("narrowed", {"tools": len(tools), "of": len(self.tools)})
         schemas = [t.schema() for t in tools]
@@ -246,14 +275,18 @@ class Agent:
             if think:
                 self.model.think = False
 
-    def _should_think(self, text: str, partial: bool) -> bool:
-        if self.percorso is None or partial or not hasattr(self.model, "think"):
-            return False
+    def _route(self, text: str, confidence: float = MIN_TALK_CONFIDENCE) -> str | None:
+        """Il percorso secondo Laya, se è abbastanza sicuro."""
+        if self.percorso is None:
+            return None
         try:
             route = self.percorso(text)
         except Exception:
-            return False
-        if route is None or route[0] != "ragionamento" or route[1] < MIN_THINK_CONFIDENCE:
+            return None
+        return route[0] if route is not None and route[1] >= confidence else None
+
+    def _should_think(self, text: str, partial: bool) -> bool:
+        if partial or not hasattr(self.model, "think") or self._route(text, MIN_THINK_CONFIDENCE) != "ragionamento":
             return False
         self.model.think = True
         return True
@@ -289,6 +322,9 @@ class Agent:
                 elif tool is not None and tool.external:
                     result = wrap("RISULTATO DI UN'APP", result)
                 self.messages.append({"role": "tool", "tool_name": name, "content": result})
+                if result == REFUSED:  # l'utente ha detto no: ci si ferma, senza commenti in terza persona
+                    self.messages.append({"role": "assistant", "content": REFUSED_ANSWER})
+                    return self._finish(REFUSED_ANSWER)
 
         return "Mi sono fermato: la richiesta richiedeva troppi passaggi. Puoi riformularla?"
 
@@ -297,10 +333,15 @@ class Agent:
         self.offer = take_offer()
         return answer
 
-    def _run_intent(self, intent: Intent, level: int, emit: OnEvent) -> str:
+    def _run_intent(self, intent: Intent, level: int, emit: OnEvent, final: bool = True) -> str | None:
+        """Esegue la scorciatoia. Con final=False, se lo strumento finisce nel vuoto (dead_end) → None: la
+        richiesta passa al modello."""
         emit("routed", {"intent": Intent(intent.tool, {k: v for k, v in intent.args.items() if k not in SECRET_ARGS}),
                         "level": level})
         result = self._run_tool(intent.tool, intent.args, emit)
+        self._last_result = result
+        if not final and result != REFUSED and dead_end(result) and self.model is not None:
+            return None
         answer = "Va bene, annullato." if result == REFUSED else result
         # Resta nella cronologia: l'LLM avrà il contesto per le richieste successive.
         self.messages.append({"role": "assistant", "content": answer})

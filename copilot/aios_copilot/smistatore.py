@@ -152,7 +152,10 @@ class Smistatore:
                                                          "criteria": criteria}, only=only)
 
     def percorso(self, text: str) -> tuple[str, float] | None:
-        """Comando, risposta veloce o ragionamento (lo dice Laya insieme all'ambito)."""
+        """Comando, risposta veloce o ragionamento (lo dice Laya insieme all'ambito). Senza Laya: None, subito
+        (le scorciatoie restano istantanee)."""
+        if not self.decisore.available("laya"):
+            return None
         self.decide(text)
         p = self.last.get("percorso")
         return (p, float(self.last.get("fiducia_percorso", 0.0))) if p else None
