@@ -30,6 +30,7 @@ from .tools import agenda as agenda_tools
 from .tools import foto as photo_tools
 from .tools import memoria as memory_tools
 from .tools import sessione as session_tools
+from .tools import fuso as timezone_tools
 from .tools import mail as mail_tools
 from .tools import taste as taste_tools
 from .tools import ai as ai_tools
@@ -146,7 +147,8 @@ def make_agent(confirm: Confirm, model: str | None = None, allowed: frozenset[st
         "app": [*apps_tools.make_tools(runner), *window_tools.make_tools(), *session_tools.make_tools(), *sdk.make_tools()],
         "sistema": [*system_tools.make_tools(runner),
                     *settings_tools.make_tools(runner, pictures_dir=lambda: resolve_folder("PICTURES")),
-                    *update_tools.make_tools(runner), *energy_tools.make_tools(), *voice_tools.make_tools(runner)],
+                    *update_tools.make_tools(runner), *energy_tools.make_tools(), *voice_tools.make_tools(runner),
+                    *timezone_tools.make_tools()],
         "file": [*files.make_tools(get_index), *photo_tools.make_tools(), *organize_tools.make_tools(library), *document_tools.make_tools(get_index, runner)],
         "agenda": agenda_tools.make_tools(get_agenda, user_name, extras=lambda: [model_hint()]),
         "posta": mail_tools.make_tools(mail_store, send, has_accounts),
@@ -182,6 +184,7 @@ def make_agent(confirm: Confirm, model: str | None = None, allowed: frozenset[st
             phone_tools.PhoneRouter(),  # livello 0: telefono e chiamate
             identity_tools.IdentityRouter(),  # livello 0: identità e sincronizzazione
             update_tools.UpdatesRouter(),  # livello 0: aggiornamenti del sistema
+            timezone_tools.TimezoneRouter(),  # livello 0: «metti l'ora italiana»
             energy_tools.EnergyRouter(),  # livello 0: batteria (decide Nova)
             voice_tools.VoiceRouter(),  # livello 0: ascolto a voce
             sdk.AppsRouter(),  # livello 0: frasi delle abilità offerte dalle app

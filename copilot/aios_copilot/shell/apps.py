@@ -642,7 +642,10 @@ def register_apps(app: Any, run: Run = _run) -> None:
             msg = carattere.set_appearance(str(b.get("carattere", "")),
                                            f"{round(float(b['scala']) * 100)}%" if b.get("scala") else "")
             return 200, {**carattere.load(), "messaggio": msg}
-        return 200, carattere.load()
+        from .. import fuso
+
+        zone = fuso.current()
+        return 200, {**carattere.load(), "fuso": zone if zone not in fuso.UNSET else (fuso.guess() or "UTC")}
 
     def card(m: Any, b: dict[str, Any], q: dict[str, str]) -> tuple[int, Any]:
         from .. import schede
