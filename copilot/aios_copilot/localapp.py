@@ -99,12 +99,12 @@ class LocalApp:
         self.token = secrets.token_urlsafe(24)
         self.jobs: dict[str, Job] = {}
         self._ids = itertools.count(1)
-        self._current: Job | None = None
+        self._local = threading.local()  # la richiesta di questo thread (conferme): ce ne possono essere due
         self._agent_lock = threading.Lock()
         self.finished = threading.Event()
         self.on_answer: Callable[[str, str], Any] | None = None  # la shell annota la conversazione nel diario
         # Un solo agente per tutta la sessione: ricorda il contesto.
-        self.agent = make_agent(lambda tool, args, **kw: self._current.ask_confirmation(tool, args, **kw)) \
+        self.agent = make_agent(lambda tool, args, **kw: self._local.job.ask_confirmation(tool, args, **kw)) \
             if make_agent else None
         self.routes: dict[str, list[tuple[re.Pattern[str], Callable[..., Response]]]] = {"GET": [], "POST": []}
         self.route("GET", r"/api/job/(\d+)", self._job_status)
@@ -135,28 +135,46 @@ class LocalApp:
         def on_cards(kind: str, items: list[dict[str, Any]], title: str) -> None:
             job.add(kind="schede", tipo=kind, titolo=title, elementi=items)
 
-        with self._agent_lock:
-            self._current = job
-            set_attach_sink(on_cards)
-            try:
-                job.answer = self.agent.ask(text, on_event, context)
-                from .schede import media_cards
-
-                cards = media_cards(text, job.answer or "")
-                if cards and not any(e.get("kind") == "schede" for e in job.events):
-                    on_cards("media", cards, "Ti propongo")
-            except LLMError as exc:  # messaggio già in parole semplici (llm.py) o quello generico
-                job.answer = str(exc) if str(exc).startswith("Il mio modello") else NO_MODEL
-            except Exception as exc:  # la pagina deve sempre ricevere una risposta
-                job.answer = f"Qualcosa è andato storto: {exc}"
-            finally:
-                set_attach_sink(None)
-                self._current = None
+        self._local.job = job
+        set_attach_sink(on_cards)
+        try:
+            # Il modello sta lavorando a un'altra richiesta: i comandi partono subito (corsia veloce), il resto
+            # aspetta il suo turno e la risposta arriva sotto la sua domanda.
+            if not self._agent_lock.acquire(blocking=False):
+                quick = getattr(self.agent, "quick", None)
+                job.answer = quick(text, on_event) if quick is not None else None
+                if job.answer is None:
+                    job.add(kind="coda")
+                    self._agent_lock.acquire()
+            else:
+                job.answer = None
+            if job.answer is None:
+                try:
+                    job.answer = self._answer(job, text, context, on_event, on_cards)
+                finally:
+                    self._agent_lock.release()
+        except LLMError as exc:  # messaggio già in parole semplici (llm.py) o quello generico
+            job.answer = str(exc) if str(exc).startswith("Il mio modello") else NO_MODEL
+        except Exception as exc:  # la pagina deve sempre ricevere una risposta
+            job.answer = f"Qualcosa è andato storto: {exc}"
+        finally:
+            set_attach_sink(None)
+            self._local.job = None
         if self.on_answer is not None and job.answer:
             try:
                 self.on_answer(text, job.answer)
             except Exception:  # il diario non deve mai togliere la risposta
                 pass
+
+    def _answer(self, job: Job, text: str, context: str | None, on_event: Callable[..., None],
+                on_cards: Callable[..., None]) -> str:
+        answer = self.agent.ask(text, on_event, context)
+        from .schede import media_cards
+
+        cards = media_cards(text, answer or "")
+        if cards and not any(e.get("kind") == "schede" for e in job.events):
+            on_cards("media", cards, "Ti propongo")
+        return answer
 
     def prompt_for(self, body: dict[str, Any]) -> tuple[str, str | None]:
         """Frase da passare al copilota e contesto per il modello (le app lo specializzano)."""

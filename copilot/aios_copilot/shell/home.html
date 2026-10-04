@@ -77,6 +77,7 @@ body.in-chat #saluto { font-size: 26px; margin: 0; }
 body.in-chat #sottotitolo, body.in-chat #esempi { display: none; }
 body.in-chat #conversazione { -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 28px);
                               mask-image: linear-gradient(to bottom, transparent 0, #000 28px); padding-top: 24px; }
+.blocco { display: contents; }  /* lo spazio di una domanda: i suoi messaggi restano nel flusso della conversazione */
 .msg { max-width: 92%; padding: 11px 15px; border-radius: 18px; line-height: 1.45; white-space: pre-wrap; user-select: text; -webkit-user-select: text; }
 .msg.io { align-self: flex-end; background: linear-gradient(135deg, var(--blu), #1593AD); color: #fff; }
 .msg.nova { align-self: flex-start; background: var(--carta); border: 1px solid var(--bordo); }
@@ -436,12 +437,20 @@ document.addEventListener("keydown", e => { if (e.key === "Escape") $("tutte").h
 // --- Nova ------------------------------------------------------------------------------------------------
 const conv = $("conversazione");
 function giu() { conv.scrollTop = conv.scrollHeight; }
-function io(t) { $("esempi").replaceChildren(); $("sottotitolo").hidden = true; document.body.classList.add("in-chat"); conv.append(el("div", "msg io", t)); giu(); }
-function nova(t) { conv.append(el("div", "msg nova", t)); giu(); }
-function riga(t, veloce) {
+// Ogni domanda ha il suo spazio subito sotto: stati, conferme e risposta ci finiscono dentro, anche se
+// nel frattempo l'utente ha già chiesto altro (le richieste vanno avanti insieme o in coda).
+function io(t) {
+  $("esempi").replaceChildren(); $("sottotitolo").hidden = true; document.body.classList.add("in-chat");
+  const blocco = el("div", "blocco");
+  conv.append(el("div", "msg io", t), blocco); giu();
+  return blocco;
+}
+function nova(t, dove = conv) { dove.append(el("div", "msg nova", t)); giu(); }
+function riga(t, veloce, dove = conv) {
   const s = el("div", "stato", t);
   if (veloce) s.append(el("span", "veloce", veloce));
-  conv.append(s); giu();
+  dove.append(s); giu();
+  return s;
 }
 
 // --- le schede accanto alla risposta: file, link, film e serie, foto ---------------------------------------
@@ -500,13 +509,13 @@ function scheda(tipo, it, tutti, i) {
 }
 const SIMBOLO_FILE = p => ({ immagine: "foto", audio: "musica", video: "video", testo: "note" }[tipoDa(p)] || "documento");
 
-let occupata = false;
+let inVolo = 0;  // richieste in corso: se ne può fare un'altra mentre Nova lavora alla precedente
 async function chiedi(text, aVoce = false) {
-  if (!text || occupata) return;
-  occupata = true; io(text);
+  if (!text) return;
+  inVolo++; const dove = io(text);
   $("testo").value = ""; $("sfera-nova").classList.add("pensa");
   const inizio = performance.now();
-  let risposta = "", veloce = false, inCorso = null;
+  let risposta = "", veloce = false, inCorso = null, coda = null;
   try {
     const { job } = await api("/api/ask", { text });
     let next = 0, mostrata = false;
@@ -515,29 +524,29 @@ async function chiedi(text, aVoce = false) {
       next = s.next;
       for (const ev of s.events) {
         if (ev.kind === "fast") veloce = true;
-        if (ev.kind === "status") riga(ev.text);
+        if (ev.kind === "coda") coda = riga("⏳ in coda: rispondo appena finisco la richiesta di prima", null, dove);
+        if (ev.kind === "status") { coda?.remove(); coda = null; riga(ev.text, null, dove); }
         if (ev.kind === "schede") mostraSchede(ev);
         if (ev.kind === "token") {  // la risposta compare mentre Nova la scrive
-          if (!inCorso) { inCorso = el("div", "msg nova", ""); conv.append(inCorso); }
+          if (!inCorso) { coda?.remove(); coda = null; inCorso = el("div", "msg nova", ""); dove.append(inCorso); }
           inCorso.textContent += ev.text; giu();
         }
       }
-      if (s.pending && !mostrata) { mostrata = true; conferma(job, s.pending.label, s.pending.warning, aVoce); }
+      if (s.pending && !mostrata) { mostrata = true; conferma(job, s.pending.label, s.pending.warning, aVoce, dove); }
       if (!s.pending) mostrata = false;
       if (s.done) { risposta = s.answer; break; }
       await new Promise(r => setTimeout(r, 200));
     }
   } catch (e) { risposta = `Non riesco a parlare con Nova (${e.message}).`; }
-  $("sfera-nova").classList.remove("pensa");
-  if (veloce) riga("capito all'istante", `⚡ ${Math.max(1, Math.round(performance.now() - inizio))} ms`);
-  if (inCorso) inCorso.textContent = risposta; else nova(risposta);
+  coda?.remove();
+  if (--inVolo === 0) $("sfera-nova").classList.remove("pensa");
+  if (veloce) riga("capito all'istante", `⚡ ${Math.max(1, Math.round(performance.now() - inizio))} ms`, dove);
+  if (inCorso) inCorso.textContent = risposta; else nova(risposta, dove);
   if (aVoce) api("/api/parla", { testo: risposta }).catch(() => {});
-  occupata = false;
-  aspetto();
-  if (!PANNELLO) setTimeout(casa, 500);
+  if (inVolo === 0) { aspetto(); if (!PANNELLO) setTimeout(casa, 500); }
 }
 
-function conferma(job, label, warning, aVoce) {
+function conferma(job, label, warning, aVoce, dove = conv) {
   const box = el("div", "conferma");
   box.append(el("div", "", (warning ? `Attenzione: ${warning}\n` : "") + `Confermi? ${label}`));
   const bottoni = el("div", "bottoni");
@@ -549,7 +558,7 @@ function conferma(job, label, warning, aVoce) {
     api(`/api/job/${job}/confirm`, { ok }).catch(() => {});
   };
   si.onclick = () => decidi(true); no.onclick = () => decidi(false);
-  bottoni.append(no, si); box.append(bottoni); conv.append(box); giu(); si.focus();
+  bottoni.append(no, si); box.append(bottoni); dove.append(box); giu(); si.focus();
   if (aVoce) {  // anche a voce: «sì» / «no»
     api("/api/parla", { testo: `${warning ? warning + ". " : ""}Confermi? ${label}` })
       .then(() => api("/api/ascolta-si-no", {}))

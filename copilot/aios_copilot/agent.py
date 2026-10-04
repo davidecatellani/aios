@@ -173,6 +173,9 @@ class Agent:
         # Divisione dei compiti (smistatore.plan): azione e campi decisi da modelli piccoli, senza il grande.
         self.planner = planner
         self._last_result = ""
+        # Comandi eseguiti dalla corsia veloce (quick) mentre il modello lavorava a un'altra richiesta: entrano
+        # nella conversazione alla richiesta successiva, senza mescolarsi a quella in corso.
+        self._side: list[tuple[str, str]] = []
         # Il percorso deciso dal System One (smistatore.percorso): «ragionamento» → il modello pensa prima di rispondere.
         self.percorso = percorso
         self.reset()
@@ -208,6 +211,9 @@ class Agent:
         i livelli veloci lavorano sulla frase così come l'ha scritta l'utente.
         """
         emit = on_event or (lambda kind, data: None)
+        while self._side:
+            said, answered = self._side.pop(0)
+            self.messages += [{"role": "user", "content": said}, {"role": "assistant", "content": answered}]
         # Un token incollato in chat resta qui: al modello e alla cronologia arriva solo un segnaposto.
         shown = redact_secrets(text)
         offered, partial = self._follow_up(text)
@@ -327,6 +333,41 @@ class Agent:
                     return self._finish(REFUSED_ANSWER)
 
         return "Mi sono fermato: la richiesta richiedeva troppi passaggi. Puoi riformularla?"
+
+    def quick(self, text: str, on_event: OnEvent | None = None) -> str | None:
+        """La corsia veloce, mentre il modello è occupato con un'altra richiesta: solo i comandi che non hanno
+        bisogno del modello (scorciatoie, azione e campi decisi dai modelli piccoli). → la risposta, o None se
+        serve il modello (allora la richiesta aspetta il suo turno). Non tocca la conversazione in corso."""
+        emit = on_event or (lambda kind, data: None)
+        low = text.lower().strip(" .!?")
+        if redact_secrets(text) != text or YES_FOLLOW_UP.match(low) or PARTIAL_FOLLOW_UP.search(low):
+            return None  # un segreto, o una frase che dipende da quella prima: con calma, in ordine
+        if self._route(text) in ("risposta", "ragionamento"):
+            return None
+        intent = None
+        level = 0
+        for level, router in enumerate(self.routers):
+            intent = router.match(text)
+            if intent is not None and intent.tool in self.tools:
+                break
+            intent = None
+        if intent is None and self.planner is not None:
+            try:
+                planned = self.planner(text, self.tools)
+            except Exception:
+                planned = None
+            if planned is not None and planned[0] in self.tools:
+                intent, level = Intent(planned[0], planned[1]), 2
+        if intent is None:
+            return None
+        emit("routed", {"intent": Intent(intent.tool, {k: v for k, v in intent.args.items() if k not in SECRET_ARGS}),
+                        "level": level})
+        result = self._run_tool(intent.tool, intent.args, emit)
+        if result != REFUSED and dead_end(result):
+            return None  # non è bastato: ci pensa il modello, al suo turno
+        answer = "Va bene, annullato." if result == REFUSED else result
+        self._side.append((text, answer))
+        return answer
 
     def _finish(self, answer: str) -> str:
         """Tiene la proposta fatta da uno strumento in questa risposta, per un «sì» detto subito dopo."""
