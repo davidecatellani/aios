@@ -2,18 +2,18 @@
 
 Non c'è un desktop con icone e menu: c'è la giornata (le carte preparate da Nova), il saluto,
 la casella di Nova in basso (scrivi o parla) e un dock con poche app. Le app si aprono a tutto
-schermo sopra la schermata; la barra in alto resta sempre visibile e Super riporta qui. Sopra
-qualsiasi app, Super+Spazio (o «Nova…» a voce) apre il pannello di Nova, che conosce il contesto.
+schermo sopra la schermata; la barra in alto resta sempre visibile e Super riporta qui. Nova vive
+solo qui: Super+Spazio o «Nova…» a voce, anche da dentro un'app, riportano alla schermata e la
+risposta arriva lì, con le schede dei risultati accanto. Nessun pannello o finestra a parte.
 
 Pezzi:
 - ShellApp: il server locale della pagina (localapp.py) con i dati delle carte, l'elenco delle
   app, le finestre aperte e le richieste a Nova (job con stato e conferme, come nel benvenuto);
-- GTK/WebKit: due finestre della stessa pagina, «casa» (sotto a tutto, a schermo intero) e
-  «pannello» (Nova sopra le app); il compositore (Hyprland, image/files/usr/share/aios/hyprland; labwc di riserva) le
-  riconosce dal titolo e le tiene al loro posto.
+- GTK/WebKit: due superfici della stessa pagina, «casa» (sotto a tutto, a schermo intero) e la
+  barra in alto (layer-shell; compositore Hyprland, image/files/usr/share/aios/hyprland; labwc di riserva).
 
     aios-shell                avvia la shell (dalla sessione AIOS)
-    aios-shell --nova         mostra/nasconde il pannello di Nova (Super+Spazio)
+    aios-shell --nova         torna alla schermata con il cursore nella casella di Nova (Super+Spazio)
     aios-shell --casa         torna alla schermata (Super): riduce le app aperte
     aios-shell --voce TESTO   richiesta detta a voce (servizio aios-voce)
     aios-shell --vista NOME[:PARTE]  apre un'app di AIOS (file, foto, musica, video, note, impostazioni:wifi…)
@@ -219,7 +219,7 @@ def focus_window(app_id: str, run: Callable[[list[str]], tuple[int, str]] | None
 
 
 def home_visible(run: Callable[[list[str]], tuple[int, str]] | None = None) -> bool:
-    """Si vede la schermata principale (nessun programma davanti)? Allora Nova risponde lì, non nel pannello."""
+    """Si vede la schermata principale (nessun programma davanti)?"""
     run = run or _run
     if hyprland():
         code, out = run(["hyprctl", "activewindow", "-j"])
@@ -572,7 +572,6 @@ class ShellApp(LocalApp):
 
 # --- finestre GTK della shell ------------------------------------------------------------------------------
 BAR_HEIGHT = 40
-PANEL_WIDTH = 480
 
 
 def layer_shell() -> Any:
@@ -622,11 +621,6 @@ def run_gtk(app: ShellApp, url: str, argv: list[str]) -> int:
         ls = layer_shell()
         home, home_view = window("AIOS", "casa")
         bar, _ = window("AIOS barra", "barra")
-        panel, panel_view = window("Nova", "pannello")
-        panel.set_hide_on_close(True)
-        keys = Gtk.EventControllerKey()
-        keys.connect("key-pressed", lambda c, kv, code, st: _escape(panel, kv))
-        panel.add_controller(keys)
         if ls is not None:
             edges = (ls.Edge.TOP, ls.Edge.BOTTOM, ls.Edge.LEFT, ls.Edge.RIGHT)
             ls.init_for_window(home)  # la giornata, sotto alle app
@@ -642,63 +636,45 @@ def run_gtk(app: ShellApp, url: str, argv: list[str]) -> int:
                 ls.set_anchor(bar, e, True)
             ls.auto_exclusive_zone_enable(bar)
             bar.set_default_size(-1, BAR_HEIGHT)
-            ls.init_for_window(panel)  # Nova sopra a tutto, sul lato destro
-            ls.set_layer(panel, ls.Layer.OVERLAY)
-            ls.set_namespace(panel, "aios-nova")
-            for e in (ls.Edge.TOP, ls.Edge.BOTTOM, ls.Edge.RIGHT):
-                ls.set_anchor(panel, e, True)
-            ls.set_margin(panel, ls.Edge.TOP, 8)
-            ls.set_margin(panel, ls.Edge.BOTTOM, 8)
-            ls.set_margin(panel, ls.Edge.RIGHT, 8)
-            ls.set_keyboard_mode(panel, ls.KeyboardMode.ON_DEMAND)
-            panel.set_default_size(PANEL_WIDTH, -1)
             bar.present()
         else:  # senza il compositore di AIOS (es. dentro GNOME): finestre normali
             home.set_default_size(1280, 800)
-            panel.set_default_size(PANEL_WIDTH, 720)
         home.present()
-        state.update(home=home, home_view=home_view, bar=bar, panel=panel, panel_view=panel_view)
+        state.update(home=home, home_view=home_view, bar=bar)
         app.on_home = lambda: GLib.idle_add(run_js, home_view, "window.chiudiVista && window.chiudiVista()")
 
     def run_js(view: Any, code: str) -> None:
         view.evaluate_javascript(code, -1, None, None, None, None, None)
 
-    def toggle_panel(ask: str = "") -> None:
+    def to_home(ask: str = "", by_voice: bool = False) -> None:
+        """Nova vive solo nella schermata principale: ci si torna (i programmi restano aperti, dietro)
+        e lì si scrive o si risponde, con le schede accanto. Niente pannelli o finestre a parte."""
         build()
-        panel = state["panel"]
+        if not home_visible():
+            threading.Thread(target=minimize_all, daemon=True).start()
+        state["home"].present()
         if ask:
-            panel.present()
-            run_js(state["panel_view"], f"window.novaChiedi && window.novaChiedi({json.dumps(ask)}, true)")
-        elif panel.get_visible():
-            panel.set_visible(False)
+            run_js(state["home_view"], "window.chiudiVista && window.chiudiVista(); "
+                   f"window.novaChiedi && window.novaChiedi({json.dumps(ask)}, {'true' if by_voice else 'false'})")
         else:
-            panel.present()
-            run_js(state["panel_view"], "window.novaFocus && window.novaFocus()")
+            run_js(state["home_view"], "window.chiudiVista && window.chiudiVista(); window.novaFocus && window.novaFocus()")
 
     def handle(args: list[str]) -> bool:
         build()
         if "--nova" in args:
-            toggle_panel()
+            to_home()
         elif "--casa" in args:
-            state["panel"].set_visible(False)
             threading.Thread(target=minimize_all, daemon=True).start()
             run_js(state["home_view"], "window.chiudiVista && window.chiudiVista(); window.novaFocus && window.novaFocus()")
         elif "--vista" in args and args.index("--vista") + 1 < len(args):
             # da Nova: «apri le impostazioni del Wi-Fi», «mostrami le foto»
             what = args[args.index("--vista") + 1].split(":")
             if re.fullmatch(r"[a-z]+", what[0]):
-                state["panel"].set_visible(False)
                 threading.Thread(target=minimize_all, daemon=True).start()
                 run_js(state["home_view"], f"window.apriVista && window.apriVista({json.dumps(what[0])}"
                        + (f", {json.dumps(what[1])})" if len(what) > 1 else ")"))
         elif "--voce" in args and args.index("--voce") + 1 < len(args):
-            said = args[args.index("--voce") + 1]
-            if home_visible():  # sulla schermata principale: si risponde lì, con le schede accanto
-                state["panel"].set_visible(False)
-                run_js(state["home_view"], "window.chiudiVista && window.chiudiVista(); "
-                       f"window.novaChiedi && window.novaChiedi({json.dumps(said)}, true)")
-            else:
-                toggle_panel(said)
+            to_home(args[args.index("--voce") + 1], by_voice=True)
         return False
 
     def command_line(application: Any, cmdline: Any) -> int:
@@ -727,15 +703,6 @@ def run_gtk(app: ShellApp, url: str, argv: list[str]) -> int:
     gtk_app.connect("command-line", command_line)
     gtk_app.hold()  # la shell resta viva anche senza finestre in primo piano
     return gtk_app.run(argv)
-
-
-def _escape(panel: Any, keyval: int) -> bool:
-    from gi.repository import Gdk
-
-    if keyval == Gdk.KEY_Escape:
-        panel.set_visible(False)
-        return True
-    return False
 
 
 def _rgba(color: str) -> Any:
