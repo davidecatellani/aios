@@ -13,7 +13,7 @@ from ..models import CAPABILITIES, Queue, best_for, describe_proposals, propose
 from ..xdg import resolve_folder
 from .base import Runner, Tool, params
 
-CAP_WORDS = {"vista": "vista", "immagini": "immagini", "foto": "vista", "dettatura": "dettatura",
+CAP_WORDS = {"lettura": "lettura", "ocr": "lettura", "vista": "vista", "immagini": "immagini", "foto": "vista", "dettatura": "dettatura",
              "riconoscimento vocale": "dettatura", "voce": "voce", "lettura": "voce", "testo": "testo",
              "significato": "significato", "lingue": "significato", "modello più potente": "testo",
              "creare immagini": "immagini", "generazione di immagini": "immagini"}
@@ -112,6 +112,13 @@ def make_capability_tools(ready: dict[str, str]) -> list[Tool]:
             Tool("look_at_screen", "Guarda lo schermo dell'utente e risponde (es. «cosa dice questo errore?»).",
                  params([], question="Cosa chiedere"), look_at_screen, reads_private=True),
         ]
+    if "lettura" in ready:
+        ocr = ready["lettura"]
+        tools.append(Tool("read_scanned_document", "Trascrive in testo (markdown) un documento fotografato o scansionato: "
+                          "bollette, contratti, tabelle. Più preciso di describe_image per il testo.",
+                          params(path="Percorso dell'immagine"),
+                          lambda path: engines.describe_image(Path(path), "<|grounding|>Convert the document to markdown.", ocr),
+                          reads_private=True))
     if "voce" in ready:
         voice = ready["voce"]
         tools.append(Tool("read_aloud", "Legge un testo ad alta voce.", params(text="Testo"),

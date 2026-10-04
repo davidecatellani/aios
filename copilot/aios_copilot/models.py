@@ -24,6 +24,7 @@ from .privacy import private_dir
 CAPABILITIES = {
     "testo": "capire e scrivere (Nova)",
     "vista": "descrivere immagini, leggere documenti fotografati e schermate",
+    "lettura": "trascrivere fedelmente documenti scansionati, bollette e tabelle (OCR)",
     "dettatura": "parlare invece di scrivere",
     "voce": "leggere ad alta voce con una voce naturale",
     "significato": "capire frasi in tutte le lingue e cercare i documenti per significato",
@@ -98,9 +99,13 @@ BUILTIN: tuple[Model, ...] = (
     Model("gpt-oss:20b", "testo", 13.8, 16, rank=5, active_gb=2.0, note="21B a esperti, 3,6B attivi per parola"),
     # vista (multimodale)
     Model("moondream", "vista", 1.7, 3, rank=1, note="leggero, descrizioni brevi"),
+    # MiniCPM-V 4.6 (2026, su Qwen 3.5 0.8B): vista al livello di un 2B in 1,6 GB, adatto anche ai telefoni
+    Model("minicpm-v4.6:1b", "vista", 1.6, 3, rank=2.5, license="minicpm", note="leggero ma bravo: foto, schermate e documenti"),
     Model("qwen2.5vl:3b", "vista", 3.2, 6, rank=2, license="qwen-research"),
     Model("qwen2.5vl:7b", "vista", 6.0, 7, rank=3, note="legge bene testi e documenti"),
     Model("llama3.2-vision:11b", "vista", 7.9, 12, needs_gpu=True, rank=4, license="llama3.2"),
+    # lettura (OCR specializzato): trascrive pagine intere, tabelle comprese
+    Model("deepseek-ocr:3b", "lettura", 6.7, 8, rank=1, license="mit", note="legge documenti e tabelle quasi senza errori"),
     # significato (embedding multilingue)
     Model("granite-embedding:278m", "significato", 0.6, 1, rank=1),
     Model("paraphrase-multilingual", "significato", 0.6, 1, rank=2),

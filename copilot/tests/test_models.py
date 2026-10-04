@@ -75,7 +75,7 @@ def test_detect_reads_hardware(tmp_path):
 
 @pytest.mark.parametrize("device, expected", [
     (Device(4, 2, "Celeron", 2, "x86_64", False, [], disk_free_gb=20), {"testo": "qwen2.5:0.5b-instruct"}),
-    (Device(16, 12, "Xeon", 4, "x86_64", True, [], disk_free_gb=100), {"testo": "qwen2.5:3b-instruct", "vista": "qwen2.5vl:3b"}),
+    (Device(16, 12, "Xeon", 4, "x86_64", True, [], disk_free_gb=100), {"testo": "qwen2.5:3b-instruct", "vista": "minicpm-v4.6:1b"}),
     (Device(32, 28, "Ryzen", 16, "x86_64", True, [GPU("RTX", 8, "nvidia")], disk_free_gb=300),
      {"testo": "qwen3:30b-a3b-instruct-2507-q4_K_M", "vista": "qwen2.5vl:7b", "immagini": "sd-turbo"}),  # a esperti, in RAM
     (Device(64, 60, "TR", 32, "x86_64", True, [GPU("RTX 4090", 24, "nvidia")], disk_free_gb=900),
@@ -101,7 +101,7 @@ def test_install_requires_confirmation_and_queues(tmp_path):
     tools = {t.name: t for t in ai_tools.make_management_tools(lambda: d, lambda: [], lambda: q)}
     assert tools["install_models"].requires_confirmation
     out = tools["install_models"].func("vista")
-    assert "In coda: vista (qwen2.5vl:3b)" in out and [i.name for i in q.items] == ["qwen2.5vl:3b"]
+    assert "In coda: vista (minicpm-v4.6:1b)" in out and [i.name for i in q.items] == ["minicpm-v4.6:1b"]
     assert "già tutto in coda" in tools["install_models"].func("vista")
     assert "Testo: qwen2.5:3b-instruct" in tools["suggest_models"].func()
 
