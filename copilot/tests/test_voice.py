@@ -14,7 +14,7 @@ class FakeRec:
         self.grammar, self.words = grammar, []
 
     def AcceptWaveform(self, data):
-        word = data.decode()
+        word = data.decode().strip("\x00")  # il silenzio non è una parola
         if self.grammar and word not in json.loads(self.grammar):
             word = ""  # fuori dalla grammatica: non lo «sente»
         if word == "|":
@@ -189,4 +189,23 @@ def test_only_requests_for_the_pc_go_through():
     assert voice.addressed_to_pc("domani forse andiamo al mare", ask=lambda t: ("richiesta", 0.55)) == "forse"
     assert voice.addressed_to_pc("allora", ask=lambda t: ("richiesta", 0.99)) == "no"  # una parola a caso
     assert voice.addressed_to_pc("stop", ask=lambda t: ("richiesta", 0.9)) == "si"
-    assert voice.addressed_to_pc("che ore sono", ask=lambda t: None) == "si"  # senza modello si risponde
+    assert voice.addressed_to_pc("che ore sono", ask=lambda t: None) == "si"  # senza modello: sembra un comando
+
+
+def test_listens_without_wake_word(tmp_path, monkeypatch):
+    """Si parla normalmente: la frase intera arriva a Nova, che poi decide se è per lei."""
+    import collections
+
+    monkeypatch.setenv("XDG_RUNTIME_DIR", str(tmp_path))
+    quiet = bytes(voice.CHUNK)
+    ears = voice.Ears(FakeRec, accept=lambda v: True)
+    audio = iter([quiet] * 5 + [b"apri", b"la", b"cartella", b"foto", b"|"])
+    assert ears.next_utterance(audio, collections.deque(maxlen=15)) == "apri la cartella foto"
+    assert ears.next_utterance(iter([quiet] * 3), collections.deque(maxlen=15)) is None  # microfono chiuso
+    stranger = voice.Ears(FakeRec, accept=lambda v: False)  # voce non conosciuta
+    assert stranger.next_utterance(iter([b"metti", b"musica", b"|"]), collections.deque(maxlen=15)) == ""
+
+
+def test_without_the_judge_only_clear_commands_pass():
+    assert voice.addressed_to_pc("apri la cartella delle foto", ask=lambda t: None) == "si"
+    assert voice.addressed_to_pc("e poi siamo andati al mare", ask=lambda t: None) == "no"

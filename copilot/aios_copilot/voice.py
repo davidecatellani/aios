@@ -321,6 +321,36 @@ class Ears:
             from .voiceprint import accepted as accept
         self.accept = accept
 
+    def next_utterance(self, chunks: Iterator[bytes], recent: collections.deque,
+                       max_seconds: float = 15.0) -> str | None:
+        """La prossima frase detta nella stanza, trascritta per intero (senza parola di attivazione).
+
+        In silenzio il riconoscitore non lavora (soglia sul volume). → il testo, "" se non si è capito
+        niente o la voce non è di una persona conosciuta (se l'utente ha scelto «solo la mia voce»),
+        None se il microfono si è chiuso."""
+        for data in chunks:
+            recent.append(data)
+            if speaking_flag().exists() or loudness(data) < SILENCE_RMS:
+                continue  # Nova sta parlando, o silenzio
+            rec = self.new(None)
+            for old in list(recent)[-6:]:  # l'inizio della frase, appena prima del suono forte
+                rec.AcceptWaveform(old)
+            started, quiet, voice_vector = time.monotonic(), 0, None
+            for more in chunks:
+                if rec.AcceptWaveform(more):
+                    result = json.loads(rec.Result())
+                    voice_vector = result.get("spk") or voice_vector
+                    text = result.get("text", "").strip()
+                    return text if text and self.accept(voice_vector) else ""
+                quiet = quiet + 1 if loudness(more) < SILENCE_RMS else 0
+                if quiet > HANGOVER or time.monotonic() - started > max_seconds:
+                    break
+            result = json.loads(rec.FinalResult())
+            voice_vector = result.get("spk") or voice_vector
+            text = result.get("text", "").strip()
+            return text if text and self.accept(voice_vector) else ""
+        return None
+
     def wait_for_wake(self, chunks: Iterator[bytes], recent: collections.deque) -> bool:
         rec = self.new(WAKE_GRAMMAR)
         awake = 0  # pezzi ancora da ascoltare dopo l'ultimo suono
@@ -420,6 +450,13 @@ def set_listening(on: bool) -> None:
     state_file().write_text(json.dumps({"ascolto": on}))
 
 
+# Inizio tipico di una richiesta al computer (usato quando il modello che decide non risponde)
+COMMAND_LIKE = re.compile(r"(?i)^\s*(?:nova\b|apri|aprimi|chiudi|cerca|cercami|trova|trovami|mostra|mostrami|fammi\s+vedere|"
+                          r"metti|mettimi|alza|abbassa|accendi|spegni|ricordami|segna|segnati|scrivi|leggi|leggimi|"
+                          r"riproduci|ferma|pausa|installa|aggiorna|blocca|che\s+ore|che\s+tempo|quanto\s+manca|"
+                          r"dimmi|riprendi|riapri|ingrandisci|riduci|rimpicciolisci|collega|chiama|manda|invia)\b")
+
+
 def addressed_to_pc(text: str, ask: Callable[[str], tuple[str, float] | None] | None = None) -> str:
     """La frase sentita è davvero per il computer? → "si", "no" o "forse" (allora Nova chiede conferma).
 
@@ -433,8 +470,8 @@ def addressed_to_pc(text: str, ask: Callable[[str], tuple[str, float] | None] | 
         verdict = ask(text)
     except Exception:
         return "si"
-    if verdict is None:
-        return "si"
+    if verdict is None:  # senza il modello che decide: solo ciò che sembra chiaramente un comando
+        return "si" if COMMAND_LIKE.search(text) else "no"
     choice, confidence = verdict
     if confidence >= 0.7:
         return "si" if choice == "richiesta" else "no"
@@ -463,6 +500,9 @@ def energy_allows() -> bool:
 
 
 def serve(ears: Ears | None = None, send: Callable[[str], bool] = deliver) -> int:
+    """Sempre in ascolto, senza parola di attivazione: ogni frase detta nella stanza viene trascritta
+    e Nova decide se è per lei (addressed_to_pc). Nel dubbio chiede «Dicevi a me?».
+    «Nova, …» all'inizio della frase vale come richiesta sicura."""
     cmd = capture_command()
     if cmd is None:
         print("Nessun programma per il microfono (pw-record, parecord o arecord).", file=sys.stderr)
@@ -475,18 +515,22 @@ def serve(ears: Ears | None = None, send: Callable[[str], bool] = deliver) -> in
         recent: collections.deque = collections.deque(maxlen=15)  # 1,5 s
         chunks = audio_chunks(cmd)
         try:
-            if not ears.wait_for_wake(chunks, recent):
+            text = ears.next_utterance(chunks, recent)
+            if text is None:
                 time.sleep(2)  # microfono non disponibile: si riprova
                 continue
-            text = ears.transcribe(chunks, recent)
-            if text == "":  # solo «Nova»: un suono e si ascolta la richiesta
+            if not text:
+                continue
+            request = after_wake(text)
+            if request == "":  # solo «Nova»: un suono e si ascolta la richiesta
                 chime()
-                text = ears.transcribe(chunks, None, max_seconds=8.0, require_wake=False)
+                request = ears.transcribe(chunks, None, max_seconds=8.0, require_wake=False) or ""
         finally:
-            chunks.close()
-        if not text:
-            continue
-        verdict = addressed_to_pc(text)
+            chunks.close()  # dopo ogni frase si riapre: niente audio vecchio rimasto in coda
+        if request is not None:  # chiamata per nome: è per Nova
+            text, verdict = request, "si" if request else "no"
+        else:
+            verdict = addressed_to_pc(text)
         if verdict == "forse":  # nel dubbio si chiede: «Dicevi a me?»
             speak(f"Dicevi a me? {text[:80]}?")
             verdict = "si" if listen_yes_no(6.0, ears) else "no"
