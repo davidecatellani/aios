@@ -6,7 +6,7 @@
 - **Richiesta**: sentita la parola, un piccolo suono; la frase che segue (anche detta di
   seguito: «Nova, alza il volume») è trascritta in italiano con il riconoscitore completo,
   fino a una pausa. La richiesta va alla finestra di Nova, che la mostra e la esegue.
-- **Risposta**: letta ad alta voce con Piper (voce italiana naturale) o, se manca, eSpeak.
+- **Risposta**: letta ad alta voce con Kokoro (voci italiane naturali, kokoro.py), o Piper, o eSpeak.
   Mentre Nova parla l'ascolto si sospende, così non si «sente» da sola.
 - **Conferme a voce**: per le azioni importanti Nova chiede «Procedo?» e accetta «sì» / «no»
   detti a voce (oppure i pulsanti).
@@ -60,9 +60,22 @@ def voice_choice_file() -> Path:
     return Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config")) / "aios" / "voce.json"
 
 
+KOKORO_PREFIX = "kokoro-"
+# chi aveva una voce di Piper passa una volta alla voce naturale dello stesso genere (kokoro.py)
+PIPER_TO_KOKORO = {"it_IT-paola-medium": "kokoro-if_sara", "it_IT-riccardo-x_low": "kokoro-im_nicola"}
+
+
 def available_voices() -> list[dict[str, str]]:
-    """Le voci di Nova presenti sul computer (file .onnx di Piper), con un nome da persona."""
+    """Le voci di Nova presenti sul computer: prima quelle naturali (Kokoro), poi quelle di Piper (.onnx)."""
     seen: dict[str, dict[str, str]] = {}
+    try:
+        from . import kokoro
+
+        if kokoro.available():
+            for vid, name in kokoro.NAMES.items():
+                seen[KOKORO_PREFIX + vid] = {"id": KOKORO_PREFIX + vid, "nome": name}
+    except Exception:
+        pass
     for base in voice_dirs():
         for f in sorted(base.glob("*.onnx")):
             seen.setdefault(f.stem, {"id": f.stem, "nome": VOICE_NAMES.get(f.stem, f.stem.split("-")[1].title()
@@ -72,10 +85,17 @@ def available_voices() -> list[dict[str, str]]:
 
 def chosen_voice() -> str:
     try:
-        choice = json.loads(voice_choice_file().read_text()).get("voce", "")
+        saved = json.loads(voice_choice_file().read_text())
+        choice, moved = saved.get("voce", ""), saved.get("naturale", False)
     except (OSError, ValueError, AttributeError):
-        choice = ""
+        choice, moved = "", False
     ids = [v["id"] for v in available_voices()]
+    if not moved and PIPER_TO_KOKORO.get(choice) in ids:  # una volta sola: poi la scelta dell'utente resta
+        choice = PIPER_TO_KOKORO[choice]
+        try:
+            voice_choice_file().write_text(json.dumps({"voce": choice, "naturale": True}))
+        except OSError:
+            pass
     return choice if choice in ids else (ids[0] if ids else "")
 
 
@@ -84,13 +104,15 @@ def set_voice(voice_id: str) -> bool:
         return False
     f = voice_choice_file()
     f.parent.mkdir(parents=True, exist_ok=True)
-    f.write_text(json.dumps({"voce": voice_id}))
+    f.write_text(json.dumps({"voce": voice_id, "naturale": True}))
     return True
 
 
 def voice_file() -> Path | None:
-    """Il file della voce scelta dall'utente (o la prima disponibile)."""
+    """Il file della voce di Piper scelta dall'utente (o la prima disponibile)."""
     choice = chosen_voice()
+    if choice.startswith(KOKORO_PREFIX):
+        choice = next((p for p, k in PIPER_TO_KOKORO.items() if k == choice), "")
     for base in voice_dirs():
         p = base / f"{choice}.onnx"
         if choice and p.is_file():
@@ -212,6 +234,20 @@ def speak(text: str, which: Callable[[str], str | None] = shutil.which,
     flag = speaking_flag()
     try:
         flag.touch()
+        chosen = chosen_voice()
+        if chosen.startswith(KOKORO_PREFIX):
+            try:
+                from . import kokoro
+
+                def play_one(wav: Path) -> None:
+                    cmd = play_command(wav, which)
+                    if cmd:
+                        run(cmd, capture_output=True, timeout=120)
+
+                if kokoro.speak(text, chosen[len(KOKORO_PREFIX):], play_one):
+                    return True
+            except Exception:
+                pass  # se Kokoro non va, parla Piper
         voice = voice_file()
         piper = which("piper") or (str(Path("/usr/lib/aios/piper/piper")) if Path("/usr/lib/aios/piper/piper").exists() else None)
         if piper and voice:

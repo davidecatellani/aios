@@ -856,6 +856,9 @@ def main(argv: list[str] | None = None) -> int:
     if args and forward(args):
         return 0
     threading.Thread(target=auto_power_profile, daemon=True).start()
+    from .. import kokoro
+
+    threading.Thread(target=kokoro.warm_up, daemon=True).start()  # la voce pronta per la prima risposta
     from .. import fuso
 
     threading.Thread(target=fuso.ensure, daemon=True).start()  # sistema rimasto in UTC → l'ora di casa

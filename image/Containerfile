@@ -123,6 +123,15 @@ RUN mkdir -p /usr/share/aios/parakeet && cd /usr/share/aios/parakeet \
     || { echo "avviso: Parakeet non scaricato (resta Vosk)"; rm -f /usr/share/aios/parakeet/*; }; \
     chmod -R a+rX /usr/share/aios/parakeet; ls -l /usr/share/aios/parakeet
 
+# Voce di Nova (kokoro.py): Kokoro 82M (Apache 2.0) int8, voci italiane naturali Sara e Nicola, 120 MB.
+ARG KOKORO=https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.0
+RUN mkdir -p /usr/share/aios/kokoro && cd /usr/share/aios/kokoro \
+    && curl -fsSL -o kokoro-v1.0.int8.onnx "$KOKORO/kokoro-v1.0.int8.onnx" \
+    && curl -fsSL -o voices-v1.0.bin "$KOKORO/voices-v1.0.bin" \
+    && [ "$(stat -c%s kokoro-v1.0.int8.onnx)" -gt 50000000 ] \
+    || { echo "avviso: voce Kokoro non scaricata (resta Piper)"; rm -f /usr/share/aios/kokoro/*; }; \
+    chmod -R a+rX /usr/share/aios/kokoro; ls -l /usr/share/aios/kokoro
+
 # Chi parla e quando (parlanti.py): Nemotron 3 Diarization di NVIDIA (OpenMDW 1.1) in ONNX int8, 120 MB. Nell'ascolto
 # tiene solo la voce principale (TV, ospiti); trascrive riunioni e vocali divisi per persona (con Parakeet).
 ARG PARLANTI=https://huggingface.co/onnx-community/Nemotron-3-Diarization-ONNX/resolve/main/onnx
@@ -188,7 +197,9 @@ COPY copilot /tmp/aios-copilot
 RUN { pip install --no-cache-dir --prefix=/usr onnxruntime tokenizers \
       && python3 -c "import onnxruntime, tokenizers, numpy, cv2"; } || echo "avviso: onnxruntime non installato"; \
     { pip install --no-cache-dir --prefix=/usr sherpa-onnx && python3 -c "import sherpa_onnx"; } \
-      || echo "avviso: sherpa-onnx non installato (l'ascolto resta con Vosk)"
+      || echo "avviso: sherpa-onnx non installato (l'ascolto resta con Vosk)"; \
+    { pip install --no-cache-dir --prefix=/usr kokoro-onnx && python3 -c "import kokoro_onnx"; } \
+      || echo "avviso: kokoro-onnx non installato (la voce resta Piper)"
 RUN pip install --no-cache-dir --prefix=/usr --no-build-isolation /tmp/aios-copilot \
     && install -Dm644 -t /usr/share/applications /tmp/aios-copilot/data/org.aios.Copilot.desktop /tmp/aios-copilot/data/org.aios.Welcome.desktop \
     && install -Dm644 /tmp/aios-copilot/data/org.aios.Welcome-autostart.desktop /etc/xdg/autostart/org.aios.Welcome-autostart.desktop \
