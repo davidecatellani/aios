@@ -46,6 +46,26 @@ from .tools import energy as energy_tools
 from .tools import voice as voice_tools
 
 
+def meaning_query():
+    """La domanda di una ricerca nei file trasformata in impronta di significato (se il modello è attivo)."""
+    from .multilingual import load_config as meaning_config
+
+    cfg = meaning_config()
+    if cfg is None:
+        return None
+    from .semantic import OllamaEncoder, prefixes_for
+
+    encoder = OllamaEncoder(cfg.model, prefix=prefixes_for(cfg.model)[1])
+
+    def embed(query: str) -> list[float]:
+        try:
+            return encoder._embed([query])[0]
+        except Exception:
+            return []  # modello non raggiungibile: si cerca solo per parole
+
+    return embed
+
+
 def make_agent(confirm: Confirm, model: str | None = None, allowed: frozenset[str] | None = None) -> Agent:
     """Il copilota. `allowed` limita gli strumenti (es. richieste arrivate dal telefono: mesh/delegate.py)."""
     runner = Runner()
@@ -149,7 +169,7 @@ def make_agent(confirm: Confirm, model: str | None = None, allowed: frozenset[st
                     *settings_tools.make_tools(runner, pictures_dir=lambda: resolve_folder("PICTURES")),
                     *update_tools.make_tools(runner), *energy_tools.make_tools(), *voice_tools.make_tools(runner),
                     *timezone_tools.make_tools()],
-        "file": [*files.make_tools(get_index), *photo_tools.make_tools(), *organize_tools.make_tools(library), *document_tools.make_tools(get_index, runner)],
+        "file": [*files.make_tools(get_index, meaning_query()), *photo_tools.make_tools(), *organize_tools.make_tools(library), *document_tools.make_tools(get_index, runner)],
         "agenda": agenda_tools.make_tools(get_agenda, user_name, extras=lambda: [model_hint()]),
         "posta": mail_tools.make_tools(mail_store, send, has_accounts),
         "gusti": taste_tools.make_tools(subs, catalog, profile),

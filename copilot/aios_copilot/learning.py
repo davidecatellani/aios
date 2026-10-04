@@ -364,8 +364,11 @@ def activate_model(name: str, capability: str, calibrate: Callable[[str], Any] |
 def _calibrate_embedding(name: str) -> None:
     from .multilingual import calibrate, catalog_with_translations, neural_router, NeuralConfig, save_config, without_eval_phrases
 
+    from .semantic import prefixes_for
+
+    prefix = prefixes_for(name)[0]
     catalog = without_eval_phrases(catalog_with_translations())
-    outcome = calibrate(lambda: neural_router(NeuralConfig(name, 1.0, 0.0), catalog), name)
+    outcome = calibrate(lambda: neural_router(NeuralConfig(name, 1.0, 0.0, prefix), catalog), name, prefix)
     if outcome is not None:
         save_config(outcome[0])
 
@@ -551,6 +554,40 @@ class DownloadTask:
 
 
 @dataclass
+class MeaningModelTask:
+    """Il modello del significato incluso in AIOS (EmbeddingGemma) si attiva da solo, a riposo, la prima volta:
+    calibra il riconoscimento in tutte le lingue e da lì in poi i documenti si cercano anche per significato."""
+
+    model: str = "embeddinggemma"
+    installed: Callable[[], set[str]] | None = None
+    activate: Callable[[str, str], None] | None = None
+    name: str = "modello del significato"
+    _retry_at: float = 0.0
+
+    def available(self) -> bool:
+        return time.monotonic() >= self._retry_at
+
+    def has_work(self) -> bool:
+        from .models import load_config
+
+        if load_config().get("significato"):
+            return False  # già scelto (dall'utente o prima): non si tocca
+        try:
+            from .multilingual import installed_models
+
+            return self.model in (self.installed or installed_models)()
+        except Exception:
+            self._retry_at = time.monotonic() + 3600
+            return False
+
+    def step(self, seconds: float) -> None:
+        try:
+            (self.activate or activate_model)(self.model, "significato")
+        except Exception:
+            self._retry_at = time.monotonic() + 3600
+
+
+@dataclass
 class ModelCatalogTask:
     """Controlla una volta a settimana se c'è un catalogo dei modelli più recente."""
 
@@ -718,6 +755,7 @@ def build(index: FileIndex | None = None) -> tuple[Scheduler, FileIndex]:
 
     tasks.insert(0, DownloadTask(Queue()))  # un modello richiesto dall'utente ha la precedenza
     tasks.append(ModelCatalogTask())
+    tasks.append(MeaningModelTask())  # EmbeddingGemma, incluso nell'immagine
     from .organize import Library
 
     tasks.append(OrganizeTask(Library()))
@@ -730,7 +768,10 @@ def build(index: FileIndex | None = None) -> tuple[Scheduler, FileIndex]:
     tasks.append(UpdateTask(notify=notify))
     config = load_config()
     if config is not None:
-        encoder = OllamaEncoder(config.model, prefix=config.prefix)
+        from .semantic import prefixes_for
+
+        index.vectors_for(config.model)
+        encoder = OllamaEncoder(config.model, prefix=prefixes_for(config.model)[2])  # i documenti
         tasks.append(EmbedTask(index, encoder._embed))
     status_path = data_dir() / "learn-status.json"
 

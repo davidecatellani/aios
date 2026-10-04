@@ -111,6 +111,8 @@ BUILTIN: tuple[Model, ...] = (
     # lettura (OCR specializzato): trascrive pagine intere, tabelle comprese
     Model("deepseek-ocr:3b", "lettura", 6.7, 8, rank=1, license="mit", note="legge documenti e tabelle quasi senza errori"),
     # significato (embedding multilingue)
+    # EmbeddingGemma (Google, 2025): 308M, oltre 100 lingue, sotto i 200 MB di memoria; sopra bge-m3 nelle prove multilingue (MMTEB)
+    Model("embeddinggemma", "significato", 0.62, 1, rank=3.5, license="gemma", note="leggero e multilingue"),
     Model("granite-embedding:278m", "significato", 0.6, 1, rank=1),
     Model("paraphrase-multilingual", "significato", 0.6, 1, rank=2),
     Model("nomic-embed-text-v2-moe", "significato", 0.96, 1.5, rank=2.5, note="multilingue, a esperti, tutto aperto"),

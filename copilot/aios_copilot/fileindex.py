@@ -308,6 +308,17 @@ class FileIndex:
         return len(paths)
 
     # --- embedding (nei momenti di riposo) ---------------------------------------
+    def vectors_for(self, model: str) -> None:
+        """Le impronte valgono solo per il modello che le ha calcolate: se cambia, si rifanno (a riposo)."""
+        row = self.db.execute("SELECT value FROM state WHERE key = 'modello_significato'").fetchone()
+        if row and row[0] == model:
+            return
+        with self.db:
+            self.db.execute("BEGIN")
+            if row:
+                self.db.execute("UPDATE chunks SET vector = NULL")
+            self.db.execute("INSERT OR REPLACE INTO state (key, value) VALUES ('modello_significato', ?)", (model,))
+
     def chunks_without_vectors(self, limit: int) -> list[tuple[int, str]]:
         return self.db.execute("SELECT id, text FROM chunks WHERE vector IS NULL LIMIT ?", (limit,)).fetchall()
 

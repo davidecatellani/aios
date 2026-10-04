@@ -27,7 +27,7 @@ from .evaldata import IN_SCOPE, MULTILINGUAL_IN_SCOPE, MULTILINGUAL_OUT_OF_SCOPE
 from .semantic import CATALOG, IntentSpec, Match, OllamaEncoder, SemanticRouter, tokens, with_examples
 
 # Modelli di embedding multilingue disponibili in Ollama, dal più leggero al più accurato.
-CANDIDATES = ["paraphrase-multilingual", "granite-embedding:278m", "bge-m3"]
+CANDIDATES = ["embeddinggemma", "paraphrase-multilingual", "granite-embedding:278m", "bge-m3"]
 MIN_PRECISION = 0.97
 
 

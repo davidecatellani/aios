@@ -312,6 +312,17 @@ class LexicalEncoder:
         return sum(v * b.get(f, 0.0) for f, v in a.items())
 
 
+# Alcuni modelli di embedding vogliono un'istruzione davanti al testo, diversa per compito:
+# (frasi brevi da confrontare, domanda di una ricerca, documento in cui si cerca).
+PREFIXES = {
+    "embeddinggemma": ("task: sentence similarity | query: ", "task: search result | query: ", "title: none | text: "),
+}
+
+
+def prefixes_for(model: str) -> tuple[str, str, str]:
+    return PREFIXES.get(model.split(":")[0].split("/")[-1], ("", "", ""))
+
+
 class OllamaEncoder:
     """Embedding neurali multilingue tramite Ollama (/api/embed).
 
