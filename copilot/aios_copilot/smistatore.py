@@ -90,7 +90,7 @@ DOMAINS: list[tuple[str, str]] = [
     ("web", "Search the internet, websites, news, weather, facts that need online lookup"),
     ("ai", "AI models on this device, looking at images or the screen, dictation, reading aloud, creating images"),
     ("gusti", "Subscriptions, recommendations for music, films, series, books, what to watch or listen"),
-    ("aspetto", "Themes, wallpapers, colors and look of the system"),
+    ("aspetto", "Themes, wallpapers, colors and look of the system, widgets on the home screen (weather, map, clock, note)"),
     ("chiacchiera", "General conversation, greetings, questions of knowledge, advice, writing help, anything not about this device"),
 ]
 # Strumenti assegnati per nome; gli altri seguono il loro gruppo (vedi GROUP_DOMAIN).

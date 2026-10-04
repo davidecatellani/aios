@@ -906,6 +906,30 @@ def first_steps(run: Run = _run, checks: dict[str, Callable[[], bool]] | None = 
     return steps
 
 
+def register_widgets(app: Any) -> None:
+    """I widget della home (widget.py): i dati da mostrare, toglierne uno, i riquadri delle mappe."""
+    from .. import widget
+    from ..localapp import Raw
+
+    def items(m: Any, b: dict[str, Any], q: dict[str, str]) -> tuple[int, Any]:
+        return 200, {"widget": widget.render()}
+
+    def remove(m: Any, b: dict[str, Any], q: dict[str, str]) -> tuple[int, Any]:
+        return 200, {"messaggio": widget.remove(str(b.get("id", "")))}
+
+    def tile(m: Any, b: dict[str, Any], q: dict[str, str]) -> tuple[int, Any]:
+        try:
+            return 200, Raw(widget.tile(int(m.group(1)), int(m.group(2)), int(m.group(3))), "image/png")
+        except ValueError:
+            return 404, {"error": "fuori mappa"}
+        except OSError:
+            return 503, {"error": "mappa non raggiungibile"}
+
+    app.route("GET", r"/api/widget", items)
+    app.route("POST", r"/api/widget/via", remove)
+    app.route("GET", r"/api/mappa/(\d+)/(\d+)/(\d+)\.png", tile)
+
+
 def register_first_steps(app: Any, run: Run = _run) -> None:
     from ..welcome import clean_name, load_profile, save_profile
 

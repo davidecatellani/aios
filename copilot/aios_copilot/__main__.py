@@ -36,6 +36,7 @@ from .tools import taste as taste_tools
 from .tools import ai as ai_tools
 from .tools import organize as organize_tools
 from .tools import themes as theme_tools
+from .tools import widget as widget_tools
 from .tools import phone as phone_tools
 from .tools import identity as identity_tools
 from .tools import updates as update_tools
@@ -175,8 +176,8 @@ def make_agent(confirm: Confirm, model: str | None = None, allowed: frozenset[st
         "gusti": taste_tools.make_tools(subs, catalog, profile),
         "ai": [*ai_tools.make_management_tools(device, installed_models, downloads),
                *ai_tools.make_capability_tools(engines.available())],
-        "aspetto": theme_tools.make_tools(ask_llm=lambda prompt: llm.chat([{"role": "user", "content": prompt}], []).get("content", ""),
-                                          runner=runner),
+        "aspetto": [*widget_tools.make_tools(), *theme_tools.make_tools(ask_llm=lambda prompt: llm.chat([{"role": "user", "content": prompt}], []).get("content", ""),
+                                          runner=runner)],
         "memoria": memory_tools.make_tools(),
         "telefono": [*phone_tools.make_tools(runner), *identity_tools.make_tools(user_name=user_name)],
     }
@@ -214,6 +215,7 @@ def make_agent(confirm: Confirm, model: str | None = None, allowed: frozenset[st
             organize_tools.OrganizeRouter(),  # livello 0: raccolte e riordino (dopo le cartelle)
             document_tools.DocumentsRouter(),  # livello 0: «fammi vedere la bolletta…», dieta, lista della spesa
             theme_tools.ThemesRouter(),  # livello 0: temi
+            widget_tools.WidgetRouter(),  # livello 0: «inserisci un widget per il meteo»
             semantic_router(),  # livello 1: italiano e inglese, < 1 ms
             *multilingual_router(),  # livello 1b: tutte le lingue, se configurato
         ],

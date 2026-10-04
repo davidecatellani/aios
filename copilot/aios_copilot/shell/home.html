@@ -113,6 +113,27 @@ body.in-chat #conversazione { -webkit-mask-image: linear-gradient(to bottom, tra
 #microfono { display: grid; place-items: center; color: var(--testo); }
 #microfono .icona { width: 22px; height: 22px; }
 /* le schede accanto alla risposta */
+/* i widget a destra */
+#destra-col { overflow-y: auto; }
+.widget { cursor: pointer; }
+.widget .testa-risultati .tipo { margin: 0; }
+.meteo-ora { display: flex; align-items: center; gap: 12px; }
+.meteo-simbolo { font-size: 38px; }
+.meteo-gradi { font-size: 38px; font-weight: 800; letter-spacing: -1px; }
+.meteo-cielo { color: var(--tenue); font-size: 13px; white-space: pre-line; line-height: 1.4; }
+.meteo-giorni { display: none; grid-template-columns: repeat(5, 1fr); gap: 4px; margin-top: 10px; text-align: center; }
+.widget.ampio .meteo-giorni { display: grid; }
+.meteo-giorno { display: flex; flex-direction: column; align-items: center; gap: 2px; font-size: 14px; }
+.meteo-giorno small { color: var(--tenue); font-size: 12px; }
+.mappa { position: relative; height: 150px; overflow: hidden; border-radius: 12px; background: var(--chip); margin-top: 6px;
+         transition: height .3s cubic-bezier(.22,1,.36,1); }
+.widget.ampio .mappa { height: 320px; }
+.mappa img { position: absolute; width: 256px; height: 256px; user-select: none; }
+.mappa .spillo { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -100%); font-size: 24px; }
+.mappa .crediti { position: absolute; right: 6px; bottom: 4px; font-size: 10px; color: #333; background: rgba(255,255,255,.7);
+                  padding: 0 4px; border-radius: 4px; }
+.orologio-ora { font-size: 36px; font-weight: 800; letter-spacing: -1px; }
+.nota-testo { white-space: pre-wrap; margin: 6px 0 0; }
 /* lo storico dei risultati, a sinistra: aperto su una risposta, prende il posto delle carte di oggi */
 #sinistra { overflow-y: auto; }
 .storico { display: contents; }
@@ -409,6 +430,7 @@ async function casa() {
   if (disp.length) for (const n of disp) { const p = el("p"); p.append(conIcona("telefono", `${n} · vicino`)); dc.append(p); }
   else dc.append(el("p", "nota", "Nessun telefono collegato. Di' «Nova, collega il telefono»."));
   destra.append(dc);
+  await disegnaWidget(destra, dc);
   if (window.cartaPrimiPassi) window.cartaPrimiPassi();
   const dock = $("dock"); dock.replaceChildren();
   for (const app of data.dock) {
@@ -418,6 +440,61 @@ async function casa() {
   const tutte = el("button", "", null); tutte.style.cssText = "border:0;background:none;padding:0";
   const t = el("div", "app"); t.title = "Tutte le app"; t.append(el("span", "lettera", "⋯"));
   tutte.append(t); tutte.onclick = mostraTutte; dock.append(tutte);
+}
+
+// --- i widget a destra (widget.py): meteo, mappa, orologio, nota; li aggiunge Nova, si tolgono con la × ----------
+let orologi = null;
+async function disegnaWidget(col, prima) {
+  const r = await api("/api/widget").catch(() => ({ widget: [] }));
+  clearInterval(orologi);
+  const ore = [];
+  for (const w of r.widget) {
+    const c = el("div", `carta widget w-${w.tipo}`);
+    const testa = el("div", "testa-risultati");
+    const via = el("button", "via"); via.append(svgIcona("chiudi")); via.title = "Togli dalla home";
+    via.onclick = async e => { e.stopPropagation(); await api("/api/widget/via", { id: w.id }).catch(() => {}); c.remove(); };
+    testa.append(el("div", "tipo", w.titolo), via);
+    c.append(testa);
+    c.onclick = () => c.classList.toggle("ampio");  // un tocco: più grande, con più dettagli
+    c.title = "Tocca per ingrandire";
+    if (w.errore) c.append(el("p", "nota", `Non disponibile adesso (${w.errore}).`));
+    else if (w.tipo === "meteo") {
+      const ora = el("div", "meteo-ora");
+      ora.append(el("span", "meteo-simbolo", w.simbolo), el("span", "meteo-gradi", `${w.temperatura}°`),
+                 el("span", "meteo-cielo", `${w.cielo}\npercepita ${w.percepita}° · vento ${w.vento} km/h`));
+      const giorni = el("div", "meteo-giorni");
+      for (const g of w.giorni) {
+        const d = el("div", "meteo-giorno");
+        d.append(el("small", "", g.giorno), el("span", "", g.simbolo), el("b", "", `${g.max}°`), el("small", "", `${g.min}°`));
+        if (g.pioggia != null) d.title = `pioggia ${g.pioggia}%`;
+        giorni.append(d);
+      }
+      c.append(ora, giorni);
+    } else if (w.tipo === "mappa") {
+      const m = el("div", "mappa");
+      const tx = Math.floor(w.x), ty = Math.floor(w.y);
+      for (let dx = -2; dx <= 2; dx++) for (let dy = -2; dy <= 2; dy++) {
+        const img = el("img"); img.alt = ""; img.loading = "lazy"; img.draggable = false;
+        img.src = `/api/mappa/${w.zoom}/${tx + dx}/${ty + dy}.png?${tokenQ}`;
+        img.style.left = `calc(50% + ${(tx + dx - w.x) * 256}px)`; img.style.top = `calc(50% + ${(ty + dy - w.y) * 256}px)`;
+        m.append(img);
+      }
+      m.append(el("span", "spillo", "📍"), el("small", "crediti", "© OpenStreetMap"));
+      c.append(m);
+      if (w.zona) c.append(el("p", "nota", w.zona));
+    } else if (w.tipo === "orologio") {
+      const t = el("div", "orologio-ora"), d = el("p", "nota");
+      const aggiorna = () => {
+        const adesso = new Date();
+        t.textContent = adesso.toLocaleTimeString("it-IT", { timeZone: w.fuso, hour: "2-digit", minute: "2-digit" });
+        d.textContent = `${adesso.toLocaleDateString("it-IT", { timeZone: w.fuso, weekday: "long", day: "numeric", month: "long" })} · ${w.fuso}`;
+      };
+      aggiorna(); ore.push(aggiorna);
+      c.append(t, d);
+    } else if (w.tipo === "nota") c.append(el("p", "nota-testo", w.testo));
+    col.insertBefore(c, prima);
+  }
+  if (ore.length) orologi = setInterval(() => ore.forEach(f => f()), 20000);
 }
 
 async function mostraTutte() {
