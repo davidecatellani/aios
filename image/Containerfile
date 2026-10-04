@@ -49,13 +49,20 @@ RUN if [ "$KERNEL" = lts ]; then \
       test -f "/usr/lib/modules/$(ls /usr/lib/modules)/vmlinuz"; \
     fi
 
-# Hyprland, il compositore di AIOS: da Fedora se c'è, altrimenti dal COPR solopasha/hyprland (il più usato
-# su Fedora). Deve esserci: senza, la sessione ripiegherebbe su labwc senza dirlo (è successo nell'anteprima 20).
+# Hyprland, il compositore di AIOS: da Fedora se c'è, altrimenti dal primo COPR che lo offre per questa
+# versione di Fedora (sdegler/hyprland è quello mantenuto oggi; solopasha/hyprland quello storico). Deve
+# esserci: senza, la sessione ripiegherebbe su labwc senza dirlo (è successo nell'anteprima 20).
 ARG FEDORA=44
 RUN set -e; \
     if ! dnf install -y --setopt=retries=10 hyprland; then \
-      curl -fsSL -o /etc/yum.repos.d/hyprland.repo \
-        "https://copr.fedorainfracloud.org/coprs/solopasha/hyprland/repo/fedora-${FEDORA}/solopasha-hyprland-fedora-${FEDORA}.repo"; \
+      found=""; \
+      for c in sdegler/hyprland solopasha/hyprland lionheartp/Hyprland; do \
+        url="https://copr.fedorainfracloud.org/coprs/$c/repo/fedora-${FEDORA}/$(echo "$c" | tr / -)-fedora-${FEDORA}.repo"; \
+        if curl -fsSL --retry 3 -o /etc/yum.repos.d/hyprland.repo "$url"; then found="$c"; break; fi; \
+        echo "COPR $c: niente per Fedora ${FEDORA}"; \
+      done; \
+      [ -n "$found" ] || { echo "ERRORE: Hyprland non disponibile per Fedora ${FEDORA}" >&2; exit 1; }; \
+      echo "Hyprland da COPR $found"; \
       for i in 1 2 3 4; do \
         dnf install -y --setopt=retries=10 hyprland && break; \
         [ "$i" = 4 ] && exit 1; echo "copr non risponde: riprovo"; sleep 60; \
