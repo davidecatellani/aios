@@ -69,6 +69,21 @@ jobs:
           else
             echo "::notice::nessun adattatore pubblicato: Nova userà Tev1"
           fi
+      - name: Laya
+        # l'ultima Release «laya-N» (flusso Laya: pubblica solo se migliora); se non c'è, decide Tev1
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          tag=$(gh release list --repo "$GITHUB_REPOSITORY" --limit 100 --json tagName,createdAt \
+                --jq '[.[] | select(.tagName | startswith("laya-"))] | sort_by(.createdAt) | reverse | .[0].tagName // ""')
+          if [ -n "$tag" ]; then
+            gh release download "$tag" --repo "$GITHUB_REPOSITORY" --dir /tmp/laya --pattern laya-nova.tar.gz --pattern SHA256SUMS
+            (cd /tmp/laya && sha256sum -c SHA256SUMS)
+            tar -xzf /tmp/laya/laya-nova.tar.gz -C image/laya && rm -rf /tmp/laya
+            echo "Laya: $tag"; du -sh image/laya
+          else
+            echo "::notice::nessun Laya pubblicato: Nova userà Tev1"
+          fi
       - name: Costruisci
         run: |
           echo "VERSIONE=$(date -u +%Y.%m.%d).${GITHUB_RUN_NUMBER}" >> "$GITHUB_ENV"

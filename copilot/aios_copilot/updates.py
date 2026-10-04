@@ -334,7 +334,8 @@ class Updates:
         return f"Aggiornamento in corso da {minutes} minuti ({job.get('cosa', 'sistema')}). Ti avviso quando è pronto."
 
     def try_registry(self, force: bool = False) -> str:
-        """Con il token già salvato si prova il registro (al massimo una volta al giorno). → "" se va."""
+        """Si prova il registro (al massimo una volta al giorno): senza accesso se l'immagine è pubblica, con il
+        token salvato se è privata. → "" se va."""
         from . import vault
         from .imageupdate import TOKEN_KEY, configured_repo
         from .registro import image_ref
@@ -345,12 +346,12 @@ class Updates:
         if not force and self.clock() - state.get("registro_provato", 0) < 86400:
             return state.get("registro_motivo", "")
         repo = state.get("repo") or configured_repo()
-        token = vault.load(TOKEN_KEY) if repo else None
-        if not repo or not token:
-            return "GitHub non è collegato"
+        if not repo:
+            return "non so da quale repository prendere gli aggiornamenti"
+        token = vault.load(TOKEN_KEY) or ""
         access = self.registry_access(repo, token)
         problem = access.check()
-        if not problem and not access.hand_over():
+        if not problem and token and not access.hand_over():  # immagine pubblica: nessun accesso da installare
             problem = "il servizio che installa l'accesso non ha risposto"
         state = load_state()
         state["registro_provato"] = self.clock()
@@ -411,8 +412,9 @@ class Updates:
             lines.append(("🔒 " if u.security else "• ") + u.summary)
         if self.version():
             lines.append(f"Versione di AIOS: {self.version()}.")
-            lines.append("Nuove versioni da GitHub: " + ("collegato con il tuo accesso." if self.github() is not None else
-                         "non collegato (dimmi «collega GitHub per gli aggiornamenti»), oppure da chiavetta."))
+            gh = self.github()
+            lines.append("Nuove versioni da GitHub: " + ("non configurato; oppure da chiavetta." if gh is None else
+                         "collegato con il tuo accesso." if gh.token else "dal repository pubblico, senza accesso."))
             if state.get("registro"):
                 lines.append("Aggiornamenti incrementali dal registro: attivi (si scaricano solo le differenze).")
             elif state.get("registro_motivo") and self.github() is not None:
@@ -429,8 +431,27 @@ def github_source() -> Any:
     from .imageupdate import TOKEN_KEY, GithubSource, configured_repo
 
     repo = load_state().get("repo") or configured_repo()
-    token = vault.load(TOKEN_KEY)
-    return GithubSource(repo, token) if repo and token else None
+    return GithubSource(repo, vault.load(TOKEN_KEY) or "") if repo else None  # pubblico: senza token
+
+
+def public_repo(repo: str = "") -> str:
+    """Il repository degli aggiornamenti, se si legge senza accesso (pubblico); altrimenti ""."""
+    from .imageupdate import GithubSource, configured_repo
+
+    state = load_state()
+    repo = repo or state.get("repo") or configured_repo()
+    if not repo:
+        return ""
+    seen = state.get("pubblico") or {}
+    if seen.get("repo") == repo and time.time() - seen.get("quando", 0) < 86400:
+        return repo if seen.get("si") else ""
+    problem = GithubSource(repo).check_access()
+    if problem.startswith("GitHub non raggiungibile"):
+        return ""  # senza rete non si sa: si riprova la prossima volta
+    state = load_state()
+    state["pubblico"] = {"repo": repo, "si": not problem, "quando": time.time()}
+    save_state(state)
+    return "" if problem else repo
 
 
 def connect_github(token: str, repo: str = "") -> str:

@@ -6,9 +6,10 @@ Ogni versione dell'immagine è pubblicata anche come pacchetto (Release del repo
     aios-aggiornamento.json                 versione, Fedora, sha256 e pezzi
     aios-aggiornamento.ociarchive.parte0…N  l'immagine in pezzi da meno di 2 GB
 
-- **Da GitHub**: il PC li scarica con un permesso di sola lettura dell'utente (token GitHub
-  «fine-grained», solo questo repository, solo «Contents: read»), conservato nel portachiavi.
-  Il repository resta privato. Lo scaricamento riprende da dove si era fermato.
+- **Da GitHub**: il PC li scarica dalle Release del repository. Se il repository è pubblico non serve
+  nulla; se è privato, con un permesso di sola lettura dell'utente (token GitHub «fine-grained», solo
+  questo repository, solo «Contents: read»), conservato nel portachiavi. Lo scaricamento riprende da dove
+  si era fermato.
 - **Da chiavetta**: gli stessi file copiati su una chiavetta (anche FAT32: i pezzi sono piccoli).
   Inserita la chiavetta, Nova lo nota e chiede se installare.
 
@@ -151,8 +152,8 @@ def stage_command(tool: str, archive: Path) -> list[str]:
 class GithubSource:
     API = "https://api.github.com"
 
-    def __init__(self, repo: str, token: str, opener: Callable[[urllib.request.Request], Any] | None = None):
-        self.repo, self.token = repo, token.strip()
+    def __init__(self, repo: str, token: str = "", opener: Callable[[urllib.request.Request], Any] | None = None):
+        self.repo, self.token = repo, (token or "").strip()  # senza token: repository pubblico
         self.open = opener or (lambda req: urllib.request.urlopen(req, timeout=60))
 
     def _request(self, url: str, accept: str = "application/vnd.github+json",
@@ -160,7 +161,8 @@ class GithubSource:
         req = urllib.request.Request(url, headers={"Accept": accept, "X-GitHub-Api-Version": "2022-11-28",
                                                    "User-Agent": "AIOS", **(headers or {})})
         # il token va solo a GitHub, non al server dei file a cui GitHub poi rimanda
-        req.add_unredirected_header("Authorization", f"Bearer {self.token}")
+        if self.token:
+            req.add_unredirected_header("Authorization", f"Bearer {self.token}")
         return req
 
     def _json(self, path: str) -> Any:
@@ -173,6 +175,8 @@ class GithubSource:
             self._json(f"/repos/{self.repo}")
             return ""
         except urllib.error.HTTPError as exc:
+            if not self.token:
+                return {404: f"il repository {self.repo} non è pubblico: serve un token"}.get(exc.code, f"errore {exc.code}")
             return {401: "il token non è valido o è scaduto", 403: "il token non ha il permesso di leggere",
                     404: f"il token non vede il repository {self.repo}"}.get(exc.code, f"errore {exc.code}")
         except (OSError, ValueError) as exc:

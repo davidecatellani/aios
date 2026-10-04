@@ -2,11 +2,11 @@
 
 La costruzione (immagine.yml) pubblica l'immagine divisa in strati stabili. Un PC che si aggiorna dal
 registro scarica solo gli strati cambiati (di solito qualche centinaio di MB) invece del pacchetto
-completo della Release (~8 GB). Il repository è privato, quindi serve un accesso: lo stesso token
-già dato ad AIOS per gli aggiornamenti, se può leggere i pacchetti (token «classico» con read:packages;
-i token «fine-grained» il registro non li accetta).
+completo della Release (~8 GB). Se l'immagine nel registro è pubblica non serve nessun accesso; se è
+privata, lo stesso token già dato ad AIOS per gli aggiornamenti, se può leggere i pacchetti (token
+«classico» con read:packages; i token «fine-grained» il registro non li accetta).
 
-Passi: 1) si prova il token col registro; 2) l'accesso si lascia in /var/lib/aios-registro, dove un
+Passi (con token): 1) si prova il token col registro; 2) l'accesso si lascia in /var/lib/aios-registro, dove un
 servizio di sistema (aios-credenziali-registro) lo sposta in /etc/ostree/auth.json, leggibile solo da
 root; 3) al prossimo aggiornamento il sistema passa al registro (`rpm-ostree rebase`): quella volta
 scarica tutto, poi solo le differenze (`rpm-ostree upgrade`).
@@ -61,8 +61,8 @@ def on_registry(status_json: str, ref: str) -> bool:
 class Access:
     """Prova il token col registro di GitHub (sola lettura) e prepara l'accesso per il sistema."""
 
-    def __init__(self, repo: str, token: str, opener: Callable[[urllib.request.Request], Any] | None = None):
-        self.repo, self.token = repo.lower(), token.strip()
+    def __init__(self, repo: str, token: str = "", opener: Callable[[urllib.request.Request], Any] | None = None):
+        self.repo, self.token = repo.lower(), (token or "").strip()  # senza token: immagine pubblica
         self.open = opener or (lambda req: urllib.request.urlopen(req, timeout=30))
         self.login = ""
 
@@ -72,12 +72,14 @@ class Access:
     def check(self, tag: str | None = None) -> str:
         """→ "" se il token può scaricare l'immagine di AIOS, altrimenti il motivo in parole semplici."""
         try:
-            with self._get("https://api.github.com/user", {"Authorization": f"Bearer {self.token}",
-                                                           "Accept": "application/vnd.github+json"}) as resp:
-                self.login = json.loads(resp.read()).get("login", "")
-            basic = base64.b64encode(f"{self.login}:{self.token}".encode()).decode()
+            auth = {}
+            if self.token:
+                with self._get("https://api.github.com/user", {"Authorization": f"Bearer {self.token}",
+                                                               "Accept": "application/vnd.github+json"}) as resp:
+                    self.login = json.loads(resp.read()).get("login", "")
+                auth = {"Authorization": "Basic " + base64.b64encode(f"{self.login}:{self.token}".encode()).decode()}
             with self._get(f"https://{REGISTRY}/token?service={REGISTRY}&scope=repository:{self.repo}:pull",
-                           {"Authorization": f"Basic {basic}"}) as resp:
+                           auth) as resp:
                 bearer = json.loads(resp.read()).get("token", "")
             ref = image_ref(self.repo, tag)
             name, _, version = ref.removeprefix(f"{REGISTRY}/").partition(":")
@@ -85,6 +87,9 @@ class Access:
                            {"Authorization": f"Bearer {bearer}", "Accept": MANIFEST_TYPES}):
                 return ""
         except urllib.error.HTTPError as exc:
+            if exc.code in (401, 403) and not self.token:
+                return ("l'immagine nel registro di GitHub è ancora privata: rendila pubblica (GitHub › Packages › "
+                        "aios › Package settings › Change visibility › Public)")
             if exc.code in (401, 403):
                 return ("il token non può leggere il registro delle immagini: serve un token «classico» con il "
                         "permesso read:packages (i token «fine-grained» il registro non li accetta)")

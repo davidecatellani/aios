@@ -402,7 +402,7 @@ const VISTE = {
       c.lastChild.append(bottone("Cerca aggiornamenti", () => { chiudiVista(); chiedi("aggiorna il sistema"); }, "bottone primo"));
       const tok = el("input", "campo"); tok.type = "password"; tok.placeholder = "Token di GitHub (sola lettura)";
       carta(el("h3", "", "Aggiornamenti da GitHub"),
-            el("p", "nota", "Per scaricare le nuove versioni dal repository privato: crea un token con il solo permesso «Contents: read» e incollalo qui. Resta nel portachiavi del computer."),
+            el("p", "nota", "Se il repository di AIOS è pubblico non serve nulla: le nuove versioni arrivano da sole. Solo per un repository privato: crea un token con il solo permesso «Contents: read» e incollalo qui. Resta nel portachiavi del computer."),
             riga("Token", null, tok, bottone("Collega", async () => {
               dici(await api("/api/impostazioni/github", { token: tok.value }).catch(e => ({ ok: false, messaggio: e.message }))); tok.value = "";
             }, "bottone primo")));

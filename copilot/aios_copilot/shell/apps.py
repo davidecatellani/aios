@@ -870,10 +870,12 @@ def _has_phone() -> bool:
 
 
 def _has_github() -> bool:
+    """Gli aggiornamenti arrivano: repository pubblico (nessun token) o token salvato."""
     from .. import vault
     from ..imageupdate import TOKEN_KEY
+    from ..updates import public_repo
 
-    return bool(vault.load(TOKEN_KEY))
+    return bool(vault.load(TOKEN_KEY)) or bool(public_repo())
 
 
 def _online(run: Run = _run) -> bool:

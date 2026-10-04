@@ -31,7 +31,7 @@ def test_laya_decides_area_and_route_in_one_call():
 
     def post(url, payload, timeout):
         seen.append(sorted(payload["questions"]))
-        return _answers(ambito={"choice": "chiacchiera", "confidence": 0.9},
+        return _answers(ambito={"choice": "chiacchiera", "confidence": 0.1, "answer_confidence": 0.9},
                         percorso={"choice": "ragionamento", "confidence": 0.8})
 
     judge = Smistatore([Domain("chiacchiera", "talk"), Domain("agenda", "calendar")], nucleo=None,

@@ -186,6 +186,21 @@ RUN set -e; rm -f /usr/share/aios/nucleo/.gitkeep /usr/share/aios/nucleo/.gitign
       systemctl enable aios-nucleo.service; \
     else echo "Nucleo senza adattatori: Nova userà Tev1"; fi
 
+# Il decisore: Laya, il System One di Nova (copilot/aios_copilot/decisore.py), addestrato per AIOS
+# (flusso «Laya», Release «laya-N»: la mette in image/laya il flusso di costruzione). Ambito, azione, percorso,
+# posta, «è per Nova?», giochi: tutte le decisioni rapide in ~0,2 s. Gira con torch per CPU in un ambiente a
+# parte (/usr/lib/aios/laya); se manca, decide Tev1.
+ARG LAYA_COMMIT=8a6e1328cce2460a0e5aa348ad465bb1b5821cd2
+COPY image/laya/ /usr/share/aios/laya/
+RUN set -e; rm -f /usr/share/aios/laya/.gitkeep /usr/share/aios/laya/.gitignore; \
+    if [ -f /usr/share/aios/laya/rl_agent_config.json ]; then \
+      python3 -m venv /usr/lib/aios/laya; \
+      /usr/lib/aios/laya/bin/pip install --no-cache-dir --index-url https://download.pytorch.org/whl/cpu torch; \
+      /usr/lib/aios/laya/bin/pip install --no-cache-dir "laya @ https://github.com/NandhaKishorM/laya/archive/${LAYA_COMMIT}.tar.gz"; \
+      /usr/lib/aios/laya/bin/python -c "import laya, torch; print('Laya', torch.__version__)"; \
+      chmod -R a+rX /usr/share/aios/laya /usr/lib/aios/laya; systemctl enable aios-decisore.service; \
+    else echo "Senza Laya: le decisioni le prende Tev1"; fi
+
 # Flathub: le app che l'utente chiede a Nova («installa VLC») arrivano da qui
 RUN mkdir -p /etc/flatpak/remotes.d \
     && curl -fsSL -o /etc/flatpak/remotes.d/flathub.flatpakrepo https://dl.flathub.org/repo/flathub.flatpakrepo
@@ -225,7 +240,7 @@ RUN systemctl enable ollama.service aios-modello-base.service aios-risparmio.ser
 # controlli: se manca un pezzo della sessione, la costruzione si ferma (non un'anteprima a metà)
 RUN test -x /usr/bin/Hyprland && test -x /usr/bin/hyprctl && test -x /usr/bin/labwc && test -x /usr/bin/greetd \
     && test -x /usr/bin/cage
-RUN chmod 755 /usr/libexec/aios-nucleo /usr/bin/aios-sessione /usr/bin/aios-blocca /usr/bin/aios-schermata /usr/libexec/aios-accesso-avvio /usr/libexec/aios-avvio-sessione /usr/share/aios/labwc/autostart /usr/libexec/aios-risparmio /usr/lib/systemd/system-sleep/aios-risparmio /usr/libexec/aios-credenziali-registro \
+RUN chmod 755 /usr/libexec/aios-nucleo /usr/libexec/aios-decisore /usr/bin/aios-sessione /usr/bin/aios-blocca /usr/bin/aios-schermata /usr/libexec/aios-accesso-avvio /usr/libexec/aios-avvio-sessione /usr/share/aios/labwc/autostart /usr/libexec/aios-risparmio /usr/lib/systemd/system-sleep/aios-risparmio /usr/libexec/aios-credenziali-registro \
     && rm -f /etc/systemd/system/display-manager.service \
     && (systemctl disable gdm.service || true) \
     && (systemctl enable greetd.service || true) \

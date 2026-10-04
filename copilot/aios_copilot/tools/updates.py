@@ -6,7 +6,7 @@ import re
 from typing import Callable
 
 from ..fastpath import Intent, normalize
-from ..updates import GITHUB_HELP, Updates, connect_github, load_state, set_auto
+from ..updates import GITHUB_HELP, Updates, connect_github, load_state, public_repo, set_auto
 from .base import Runner, Tool, params
 
 
@@ -62,6 +62,15 @@ def make_tools(runner: Runner | None = None, updates: Updates | None = None,
 
         if token:  # incollato in chat: riconosciuto senza modello AI (agent.SECRET_RE)
             return connect(token)
+        public = public_repo()
+        if public:  # repository pubblico: nessun token da chiedere
+            try:
+                problem = updates.try_registry(force=True)
+            except Exception as exc:
+                problem = str(exc)
+            done = f"Non serve nessun token: il repository {public} è pubblico, le nuove versioni arrivano già da lì."
+            return done + (" Gli aggiornamenti scaricheranno solo le differenze." if not problem else
+                           f" Per ora come pacchetto completo: {problem}.")
         repo = load_state().get("repo") or configured_repo() or "il repository di AIOS"
         token = secret("Aggiornamenti da GitHub", "Incolla il token di sola lettura (Contents: read) per " + repo)
         if token is None:  # nessuna finestra disponibile: il token si incolla in chat (UpdatesRouter lo riconosce)

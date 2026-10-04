@@ -74,6 +74,13 @@ class Decisore:
             except (OSError, ValueError, KeyError, TypeError, urllib.error.URLError):
                 self._off[name] = time.monotonic() + RETRY_AFTER
                 continue
+            if name == "laya":
+                # Laya dà due fiducie: «confidence» (quanto è concentrata la distribuzione, non tarata) e
+                # «answer_confidence» (la probabilità della risposta data, tarata in addestramento): le soglie
+                # di Nova sono probabilità, quindi vale la seconda
+                for a in answers.values():
+                    if isinstance(a, dict) and "answer_confidence" in a:
+                        a["confidence"] = a["answer_confidence"]
             self.last_from = name
             return answers
         return None
