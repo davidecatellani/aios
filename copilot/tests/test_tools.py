@@ -77,7 +77,9 @@ def test_install_commands_and_validation():
     tools = tools_by_name(runner)
     assert tools["install_app"].requires_confirmation
     assert tools["install_app"].func(app_id="org.videolan.VLC", source="flatpak") == "Installato org.videolan.VLC."
-    assert runner.ran[-1] == ["flatpak", "install", "-y", "--noninteractive", "flathub", "org.videolan.VLC"]
+    # per l'utente (niente password di amministratore), con Flathub aggiunto se manca
+    assert runner.ran[-1] == ["flatpak", "install", "--user", "-y", "--noninteractive", "flathub", "org.videolan.VLC"]
+    assert ["flatpak", "remote-add", "--user", "--if-not-exists", "flathub", apps.FLATHUB] in runner.ran
     tools["install_app"].func(app_id="vlc", source="system")
     assert runner.ran[-1] == ["pkexec", "apt-get", "install", "-y", "vlc"]
 

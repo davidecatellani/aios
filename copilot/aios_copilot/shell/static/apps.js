@@ -342,6 +342,24 @@ const VISTE = {
         }, voce.id === v.scelta ? "bottone" : "bottone primo")));
       }
       if (!v.voci.length) c.append(el("p", "nota", "Nessuna voce installata."));
+      const imp = await api("/api/impronta").catch(() => ({ persone: [] }));
+      const c2 = carta(el("h3", "", "Chi può parlare con Nova"));
+      c2.append(riga("Rispondi solo alle voci che conosci", imp.persone.length ? "Ignora la TV, i film e le voci sconosciute" : "Prima fammi imparare almeno una voce",
+        interruttore(imp.solo_conosciute, () => api("/api/impronta/modo", { solo_conosciute: !imp.solo_conosciute }).then(() => apriVista("impostazioni", "voce")))));
+      for (const nome of imp.persone) {
+        c2.append(riga(`🗣️ ${nome}`, null, bottone("Togli", async () => {
+          await api("/api/impronta/modo", { togli: nome }); apriVista("impostazioni", "voce");
+        })));
+      }
+      const zona = el("div", ""); c2.append(zona);
+      c2.append(el("div", "azioni"));
+      c2.lastChild.append(
+        bottone(imp.persone.length ? "Reimpara la mia voce" : "Impara la mia voce", () => { zona.replaceChildren(); imparaVoce(zona, { fine: () => apriVista("impostazioni", "voce") }); }, "bottone primo"),
+        bottone("Aggiungi una persona", async () => {
+          const nome = await chiediTesto("Come si chiama?"); if (!nome) return;
+          zona.replaceChildren(el("p", "nota", `Ora fai leggere le frasi a ${nome}.`));
+          imparaVoce(zona, { nome, fine: () => apriVista("impostazioni", "voce") });
+        }));
     } else if (sezione === "tastiera") {
       const k = d.tastiera || { lingue: {} };
       const c = carta(el("p", "nota", "La disposizione dei tasti. Cambia subito, senza riavviare. Puoi anche dire a Nova «metti la tastiera inglese»."));
@@ -394,6 +412,32 @@ const VISTE = {
   },
 };
 
+// --- imparare la voce (benvenuto e Impostazioni) -----------------------------------------------------------
+async function imparaVoce(box, { nome = "", fine } = {}) {
+  const st = await api("/api/impronta").catch(() => ({ frasi: [], disponibile: false }));
+  if (!st.disponibile) { box.append(el("p", "sotto", "Su questo computer manca il modello per riconoscere le voci.")); return; }
+  let i = 0, fatte = 0;
+  const frase = el("p", "", ""); frase.style.cssText = "font-size:24px;font-weight:700;margin:6px 0";
+  const stato = el("p", "nota", "");
+  const barra = el("div", "puntini");
+  for (let k = 0; k < st.frasi.length; k++) barra.append(el("i"));
+  const registra = bottone("🎙️ Registra", async () => {
+    registra.disabled = true; stato.textContent = "Ti ascolto… leggi la frase ad alta voce";
+    const r = await api("/api/impronta/campione", { da_capo: i === 0 && fatte === 0, secondi: 5 }).catch(e => ({ ok: false, messaggio: e.message }));
+    registra.disabled = false;
+    if (!r.ok) { stato.textContent = r.messaggio; return; }
+    fatte = r.registrate; barra.children[i].classList.add("si"); i++;
+    if (i < st.frasi.length) { frase.textContent = `«${st.frasi[i]}»`; stato.textContent = "Bene! La prossima."; return; }
+    stato.textContent = "Un momento…";
+    const f = await api("/api/impronta/fine", { nome }).catch(e => ({ ok: false, messaggio: e.message }));
+    stato.textContent = f.messaggio; registra.hidden = true;
+    api("/api/parla", { testo: f.ok ? "Ti ho riconosciuto. D'ora in poi rispondo alla tua voce." : f.messaggio }).catch(() => {});
+    if (f.ok && fine) setTimeout(fine, 1500);
+  }, "bottone primo");
+  frase.textContent = `«${st.frasi[0]}»`;
+  box.append(barra, frase, stato, registra);
+}
+
 // --- primi passi ------------------------------------------------------------------------------------------
 function eseguiPasso(p) {
   if (p.azione.vista) return apriVista(p.azione.vista, p.azione.parte);
@@ -406,7 +450,7 @@ VISTE.benvenuto = async function (box, passo = 0) {
   const sfera = document.createElementNS("http://www.w3.org/2000/svg", "svg");
   sfera.setAttribute("viewBox", "0 0 40 40"); sfera.classList.add("sfera-grande");
   sfera.innerHTML = '<use href="#orb"/>';
-  const puntini = el("div", "puntini"); for (let i = 0; i < 4; i++) puntini.append(el("i", i <= passo ? "si" : ""));
+  const puntini = el("div", "puntini"); for (let i = 0; i < 5; i++) puntini.append(el("i", i <= passo ? "si" : ""));
   const avanti = (...b) => { const a = el("div", "avanti"); a.append(...b); return a; };
   const prossimo = () => apriVista("benvenuto", passo + 1);
   const fine = async (poi) => { await api("/api/profilo", { fatto: true }).catch(() => {}); chiudiVista(); casa(); if (poi) poi(); };
@@ -435,6 +479,12 @@ VISTE.benvenuto = async function (box, passo = 0) {
              el("p", "sotto", "Che voce preferisci per me? Puoi cambiarla quando vuoi dalle Impostazioni."), lista,
              avanti(bottone("Avanti", prossimo, "bottone primo")));
   } else if (passo === 2) {
+    s.append(sfera, puntini, el("h1", "", "Fammi imparare la tua voce"),
+             el("p", "sotto", "Leggi ad alta voce le frasi che compaiono: così risponderò solo a te, e non alla TV o a un film. Resta tutto su questo computer, e puoi rifarlo dalle Impostazioni."));
+    const zona = el("div", "carta"); s.append(zona);
+    await imparaVoce(zona, { nome: stato.nome, fine: prossimo });
+    s.append(avanti(bottone("Più tardi", prossimo), bottone("Avanti", prossimo, "bottone primo")));
+  } else if (passo === 3) {
     const internet = stato.passi.find(p => p.id === "internet");
     s.append(sfera, puntini, el("h1", "", "Colleghiamoci a internet"));
     if (internet && internet.fatto) {

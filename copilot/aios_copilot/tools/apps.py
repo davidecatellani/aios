@@ -87,9 +87,22 @@ def exec_command(desktop_file: Path) -> list[str]:
     return [a for a in exec_line.split() if not re.fullmatch(r"%[a-zA-Z]", a)]
 
 
+FLATHUB = "https://dl.flathub.org/repo/flathub.flatpakrepo"
+
+
+def ensure_flathub(runner: Runner) -> None:
+    """Flathub per l'utente: le app si installano senza password di amministratore (AIOS è immutabile)."""
+    code, out = runner.run(["flatpak", "remotes", "--user", "--columns=name"])
+    if code == 0 and "flathub" in out.split():
+        return
+    runner.run(["flatpak", "remote-add", "--user", "--if-not-exists", "flathub", FLATHUB])
+    runner.run(["flatpak", "update", "--user", "--appstream", "flathub"])
+
+
 def find_apps(runner: Runner, query: str) -> list[dict[str, str]]:
     found: list[dict[str, str]] = []
     if runner.has("flatpak"):
+        ensure_flathub(runner)
         _, out = runner.run(["flatpak", "search", "--columns=name,application,description", query])
         found += parse_flatpak_search(out)[:8]
     if runner.has("apt-cache"):
@@ -119,8 +132,9 @@ def make_tools(runner: Runner | None = None) -> list[Tool]:
             if not runner.has("flatpak"):
                 return "Flatpak non è installato su questo sistema."
             if action == "install":
-                return ["flatpak", "install", "-y", "--noninteractive", "flathub", app_id]
-            return ["flatpak", "uninstall", "-y", "--noninteractive", app_id]
+                ensure_flathub(runner)
+                return ["flatpak", "install", "--user", "-y", "--noninteractive", "flathub", app_id]
+            return ["flatpak", "uninstall", "--user", "-y", "--noninteractive", app_id]
         if not PACKAGE.match(app_id):
             return f"Nome pacchetto non valido: {app_id}"
         if not runner.has("apt-get"):

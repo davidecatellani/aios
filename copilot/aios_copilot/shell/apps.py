@@ -614,7 +614,56 @@ def register_apps(app: Any, run: Run = _run) -> None:
             threading.Thread(target=voice.speak, args=("Ciao, sono Nova. Ti piace questa voce?",), daemon=True).start()
         return 200, {"ok": True}
 
+    samples: list[list[float]] = []  # frasi registrate per l'impronta in corso
+
+    def voiceprint_state(m: Any, b: dict[str, Any], q: dict[str, str]) -> tuple[int, Any]:
+        from .. import voiceprint
+
+        data = voiceprint.load()
+        return 200, {"persone": [p["nome"] for p in data["persone"]], "solo_conosciute": data["solo_conosciute"],
+                     "frasi": voiceprint.PHRASES, "disponibile": voiceprint.spk_model_dir() is not None,
+                     "registrate": len(samples)}
+
+    def voiceprint_sample(m: Any, b: dict[str, Any], q: dict[str, str]) -> tuple[int, Any]:
+        from .. import voice, voiceprint
+
+        if b.get("da_capo"):
+            samples.clear()
+        try:
+            vector = voiceprint.embed(voice.record(float(b.get("secondi", 5))))
+        except Exception as exc:
+            return 200, {"ok": False, "messaggio": f"Non riesco a sentirti: {exc}"}
+        if not vector:
+            return 200, {"ok": False, "messaggio": "Non ho sentito abbastanza: riprova parlando un po' più vicino."}
+        samples.append(vector)
+        return 200, {"ok": True, "registrate": len(samples)}
+
+    def voiceprint_finish(m: Any, b: dict[str, Any], q: dict[str, str]) -> tuple[int, Any]:
+        from .. import voiceprint
+        from ..welcome import clean_name, load_profile
+
+        name = clean_name(b.get("nome") or load_profile().get("name") or "Io") or "Io"
+        try:
+            voiceprint.enroll(name, list(samples))
+        except ValueError as exc:
+            return 200, {"ok": False, "messaggio": f"Ancora qualche frase: {exc}."}
+        samples.clear()
+        return 200, {"ok": True, "messaggio": f"Fatto: ora riconosco la voce di {name}."}
+
+    def voiceprint_mode(m: Any, b: dict[str, Any], q: dict[str, str]) -> tuple[int, Any]:
+        from .. import voiceprint
+
+        if b.get("togli"):
+            voiceprint.forget(str(b["togli"]))
+        if "solo_conosciute" in b:
+            voiceprint.set_only_known(bool(b["solo_conosciute"]))
+        return 200, {"ok": True}
+
     for method, pattern, handler in (
+        ("GET", r"/api/impronta", voiceprint_state),
+        ("POST", r"/api/impronta/campione", voiceprint_sample),
+        ("POST", r"/api/impronta/fine", voiceprint_finish),
+        ("POST", r"/api/impronta/modo", voiceprint_mode),
         ("GET", r"/api/cartella", folder),
         ("GET", r"/api/raccolta/(foto|musica|video|note)", gallery),
         ("GET", r"/file/(.+)", raw_file),

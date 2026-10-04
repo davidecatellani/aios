@@ -145,9 +145,25 @@ def for_speech(text: str, limit: int = 600) -> str:
 
 
 # --- audio ---------------------------------------------------------------------------------------------
-def capture_command(which: Callable[[str], str | None] = shutil.which) -> list[str] | None:
+CLEAN_MIC = "aios_mic_pulito"  # microfono senza eco né rumori (PipeWire, pipewire.conf.d/50-aios-microfono.conf)
+
+
+def clean_mic_available(run: Callable[..., Any] = subprocess.run, which: Callable[[str], str | None] = shutil.which) -> bool:
+    """C'è il microfono «pulito»? Toglie dall'ascolto quello che suonano gli altoparlanti (un film, la musica)."""
+    if not which("pactl"):
+        return False
+    try:
+        out = run(["pactl", "list", "short", "sources"], capture_output=True, text=True, timeout=5).stdout
+    except (OSError, subprocess.SubprocessError):
+        return False
+    return CLEAN_MIC in out
+
+
+def capture_command(which: Callable[[str], str | None] = shutil.which,
+                    clean: Callable[[], bool] | None = None) -> list[str] | None:
     if which("pw-record"):
-        return ["pw-record", "--rate", str(RATE), "--channels", "1", "--format", "s16", "-"]
+        target = ["--target", CLEAN_MIC] if (clean or (lambda: clean_mic_available(which=which)))() else []
+        return ["pw-record", *target, "--rate", str(RATE), "--channels", "1", "--format", "s16", "-"]
     if which("parecord"):
         return ["parecord", "--raw", f"--rate={RATE}", "--channels=1", "--format=s16le"]
     if which("arecord"):
@@ -203,6 +219,23 @@ def chime(which: Callable[[str], str | None] = shutil.which) -> None:
         subprocess.Popen(["pw-play", str(sound)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
 
+def record(seconds: float, cmd: list[str] | None = None) -> bytes:
+    """Qualche secondo di microfono (16 bit mono, 16 kHz): per imparare la voce dell'utente."""
+    cmd = cmd or capture_command()
+    if cmd is None:
+        raise RuntimeError("microfono non disponibile")
+    pcm = b""
+    chunks = audio_chunks(cmd)
+    try:
+        for data in chunks:
+            pcm += data
+            if len(pcm) >= int(seconds * RATE * 2):
+                break
+    finally:
+        chunks.close()
+    return pcm
+
+
 def audio_chunks(cmd: list[str]) -> Iterator[bytes]:
     proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
     try:
@@ -219,7 +252,8 @@ def audio_chunks(cmd: list[str]) -> Iterator[bytes]:
 class Ears:
     """Parola di attivazione e trascrizione (Vosk). `recognizer(grammar)` per i test."""
 
-    def __init__(self, recognizer: Callable[[str | None], Any] | None = None):
+    def __init__(self, recognizer: Callable[[str | None], Any] | None = None,
+                 accept: Callable[[list[float] | None], bool] | None = None):
         if recognizer is None:
             from vosk import KaldiRecognizer, Model, SetLogLevel  # type: ignore
 
@@ -228,8 +262,28 @@ class Ears:
             if path is None:
                 raise RuntimeError("manca il modello vocale italiano (vosk-model-small-it)")
             model = Model(str(path))
-            recognizer = lambda grammar: KaldiRecognizer(model, RATE, grammar) if grammar else KaldiRecognizer(model, RATE)  # noqa: E731
+            spk = None
+            try:  # impronta della voce (voiceprint.py): chi sta parlando
+                from vosk import SpkModel  # type: ignore
+
+                from .voiceprint import spk_model_dir
+
+                spk_dir = spk_model_dir()
+                spk = SpkModel(str(spk_dir)) if spk_dir else None
+            except Exception:
+                spk = None
+
+            def recognizer(grammar: str | None) -> Any:
+                if grammar:
+                    return KaldiRecognizer(model, RATE, grammar)
+                rec = KaldiRecognizer(model, RATE)
+                if spk is not None:
+                    rec.SetSpkModel(spk)
+                return rec
         self.new = recognizer
+        if accept is None:
+            from .voiceprint import accepted as accept
+        self.accept = accept
 
     def wait_for_wake(self, chunks: Iterator[bytes], recent: collections.deque) -> bool:
         rec = self.new(WAKE_GRAMMAR)
@@ -253,17 +307,23 @@ class Ears:
             rec.AcceptWaveform(data)
         spoken = False
         started = time.monotonic()
+        voice_vector = None
         for data in chunks:
             if rec.AcceptWaveform(data):
-                text = json.loads(rec.Result()).get("text", "")
+                result = json.loads(rec.Result())
+                voice_vector = result.get("spk") or voice_vector
+                text = result.get("text", "")
                 if strip_wake(text):
-                    return strip_wake(text)
+                    return strip_wake(text) if self.accept(voice_vector) else ""
             elif json.loads(rec.PartialResult()).get("partial"):
                 spoken = True
             elapsed = time.monotonic() - started
             if elapsed > max_seconds or (not spoken and elapsed > silence_start):
                 break
-        return strip_wake(json.loads(rec.FinalResult()).get("text", ""))
+        result = json.loads(rec.FinalResult())
+        voice_vector = result.get("spk") or voice_vector
+        # una voce che Nova non conosce (il film, un ospite) se l'utente ha scelto «solo la mia voce»
+        return strip_wake(result.get("text", "")) if self.accept(voice_vector) else ""
 
 
 def deliver(text: str, run: Callable[..., Any] = subprocess.run) -> bool:
