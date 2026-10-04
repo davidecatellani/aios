@@ -5,7 +5,10 @@ export HOME=/tmp/aios-accesso XDG_CACHE_HOME=/tmp/aios-accesso/cache XDG_DATA_HO
 export XDG_CONFIG_HOME=/tmp/aios-accesso/config GTK_THEME=Adwaita:dark
 mkdir -p "$XDG_CACHE_HOME" "$XDG_DATA_HOME" "$XDG_CONFIG_HOME"
 layout=$(localectl status 2>/dev/null | sed -n 's/.*X11 Layout: *//p' | head -n1)
-export XKB_DEFAULT_LAYOUT="${layout:-it}"
+case "$layout" in
+  ""|*[!a-z,]*) layout=it ;;  # «(unset)» o «n/a»: tastiera italiana
+esac
+export XKB_DEFAULT_LAYOUT="$layout"
 if command -v cage >/dev/null && command -v aios-accesso >/dev/null; then
   cage -s -d -- aios-accesso && exit 0
 fi
