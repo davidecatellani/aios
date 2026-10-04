@@ -456,6 +456,9 @@ def register_apps(app: Any, run: Run = _run) -> None:
         p = path_from(q.get("p", ""))
         if not p.is_file():
             raise FileNotFoundError
+        from .. import diario
+
+        diario.record_file(p)
         return 200, document_page(p, app.token)
 
     def doc_page(m: Any, b: dict[str, Any], q: dict[str, str]) -> tuple[int, Any]:
@@ -536,6 +539,11 @@ def register_apps(app: Any, run: Run = _run) -> None:
             from .. import keyboard
 
             data["tastiera"] = {"scelta": keyboard.current(), "lingue": keyboard.LAYOUTS}
+        if part in ("", "privacy"):
+            from .. import diario
+
+            data["diario"] = {"attivo": diario.enabled(), "giorni": len(diario.days_with_events()),
+                              "conserva": diario.KEEP_DAYS}
         if part in ("", "voce"):
             from .. import voice
 
@@ -595,6 +603,14 @@ def register_apps(app: Any, run: Run = _run) -> None:
             return 400, {"error": "azione sconosciuta"}
         code, _ = run(cmd)
         return 200, {"ok": code == 0}
+
+    def diary(m: Any, b: dict[str, Any], q: dict[str, str]) -> tuple[int, Any]:
+        from .. import diario
+
+        if b.get("cancella"):
+            return 200, {"ok": True, "messaggio": f"Diario cancellato ({diario.forget_all()} giorni)."}
+        diario.set_enabled(bool(b.get("attivo")))
+        return 200, {"ok": True}
 
     def keyboard_layout(m: Any, b: dict[str, Any], q: dict[str, str]) -> tuple[int, Any]:
         from .. import keyboard
@@ -684,6 +700,7 @@ def register_apps(app: Any, run: Run = _run) -> None:
         ("POST", r"/api/impostazioni/energia", power),
         ("POST", r"/api/impostazioni/voce", choose_voice),
         ("POST", r"/api/impostazioni/tastiera", keyboard_layout),
+        ("POST", r"/api/impostazioni/diario", diary),
     ):
         app.route(method, pattern, guarded(handler))
 

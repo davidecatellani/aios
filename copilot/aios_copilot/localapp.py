@@ -102,6 +102,7 @@ class LocalApp:
         self._current: Job | None = None
         self._agent_lock = threading.Lock()
         self.finished = threading.Event()
+        self.on_answer: Callable[[str, str], Any] | None = None  # la shell annota la conversazione nel diario
         # Un solo agente per tutta la sessione: ricorda il contesto.
         self.agent = make_agent(lambda tool, args, **kw: self._current.ask_confirmation(tool, args, **kw)) \
             if make_agent else None
@@ -139,6 +140,11 @@ class LocalApp:
                 job.answer = f"Qualcosa è andato storto: {exc}"
             finally:
                 self._current = None
+        if self.on_answer is not None and job.answer:
+            try:
+                self.on_answer(text, job.answer)
+            except Exception:  # il diario non deve mai togliere la risposta
+                pass
 
     def prompt_for(self, body: dict[str, Any]) -> tuple[str, str | None]:
         """Frase da passare al copilota e contesto per il modello (le app lo specializzano)."""

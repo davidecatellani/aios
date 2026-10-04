@@ -27,6 +27,7 @@ from .agenda import Agenda
 from .tools import Runner, Tool, apps, default_tools, files
 from .xdg import resolve_folder
 from .tools import agenda as agenda_tools
+from .tools import memoria as memory_tools
 from .tools import mail as mail_tools
 from .tools import taste as taste_tools
 from .tools import ai as ai_tools
@@ -152,6 +153,7 @@ def make_agent(confirm: Confirm, model: str | None = None, allowed: frozenset[st
                *ai_tools.make_capability_tools(engines.available())],
         "aspetto": theme_tools.make_tools(ask_llm=lambda prompt: llm.chat([{"role": "user", "content": prompt}], []).get("content", ""),
                                           runner=runner),
+        "memoria": memory_tools.make_tools(),
         "telefono": [*phone_tools.make_tools(runner), *identity_tools.make_tools(user_name=user_name)],
     }
     tools = [t for group in groups.values() for t in group]
@@ -169,6 +171,7 @@ def make_agent(confirm: Confirm, model: str | None = None, allowed: frozenset[st
         planner=smistatore.plan if os.environ.get("AIOS_SMISTATORE", "") != "spento" else None,
         routers=[
             window_tools.WindowsRouter(),  # livello 0: programmi aperti e app di AIOS (sessione AIOS)
+            memory_tools.MemoryRouter(),  # livello 0: «dove mi ero fermato?», «cosa ho fatto ieri?»
             agenda_tools.AgendaRouter(),  # livello 0: promemoria, appuntamenti, riepilogo
             mail_tools.MailRouter(),  # livello 0: posta
             taste_tools.TasteRouter(),  # livello 0: abbonamenti e consigli

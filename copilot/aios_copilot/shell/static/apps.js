@@ -277,7 +277,7 @@ const VISTE = {
     const wrap = el("div", "impostazioni"); const nav = el("div", "sezioni"); const pan = el("div", "pannello-imp");
     wrap.append(nav, pan); corpo.append(wrap);
     const SEZ = [["wifi", "📶 Wi-Fi"], ["bluetooth", "🔵 Bluetooth"], ["suono", "🔊 Suono e schermo"], ["voce", "🗣️ Voce di Nova"], ["tastiera", "⌨️ Tastiera"],
-                 ["aggiornamenti", "⬇️ Aggiornamenti"], ["account", "🔑 Password"], ["info", "ℹ️ Questo computer"], ["energia", "⏻ Spegni"]];
+                 ["aggiornamenti", "⬇️ Aggiornamenti"], ["account", "🔑 Password"], ["privacy", "🔒 Privacy e memoria"], ["info", "ℹ️ Questo computer"], ["energia", "⏻ Spegni"]];
     for (const [id, t] of SEZ) {
       const b = bottone(t, () => apriVista("impostazioni", id), ""); b.classList.toggle("attiva", id === sezione); nav.append(b);
     }
@@ -401,6 +401,17 @@ const VISTE = {
             riga("Spazio libero", null, el("span", "", i.disco_libero_gb != null ? `${i.disco_libero_gb} GB` : "—")),
             riga("Modello AI di Nova", "Tutto sul computer, niente cloud", el("span", "", i.modello || "—"),
                  bottone("Più potente?", () => { chiudiVista(); chiedi("quali modelli AI mi consigli?"); })));
+    } else if (sezione === "privacy") {
+      const di = d.diario || {};
+      carta(riga("Diario delle attività", `Nova ricorda programmi, file, siti e conversazioni per rispondere a «dove mi ero fermato?». Resta solo su questo computer, per ${di.conserva || 90} giorni.`,
+                 interruttore(di.attivo, () => api("/api/impostazioni/diario", { attivo: !di.attivo }).then(() => apriVista("impostazioni", "privacy")))),
+            riga("Cancella il diario", di.giorni ? `${di.giorni} giorni annotati` : "Il diario è vuoto",
+                 bottone("Cancella", async () => {
+                   if (!await chiediConferma("Cancello tutto il diario? Nova non ricorderà più cosa hai fatto finora.")) return;
+                   dici(await api("/api/impostazioni/diario", { cancella: true }).catch(e => ({ ok: false, messaggio: e.message })));
+                   apriVista("impostazioni", "privacy");
+                 }, "bottone pericolo")));
+      pan.append(esito);
     } else if (sezione === "energia") {
       const az = (t, a, cls) => bottone(t, () => { (async () => { if (a === "spegni" || a === "riavvia" ? await chiediConferma(`${t}?`) : true) api("/api/impostazioni/energia", { azione: a }).catch(() => {}); })(); }, cls);
       carta(riga("Blocca lo schermo", null, az("Blocca", "blocca", "bottone")),

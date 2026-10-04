@@ -301,6 +301,9 @@ class ShellApp(LocalApp):
         self.route("POST", r"/api/casa-vai", self._go_home)
         self.route("POST", r"/api/finestra-chiudi", lambda m, b, q: (200, {"ok": close_window(str(b.get("app_id", "")))}))
         self.route("POST", r"/api/parla", self._speak)
+        from .. import diario
+
+        self.on_answer = diario.record_exchange
         register_apps(self)
         register_first_steps(self)
         self.route("POST", r"/api/ascolta", self._listen)
@@ -369,6 +372,9 @@ class ShellApp(LocalApp):
             return 403, {"error": "percorso non consentito"}
         if not path.exists():
             return 404, {"error": "file non trovato"}
+        from .. import diario
+
+        diario.record_file(path)
         subprocess.Popen(["gio", "open", str(path)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
         return 200, {"ok": True}
 
@@ -625,6 +631,9 @@ def main(argv: list[str] | None = None) -> int:
     if args and forward(args):
         return 0
     threading.Thread(target=auto_power_profile, daemon=True).start()
+    from ..diario import WindowWatcher
+
+    threading.Thread(target=WindowWatcher(open_windows).run, daemon=True).start()  # il diario dei programmi
     app = ShellApp(make_agent_for_shell)
     server, url = serve(app)
     return run_gtk(app, url, [sys.argv[0], *args])

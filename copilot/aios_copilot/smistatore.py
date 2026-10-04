@@ -53,6 +53,8 @@ DOMAINS: list[tuple[str, str]] = [
     ("chiamate", "Phone calls and SMS: answer, reject, read or send messages, make the phone ring, phone notifications"),
     ("telefono", "Link or unlink the phone, send files or photos to and from the phone, install AIOS on a phone"),
     ("identita", "The user's AIOS identity and account, syncing between devices, recovery phrase, revoking a device"),
+    ("memoria", "The user's own past: where they left off, what they worked on yesterday or another day, a website or "
+                "document they saw days ago, resuming a past conversation, the activity diary"),
     ("web", "Search the internet, websites, news, weather, facts that need online lookup"),
     ("ai", "AI models on this device, looking at images or the screen, dictation, reading aloud, creating images"),
     ("gusti", "Subscriptions, recommendations for music, films, series, books, what to watch or listen"),

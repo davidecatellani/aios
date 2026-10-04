@@ -157,7 +157,26 @@ def make_tools(runner: Runner | None = None) -> list[Tool]:
         tail = "\n".join(out.splitlines()[-5:])
         return f"Rimosso {app_id}." if code == 0 else f"Rimozione fallita ({code}):\n{tail}"
 
+    def already_open(name: str) -> str | None:
+        """«apri Firefox» con Firefox già aperto: si porta davanti quello, non se ne apre un altro."""
+        from . import windows as win
+
+        if not win.in_aios_session():
+            return None
+        from .. import shell as sh
+
+        try:
+            w = win.match_window(name.rsplit(".", 1)[-1] if APP_ID.match(name) else name, sh.open_windows())
+        except Exception:
+            return None
+        if w is not None and sh.focus_window(w["app_id"]):
+            return f"{w['title'] or w['app_id']} era già aperto: eccolo."
+        return None
+
     def launch_app(name: str) -> str:
+        shown = already_open(name)
+        if shown:
+            return shown
         if APP_ID.match(name) and runner.has("flatpak"):
             code, _ = runner.run(["flatpak", "info", name])
             if code == 0:
