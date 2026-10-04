@@ -276,7 +276,7 @@ const VISTE = {
     const corpo = testa(box, "⚙️ Impostazioni");
     const wrap = el("div", "impostazioni"); const nav = el("div", "sezioni"); const pan = el("div", "pannello-imp");
     wrap.append(nav, pan); corpo.append(wrap);
-    const SEZ = [["wifi", "📶 Wi-Fi"], ["bluetooth", "🔵 Bluetooth"], ["suono", "🔊 Suono e schermo"], ["voce", "🗣️ Voce di Nova"],
+    const SEZ = [["wifi", "📶 Wi-Fi"], ["bluetooth", "🔵 Bluetooth"], ["suono", "🔊 Suono e schermo"], ["voce", "🗣️ Voce di Nova"], ["tastiera", "⌨️ Tastiera"],
                  ["aggiornamenti", "⬇️ Aggiornamenti"], ["account", "🔑 Password"], ["info", "ℹ️ Questo computer"], ["energia", "⏻ Spegni"]];
     for (const [id, t] of SEZ) {
       const b = bottone(t, () => apriVista("impostazioni", id), ""); b.classList.toggle("attiva", id === sezione); nav.append(b);
@@ -289,7 +289,8 @@ const VISTE = {
     const interruttore = (acceso, fn) => { const b = el("button", "interruttore" + (acceso ? " acceso" : "")); b.onclick = fn; return b; };
     const esito = el("div", "esito");
     const dici = (r) => { esito.textContent = r.messaggio || (r.ok ? "Fatto." : "Non è riuscito."); esito.className = "esito " + (r.ok ? "ok" : "no"); };
-    const parte = { suono: "suono", wifi: "wifi", bluetooth: "bluetooth", voce: "voce", info: "info", aggiornamenti: "info" }[sezione];
+    const parte = { suono: "suono", wifi: "wifi", bluetooth: "bluetooth", voce: "voce", info: "info", aggiornamenti: "info",
+                    tastiera: "tastiera" }[sezione];
     const d = parte ? await api(`/api/impostazioni?parte=${parte}`).catch(e => ({ errore: e.message })) : {};
 
     if (sezione === "wifi") {
@@ -341,6 +342,16 @@ const VISTE = {
         }, voce.id === v.scelta ? "bottone" : "bottone primo")));
       }
       if (!v.voci.length) c.append(el("p", "nota", "Nessuna voce installata."));
+    } else if (sezione === "tastiera") {
+      const k = d.tastiera || { lingue: {} };
+      const c = carta(el("p", "nota", "La disposizione dei tasti. Cambia subito, senza riavviare. Puoi anche dire a Nova «metti la tastiera inglese»."));
+      for (const [id, nome] of Object.entries(k.lingue)) {
+        c.append(riga(nome, id === k.scelta ? "In uso" : null, id === k.scelta ? el("span", "", "✓") : bottone("Usa questa", async () => {
+          dici(await api("/api/impostazioni/tastiera", { lingua: id }).catch(e => ({ ok: false, messaggio: e.message })));
+          apriVista("impostazioni", "tastiera");
+        }, "bottone primo")));
+      }
+      pan.append(esito);
     } else if (sezione === "aggiornamenti") {
       const c = carta(el("p", "", d.aggiornamenti || ""));
       c.append(el("div", "azioni"));

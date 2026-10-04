@@ -592,6 +592,31 @@ def forward(args: list[str]) -> bool:
     return False
 
 
+def power_profile_for(charging: bool | None, level: int | None) -> str | None:
+    """A batteria: risparmio; in carica: bilanciato. None se non c'è batteria."""
+    if level is None:  # PC fisso
+        return None
+    return "balanced" if charging else "power-saver"
+
+
+def auto_power_profile(read: Callable[[], Any] | None = None, run: Callable[[list[str]], tuple[int, str]] | None = None,
+                       interval: float = 60.0, stop: threading.Event | None = None) -> None:
+    """Cambia il profilo energetico (powerprofilesctl) quando si stacca o si attacca la corrente."""
+    from ..energy import read_battery
+
+    read, run, stop = read or read_battery, run or _run, stop or threading.Event()
+    current = None
+    while not stop.is_set():
+        try:
+            r = read()
+            wanted = power_profile_for(r.charging, r.level)
+            if wanted and wanted != current and run(["powerprofilesctl", "set", wanted])[0] == 0:
+                current = wanted
+        except Exception:
+            pass
+        stop.wait(interval)
+
+
 def main(argv: list[str] | None = None) -> int:
     # gtk4-layer-shell serve solo a questo processo (aios-sessione lo carica con LD_PRELOAD): i programmi
     # aperti da qui non devono ereditarlo, o quelli GTK3 come Firefox si bloccano all'avvio.
@@ -599,6 +624,7 @@ def main(argv: list[str] | None = None) -> int:
     args = list(sys.argv[1:] if argv is None else argv)
     if args and forward(args):
         return 0
+    threading.Thread(target=auto_power_profile, daemon=True).start()
     app = ShellApp(make_agent_for_shell)
     server, url = serve(app)
     return run_gtk(app, url, [sys.argv[0], *args])

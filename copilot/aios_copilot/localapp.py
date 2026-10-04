@@ -126,6 +126,8 @@ class LocalApp:
                 job.add(kind="fast", level=data["level"])
             elif kind == "tool_call":
                 job.add(kind="status", text=describe_call(data["tool"], data["args"]))
+            elif kind == "token":
+                job.add(kind="token", text=data["text"])
 
         with self._agent_lock:
             self._current = job

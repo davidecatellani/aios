@@ -59,3 +59,31 @@ def test_unsure_or_missing_decision_model_gives_all_tools():
 def test_chat_domain_has_no_tools():
     s = sm.build({"agenda": [tool("add_reminder")]}, post=fake_post("chiacchiera", 0.95, []))
     assert s.narrow("chi ha scritto i Promessi sposi?") == set()
+
+
+def test_streaming_answer_arrives_piece_by_piece():
+    import json
+    import threading
+    from http.server import BaseHTTPRequestHandler, HTTPServer
+
+    from aios_copilot import llm
+
+    class H(BaseHTTPRequestHandler):
+        def log_message(self, *a):
+            pass
+
+        def do_POST(self):
+            body = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
+            assert body["stream"] is True and body["think"] is False
+            self.send_response(200)
+            self.end_headers()
+            for piece in ("Ciao", ", sono", " Nova."):
+                self.wfile.write(json.dumps({"message": {"content": piece}, "done": False}).encode() + b"\n")
+            self.wfile.write(json.dumps({"message": {"content": ""}, "done": True}).encode() + b"\n")
+
+    srv = HTTPServer(("127.0.0.1", 0), H)
+    threading.Thread(target=srv.handle_request, daemon=True).start()
+    client = llm.OllamaClient(url=f"http://127.0.0.1:{srv.server_address[1]}", model="qwen3.5:2b")
+    pieces = []
+    reply = client.chat([{"role": "user", "content": "ciao"}], [], on_token=pieces.append)
+    assert pieces == ["Ciao", ", sono", " Nova."] and reply["content"] == "Ciao, sono Nova."

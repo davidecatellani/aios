@@ -35,20 +35,41 @@ class Domain:
 
 
 # Gli ambiti di Nova: la descrizione è in inglese perché i modelli decisionali sono addestrati così,
-# ma la frase dell'utente resta in italiano.
+# ma la frase dell'utente resta in italiano. Ogni ambito ha al massimo una decina di strumenti: su un
+# processore lento ogni strumento in più sono secondi di attesa.
 DOMAINS: list[tuple[str, str]] = [
     ("agenda", "Calendar, appointments, reminders, alarms, deadlines, daily summary, what's planned today or tomorrow"),
     ("posta", "Email: read, search, summarize, write or reply to mail, inbox, mail accounts"),
-    ("file", "Files and folders on this computer: find, open, move, organize, documents, bills, photos on disk"),
+    ("file", "Find, open or read files and documents on this computer: bills, contracts, shopping list, diet"),
+    ("riordino", "Tidy up and organize files and folders, clean up space, collections of files"),
     ("app", "Applications and windows: open, close, install, remove or switch between programs"),
-    ("sistema", "Device settings: volume, brightness, Wi-Fi, Bluetooth, battery, power, screenshots, system info, updates"),
-    ("telefono", "The user's phone: calls, SMS, phone notifications, linking or syncing the phone"),
+    ("impostazioni", "Volume, brightness, keyboard layout, Wi-Fi, Bluetooth, dark or light theme, music playback control, screenshot, lock, shut down or restart"),
+    ("computer", "Time and date, battery and energy saving, system information, voice listening, opening a folder or place"),
+    ("aggiornamenti", "System updates: check, install, from USB stick or GitHub, roll back to the previous version"),
+    ("chiamate", "Phone calls and SMS: answer, reject, read or send messages, make the phone ring, phone notifications"),
+    ("telefono", "Link or unlink the phone, send files or photos to and from the phone, install AIOS on a phone"),
+    ("identita", "The user's AIOS identity and account, syncing between devices, recovery phrase, revoking a device"),
     ("web", "Search the internet, websites, news, weather, facts that need online lookup"),
     ("ai", "AI models on this device, looking at images or the screen, dictation, reading aloud, creating images"),
     ("gusti", "Subscriptions, recommendations for music, films, series, books, what to watch or listen"),
     ("aspetto", "Themes, wallpapers, colors and look of the system"),
-    ("chiacchiera", "General conversation, questions of knowledge, advice, writing help, anything not about this device"),
+    ("chiacchiera", "General conversation, greetings, questions of knowledge, advice, writing help, anything not about this device"),
 ]
+# Strumenti assegnati per nome; gli altri seguono il loro gruppo (vedi GROUP_DOMAIN).
+DOMAIN_TOOLS: dict[str, set[str]] = {
+    "impostazioni": {"set_volume", "set_brightness", "set_radio", "set_theme", "media_control", "take_screenshot",
+                     "lock_screen", "power", "bluetooth_devices", "forget_bluetooth", "set_keyboard"},
+    "computer": {"current_time", "system_info", "energy_choice", "energy_status", "voice_listening", "voice_status",
+                 "open_location"},
+    "aggiornamenti": {"auto_updates", "connect_github_updates", "update_from_usb", "update_now", "update_status",
+                      "restart_to_update", "rollback_system"},
+    "chiamate": {"answer_call", "reject_call", "read_sms", "send_sms", "reply_message", "ring_phone", "setup_calls",
+                 "phone_notifications"},
+    "identita": {"create_identity", "identity_status", "restore_identity", "revoke_device", "show_recovery_phrase",
+                 "sync_now", "set_relay"},
+    "riordino": {"cleanup_suggestions", "tidy_apply", "tidy_plan", "tidy_undo", "list_collections", "show_collection"},
+}
+GROUP_DOMAIN = {"sistema": "computer"}
 
 
 class Smistatore:
@@ -98,8 +119,13 @@ def _post(url: str, payload: dict[str, Any], timeout: float) -> dict[str, Any]:
 def build(groups: dict[str, list[Any]], always: set[str] | None = None, **kw: Any) -> Smistatore:
     """Gli ambiti con gli strumenti veri: groups = {"agenda": [Tool, …], …}. `always`: strumenti sempre presenti."""
     always = always or set()
-    domains = []
-    for name, description in DOMAINS:
-        tools = {t.name for t in groups.get(name, [])} | always
-        domains.append(Domain(name, description, tools))
+    assigned = {t for tools in DOMAIN_TOOLS.values() for t in tools}
+    by_domain: dict[str, set[str]] = {name: set(DOMAIN_TOOLS.get(name, set())) for name, _ in DOMAINS}
+    present = set()
+    for group, tools in groups.items():
+        for t in tools:
+            present.add(t.name)
+            if t.name not in assigned:
+                by_domain.setdefault(GROUP_DOMAIN.get(group, group), set()).add(t.name)
+    domains = [Domain(name, description, (by_domain.get(name, set()) & present) | always) for name, description in DOMAINS]
     return Smistatore(domains, **kw)

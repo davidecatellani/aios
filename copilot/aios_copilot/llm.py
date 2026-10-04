@@ -9,7 +9,7 @@ import time
 import urllib.error
 import urllib.request
 from pathlib import Path
-from typing import Any, Protocol
+from typing import Callable, Any, Protocol
 
 DEFAULT_URL = "http://localhost:11434"
 # Modello piccolo di default: deve rispondere in fretta anche su CPU senza GPU.
@@ -100,8 +100,45 @@ class OllamaClient:
         self.model = model or os.environ.get("AIOS_MODEL") or _configured_text_model() or DEFAULT_MODEL
         self.timeout = timeout
 
-    def chat(self, messages: list[dict[str, Any]], tools: list[dict[str, Any]]) -> dict[str, Any]:
-        return self._post(self._payload(messages, tools))["message"]
+    supports_stream = True
+
+    def chat(self, messages: list[dict[str, Any]], tools: list[dict[str, Any]],
+             on_token: Callable[[str], None] | None = None) -> dict[str, Any]:
+        if on_token is None:
+            return self._post(self._payload(messages, tools))["message"]
+        return self._stream(self._payload(messages, tools, stream=True), on_token)
+
+    def _stream(self, payload: dict[str, Any], on_token: Callable[[str], None]) -> dict[str, Any]:
+        """La risposta parola per parola: su un processore lento la prima parola arriva in pochi secondi."""
+        body = json.dumps(payload).encode()
+        req = urllib.request.Request(f"{self.url}/api/chat", data=body, headers={"Content-Type": "application/json"})
+        content, calls = [], []
+        try:
+            with urllib.request.urlopen(req, timeout=self.timeout) as resp:
+                for line in resp:
+                    if not line.strip():
+                        continue
+                    chunk = json.loads(line)
+                    msg = chunk.get("message") or {}
+                    if msg.get("tool_calls"):
+                        calls.extend(msg["tool_calls"])
+                    piece = msg.get("content") or ""
+                    if piece:
+                        content.append(piece)
+                        if not calls:
+                            on_token(piece)
+                    if chunk.get("done"):
+                        break
+        except urllib.error.HTTPError as exc:
+            if exc.code == 404:  # modello assente: stesso messaggio della richiesta normale
+                return self._post({**payload, "stream": False})["message"]
+            raise LLMError(f"Il modello ha risposto con errore {exc.code}") from exc
+        except urllib.error.URLError as exc:
+            raise LLMError(f"Non riesco a contattare il modello: {exc.reason}") from exc
+        message: dict[str, Any] = {"role": "assistant", "content": "".join(content)}
+        if calls:
+            message["tool_calls"] = calls
+        return message
 
     def _payload(self, messages: list[dict[str, Any]], tools: list[dict[str, Any]], **extra: Any) -> dict[str, Any]:
         payload = {"model": self.model, "messages": messages, "tools": tools, "stream": False,

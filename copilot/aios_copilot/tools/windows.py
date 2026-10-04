@@ -98,7 +98,14 @@ def make_tools(windows: Callable[[], list[dict[str, str]]] | None = None,
         arg = target + (f":{SECTIONS.get(sezione.lower(), sezione.lower())}" if sezione and target == "impostazioni" else "")
         return f"Apro {vista}." if shell("--vista", arg) else "La shell di AIOS non è in esecuzione."
 
+    def keyboard_layout(lingua: str) -> str:
+        from .. import keyboard
+
+        return keyboard.set_layout(lingua)
+
     return [
+        Tool("set_keyboard", "Cambia la lingua della tastiera (italiana, inglese, americana, tedesca, francese, spagnola…).",
+             params(lingua="Lingua della tastiera"), keyboard_layout),
         Tool("list_windows", "Dice quali programmi a finestra sono aperti.", params(), list_windows),
         Tool("switch_window", "Porta davanti un programma già aperto.", params(name="Nome del programma (es. Firefox)"),
              switch_window),
@@ -140,6 +147,11 @@ class WindowsRouter:
         if not self.active():
             return None
         low = normalize(text).lower().strip(" .!?")
+        from ..keyboard import RE_KEYBOARD
+
+        m = RE_KEYBOARD.match(low)
+        if m:
+            return Intent("set_keyboard", {"lingua": m.group("l")})
         if RE_LIST.match(low):
             return Intent("list_windows", {})
         if RE_HOME.match(low):

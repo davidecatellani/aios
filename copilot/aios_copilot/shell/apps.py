@@ -532,6 +532,10 @@ def register_apps(app: Any, run: Run = _run) -> None:
                 data["aggiornamenti"] = Updates().describe()
             except Exception as exc:
                 data["aggiornamenti"] = f"Non riesco a leggere lo stato: {exc}"
+        if part in ("", "tastiera"):
+            from .. import keyboard
+
+            data["tastiera"] = {"scelta": keyboard.current(), "lingue": keyboard.LAYOUTS}
         if part in ("", "voce"):
             from .. import voice
 
@@ -592,6 +596,12 @@ def register_apps(app: Any, run: Run = _run) -> None:
         code, _ = run(cmd)
         return 200, {"ok": code == 0}
 
+    def keyboard_layout(m: Any, b: dict[str, Any], q: dict[str, str]) -> tuple[int, Any]:
+        from .. import keyboard
+
+        msg = keyboard.set_layout(str(b.get("lingua", "")))
+        return 200, {"ok": msg.endswith("attiva."), "messaggio": msg}
+
     def choose_voice(m: Any, b: dict[str, Any], q: dict[str, str]) -> tuple[int, Any]:
         from .. import voice
 
@@ -624,6 +634,7 @@ def register_apps(app: Any, run: Run = _run) -> None:
         ("POST", r"/api/impostazioni/github", github),
         ("POST", r"/api/impostazioni/energia", power),
         ("POST", r"/api/impostazioni/voce", choose_voice),
+        ("POST", r"/api/impostazioni/tastiera", keyboard_layout),
     ):
         app.route(method, pattern, guarded(handler))
 

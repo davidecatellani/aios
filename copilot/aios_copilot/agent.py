@@ -164,7 +164,10 @@ class Agent:
         calls_made: list[tuple[str, dict[str, Any], str]] = []
 
         for _ in range(self.max_steps):
-            reply = self.model.chat(self.messages, schemas)
+            if getattr(self.model, "supports_stream", False):
+                reply = self.model.chat(self.messages, schemas, on_token=lambda piece: emit("token", {"text": piece}))
+            else:
+                reply = self.model.chat(self.messages, schemas)
             calls = reply.get("tool_calls") or []
             self.messages.append(
                 {"role": "assistant", "content": reply.get("content") or "", "tool_calls": calls}

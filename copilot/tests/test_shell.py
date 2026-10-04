@@ -134,3 +134,9 @@ def test_voice_goes_to_the_shell_in_aios(monkeypatch):
     monkeypatch.setenv("XDG_CURRENT_DESKTOP", "GNOME")
     voice.deliver("ciao", run=lambda cmd, **kw: ran.append(cmd))
     assert ran[-1][0] == "/usr/bin/aios-copilot"
+
+
+def test_power_profile_follows_the_plug():
+    assert shell.power_profile_for(False, 80) == "power-saver"
+    assert shell.power_profile_for(True, 80) == "balanced"
+    assert shell.power_profile_for(False, None) is None  # PC fisso: non si tocca
