@@ -35,8 +35,14 @@ Dati, impostazioni e app restano; la versione precedente resta disponibile all'a
    Se il disco aveva già Linux (per esempio Ubuntu), in «Recupera spazio» premi **«Elimina tutto»**,
    compresa la partizione EFI: se ne resta una vecchia, l'installazione si ferma con l'errore
    «Bootloader write config: grub2-mkconfig».
-3. Al riavvio entra con utente **aios** e password **aios**, poi cambiala subito
-   (Impostazioni › Utenti). Premi **Super+Spazio** per parlare con Nova.
+3. Al riavvio compare la schermata d'accesso di AIOS: password **aios**. Poi cambiala subito
+   (Impostazioni › Password). Al primo accesso Nova ti accoglie: nome, voce, Wi-Fi e cosa collegare.
+   Premi **Super+Spazio** (o di' «Nova») per parlarle; il tasto **Super** da solo torna alla schermata.
+
+### Kernel 6.18 LTS
+
+Le anteprime con «kernel LTS 6.18» nel titolo usano un kernel non firmato da Fedora: **disattiva il
+Secure Boot** nel BIOS prima di avviare, altrimenti il PC non parte.
 
 ### Se qualcosa va storto
 
