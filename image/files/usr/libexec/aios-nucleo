@@ -1,0 +1,13 @@
+#!/bin/sh
+# Il nucleo di Nova (aios-nucleo.service): un solo modello piccolo con tutti gli adattatori della cartella
+# (smistamento, campi, documenti…) e, se c'è, il proiettore per vedere le immagini (mmproj.gguf).
+dir=/usr/share/aios/nucleo
+set -- -m "$dir/base.gguf"
+[ -f "$dir/mmproj.gguf" ] && set -- "$@" --mmproj "$dir/mmproj.gguf"
+for a in "$dir"/*.gguf; do
+  case "${a##*/}" in base.gguf|mmproj.gguf) continue ;; esac
+  set -- "$@" --lora "$a"
+done
+# le immagini dei documenti fanno qualche centinaio di «parole»: contesto un po' più ampio
+exec /usr/lib/aios/llama/llama-server "$@" --lora-init-without-apply --host 127.0.0.1 --port 11436 \
+  -c 4096 -np 1 --no-webui

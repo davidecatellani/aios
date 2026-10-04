@@ -1,7 +1,8 @@
 """I modelli installati, collegati alle funzioni del sistema.
 
     testo        → il copilota (llm.OllamaClient legge il modello da models.json)
-    vista        → describe_image / look_at_screen (Ollama, modelli multimodali)
+    vista        → describe_image / look_at_screen (Ollama, modelli multimodali; o il nucleo, che vede)
+    lettura      → read_scanned_document (DeepSeek-OCR; o il nucleo con l'adattatore «documenti»)
     dettatura    → transcribe (whisper.cpp)
     voce         → speak (piper)
     significato  → livello 1 multilingue e ricerca nei file (calibrato a riposo)
@@ -34,6 +35,7 @@ ENGINES = {
 PLAYERS = (["pw-play"], ["paplay"], ["aplay", "-q"])
 IMAGE_TYPES = {".png", ".jpg", ".jpeg", ".webp", ".gif", ".bmp"}
 MAX_IMAGE_BYTES = 12 * 2**20
+NUCLEO = "nucleo"  # il «modello» per vista e lettura quando le fa il nucleo (llama-server con mmproj)
 
 
 def engine(capability: str, which: Callable[[str], str | None] = shutil.which) -> str | None:
@@ -62,6 +64,18 @@ def available(which: Callable[[str], str | None] = shutil.which) -> dict[str, st
             if not files or not all(f.exists() for f in files) or engine(cap, which) is None:
                 continue
         ready[cap] = name
+    # il nucleo (nucleo.py) vede le immagini: se nessun altro modello è scelto, guarda e legge lui
+    if ("vista" not in ready or "lettura" not in ready) and os.environ.get("AIOS_NUCLEO", "") != "spento":
+        try:
+            from .nucleo import Nucleo
+
+            n = Nucleo()
+            if n.vision():
+                ready.setdefault("vista", NUCLEO)
+                if "documenti" in n.adapters():
+                    ready.setdefault("lettura", NUCLEO)
+        except Exception:
+            pass
     return ready
 
 
@@ -74,6 +88,7 @@ def _ollama(path: str, payload: dict, timeout: int = 600) -> dict:
 
 
 # --- vista --------------------------------------------------------------------------------
+READ_DOCUMENT = "<|grounding|>Convert the document to markdown."
 
 
 def describe_image(path: Path, question: str, model: str, chat: Callable[[str, dict], dict] = _ollama) -> str:
@@ -82,6 +97,20 @@ def describe_image(path: Path, question: str, model: str, chat: Callable[[str, d
         return f"{path} non è un'immagine che posso aprire."
     if path.stat().st_size > MAX_IMAGE_BYTES:
         return "L'immagine è troppo grande (oltre 12 MB)."
+    if model == NUCLEO:
+        from .galleria import small_jpeg
+        from .nucleo import Nucleo
+
+        small = small_jpeg(path, 800)
+        if small is None:
+            return "Non riesco ad aprire l'immagine."
+        try:
+            n = Nucleo()
+            if question == READ_DOCUMENT:
+                return n.read_document(small, fields=False) or "Non sono riuscito a leggere il documento."
+            return n.see(small, question or "Descrivi l'immagine in italiano.") or "Non sono riuscito a interpretare l'immagine."
+        except Exception as exc:
+            return f"Non riesco a guardare l'immagine adesso ({exc.__class__.__name__})."
     image = base64.b64encode(path.read_bytes()).decode()
     reply = chat("/api/chat", {"model": model, "stream": False, "keep_alive": "10m",
                                "messages": [{"role": "user", "content": question or "Descrivi l'immagine in italiano.",

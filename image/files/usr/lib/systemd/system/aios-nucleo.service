@@ -6,15 +6,14 @@ After=local-fs.target
 [Service]
 DynamicUser=yes
 Environment=LD_LIBRARY_PATH=/usr/lib/aios/llama
-# un modello (0.8B, ~0,9 GB, letto dal disco su richiesta) e gli adattatori accesi richiesta per richiesta
-ExecStart=/usr/lib/aios/llama/llama-server -m /usr/share/aios/nucleo/base.gguf \
-    --lora /usr/share/aios/nucleo/smistamento.gguf --lora /usr/share/aios/nucleo/campi.gguf \
-    --lora-init-without-apply --host 127.0.0.1 --port 11436 -c 2048 -np 1 --no-webui
+# un modello (0.8B, ~0,9 GB, letto dal disco su richiesta), gli adattatori accesi richiesta per richiesta
+# e il proiettore per le immagini (foto, documenti): vedi /usr/libexec/aios-nucleo
+ExecStart=/usr/libexec/aios-nucleo
 Restart=on-failure
 # l'interfaccia viene prima
 Nice=5
 CPUWeight=60
-MemoryHigh=1500M
+MemoryHigh=2G
 
 [Install]
 WantedBy=multi-user.target

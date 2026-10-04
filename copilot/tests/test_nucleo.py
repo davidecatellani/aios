@@ -73,3 +73,45 @@ def test_dates_come_from_rules_not_from_the_model():
     assert fixed == {"what": "chiamare Luca", "when": "2026-10-05T18:00"}
     assert sm.fix_dates({"what": "latte"}, props, "ricordami il latte", now) == {"what": "latte"}
     assert sm.fix_dates({"name": "Spotify"}, {"name": {"description": "Nome"}}, "chiudi spotify domani", now) == {"name": "Spotify"}
+
+
+class FakeVision(FakeServer):
+    def __init__(self, reply):
+        super().__init__()
+        self.reply = reply
+
+    def get(self, url, timeout):
+        if url.endswith("/props"):
+            return {"modalities": {"vision": True}}
+        return super().get(url, timeout) + [{"id": 2, "path": "/usr/share/aios/nucleo/documenti.gguf"}]
+
+    def post(self, url, payload, timeout):
+        self.calls.append((url, payload))
+        return {"choices": [{"message": {"content": self.reply}}]}
+
+
+def test_see_sends_image_and_turns_on_only_the_documents_adapter():
+    srv = FakeVision('{"tipo": "scontrino", "emittente": "Bar", "numero": "1", "data": "2026-01-02", "scadenza": "", "totale": "3,20"}')
+    n = nucleo.Nucleo("http://x", post=srv.post, get=srv.get)
+    assert n.vision()
+    out = json.loads(n.read_document(b"\xff\xd8 jpeg"))
+    assert out["tipo"] == "scontrino"
+    url, payload = srv.calls[-1]
+    assert url.endswith("/v1/chat/completions")
+    assert payload["messages"][0] == {"role": "system", "content": nucleo.SYSTEM_DOCUMENTO}
+    assert payload["messages"][1]["content"][0]["image_url"]["url"].startswith("data:image/jpeg;base64,")
+    assert [l["scale"] for l in payload["lora"]] == [0.0, 0.0, 1.0]
+    assert payload["response_format"]["json_schema"]["schema"] == nucleo.DOCUMENT_SCHEMA
+
+
+def test_gallery_uses_nucleo_captioner(monkeypatch):
+    from aios_copilot import galleria
+
+    srv = FakeVision('{"descrizione": "Un cane sulla spiaggia", "etichette": ["cane", "mare"], "testo": ""}')
+    real = nucleo.Nucleo
+    monkeypatch.setattr(nucleo, "Nucleo", lambda *a, **k: real("http://x", post=srv.post, get=srv.get))
+    cap = galleria.GalleryTask()._make_captioner("nucleo")
+    assert isinstance(cap, galleria.NucleoCaptioner)
+    cap.start(b"\xff\xd8 jpeg")
+    cap.thread.join(5)
+    assert cap.result["etichette"] == ["cane", "mare"]

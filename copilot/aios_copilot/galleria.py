@@ -1,7 +1,7 @@
 """Riconoscere le foto, tutto sul computer: cosa c'è, le scritte, le persone.
 
 Per ogni foto dell'utente (Immagini, foto dal telefono, Scaricati):
-- **cosa c'è**: un modello di visione locale (MiniCPM-V, via Ollama) scrive una descrizione in italiano,
+- **cosa c'è**: un modello di visione locale (il nucleo, che vede; o MiniCPM-V via Ollama) scrive una descrizione in italiano,
   delle etichette («mare», «torta», «cane») e le scritte che si leggono (scontrini, cartelli, schermate);
 - **le persone**: OpenCV trova i volti (YuNet) e ne ricava un'impronta (SFace); i volti simili formano
   una persona. La prima volta l'utente dice chi è («Aurora»), poi Nova la riconosce da sola.
@@ -396,6 +396,25 @@ class Captioner:
             conn.close()
 
 
+class NucleoCaptioner(Captioner):
+    """La descrizione la fa il nucleo (Qwen3.5 0.8B che vede, nucleo.py): niente modello in più in memoria.
+    Una foto chiede pochi secondi, quindi non serve interromperla quando l'utente torna."""
+
+    def __init__(self) -> None:
+        super().__init__("nucleo")
+
+    def _run(self, image: bytes) -> None:
+        from .nucleo import Nucleo
+
+        try:
+            data = json.loads(Nucleo().see(image, CAPTION_PROMPT, schema=CAPTION_SCHEMA, max_tokens=300, timeout=300))
+            self.result = data if isinstance(data, dict) else None
+        except (ConnectionRefusedError, socket.timeout, OSError) as exc:
+            self.unreachable, self.error = True, str(exc) or exc.__class__.__name__
+        except Exception as exc:
+            self.error = str(exc) or exc.__class__.__name__
+
+
 def vision_model() -> str | None:
     """Il modello di visione pronto (quello scelto in AIOS, o MiniCPM-V se è già scaricato)."""
     try:
@@ -426,7 +445,7 @@ class GalleryTask:
         self._gallery = gallery
         self._faces_factory = faces or FaceFinder
         self._faces: Any = None
-        self._make_captioner = captioner or (lambda m: Captioner(m))
+        self._make_captioner = captioner or (lambda m: NucleoCaptioner() if m == "nucleo" else Captioner(m))
         self._captioner: Captioner | None = None
         self._current = ""
         self._model_source = model

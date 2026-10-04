@@ -7,3 +7,4 @@ def cartelle_isolate(tmp_path, monkeypatch):
     monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path / "xdg-data"))
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "xdg-config"))
     monkeypatch.delenv("HYPRLAND_INSTANCE_SIGNATURE", raising=False)
+    monkeypatch.setenv("AIOS_NUCLEO", "spento")  # nessuna prova parla con un nucleo vero acceso sulla macchina

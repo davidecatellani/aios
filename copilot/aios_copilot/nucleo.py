@@ -5,7 +5,11 @@ volta sola Qwen3.5 0.8B e sopra ci mette degli «adattatori»: pochi MB ciascuno
 Nova (copilot/addestramento). Il modello base è condiviso; per ogni richiesta si accende l'adattatore giusto:
 
 - smistamento: l'ambito della frase (agenda, posta, file…) e l'azione da fare;
-- campi: i valori dell'azione (cosa ricordare, quando…) in JSON.
+- campi: i valori dell'azione (cosa ricordare, quando…) in JSON;
+- documenti: legge bollette, scontrini, avvisi di pagamento (campi in JSON o tutto il testo).
+
+Qwen3.5 vede anche le immagini (con il proiettore mmproj.gguf): il nucleo descrive le foto e legge i
+documenti al posto di MiniCPM-V e DeepSeek-OCR, senza un altro modello in memoria.
 
 Il servizio è llama-server di llama.cpp (aios-nucleo.service), che tiene più adattatori su un solo modello
 e li sceglie richiesta per richiesta. Se il nucleo non c'è (immagine senza adattatori), lo smistatore usa
@@ -26,7 +30,14 @@ from datetime import datetime
 from typing import Any, Callable
 
 URL = os.environ.get("AIOS_NUCLEO_URL", "http://127.0.0.1:11436")
-ADAPTERS = ("smistamento", "campi")
+ADAPTERS = ("smistamento", "campi")  # quelli che servono allo smistatore; «documenti» è facoltativo
+DOCUMENT_FIELDS = ("tipo", "emittente", "numero", "data", "scadenza", "totale")
+DOCUMENT_SCHEMA = {"type": "object", "properties": {k: {"type": "string"} for k in DOCUMENT_FIELDS},
+                   "required": list(DOCUMENT_FIELDS)}
+SYSTEM_DOCUMENTO = "AIOS · documento"
+PROMPT_DOCUMENTO = ("Leggi il documento e rispondi con un JSON: tipo, emittente, numero, data (AAAA-MM-GG), "
+                    "scadenza (AAAA-MM-GG o vuota), totale (come scritto, es. 123,45).")
+PROMPT_TESTO = "Trascrivi tutto il testo del documento, riga per riga."
 GIORNI = ["lunedì", "martedì", "mercoledì", "giovedì", "venerdì", "sabato", "domenica"]
 
 
@@ -139,6 +150,38 @@ class Nucleo:
             return None
         probs = [_token_prob(e) for e in reply.get("completion_probabilities") or []]
         return choice, (min(probs) if probs else 0.0)
+
+    def vision(self) -> bool:
+        """Il nucleo vede le immagini (llama-server avviato con il proiettore mmproj)?"""
+        try:
+            return bool(self.get(f"{self.url}/props", 2.0).get("modalities", {}).get("vision"))
+        except (OSError, ValueError, AttributeError, urllib.error.URLError):
+            return False
+
+    def see(self, image: bytes, question: str, adapter: str | None = None, system: str = "",
+            schema: dict[str, Any] | None = None, max_tokens: int = 400, timeout: float = 300.0) -> str:
+        """Guarda un'immagine (JPEG/PNG) e risponde. Con `adapter` si accende quell'adattatore (es. documenti)."""
+        import base64
+
+        mime = "image/png" if image[:4] == b"\x89PNG" else "image/jpeg"
+        ids = self.adapters()
+        messages = ([{"role": "system", "content": system}] if system else []) + [{"role": "user", "content": [
+            {"type": "image_url", "image_url": {"url": f"data:{mime};base64,{base64.b64encode(image).decode()}"}},
+            {"type": "text", "text": question}]}]
+        payload: dict[str, Any] = {"messages": messages, "temperature": 0, "max_tokens": max_tokens,
+                                   "chat_template_kwargs": {"enable_thinking": False},
+                                   "lora": [{"id": i, "scale": 1.0 if name == adapter else 0.0} for name, i in ids.items()]}
+        if schema:
+            payload["response_format"] = {"type": "json_schema", "json_schema": {"schema": schema}}
+        reply = self.post(f"{self.url}/v1/chat/completions", payload, timeout)
+        return str(reply["choices"][0]["message"].get("content") or "").strip()
+
+    def read_document(self, image: bytes, fields: bool = True) -> str:
+        """Legge un documento fotografato: i campi (JSON) o tutto il testo. Usa l'adattatore se c'è."""
+        adapter = "documenti" if "documenti" in self.adapters() else None
+        if fields:
+            return self.see(image, PROMPT_DOCUMENTO, adapter, SYSTEM_DOCUMENTO, DOCUMENT_SCHEMA, 200)
+        return self.see(image, PROMPT_TESTO, adapter, SYSTEM_DOCUMENTO, None, 700)
 
     def fill(self, prompt: str, properties: dict[str, Any], required: list[str]) -> dict[str, Any] | None:
         schema = {"type": "object", "properties": properties, "required": required}

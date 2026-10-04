@@ -117,7 +117,7 @@ def make_capability_tools(ready: dict[str, str]) -> list[Tool]:
         tools.append(Tool("read_scanned_document", "Trascrive in testo (markdown) un documento fotografato o scansionato: "
                           "bollette, contratti, tabelle. Più preciso di describe_image per il testo.",
                           params(path="Percorso dell'immagine"),
-                          lambda path: engines.describe_image(Path(path), "<|grounding|>Convert the document to markdown.", ocr),
+                          lambda path: engines.describe_image(Path(path), engines.READ_DOCUMENT, ocr),
                           reads_private=True))
     if "voce" in ready:
         voice = ready["voce"]
