@@ -18,40 +18,64 @@ env:
 jobs:
   voci:
     runs-on: ubuntu-24.04
-    timeout-minutes: 120
+    timeout-minutes: 180
     steps:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
       - name: Preparazione
         run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL /usr/local/share/boost /usr/share/swift || true
           sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg sox espeak-ng >/dev/null
           mkdir -p ~/voci && echo "Processore: $(nproc) core, $(grep -m1 'model name' /proc/cpuinfo | cut -d: -f2)" > ~/voci/tempi.txt
-      - name: Riferimento (voce italiana vera, LibriVox, pubblico dominio)
+      - name: Riferimento (voci italiane vere, registrazioni libere)
         continue-on-error: true
         run: |
           cd ~/voci
           python3 - <<'PY'
-          import json, urllib.request, subprocess
-          q = ("https://archive.org/advancedsearch.php?q=collection%3Alibrivoxaudio+AND+language%3A%28Italian%29"
-               "&fl%5B%5D=identifier&rows=8&output=json")
-          ids = [d["identifier"] for d in json.load(urllib.request.urlopen(q))["response"]["docs"]]
+          import json, subprocess, urllib.parse, urllib.request
+          UA = {"User-Agent": "AIOS-prove-voci/1.0 (github.com/davidecatellani/aios)"}
+          def get(url):
+              return json.load(urllib.request.urlopen(urllib.request.Request(url, headers=UA), timeout=60))
+          def save(url, n, start):
+              req = urllib.request.Request(url, headers=UA)
+              open("tmp.audio", "wb").write(urllib.request.urlopen(req, timeout=120).read())
+              subprocess.run(["ffmpeg", "-loglevel", "error", "-y", "-ss", str(start), "-t", "12", "-i", "tmp.audio",
+                              "-ac", "1", "-ar", "24000", "-af", "loudnorm", f"riferimento-{n}.wav"], check=True)
+          urls = []
+          api = "https://commons.wikimedia.org/w/api.php?"
+          q = urllib.parse.urlencode({"action": "query", "format": "json", "generator": "categorymembers",
+                                      "gcmtitle": "Category:Spoken Wikipedia - Italian", "gcmtype": "file", "gcmlimit": "20",
+                                      "prop": "imageinfo", "iiprop": "url|size"})
+          try:
+              pages = get(api + q).get("query", {}).get("pages", {})
+              urls += [(p["imageinfo"][0]["url"], 20) for p in pages.values() if p.get("imageinfo")]
+              print("wikipedia parlata:", len(urls))
+          except Exception as e:
+              print("commons:", e)
+          for lang in ("Italian", "ita", "italiano"):
+              try:
+                  docs = get("https://archive.org/advancedsearch.php?" + urllib.parse.urlencode(
+                      {"q": f"collection:librivoxaudio AND language:({lang})", "fl[]": "identifier", "rows": "6", "output": "json"}))["response"]["docs"]
+              except Exception as e:
+                  print("archive:", e); docs = []
+              for d in docs:
+                  meta = get(f"https://archive.org/metadata/{d['identifier']}")
+                  mp3 = next((f["name"] for f in meta.get("files", []) if f["name"].endswith("_64kb.mp3")), None)
+                  if mp3:
+                      urls.append((f"https://archive.org/download/{d['identifier']}/{urllib.parse.quote(mp3)}", 50))
+              if docs:
+                  break
           done = 0
-          for i in ids:
-              meta = json.load(urllib.request.urlopen(f"https://archive.org/metadata/{i}"))
-              mp3 = next((f["name"] for f in meta.get("files", []) if f["name"].endswith("_64kb.mp3")), None)
-              if not mp3:
-                  continue
-              urllib.request.urlretrieve(f"https://archive.org/download/{i}/{mp3}", "tmp.mp3")
-              # dopo l'annuncio iniziale di LibriVox: 12 secondi di lettura
-              subprocess.run(["ffmpeg", "-loglevel", "error", "-y", "-ss", "45", "-t", "12", "-i", "tmp.mp3",
-                              "-ac", "1", "-ar", "24000", f"riferimento-{done}.wav"], check=True)
-              print("riferimento", done, i, mp3)
-              done += 1
-              if done == 2:
+          for url, start in urls:
+              try:
+                  save(url, done, start); print("riferimento", done, url); done += 1
+              except Exception as e:
+                  print("salto", url, e)
+              if done == 3:
                   break
           PY
-          rm -f tmp.mp3; ls -la
+          rm -f tmp.audio; ls -la
       - name: Piper (Paola, Riccardo)
         continue-on-error: true
         run: |
@@ -77,38 +101,32 @@ jobs:
           frase = os.environ["FRASE"]
           def log(nome, t):
               open("tempi.txt", "a").write(f"{nome}: {t:.1f} s\n")
-          try:
-              m = Qwen3TTSModel.from_pretrained("Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice", device_map="cpu", dtype=torch.float32)
-              print("voci preimpostate:", getattr(m, "get_supported_speakers", lambda: "?")())
-              for speaker in ("Vivian", "Serena", "Ryan"):
-                  t = time.time()
-                  wavs, sr = m.generate_custom_voice(text=frase, language="Italian", speaker=speaker)
-                  sf.write(f"qwen3tts-{speaker}.wav", wavs[0], sr); log(f"qwen3tts-{speaker}", time.time() - t)
-          except Exception as e:
-              print("CustomVoice:", e)
-          try:
-              m = Qwen3TTSModel.from_pretrained("Qwen/Qwen3-TTS-12Hz-0.6B-Base", device_map="cpu", dtype=torch.float32)
-              for ref in sorted(glob.glob("riferimento-*.wav")):
-                  t = time.time()
-                  wavs, sr = m.generate_voice_clone(text=frase, language="Italian", ref_audio=ref, x_vector_only_mode=True)
-                  nome = "qwen3tts-clone-" + ref.split("-")[1].split(".")[0]
-                  sf.write(nome + ".wav", wavs[0], sr); log(nome, time.time() - t)
-          except Exception as e:
-              print("Base (clone):", e)
+          for taglia in ("0.6B", "1.7B"):
+              try:
+                  m = Qwen3TTSModel.from_pretrained(f"Qwen/Qwen3-TTS-12Hz-{taglia}-Base", device_map="cpu", dtype=torch.float32)
+                  for ref in sorted(glob.glob("riferimento-*.wav")):
+                      t = time.time()
+                      wavs, sr = m.generate_voice_clone(text=frase, language="Italian", ref_audio=ref, x_vector_only_mode=True)
+                      nome = f"qwen3tts-{taglia}-voce" + ref.split("-")[1].split(".")[0]
+                      sf.write(nome + ".wav", wavs[0], sr); log(nome, time.time() - t)
+                  del m
+              except Exception as e:
+                  print("Base", taglia, e)
           PY
       - name: Chatterbox multilingue
         continue-on-error: true
         run: |
+          rm -rf /tmp/qwen ~/.cache/pip; df -h / | tail -1
           python3 -m venv /tmp/cb && . /tmp/cb/bin/activate
           pip install -q torch torchaudio --index-url https://download.pytorch.org/whl/cpu
-          pip install -q chatterbox-tts
+          pip install -q --no-cache-dir chatterbox-tts
           cd ~/voci
           python3 - <<'PY'
           import glob, os, time, torchaudio as ta
           from chatterbox.mtl_tts import ChatterboxMultilingualTTS
           frase = os.environ["FRASE"]
           m = ChatterboxMultilingualTTS.from_pretrained(device="cpu")
-          prove = [("chatterbox", None)] + [("chatterbox-clone-" + r.split("-")[1].split(".")[0], r)
+          prove = [("chatterbox", None)] + [("chatterbox-voce" + r.split("-")[1].split(".")[0], r)
                                              for r in sorted(glob.glob("riferimento-*.wav"))]
           for nome, ref in prove:
               t = time.time()
