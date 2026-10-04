@@ -74,7 +74,13 @@ def main() -> int:
         answer = tok(row["risposta"] + END, add_special_tokens=False, return_tensors="pt")["input_ids"]
         ids = torch.cat([inputs["input_ids"], answer], dim=1)
         labels = torch.cat([torch.full_like(inputs["input_ids"], -100), answer], dim=1)
-        extra = {k: v for k, v in inputs.items() if k not in ("input_ids", "attention_mask")}
+        extra = {}
+        for k, v in inputs.items():
+            if k in ("input_ids", "attention_mask"):
+                continue
+            if v.dim() == 2 and v.shape == inputs["input_ids"].shape:  # es. mm_token_type_ids: la risposta è testo (0)
+                v = torch.cat([v, torch.zeros_like(answer)], dim=1)
+            extra[k] = v
         return {"input_ids": ids, "attention_mask": torch.ones_like(ids), "labels": labels, **extra}
 
     total = max(1, int(math.ceil(len(rows) / args.accumula) * args.epoche))
