@@ -36,7 +36,8 @@
     <keybind key="XF86AudioMute"><action name="Execute" command="wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle"/></keybind>
     <keybind key="XF86MonBrightnessUp"><action name="Execute" command="brightnessctl set +10%"/></keybind>
     <keybind key="XF86MonBrightnessDown"><action name="Execute" command="brightnessctl set 10%-"/></keybind>
-    <keybind key="Print"><action name="Execute" command="sh -c 'grim ~/Immagini/schermata-$(date +%Y%m%d-%H%M%S).png'"/></keybind>
+    <keybind key="Print"><action name="Execute" command="aios-schermata"/></keybind>
+    <keybind key="S-Print"><action name="Execute" command="aios-schermata area"/></keybind>
   </keyboard>
   <mouse>
     <default/>

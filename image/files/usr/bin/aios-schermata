@@ -1,0 +1,16 @@
+#!/bin/sh
+# Fotografia dello schermo (tasto Stamp; con «area» si sceglie la zona col mouse, Shift+Stamp).
+# Salva in Immagini/Schermate, copia negli appunti e avvisa con una notifica.
+pics=$(xdg-user-dir PICTURES 2>/dev/null)
+[ -n "$pics" ] && [ "$pics" != "$HOME" ] || pics="$HOME/Immagini"
+dir="$pics/Schermate"
+mkdir -p "$dir"
+file="$dir/schermata-$(date +%Y-%m-%d-%H%M%S).png"
+if [ "$1" = area ]; then
+  zona=$(slurp 2>/dev/null) || exit 0   # Esc: annullato
+  grim -g "$zona" "$file" || exit 1
+else
+  grim "$file" || exit 1
+fi
+command -v wl-copy >/dev/null && wl-copy --type image/png < "$file"
+notify-send --app-name=AIOS --icon="$file" "Schermata salvata" "In Immagini › Schermate, e negli appunti: puoi incollarla." 2>/dev/null

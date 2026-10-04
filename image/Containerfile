@@ -159,7 +159,7 @@ RUN systemctl enable ollama.service aios-modello-base.service aios-risparmio.ser
 # controlli: se manca un pezzo della sessione, la costruzione si ferma (non un'anteprima a metà)
 RUN test -x /usr/bin/Hyprland && test -x /usr/bin/hyprctl && test -x /usr/bin/labwc && test -x /usr/bin/greetd \
     && test -x /usr/bin/cage
-RUN chmod 755 /usr/bin/aios-sessione /usr/bin/aios-blocca /usr/libexec/aios-accesso-avvio /usr/libexec/aios-avvio-sessione /usr/share/aios/labwc/autostart /usr/libexec/aios-risparmio /usr/lib/systemd/system-sleep/aios-risparmio /usr/libexec/aios-credenziali-registro \
+RUN chmod 755 /usr/bin/aios-sessione /usr/bin/aios-blocca /usr/bin/aios-schermata /usr/libexec/aios-accesso-avvio /usr/libexec/aios-avvio-sessione /usr/share/aios/labwc/autostart /usr/libexec/aios-risparmio /usr/lib/systemd/system-sleep/aios-risparmio /usr/libexec/aios-credenziali-registro \
     && rm -f /etc/systemd/system/display-manager.service \
     && (systemctl disable gdm.service || true) \
     && (systemctl enable greetd.service || true) \
