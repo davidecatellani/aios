@@ -62,7 +62,7 @@ button { font: inherit; cursor: pointer; }
 .sfera { width: 30px; height: 30px; flex: none; }
 
 #centro { display: flex; flex-direction: column; gap: 14px; overflow: hidden; }
-#saluto { font-size: 52px; font-weight: 800; margin: 18px 0 0; letter-spacing: -1px; }
+#saluto { font-size: 44px; font-weight: 800; margin: 18px 0 0; letter-spacing: -1px; }
 #sottotitolo { font-size: 20px; color: var(--tenue); margin: 0 0 8px; }
 #esempi { display: flex; flex-wrap: wrap; gap: 10px; }
 .esempio { border: 1px solid var(--bordo); background: var(--chip); color: var(--testo); border-radius: 999px; padding: 9px 16px; font-size: 15px; }
@@ -572,8 +572,17 @@ async function aspetto() {
   aspettoOra = JSON.stringify(a);
   document.documentElement.style.setProperty("--carattere", `"${a.carattere}"`);
   // la barra ha un'altezza fissa: lì cambia solo il carattere
-  document.documentElement.style.zoom = PARTE === "barra" ? 1 : a.scala;
+  aspettoScala = a.scala;
+  adattaAlloSchermo();
 }
+// La schermata è disegnata per schermi larghi (1700 px circa): su quelli più piccoli (1366×768, 1440×900)
+// si rimpicciolisce da sola, così ci sta tutto; la scelta dell'utente (Testo e carattere) si somma.
+let aspettoScala = 1;
+function adattaAlloSchermo() {
+  const auto = Math.min(1, Math.max(0.72, window.innerWidth / 1700, window.innerHeight / 1000));
+  document.documentElement.style.zoom = PARTE === "barra" ? 1 : (auto * aspettoScala).toFixed(3);
+}
+window.addEventListener("resize", adattaAlloSchermo);
 window.novaAspetto = aspetto;
 aspetto(); setInterval(aspetto, 15000);
 
