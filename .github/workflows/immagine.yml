@@ -55,6 +55,20 @@ jobs:
             fi
           done
           echo "Nessuna immagine Silverblue trovata" >&2; exit 1
+      - name: Adattatori del nucleo
+        # l'ultima Release «adattatori-N» (flusso Adattatori del nucleo); se non c'è, l'immagine si fa senza
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          tag=$(gh release list --repo "$GITHUB_REPOSITORY" --limit 100 --json tagName --jq '.[].tagName' \
+                | grep '^adattatori-[0-9]*$' | sort -t- -k2 -nr | head -n1)
+          if [ -n "$tag" ]; then
+            gh release download "$tag" --repo "$GITHUB_REPOSITORY" --dir image/nucleo --pattern '*.gguf' --pattern SHA256SUMS
+            (cd image/nucleo && sha256sum -c SHA256SUMS) && rm image/nucleo/SHA256SUMS
+            echo "Nucleo: $tag"; ls -lh image/nucleo
+          else
+            echo "::notice::nessun adattatore pubblicato: Nova userà Tev1"
+          fi
       - name: Costruisci
         run: |
           echo "VERSIONE=$(date -u +%Y.%m.%d).${GITHUB_RUN_NUMBER}" >> "$GITHUB_ENV"

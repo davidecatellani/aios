@@ -1,0 +1,80 @@
+name: Adattatori del nucleo
+
+# Addestra gli adattatori LoRA di Nova (copilot/addestramento) sul modello base Qwen3.5 0.8B, li converte
+# in GGUF con llama.cpp, li misura su frasi mai viste e li pubblica in una Release «adattatori-N» insieme al
+# modello base. La costruzione dell'immagine prende l'ultima. Si avvia solo a mano.
+on:
+  workflow_dispatch:
+    inputs:
+      minuti:
+        description: "Tempo massimo di addestramento per adattatore (minuti, senza scheda video)"
+        default: "110"
+      epoche:
+        description: "Passate sugli esempi"
+        default: "2"
+
+permissions:
+  contents: write
+
+env:
+  BASE: Qwen/Qwen3.5-0.8B
+  LLAMA_CPP: b11392  # stessa versione dell'immagine (image/Containerfile)
+
+jobs:
+  adattatori:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 340
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Strumenti
+        run: |
+          pip install --index-url https://download.pytorch.org/whl/cpu torch
+          pip install "transformers>=5" peft accelerate sentencepiece safetensors huggingface_hub
+          pip install -e copilot
+          git clone --depth 1 --branch "$LLAMA_CPP" https://github.com/ggml-org/llama.cpp /tmp/llama.cpp
+          pip install /tmp/llama.cpp/gguf-py
+          curl -fsSL -o /tmp/llama.tar.gz \
+            "https://github.com/ggml-org/llama.cpp/releases/download/$LLAMA_CPP/llama-$LLAMA_CPP-bin-ubuntu-x64.tar.gz"
+          mkdir -p /tmp/llama-bin && tar -xzf /tmp/llama.tar.gz -C /tmp/llama-bin
+          echo "SERVER=$(find /tmp/llama-bin -name llama-server -type f | head -n1)" >> "$GITHUB_ENV"
+      - name: Frasi
+        run: python copilot/addestramento/dati.py --uscita dati
+      - name: Modello base
+        run: |
+          huggingface-cli download "$BASE" --local-dir base-hf || hf download "$BASE" --local-dir base-hf
+          python /tmp/llama.cpp/convert_hf_to_gguf.py base-hf --outtype q8_0 --outfile uscita/base.gguf
+          ls -lh uscita
+      - name: Adattatore smistamento
+        run: |
+          python copilot/addestramento/addestra.py --base base-hf --dati dati/smistamento.jsonl --uscita lora/smistamento \
+            --epoche "${{ inputs.epoche }}" --max-minuti "${{ inputs.minuti }}"
+      - name: Adattatore campi
+        run: |
+          python copilot/addestramento/addestra.py --base base-hf --dati dati/campi.jsonl --uscita lora/campi \
+            --epoche "${{ inputs.epoche }}" --max-minuti "${{ inputs.minuti }}"
+      - name: Conversione in GGUF
+        run: |
+          for a in smistamento campi; do
+            python /tmp/llama.cpp/convert_lora_to_gguf.py --base base-hf --outtype f16 --outfile "uscita/$a.gguf" "lora/$a"
+          done
+          ls -lh uscita
+      - name: Misura
+        run: |
+          chmod +x "$SERVER"
+          LD_LIBRARY_PATH="$(dirname "$SERVER")" "$SERVER" -m uscita/base.gguf --lora uscita/smistamento.gguf \
+            --lora uscita/campi.gguf --lora-init-without-apply --port 11436 -c 2048 -np 1 > server.log 2>&1 &
+          for i in $(seq 60); do curl -sf http://127.0.0.1:11436/health && break; sleep 2; done
+          python copilot/addestramento/valuta.py --dati dati --url http://127.0.0.1:11436 | tee uscita/misura.md
+          cat server.log | tail -n 20
+      - name: Pubblica
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          cd uscita && sha256sum *.gguf > SHA256SUMS
+          tag="adattatori-${GITHUB_RUN_NUMBER}"
+          { echo "Adattatori LoRA del nucleo su $BASE (llama.cpp $LLAMA_CPP)."; echo; cat misura.md; } > note.md
+          gh release create "$tag" --repo "$GITHUB_REPOSITORY" --prerelease --title "Adattatori del nucleo ${GITHUB_RUN_NUMBER}" \
+            --notes-file note.md base.gguf smistamento.gguf campi.gguf misura.md SHA256SUMS

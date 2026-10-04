@@ -9,7 +9,9 @@ modello piccolo sbaglia meno strumento.
 
 Ordine dei livelli in Nova (agent.py): regole fisse (microsecondi) → smistatore (decine di ms) →
 modello di conversazione con gli strumenti dell'ambito → se serve, tutti gli strumenti.
-Se lo smistatore non c'è, non risponde o è incerto, Nova lavora come prima, con tutti gli strumenti.
+Se lo smistatore non c'è, non risponde o è incerto, il modello riceve gli strumenti di base (CORE).
+Se c'è il nucleo (nucleo.py: un solo modello 0.8B con gli adattatori LoRA di AIOS) ambito, azione e campi
+li decide lui, al posto di Tev1 e del modello 0.8B separato: un modello in memoria invece di due.
 """
 
 from __future__ import annotations
@@ -90,8 +92,14 @@ class Smistatore:
     """Chiede al modello decisionale l'ambito di una frase; None se non sa o non può."""
 
     def __init__(self, domains: list[Domain], model: str | None = None, url: str | None = None,
-                 post: Callable[[str, dict[str, Any], float], dict[str, Any]] | None = None):
+                 post: Callable[[str, dict[str, Any], float], dict[str, Any]] | None = None,
+                 nucleo: Any = "predefinito"):
         self.domains = {d.name: d for d in domains}
+        if nucleo == "predefinito":
+            from .nucleo import Nucleo
+
+            nucleo = None if os.environ.get("AIOS_NUCLEO", "") == "spento" or post is not None else Nucleo()
+        self.nucleo = nucleo  # un modello con gli adattatori (nucleo.py): se c'è, al posto di Tev1 e del 0.8B
         self.model = model or os.environ.get("AIOS_SMISTATORE", DEFAULT_MODEL)
         self.url = (url or os.environ.get("AIOS_OLLAMA_URL", "http://localhost:11434")).rstrip("/")
         self.post = post or _post
@@ -119,7 +127,18 @@ class Smistatore:
             self._off_until = time.monotonic() + RETRY_AFTER
             return None
 
+    def _nucleo(self) -> Any:
+        return self.nucleo if self.nucleo is not None and self.nucleo.available() else None
+
     def _decide(self, text: str) -> tuple[str, float] | None:
+        nucleo = self._nucleo()
+        if nucleo is not None:
+            from .nucleo import prompt_ambito
+
+            got = nucleo.choose(prompt_ambito(text), list(self.domains))
+            if got is not None:
+                self.last = {"ambito": got[0], "fiducia": got[1], "da": "nucleo"}
+                return got
         payload = {"model": self.model, "state": text[:2000], "questions": {"ambito": {
             "type": "choice", "instructions": "Which area does this request to a personal computer assistant belong to?",
             "criteria": {name: d.description for name, d in self.domains.items()}}}}
@@ -144,9 +163,17 @@ class Smistatore:
         candidates = {n: tools[n] for n in sorted(self.domains[decided[0]].tools) if n in tools}
         if not candidates or len(candidates) > 25:
             return None
-        criteria = {n: t.description[:200] for n, t in candidates.items()}
-        criteria[NO_ACTION] = "None of these actions: the user wants to talk, asks a question or wants something else"
-        picked = self._ask(text, "azione", "Which action should the assistant run for this request?", criteria)
+        picked = None
+        nucleo = self._nucleo()
+        if nucleo is not None:
+            from .nucleo import prompt_azione
+
+            names = [*candidates, NO_ACTION]
+            picked = nucleo.choose(prompt_azione(text, names), names)
+        if picked is None:
+            criteria = {n: t.description[:200] for n, t in candidates.items()}
+            criteria[NO_ACTION] = "None of these actions: the user wants to talk, asks a question or wants something else"
+            picked = self._ask(text, "azione", "Which action should the assistant run for this request?", criteria)
         if picked is None or picked[0] not in candidates or picked[1] < MIN_ACTION_CONFIDENCE:
             return None
         tool = candidates[picked[0]]
@@ -164,6 +191,15 @@ class Smistatore:
         from datetime import datetime
 
         when = (now or datetime.now)()
+        nucleo = self._nucleo()
+        if nucleo is not None:
+            from .nucleo import prompt_campi
+
+            props = tool.parameters.get("properties", {})
+            got = nucleo.fill(prompt_campi(text, tool.name, tool.description, props, when), props,
+                              tool.parameters.get("required", []))
+            if got is not None:
+                return got
         schema = {"type": "object", "properties": tool.parameters.get("properties", {}),
                   "required": tool.parameters.get("required", [])}
         payload = {"model": self.fill_model, "stream": False, "think": False, "format": schema, "keep_alive": "30m",

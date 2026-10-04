@@ -128,6 +128,24 @@ RUN set -e; if [ -n "$MODELLI_INCLUSI" ]; then \
       ollama list; pkill ollama || true; chmod -R a+rX "$OLLAMA_MODELS"; \
     fi; rm -f /tmp/ollama.log
 
+# Il nucleo: un solo modello 0.8B con gli adattatori LoRA di Nova (smistamento, campi), al posto di Tev1 e
+# del 0.8B separati (copilot/aios_copilot/nucleo.py). I file li mette in image/nucleo il flusso di
+# costruzione (ultima Release «adattatori-N»); se mancano si costruisce senza e Nova usa Tev1.
+# Il motore è llama-server di llama.cpp (quello di Fedora è troppo vecchio per Qwen3.5).
+ARG LLAMA_CPP=b11392
+COPY image/nucleo/ /usr/share/aios/nucleo/
+RUN set -e; rm -f /usr/share/aios/nucleo/.gitkeep /usr/share/aios/nucleo/.gitignore; \
+    if [ -f /usr/share/aios/nucleo/base.gguf ] && [ -f /usr/share/aios/nucleo/smistamento.gguf ]; then \
+      curl -fsSL -o /tmp/llama.tar.gz \
+        "https://github.com/ggml-org/llama.cpp/releases/download/${LLAMA_CPP}/llama-${LLAMA_CPP}-bin-ubuntu-x64.tar.gz"; \
+      mkdir -p /usr/lib/aios/llama /tmp/llama && tar -xzf /tmp/llama.tar.gz -C /tmp/llama; \
+      d=$(dirname "$(find /tmp/llama -name llama-server -type f | head -n1)"); \
+      cp -a "$d"/llama-server "$d"/*.so* /usr/lib/aios/llama/ 2>/dev/null || cp -a "$d"/llama-server /usr/lib/aios/llama/; \
+      rm -rf /tmp/llama /tmp/llama.tar.gz; chmod -R a+rX /usr/share/aios/nucleo /usr/lib/aios/llama; \
+      LD_LIBRARY_PATH=/usr/lib/aios/llama /usr/lib/aios/llama/llama-server --version; \
+      systemctl enable aios-nucleo.service; \
+    else echo "Nucleo senza adattatori: Nova userà Tev1"; fi
+
 # Flathub: le app che l'utente chiede a Nova («installa VLC») arrivano da qui
 RUN mkdir -p /etc/flatpak/remotes.d \
     && curl -fsSL -o /etc/flatpak/remotes.d/flathub.flatpakrepo https://dl.flathub.org/repo/flathub.flatpakrepo
