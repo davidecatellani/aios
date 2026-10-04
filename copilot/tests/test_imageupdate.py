@@ -196,7 +196,10 @@ def test_copilot_commands(tmp_path, monkeypatch):
                                     connect=lambda token: connected.append(token) or "Collegato.")
     agent = Agent(NoModel(), tools, confirm=lambda *a, **k: True, routers=[update_tools.UpdatesRouter()])
     assert agent.ask("collega github per gli aggiornamenti") == "Collegato." and connected == ["il-token"]
-    assert "pronto per il prossimo riavvio" in agent.ask("aggiorna dalla chiavetta")
+    monkeypatch.setattr("aios_copilot.agenda.notify", lambda title, body: None)
+    assert "sottofondo" in agent.ask("aggiorna dalla chiavetta")
+    up.Updates._worker.join(10)
+    assert "pronto per il prossimo riavvio" in " ".join(up.load_state()["ultimo_esito"])
     no_dialog = update_tools.make_tools(Runner(), updates=u, secret=lambda t, x: None)
     agent = Agent(NoModel(), no_dialog, confirm=lambda *a, **k: True, routers=[update_tools.UpdatesRouter()])
     assert "qui in chat" in agent.ask("collega github")

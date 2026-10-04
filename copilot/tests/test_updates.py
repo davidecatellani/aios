@@ -117,7 +117,7 @@ def test_health_check():
     assert updates.health_check(lambda c: (0, "failed"))[0].startswith("Ollama")
 
 
-def test_copilot_update_phrases():
+def test_copilot_update_phrases(monkeypatch):
     class NoModel:
         def chat(self, *a):
             raise AssertionError("niente LLM")
@@ -125,9 +125,45 @@ def test_copilot_update_phrases():
     r, asked = FakeSystem(), []
     agent = Agent(NoModel(), update_tools.make_tools(r), confirm=lambda tool, args, **k: asked.append(tool.name) or True,
                   routers=[update_tools.UpdatesRouter()])
-    assert "Sistema: pronto per il prossimo riavvio" in agent.ask("aggiorna il sistema")
+    monkeypatch.setattr("aios_copilot.agenda.notify", lambda title, body: None)
+    assert "sottofondo" in agent.ask("aggiorna il sistema")
+    updates.Updates._worker.join(10)
+    assert "Sistema: pronto per il prossimo riavvio" in updates.load_state()["ultimo_esito"]
     assert "Aggiornamento di sicurezza pronto" in agent.ask("ci sono aggiornamenti?")
     assert agent.ask("riavvia per aggiornare").startswith("Riavvio") and r.ran[-1] == ["systemctl", "reboot"]
     assert "versione precedente" in agent.ask("torna alla versione precedente del sistema")
     assert asked == ["update_now", "restart_to_update", "rollback_system"]  # tutto ciò che cambia il sistema chiede conferma
     assert "disattivati" in agent.ask("disattiva gli aggiornamenti automatici")
+
+
+def test_system_update_runs_in_background(tmp_path, monkeypatch):
+    import threading
+
+    from aios_copilot import updates as up_mod
+    from aios_copilot.tools import updates as tools_mod
+
+    monkeypatch.setenv("AIOS_AGGIORNAMENTI_DIR", str(tmp_path / "work"))
+    gate, notes = threading.Event(), []
+
+    class Slow(up_mod.Updates):
+        def __init__(self):
+            self.clock = lambda: 1000.0
+            self.package = None
+
+        def check(self, sources=("chiavetta", "github")):
+            return [up_mod.Update("sistema", "AIOS 2026.10.05.21 (da GitHub, 8.0 GB)", False, "2026.10.05.21")]
+
+        def prepare(self, found=None):
+            gate.wait(5)
+            return ["Sistema: pronto per il prossimo riavvio"]
+
+    slow = Slow()
+    monkeypatch.setattr("aios_copilot.agenda.notify", lambda title, body: notes.append(body))
+    tools = {t.name: t for t in tools_mod.make_tools(updates=slow)}
+    first = tools["update_now"].func()
+    assert "sottofondo" in first and slow.busy()
+    assert "in corso" in tools["update_now"].func()  # una seconda richiesta non ne fa partire un'altra
+    gate.set()
+    up_mod.Updates._worker.join(5)
+    assert notes == ["Sistema: pronto per il prossimo riavvio"]
+    assert up_mod.load_state()["ultimo_esito"] == ["Sistema: pronto per il prossimo riavvio"]

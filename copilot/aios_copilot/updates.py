@@ -271,6 +271,53 @@ class Updates:
         save_state(state)
         return f"Sistema: AIOS {pkg.version} pronto per il prossimo riavvio (dati, impostazioni e app restano)."
 
+    # --- in sottofondo, con l'avanzamento visibile ----------------------------------------------------
+    _worker: threading.Thread | None = None
+
+    def busy(self) -> bool:
+        return Updates._worker is not None and Updates._worker.is_alive()
+
+    def start_background(self, found: list[Update], notify: Callable[[str, str], None] | None = None) -> None:
+        from .agenda import notify as default_notify
+
+        notify = notify or default_notify
+        state = load_state()
+        system = next((u for u in found if u.kind == "sistema"), None)
+        state["in_corso"] = {"cosa": system.summary if system else "aggiornamenti", "inizio": self.clock(),
+                             "totale": self.package.size if self.package is not None else 0}
+        save_state(state)
+
+        def work() -> None:
+            try:
+                report = self.prepare(found)
+            except Exception as exc:  # l'utente deve sempre sapere com'è finita
+                report = [f"Aggiornamento non riuscito: {exc}"]
+            state = load_state()
+            state.pop("in_corso", None)
+            state["ultimo_esito"] = report
+            save_state(state)
+            notify("Aggiornamento di AIOS", "\n".join(report)[:300])
+
+        Updates._worker = threading.Thread(target=work, daemon=True)
+        Updates._worker.start()
+
+    def progress_text(self) -> str:
+        from .imageupdate import workdir
+
+        job = load_state().get("in_corso") or {}
+        total = job.get("totale") or 0
+        done = 0
+        try:
+            done = sum(p.stat().st_size for p in workdir().iterdir() if p.is_file())
+        except OSError:
+            pass
+        minutes = int((self.clock() - job.get("inizio", self.clock())) / 60)
+        if total and done:
+            pct = min(99, int(done * 100 / (2 * total if done > total else total)))
+            phase = "ricompongo l'immagine" if done > total else f"scaricati {done / 1e9:.1f} di {total / 1e9:.1f} GB"
+            return f"Aggiornamento in corso ({pct}%): {phase}, da {minutes} minuti. Ti avviso quando è pronto."
+        return f"Aggiornamento in corso da {minutes} minuti ({job.get('cosa', 'sistema')}). Ti avviso quando è pronto."
+
     def try_registry(self, force: bool = False) -> str:
         """Con il token già salvato si prova il registro (al massimo una volta al giorno). → "" se va."""
         from . import vault
@@ -330,7 +377,9 @@ class Updates:
 
     def describe(self) -> str:
         state = load_state()
-        lines = []
+        lines = [self.progress_text()] if self.busy() else []
+        if not self.busy() and state.get("ultimo_esito"):
+            lines.append("Ultimo aggiornamento: " + " ".join(state["ultimo_esito"])[:300])
         if self.system.available():
             st = self.system.status()
             lines.append(f"Sistema in uso: {st['in_uso'] or 'sconosciuto'}.")

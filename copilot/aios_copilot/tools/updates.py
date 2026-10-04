@@ -35,10 +35,18 @@ def make_tools(runner: Runner | None = None, updates: Updates | None = None,
         return updates.describe()
 
     def update_now() -> str:
+        if updates.busy():
+            return updates.progress_text()
         found = updates.check()
         if not found:
-            return "È tutto aggiornato. 👍"
-        return "\n".join(updates.prepare(found))
+            return "È tutto aggiornato."
+        big = [u for u in found if u.kind == "sistema"]
+        if not big:
+            return "\n".join(updates.prepare(found))
+        # il sistema nuovo pesa gigabyte: si scarica in sottofondo, Nova resta libera e avvisa alla fine
+        updates.start_background(found)
+        return (f"Ho cominciato: {big[0].summary}. Lo scarico in sottofondo, puoi continuare a usare il computer. "
+                "Chiedimi «come va l'aggiornamento?» per sapere a che punto è; ti avviso io quando è pronto.")
 
     def rollback_system() -> str:
         return updates.rollback()
@@ -69,7 +77,11 @@ def make_tools(runner: Runner | None = None, updates: Updates | None = None,
         if system is None:
             return ("Non trovo una versione più recente di AIOS sulla chiavetta: copia nella chiavetta i file "
                     "«aios-aggiornamento…» della Release (tutti, senza riunirli) e inseriscila.")
-        return "\n".join(updates.prepare([system]))
+        if updates.busy():
+            return updates.progress_text()
+        updates.start_background([system])
+        return (f"Ho cominciato: {system.summary}. Copio e preparo in sottofondo (qualche minuto), non togliere la "
+                "chiavetta. Ti avviso io quando è pronto.")
 
     def restart_to_update() -> str:
         code, out = runner.run(["systemctl", "reboot"])
@@ -94,7 +106,9 @@ def make_tools(runner: Runner | None = None, updates: Updates | None = None,
 
 
 RE_STATUS = re.compile(r"^(?:ci sono|ho)\s+(?:degli\s+|nuovi\s+)?aggiornamenti\??$|^(?:il\s+)?(?:sistema|computer|pc)\s+è\s+aggiornato\??$"
-                       r"|^stato\s+degli\s+aggiornamenti$")
+                       r"|^stato\s+degli\s+aggiornamenti$"
+                       r"|^(?:come\s+va|come\s+procede|a\s+che\s+punto\s+(?:è|e)|quanto\s+manca(?:\s+al(?:l')?)?)\s*"
+                       r"(?:l'|con\s+l')?aggiornamento\??$")
 RE_NOW = re.compile(r"^aggiorna\s+(?:il\s+sistema|il\s+computer|il\s+pc|tutto|aios)(?:\s+(?:ora|adesso|subito))?$")
 RE_ROLLBACK = re.compile(r"^(?:torna|ritorna)\s+alla\s+versione\s+precedente(?:\s+del\s+sistema)?$")
 RE_AUTO = re.compile(r"^(?P<v>attiva|disattiva)\s+(?:gli\s+)?aggiornamenti\s+automatici$")
