@@ -150,7 +150,7 @@ class CopilotWindow(Gtk.ApplicationWindow):
                 if cmd:
                     chunks = audio_chunks(cmd)
                     try:
-                        text = Ears().transcribe(chunks)
+                        text = Ears().transcribe(chunks, require_wake=False) or ""
                     finally:
                         chunks.close()
             except Exception as exc:

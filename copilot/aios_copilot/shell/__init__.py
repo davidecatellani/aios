@@ -555,7 +555,8 @@ class ShellApp(LocalApp):
         try:
             chunks = audio_chunks(cmd)
             try:
-                return 200, {"testo": Ears().transcribe(chunks)}
+                # col pulsante non serve dire «Nova»: si trascrive quello che si dice
+                return 200, {"testo": Ears().transcribe(chunks, require_wake=False) or ""}
             finally:
                 chunks.close()
         except Exception as exc:
