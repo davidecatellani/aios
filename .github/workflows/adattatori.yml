@@ -44,6 +44,7 @@ jobs:
         run: python copilot/addestramento/dati.py --uscita dati
       - name: Modello base
         run: |
+          mkdir -p uscita
           huggingface-cli download "$BASE" --local-dir base-hf || hf download "$BASE" --local-dir base-hf
           python /tmp/llama.cpp/convert_hf_to_gguf.py base-hf --outtype q8_0 --outfile uscita/base.gguf
           ls -lh uscita
