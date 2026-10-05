@@ -11,7 +11,9 @@ def test_guess_and_find():
     assert fuso.find("atlantide") == ""
 
 
-def test_ensure_fixes_utc_only():
+def test_ensure_fixes_utc_only(monkeypatch):
+    monkeypatch.setenv("LANG", "it_IT.UTF-8")  # il fuso si deduce dalla lingua: non da quella della macchina di prova
+    monkeypatch.delenv("LC_TIME", raising=False)
     done = []
     assert fuso.ensure(apply=lambda z: done.append(z) or True, now=lambda: "Etc/UTC") == fuso.guess()
     assert done == [fuso.guess()]
