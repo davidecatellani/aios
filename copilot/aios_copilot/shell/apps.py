@@ -1173,6 +1173,61 @@ def register_display(app: Any) -> None:
     app.route("POST", r"/api/luce-notturna", night)
 
 
+def register_clipboard(app: Any) -> None:
+    """Il pannello sopra i programmi: cronologia degli appunti (Super+V) ed emoji (Super+.)."""
+    from .. import cronologia_appunti as CA
+
+    hist = CA.History()
+    emoji: list[Any] = []
+
+    def items(m: Any, b: dict[str, Any], q: dict[str, str]) -> tuple[int, Any]:
+        return 200, {"voci": hist.load(), "attivo": CA.enabled()}
+
+    def image(m: Any, b: dict[str, Any], q: dict[str, str]) -> tuple[int, Any]:
+        path = hist.dir / f"{m.group(1)}.png"
+        if not path.exists():
+            return 404, {"error": "non c'è più"}
+        return 200, Raw(path, "image/png", csp="default-src 'none'")
+
+    def use(m: Any, b: dict[str, Any], q: dict[str, str]) -> tuple[int, Any]:
+        ok = hist.put_text(str(b["testo"])) if isinstance(b.get("testo"), str) else hist.put(str(b.get("id", "")))
+        getattr(app, "on_pick", lambda paste: None)(ok)
+        return 200, {"ok": ok}
+
+    def pin(m: Any, b: dict[str, Any], q: dict[str, str]) -> tuple[int, Any]:
+        return 200, {"ok": hist.pin(str(b.get("id", "")), bool(b.get("fissato", True)))}
+
+    def remove(m: Any, b: dict[str, Any], q: dict[str, str]) -> tuple[int, Any]:
+        return 200, {"ok": hist.remove(str(b.get("id", "")))}
+
+    def clear(m: Any, b: dict[str, Any], q: dict[str, str]) -> tuple[int, Any]:
+        n = hist.clear(keep_pinned=not b.get("tutto"))
+        return 200, {"ok": True, "messaggio": f"Cronologia degli appunti svuotata ({n} voci)."}
+
+    def toggle(m: Any, b: dict[str, Any], q: dict[str, str]) -> tuple[int, Any]:
+        CA.set_enabled(bool(b.get("attivo")))
+        return 200, {"ok": True, "attivo": CA.enabled()}
+
+    def emoji_list(m: Any, b: dict[str, Any], q: dict[str, str]) -> tuple[int, Any]:
+        if not emoji:
+            emoji.extend(CA.emoji_list())
+        return 200, {"emoji": emoji}
+
+    def close(m: Any, b: dict[str, Any], q: dict[str, str]) -> tuple[int, Any]:
+        getattr(app, "on_pick", lambda paste: None)(False)
+        return 200, {"ok": True}
+
+    app.route("GET", r"/api/appunti", items)
+    app.route("GET", r"/api/appunti/img/([0-9a-f]{16})\.png", image)
+    app.route("POST", r"/api/appunti/usa", use)
+    app.route("POST", r"/api/appunti/fissa", pin)
+    app.route("POST", r"/api/appunti/togli", remove)
+    app.route("POST", r"/api/appunti/svuota", clear)
+    app.route("POST", r"/api/appunti/attivo", toggle)
+    app.route("GET", r"/api/emoji", emoji_list)
+    app.route("POST", r"/api/scelta/chiudi", close)
+
+
 def history_path() -> Path:
     return Path(os.environ.get("XDG_DATA_HOME", Path.home() / ".local" / "share")) / "aios" / "risultati.json"
 

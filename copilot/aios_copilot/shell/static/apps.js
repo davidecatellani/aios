@@ -607,6 +607,11 @@ const VISTE = {
                    dici(await api("/api/impostazioni/diario", { cancella: true }).catch(e => ({ ok: false, messaggio: e.message })));
                    apriVista("impostazioni", "privacy");
                  }, "bottone pericolo")));
+      const ap = await api("/api/appunti").catch(() => null);
+      if (ap) carta(riga("Cronologia degli appunti", `Super+V mostra le ultime cose copiate (${ap.voci.length} adesso), Super+. le emoji. Le password dei gestori di password non entrano mai.`,
+                         interruttore(ap.attivo, () => api("/api/appunti/attivo", { attivo: !ap.attivo }).then(() => apriVista("impostazioni", "privacy")))),
+                    riga("Svuota la cronologia degli appunti", "Anche le voci fissate",
+                         bottone("Svuota", async () => { dici(await api("/api/appunti/svuota", { tutto: true }).catch(e => ({ ok: false, messaggio: e.message }))); }, "bottone pericolo")));
       pan.append(esito);
     } else if (sezione === "cloud") {
       const c = await api("/api/cloud").catch(() => null);
