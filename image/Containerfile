@@ -18,7 +18,7 @@ RUN dnf install -y --skip-unavailable \
         greenboot \
         espeak-ng pipewire-utils pulseaudio-utils python3-cffi pciutils usbutils zenity \
         labwc gtk4-layer-shell wlrctl mako swayidle swaylock wlopm grim slurp brightnessctl \
-        greetd greetd-selinux cage python3-openpyxl tuned-ppd gtklock powertop wayvnc wf-recorder python3-cryptography orca git-core \
+        greetd greetd-selinux cage python3-openpyxl tuned-ppd gtklock powertop wayvnc wf-recorder python3-cryptography orca git-core vulkan-loader mesa-vulkan-drivers \
         python3-opencv \
         rsms-inter-fonts atkinson-hyperlegible-fonts google-noto-serif-fonts mozilla-fira-sans-fonts \
         opendyslexic-fonts lexend-fonts jetbrains-mono-fonts \
@@ -256,22 +256,27 @@ RUN set -e; if [ -n "$MODELLI_INCLUSI" ]; then \
       ollama list; pkill ollama || true; chmod -R a+rX "$OLLAMA_MODELS"; \
     fi; rm -f /tmp/ollama.log
 
+# llama.cpp (quello di Fedora è troppo vecchio per Qwen3.5): llama-server per il nucleo, llama-mtmd-cli per leggere
+# foto e scansioni con OvisOCR2 (lettore.py). Versione Vulkan: usa la scheda video di qualsiasi marca (NVIDIA, AMD,
+# Intel) senza CUDA, o il processore se non c'è; se manca, quella per processore.
+ARG LLAMA_CPP=b11392
+RUN set -e; rel="https://github.com/ggml-org/llama.cpp/releases/download/${LLAMA_CPP}"; \
+    curl -fsSL -o /tmp/llama.tar.gz "$rel/llama-${LLAMA_CPP}-bin-ubuntu-vulkan-x64.tar.gz" \
+      || curl -fsSL -o /tmp/llama.tar.gz "$rel/llama-${LLAMA_CPP}-bin-ubuntu-x64.tar.gz"; \
+    mkdir -p /usr/lib/aios/llama /tmp/llama && tar -xzf /tmp/llama.tar.gz -C /tmp/llama; \
+    d=$(dirname "$(find /tmp/llama -name llama-server -type f | head -n1)"); \
+    cp -a "$d"/llama-server "$d"/llama-mtmd-cli /usr/lib/aios/llama/; cp -a "$d"/*.so* /usr/lib/aios/llama/ 2>/dev/null || true; \
+    rm -rf /tmp/llama /tmp/llama.tar.gz; chmod -R a+rX /usr/lib/aios/llama; \
+    LD_LIBRARY_PATH=/usr/lib/aios/llama /usr/lib/aios/llama/llama-server --version; \
+    LD_LIBRARY_PATH=/usr/lib/aios/llama /usr/lib/aios/llama/llama-mtmd-cli --help >/dev/null 2>&1 || echo "avviso: llama-mtmd-cli non parte"
+
 # Il nucleo: un solo modello 0.8B con gli adattatori LoRA di Nova (smistamento, campi), al posto di Tev1 e
 # del 0.8B separati (copilot/aios_copilot/nucleo.py). I file li mette in image/nucleo il flusso di
 # costruzione (ultima Release «adattatori-N»); se mancano si costruisce senza e Nova usa Tev1.
-# Il motore è llama-server di llama.cpp (quello di Fedora è troppo vecchio per Qwen3.5).
-ARG LLAMA_CPP=b11392
 COPY image/nucleo/ /usr/share/aios/nucleo/
 RUN set -e; rm -f /usr/share/aios/nucleo/.gitkeep /usr/share/aios/nucleo/.gitignore; \
     if [ -f /usr/share/aios/nucleo/base.gguf ] && [ -f /usr/share/aios/nucleo/smistamento.gguf ]; then \
-      curl -fsSL -o /tmp/llama.tar.gz \
-        "https://github.com/ggml-org/llama.cpp/releases/download/${LLAMA_CPP}/llama-${LLAMA_CPP}-bin-ubuntu-x64.tar.gz"; \
-      mkdir -p /usr/lib/aios/llama /tmp/llama && tar -xzf /tmp/llama.tar.gz -C /tmp/llama; \
-      d=$(dirname "$(find /tmp/llama -name llama-server -type f | head -n1)"); \
-      cp -a "$d"/llama-server "$d"/*.so* /usr/lib/aios/llama/ 2>/dev/null || cp -a "$d"/llama-server /usr/lib/aios/llama/; \
-      rm -rf /tmp/llama /tmp/llama.tar.gz; chmod -R a+rX /usr/share/aios/nucleo /usr/lib/aios/llama; \
-      LD_LIBRARY_PATH=/usr/lib/aios/llama /usr/lib/aios/llama/llama-server --version; \
-      systemctl enable aios-nucleo.service; \
+      chmod -R a+rX /usr/share/aios/nucleo; systemctl enable aios-nucleo.service; \
     else echo "Nucleo senza adattatori: Nova userà Tev1"; fi
 
 # Il decisore: Laya, il System One di Nova (copilot/aios_copilot/decisore.py), addestrato per AIOS

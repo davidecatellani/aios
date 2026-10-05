@@ -112,13 +112,34 @@ def make_capability_tools(ready: dict[str, str]) -> list[Tool]:
             Tool("look_at_screen", "Guarda lo schermo dell'utente e risponde (es. «cosa dice questo errore?»).",
                  params([], question="Cosa chiedere"), look_at_screen, reads_private=True),
         ]
-    if "lettura" in ready:
-        ocr = ready["lettura"]
-        tools.append(Tool("read_scanned_document", "Trascrive in testo (markdown) un documento fotografato o scansionato: "
-                          "bollette, contratti, tabelle. Più preciso di describe_image per il testo.",
-                          params(path="Percorso dell'immagine"),
-                          lambda path: engines.read_document(Path(path), ocr),
-                          reads_private=True))
+    # leggere un documento: il testo vero dei PDF, l'OCR solo per foto, scansioni e pagine fatte di immagini (lettore.py)
+    from .. import lettore
+
+    ocr_model = ready.get("lettura")
+
+    def want_best_reader() -> bool:
+        """Il lettore migliore (OvisOCR2) si scarica da solo la prima volta che serve; → True se è in arrivo."""
+        try:
+            from ..models import Queue, find_model
+
+            model = find_model(lettore.BEST)
+            return model is not None and (Queue().add(model) or any(d.name == model.name for d in Queue().pending()))
+        except Exception:
+            return False
+
+    def ocr_or_queue(p: Path) -> str:
+        if ocr_model != lettore.BEST:
+            coming = want_best_reader()
+            if ocr_model is None:
+                return ("Questa è una foto o una scansione: per leggerla scarico il lettore di documenti (1 GB, una volta sola). "
+                        "Riprova tra qualche minuto." if coming else "Per leggere foto e scansioni manca il modello di lettura.")
+        return engines.read_document(Path(p), ocr_model)
+
+    ocr = ocr_or_queue
+    tools.append(Tool("read_scanned_document", "Legge un documento e ne dà il testo (markdown): PDF, bollette, contratti, "
+                      "tabelle, anche fotografati o scansionati. Più preciso di describe_image per il testo.",
+                      params(path="Percorso del PDF o dell'immagine"),
+                      lambda path: lettore.read(Path(path), ocr), reads_private=True))
     if "voce" in ready:
         voice = ready["voce"]
         tools.append(Tool("read_aloud", "Legge un testo ad alta voce.", params(text="Testo"),

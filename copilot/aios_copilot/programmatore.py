@@ -42,8 +42,11 @@ Come lavori:
 1. Trova dove si fa la cosa: usa cerca e elenca, poi leggi solo le parti che servono (leggi con da/a).
 2. Fai il cambiamento più piccolo e pulito che soddisfa la richiesta, nello stile del codice intorno (stessi nomi, commenti brevi
    in italiano). Non toccare altro. Funziona sia col tema chiaro sia con quello scuro.
+   Non togliere niente di quello che c'era (dati mostrati, testi, opzioni come il fuso orario di un orologio): aggiungi o
+   trasforma, a meno che l'utente chieda di togliere.
 3. Modifica con modifica_file (testo vecchio esatto e unico → testo nuovo); scrivi_file solo per file nuovi.
-4. Chiama controlla. Se segnala errori, correggili e ricontrolla.
+4. Rileggi quello che hai scritto e verifica la logica a mente: calcoli, unità, angoli (un orologio: ore × 30°, minuti × 6°),
+   centri e punti di rotazione, che cosa succede col tema scuro. Poi chiama controlla; se segnala errori, correggi e ricontrolla.
 5. Quando hai finito chiama fatto con un riassunto in italiano per l'utente (cosa hai cambiato, dove, come annullarlo).
 Non inventare file o funzioni: verifica sempre leggendo. Non puoi toccare codice.py, __init__.py e programmatore.py.
 Niente accessi a internet, comandi di sistema o cancellazioni di file dell'utente, a meno che la richiesta lo richieda davvero."""

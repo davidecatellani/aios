@@ -2,6 +2,7 @@ import os
 import socket
 import struct
 import threading
+import time
 
 import pytest
 from pathlib import Path
@@ -365,6 +366,10 @@ def test_files_travel_between_pcs(tmp_path, monkeypatch):
     got = tmp_path / "Scaricati"
     assert sorted(names) == ["a.txt", "da mandare"]
     assert (got / "da mandare" / "sotto" / "b.bin").read_bytes() == (src / "sotto" / "b.bin").read_bytes()
+    for _ in range(50):  # l'avviso arriva dal servizio subito dopo l'ultimo file: lo si aspetta un attimo
+        if notes:
+            break
+        time.sleep(0.02)
     assert (got / "a.txt").read_text() == "ciao" and "Scaricati" in notes[-1]
     servizio.send_files_to(laptop, "127.0.0.1", port, [src / "a.txt"])
     assert (got / "a (2).txt").exists()  # non sovrascrive

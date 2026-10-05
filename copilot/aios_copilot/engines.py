@@ -61,7 +61,14 @@ def available(which: Callable[[str], str | None] = shutil.which) -> dict[str, st
             continue
         if model.engine == "file":
             files = model_files(name)
-            if not files or not all(f.exists() for f in files) or engine(cap, which) is None:
+            if not files or not all(f.exists() for f in files):
+                continue
+            if name == "ovisocr2":  # gira con llama.cpp (lettore.py)
+                from .lettore import llama_tool
+
+                if llama_tool("llama-mtmd-cli") is None:
+                    continue
+            elif engine(cap, which) is None:
                 continue
         ready[cap] = name
     # il nucleo (nucleo.py) vede le immagini: se nessun altro modello è scelto, guarda e legge lui
@@ -95,6 +102,10 @@ OCR_PROMPTS = {"glm-ocr": "Text Recognition:", "deepseek-ocr": READ_DOCUMENT}
 
 def read_document(path: Path, model: str, chat: Callable[[str, dict], dict] | None = None) -> str:
     """Trascrive un documento fotografato o scansionato con il modello di lettura scelto."""
+    if model == "ovisocr2":
+        from .lettore import ovis
+
+        return ovis(Path(path), model_files(model)) or "Non sono riuscito a leggere il documento."
     if model == NUCLEO:
         return describe_image(path, READ_DOCUMENT, model)
     prompt = OCR_PROMPTS.get(model.split(":")[0], READ_DOCUMENT)

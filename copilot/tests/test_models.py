@@ -178,9 +178,10 @@ def test_activation_switches_the_copilot_model():
 
 
 def test_capability_tools_only_when_ready(tmp_path, monkeypatch):
-    assert ai_tools.make_capability_tools({}) == []
+    # leggere i documenti c'è sempre (il testo dei PDF non ha bisogno di modelli; lettore.py)
+    assert [t.name for t in ai_tools.make_capability_tools({})] == ["read_scanned_document"]
     names = {t.name for t in ai_tools.make_capability_tools({"vista": "qwen2.5vl:3b", "voce": "piper-it-paola"})}
-    assert names == {"describe_image", "look_at_screen", "read_aloud"}
+    assert names == {"describe_image", "look_at_screen", "read_aloud", "read_scanned_document"}
     # Un modello a file conta solo se i file ci sono E il programma è installato.
     activate_model("piper-it-paola", "voce")
     assert "voce" not in engines.available(which=lambda p: "/usr/bin/piper")
