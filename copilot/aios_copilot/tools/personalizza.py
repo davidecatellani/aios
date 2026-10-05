@@ -19,8 +19,8 @@ def _restart_shell() -> None:
 
 
 def make_tools(restart: Any = _restart_shell) -> list[Tool]:
-    def customize_system(richiesta: str) -> str:
-        r = programmatore.customize(richiesta)
+    def customize_system(richiesta: str, ritocca: str = "") -> str:
+        r = programmatore.customize(richiesta, retouch=ritocca)
         if r.get("in_attesa"):
             return r["messaggio"]
         if not r["ok"]:
@@ -64,7 +64,9 @@ def make_tools(restart: Any = _restart_shell) -> list[Tool]:
         Tool("customize_system", "Modifica AIOS stesso (il codice del sistema) come chiede l'utente: aspetto o funzionamento di "
              "schermata, barra, orologio, widget, app, impostazioni (es. «voglio l'orologio rotondo», «la barra in basso», "
              "«nella gestione attività mostrami anche i dischi»). Ci vuole qualche minuto; si può annullare.",
-             params(richiesta="La richiesta dell'utente, completa", required=["richiesta"]), customize_system),
+             params(richiesta="La richiesta dell'utente, completa",
+                    ritocca="Per cambiare una personalizzazione già fatta: quale (es. «orologio»); altrimenti vuoto",
+                    required=["richiesta"]), customize_system),
         Tool("apply_pending_customization", "Applica la personalizzazione rimasta in attesa di conferma.", params(),
              apply_pending_customization, requires_confirmation=True),
         Tool("undo_customization", "Toglie una personalizzazione di AIOS (l'ultima o quella indicata).",

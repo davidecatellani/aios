@@ -235,11 +235,19 @@ class Programmer:
 
 
 def customize(request: str, model: Any = None, on_step: Callable[[str], None] = lambda s: None,
-              confirm_risky: bool = False) -> dict[str, Any]:
-    """Una richiesta dell'utente → una modifica salvata nella copia personale (o niente, se non riesce)."""
+              confirm_risky: bool = False, retouch: str = "") -> dict[str, Any]:
+    """Una richiesta dell'utente → una modifica salvata nella copia personale (o niente, se non riesce).
+    Con «retouch» (la matitina) si ritocca una personalizzazione già fatta."""
     codice.ensure()
     codice.discard()  # si parte puliti
-    ok, summary = Programmer(model, on_step=on_step).run(request)
+    target = codice.find(retouch) if retouch else None
+    if retouch and target is None:
+        return {"ok": False, "messaggio": "Non trovo la personalizzazione da ritoccare."}
+    task = request
+    if target is not None:
+        task = (f"Ritocca una personalizzazione già applicata: «{target['richiesta']}» ({target['dettagli'][:300]}).\n"
+                f"Ecco cosa cambiava nel codice:\n{codice.show(target)}\n\nCosa vuole adesso l'utente: {request}")
+    ok, summary = Programmer(model, on_step=on_step).run(task)
     if not ok:
         codice.discard()
         return {"ok": False, "messaggio": summary}
@@ -248,11 +256,11 @@ def customize(request: str, model: Any = None, on_step: Callable[[str], None] = 
         return {"ok": False, "messaggio": "Non ho cambiato nessun file: " + summary}
     risky = risky_lines(codice.diff())
     if risky and not confirm_risky:
-        codice.save_state(in_attesa={"richiesta": request, "riassunto": summary})
+        codice.save_state(in_attesa={"richiesta": request, "riassunto": summary, "ritocco": target})
         return {"ok": False, "in_attesa": True, "rischi": risky[:6], "file": changed,
                 "messaggio": "La modifica usa internet, comandi di sistema o cancella file: " + "; ".join(risky[:3])
                              + ". Se vuoi applicarla lo stesso, dimmi «applica la personalizzazione»."}
-    cid = codice.commit(request, summary)
+    cid = codice.commit(request, summary, retouch=target)
     codice.save_state(in_attesa=None)
     return {"ok": True, "id": cid, "file": changed, "messaggio": summary}
 
@@ -266,6 +274,6 @@ def apply_pending() -> dict[str, Any]:
         codice.discard()
         codice.save_state(in_attesa=None)
         return {"ok": False, "messaggio": "La modifica in attesa non regge più: " + msg}
-    cid = codice.commit(pending["richiesta"], pending["riassunto"])
+    cid = codice.commit(pending["richiesta"], pending["riassunto"], retouch=pending.get("ritocco"))
     codice.save_state(in_attesa=None)
     return {"ok": True, "id": cid, "messaggio": pending["riassunto"]}

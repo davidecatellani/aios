@@ -148,13 +148,27 @@ def has_changes() -> bool:
     return bool(history())
 
 
-def commit(request: str, summary: str) -> str:
+def commit(request: str, summary: str, retouch: dict[str, Any] | None = None) -> str:
+    """Salva la modifica. Un ritocco (la matitina) della personalizzazione più recente la aggiorna e resta una sola;
+    il ritocco di una più vecchia diventa una modifica a parte, col nome di quella che ritocca."""
     git("add", "-A")
     if not git("status", "--porcelain").strip():
         return ""
-    git("commit", "-q", "-m", request[:200], "-m", summary[:2000])
+    if retouch and retouch["hash"] == git("rev-parse", "HEAD").strip():
+        body = (retouch["dettagli"] + f"\n\nRitocco: {request}. {summary}").strip()
+        git("commit", "-q", "--amend", "-m", retouch["richiesta"], "-m", body[:4000])
+    elif retouch:
+        git("commit", "-q", "-m", f"Ritocco a «{retouch['richiesta'][:120]}»: {request}"[:200], "-m", summary[:2000])
+    else:
+        git("commit", "-q", "-m", request[:200], "-m", summary[:2000])
     save_state(attivo=True, guasto=False, avvii=0)
     return git("rev-parse", "--short=12", "HEAD").strip()
+
+
+def show(item: dict[str, Any], limit: int = 6000) -> str:
+    """Il cambiamento al codice di una personalizzazione (per ritoccarla)."""
+    text = git("show", "--format=", "--unified=2", item["hash"], check=False)
+    return text[:limit] + ("\n… (continua)" if len(text) > limit else "")
 
 
 def discard() -> None:

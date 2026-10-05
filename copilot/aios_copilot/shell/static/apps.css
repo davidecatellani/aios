@@ -296,3 +296,8 @@ body.in-vista #casa, body.in-vista #fondo { display: none; }
 .diff-aios { max-height: 280px; overflow: auto; font: 12px/1.45 "JetBrains Mono", monospace; background: var(--chip); border-radius: 10px; padding: 10px; white-space: pre-wrap; }
 .diff-aios .piu { color: #1e9e57; } .diff-aios .meno { color: #D9534F; }
 .anteprima-aios:not(:empty) { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--bordo); }
+.matita-aios { width: 36px; height: 36px; border-radius: 10px; border: 1px solid var(--bordo); background: var(--chip); color: var(--turchese);
+               display: grid; place-items: center; flex: none; }
+.matita-aios:hover { border-color: var(--turchese); }
+.matita-aios .icona { width: 18px; height: 18px; }
+.ritocco-aios { padding: 4px 4px 14px; border-bottom: 1px solid var(--bordo); }

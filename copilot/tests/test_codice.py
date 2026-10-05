@@ -161,3 +161,32 @@ def test_nova_tools_and_router(home, monkeypatch):
     assert r.match("rimetti aios originale").tool == "reset_customizations"
     assert r.match("quali personalizzazioni ho?").tool == "list_customizations"
     assert r.match("modifica AIOS: voglio l'orologio rotondo").args == {"richiesta": "voglio l'orologio rotondo"}
+
+
+def test_retouch_with_the_pencil(home, monkeypatch):
+    monkeypatch.setattr(codice, "check", fake_check)
+    codice.ensure(home)
+
+    def edit(old, new, summary):
+        return Script([call("modifica_file", percorso="aios_copilot/widget.py", vecchio=old, nuovo=new),
+                       call("controlla"), call("fatto", riassunto=summary)])
+
+    assert programmatore.customize("orologio rotondo", model=edit("RAGGIO = 0", "RAGGIO = 50", "Tondo."))["ok"]
+    seen = []
+
+    class Spy(Script):
+        def chat(self, messages, tools):
+            seen.append(messages[1]["content"])
+            return super().chat(messages, tools)
+
+    spy = Spy(edit("RAGGIO = 50", "RAGGIO = 50\nBORDO = 'turchese'", "Bordo turchese.").steps)
+    assert programmatore.customize("col bordo turchese", model=spy, retouch="orologio")["ok"]
+    assert "orologio rotondo" in seen[0] and "RAGGIO = 50" in seen[0]  # l'agente vede cosa ritocca
+    h = codice.history()
+    assert len(h) == 1 and h[0]["richiesta"] == "orologio rotondo" and "Ritocco: col bordo turchese" in h[0]["dettagli"]
+    # ritocco di una personalizzazione più vecchia: una modifica a parte, col suo nome
+    (home.parent / "x").mkdir(exist_ok=True)
+    assert programmatore.customize("altro", model=Script([call("scrivi_file", percorso="aios_copilot/nuovo.py", contenuto="X = 1\n"),
+                                                          call("controlla"), call("fatto", riassunto="Nuovo.")]))["ok"]
+    assert programmatore.customize("più grande", model=edit("RAGGIO = 50", "RAGGIO = 80", "Più grande."), retouch="orologio")["ok"]
+    assert codice.history()[0]["richiesta"] == "Ritocco a «orologio rotondo»: più grande"

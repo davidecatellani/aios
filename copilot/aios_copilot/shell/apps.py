@@ -1416,6 +1416,7 @@ def register_customizations(app: Any) -> None:
 
     def ask(m: Any, b: dict[str, Any], q: dict[str, str]) -> tuple[int, Any]:
         request = str(b.get("richiesta", "")).strip()[:1000]
+        retouch = str(b.get("ritocca", "") or "")[:40]  # la matitina di una personalizzazione già fatta
         if not request:
             return 400, {"error": "manca la richiesta"}
         if job["in_corso"]:
@@ -1424,7 +1425,7 @@ def register_customizations(app: Any) -> None:
 
         def work() -> None:
             try:
-                r = programmatore.customize(request, on_step=lambda st: job["passi"].append(st))
+                r = programmatore.customize(request, on_step=lambda st: job["passi"].append(st), retouch=retouch)
             except Exception as exc:
                 r = {"ok": False, "messaggio": str(exc)}
             job.update(in_corso=False, esito=r)

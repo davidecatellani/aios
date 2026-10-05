@@ -1110,9 +1110,23 @@ async function disegnaPersonalizzazioni(carta, riga, dici, esito, pan) {
   if (!d.modifiche.length) lista.append(el("p", "nota", "Nessuna: stai usando AIOS originale."));
   for (const m of d.modifiche) {
     const quando = new Date(m.quando * 1000).toLocaleDateString("it-IT", { day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" });
+    const matita = el("button", "matita-aios"); matita.append(svgIcona("matita")); matita.title = "Ritocca questa personalizzazione";
     const r = riga(el("b", "", m.richiesta), `${quando}${m.dettagli ? " · " + m.dettagli.split("\n")[0].slice(0, 160) : ""}`,
+      matita,
       bottone("Condividi", () => fai({ azione: "esporta", id: m.id }, false)),
       bottone("Togli", async () => { if (await chiediConferma(`Tolgo «${m.richiesta}»?`)) fai({ azione: "annulla", id: m.id }); }, "bottone pericolo"));
+    matita.onclick = () => {  // sotto la riga: cosa cambiare di questa personalizzazione
+      if (r.nextElementSibling?.classList.contains("ritocco-aios")) return r.nextElementSibling.querySelector("textarea").focus();
+      const box = el("div", "ritocco-aios");
+      const t = el("textarea", "campo richiesta-aios"); t.rows = 2; t.placeholder = `Cosa cambio di «${m.richiesta}»? Es. «più grande», «col bordo turchese», «solo la sera»`;
+      const vai = bottone("Ritocca", async () => {
+        if (!t.value.trim()) return;
+        const res = await api("/api/personalizzazioni/chiedi", { richiesta: t.value, ritocca: m.id }).catch(e => ({ ok: false, messaggio: e.message }));
+        if (res.ok === false) dici(res); else apriVista("impostazioni", "personalizzazioni");
+      }, "bottone primo");
+      const p = el("div", "piede-modulo"); p.append(bottone("Annulla", () => box.remove()), vai);
+      box.append(t, p); r.after(box); t.focus();
+    };
     lista.append(r);
   }
   // ricevute da altri
