@@ -21,7 +21,10 @@ def test_windows_with_hyprland(monkeypatch):
     monkeypatch.setenv("HYPRLAND_INSTANCE_SIGNATURE", "x")
     calls = []
     ws = sh.open_windows(fake(calls))
-    assert ws[0] == {"app_id": "org.mozilla.firefox", "title": "Notizie"}
+    firefox = next(w for w in ws if w["app_id"] == "org.mozilla.firefox")
+    assert firefox["title"] == "Notizie" and "indirizzo" in firefox and "attiva" in firefox
+    assert sh.focus_window("", fake(calls), address="0xa1") and calls[-1][-1] == "address:0xa1"  # quella finestra
+    assert not sh.close_window("x", fake(calls), address="0xa1; rm -rf") or calls[-1][-1] != "address:0xa1; rm -rf"
     assert sh.focus_window("org.mozilla.firefox", fake(calls))
     assert calls[-1] == ["hyprctl", "dispatch", "focuswindow", r"class:^(org\.mozilla\.firefox)$"]
     assert not sh.focus_window("org.videolan.VLC", fake(calls))  # non aperto: si avvia

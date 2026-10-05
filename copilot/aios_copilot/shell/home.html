@@ -33,8 +33,22 @@ button { font: inherit; cursor: pointer; }
 #logo b { color: var(--turchese-scuro); }
 @media (prefers-color-scheme: dark) { #logo b { color: var(--turchese); } }
 #app-aperte { display: flex; gap: 6px; overflow: hidden; }
-.aperta { border: 0; border-radius: 10px; padding: 3px 10px; background: var(--chip); color: var(--testo); font-size: 13px;
-          max-width: 180px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.aperta { display: flex; align-items: center; gap: 7px; height: 28px; padding: 0 6px 0 7px; border-radius: 9px;
+          background: transparent; color: var(--tenue); font-size: 13px; font-weight: 600; cursor: pointer;
+          border: 1px solid transparent; transition: background .15s, color .15s, border-color .15s; max-width: 200px; }
+.aperta:hover { background: var(--chip); color: var(--testo); }
+.aperta.davanti { background: var(--carta); color: var(--testo); border-color: var(--bordo);
+                  box-shadow: 0 1px 4px rgba(3,12,18,.10), inset 0 -2px 0 var(--turchese); }
+.icona-finestra { flex: none; width: 18px; height: 18px; border-radius: 5px; display: grid; place-items: center;
+                  font-size: 11px; font-weight: 800; color: #fff; background: linear-gradient(135deg, var(--turchese), var(--turchese-scuro)); }
+.icona-finestra.con-img { background: none; }
+.icona-finestra img { width: 18px; height: 18px; object-fit: contain; }
+.nome-finestra { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.aperta .x { flex: none; width: 18px; height: 18px; padding: 0; border: 0; border-radius: 5px; background: none;
+             color: inherit; display: grid; place-items: center; opacity: 0; transition: opacity .15s, background .15s; }
+.aperta .x svg { width: 12px; height: 12px; }
+.aperta:hover .x, .aperta.davanti .x { opacity: .7; }
+.aperta .x:hover { opacity: 1; background: rgba(217,83,79,.15); color: #D9534F; }
 #ora { position: absolute; left: 50%; transform: translateX(-50%); }
 #destra { margin-left: auto; display: flex; gap: 14px; align-items: center; }
 .badge { background: rgba(46,196,182,.16); color: var(--turchese-scuro); padding: 3px 10px; border-radius: 999px; }
@@ -349,20 +363,45 @@ function stato(s) {
   $("dispositivi").title = disp.join(", ");
 }
 
+// Le finestre aperte nella barra: l'ordine non cambia mai da solo (una finestra nuova va in fondo, una chiusa
+// sparisce); quella davanti è evidenziata, subito al clic e poi con lo stato vero ogni 4 secondi.
+let ordineFinestre = [], ultimeFinestre = [], finestraDavanti = "";
+const chiaveFinestra = w => w.indirizzo || w.app_id;
+function nomeFinestra(w) {
+  return (w.title || w.app_id).replace(/\s+[—–-]\s+(?:Mozilla Firefox|Firefox|Chromium|Google Chrome)$/, "") || w.app_id;
+}
+function disegnaFinestre() {
+  const box = $("app-aperte"); box.replaceChildren();
+  const perChiave = new Map(ultimeFinestre.map(w => [chiaveFinestra(w), w]));
+  for (const k of ordineFinestre.slice(0, 8)) {
+    const w = perChiave.get(k);
+    const b = el("div", "aperta" + (k === finestraDavanti ? " davanti" : ""));
+    b.title = w.title || w.app_id;
+    const ic = el("span", "icona-finestra", (w.app_id || "?").replace(/^.*\./, "").slice(0, 1).toUpperCase());
+    if (!icone.has(w.app_id)) icone.set(w.app_id, api(`/api/icona/${encodeURIComponent(w.app_id)}`));
+    icone.get(w.app_id).then(i => { const img = el("img"); img.alt = ""; img.src = `data:${i.tipo};base64,${i.dati}`; ic.replaceChildren(img); ic.classList.add("con-img"); }).catch(() => {});
+    const nome = el("span", "nome-finestra", nomeFinestra(w));
+    const x = el("button", "x"); x.append(svgIcona("chiudi")); x.title = "Chiudi";
+    x.onclick = e => {
+      e.stopPropagation();
+      api("/api/finestra-chiudi", { app_id: w.app_id, indirizzo: w.indirizzo }).catch(() => {});
+      ordineFinestre = ordineFinestre.filter(o => o !== k); disegnaFinestre(); setTimeout(finestre, 600);
+    };
+    b.onclick = () => { finestraDavanti = k; disegnaFinestre(); api("/api/finestra", { app_id: w.app_id, indirizzo: w.indirizzo }).catch(() => {}); };
+    b.onauxclick = e => { if (e.button === 1) x.onclick(e); };  // clic con la rotellina: chiudi
+    b.append(ic, nome, x); box.append(b);
+  }
+}
 async function finestre() {
   try {
-    const { finestre } = await api("/api/finestre");
-    const box = $("app-aperte"); box.replaceChildren();
-    for (const w of finestre.slice(0, 6)) {
-      const b = el("span", "aperta");
-      const nome = el("button", "", (w.title || w.app_id).replace(/ [—–-] Mozilla Firefox$/, ""));
-      nome.style.cssText = "border:0;background:none;color:inherit;font:inherit;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:0";
-      nome.title = w.title;
-      nome.onclick = () => api("/api/finestra", { app_id: w.app_id }).catch(() => {});
-      const x = el("button", "x", "✕"); x.title = "Chiudi";
-      x.onclick = () => api("/api/finestra-chiudi", { app_id: w.app_id }).then(finestre).catch(() => {});
-      b.append(nome, x); box.append(b);
-    }
+    const { finestre: elenco } = await api("/api/finestre");
+    ultimeFinestre = elenco;
+    const presenti = new Set(elenco.map(chiaveFinestra));
+    ordineFinestre = ordineFinestre.filter(k => presenti.has(k));
+    for (const w of elenco) if (!ordineFinestre.includes(chiaveFinestra(w))) ordineFinestre.push(chiaveFinestra(w));
+    const att = elenco.find(w => w.attiva);
+    finestraDavanti = att ? chiaveFinestra(att) : "";
+    disegnaFinestre();
   } catch {}
 }
 $("logo").onclick = () => api("/api/casa-vai", {}).catch(() => {});

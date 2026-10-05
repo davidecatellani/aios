@@ -177,9 +177,10 @@ def hypr_clients(run: Callable[[list[str]], tuple[int, str]] | None = None) -> l
 def open_windows(run: Callable[[list[str]], tuple[int, str]] | None = None) -> list[dict[str, str]]:
     run = run or _run
     if hyprland():
-        ordered = sorted(hypr_clients(run), key=lambda c: c.get("focusHistoryID", 0))
-        return [{"app_id": c.get("class") or c.get("initialClass", ""), "title": c.get("title", "")}
-                for c in ordered if c.get("class") or c.get("initialClass")]
+        # l'ordine fisso lo tiene la barra (prima vista, prima posizione); qui solo quale è davanti
+        return [{"app_id": c.get("class") or c.get("initialClass", ""), "title": c.get("title", ""),
+                 "indirizzo": str(c.get("address", "")), "attiva": c.get("focusHistoryID", 1) == 0}
+                for c in hypr_clients(run) if c.get("class") or c.get("initialClass")]
     code, out = run(["wlrctl", "toplevel", "list"])
     windows = []
     for line in out.splitlines() if code == 0 else []:
@@ -202,7 +203,12 @@ def _class_rule(app_id: str) -> str:
     return f"class:^({re.escape(app_id)})$"
 
 
-def close_window(app_id: str, run: Callable[[list[str]], tuple[int, str]] | None = None) -> bool:
+ADDRESS_RE = re.compile(r"0x[0-9a-fA-F]{1,16}")
+
+
+def close_window(app_id: str, run: Callable[[list[str]], tuple[int, str]] | None = None, address: str = "") -> bool:
+    if hyprland() and ADDRESS_RE.fullmatch(address):  # quella finestra, anche se il programma ne ha aperte altre
+        return (run or _run)(["hyprctl", "dispatch", "closewindow", f"address:{address}"])[0] == 0
     if not re.fullmatch(r"[\w.+-]+", app_id) or app_id == APP_ID:
         return False
     if hyprland():
@@ -210,7 +216,9 @@ def close_window(app_id: str, run: Callable[[list[str]], tuple[int, str]] | None
     return (run or _run)(["wlrctl", "toplevel", "close", f"app_id:{app_id}"])[0] == 0
 
 
-def focus_window(app_id: str, run: Callable[[list[str]], tuple[int, str]] | None = None) -> bool:
+def focus_window(app_id: str, run: Callable[[list[str]], tuple[int, str]] | None = None, address: str = "") -> bool:
+    if hyprland() and ADDRESS_RE.fullmatch(address):
+        return (run or _run)(["hyprctl", "dispatch", "focuswindow", f"address:{address}"])[0] == 0
     if not re.fullmatch(r"[\w.+-]+", app_id):
         return False
     if hyprland():
@@ -523,7 +531,8 @@ class ShellApp(LocalApp):
         self.route("POST", r"/api/finestra", self._focus)
         self.on_home: Callable[[], None] = lambda: None  # la shell GTK chiude le viste aperte
         self.route("POST", r"/api/casa-vai", self._go_home)
-        self.route("POST", r"/api/finestra-chiudi", lambda m, b, q: (200, {"ok": close_window(str(b.get("app_id", "")))}))
+        self.route("POST", r"/api/finestra-chiudi", lambda m, b, q: (200, {"ok": close_window(
+            str(b.get("app_id", "")), address=str(b.get("indirizzo", "")))}))
         self.route("POST", r"/api/parla", self._speak)
         from .. import diario
 
@@ -633,7 +642,7 @@ class ShellApp(LocalApp):
         return 200, {"risposta": listen_yes_no()}
 
     def _focus(self, match: Any, body: dict[str, Any], query: dict[str, str]) -> tuple[int, Any]:
-        return 200, {"ok": focus_window(str(body.get("app_id", "")))}
+        return 200, {"ok": focus_window(str(body.get("app_id", "")), address=str(body.get("indirizzo", "")))}
 
 
 # --- finestre GTK della shell ------------------------------------------------------------------------------

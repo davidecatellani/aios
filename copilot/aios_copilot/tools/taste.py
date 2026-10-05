@@ -17,7 +17,7 @@ KIND_WORDS = {"film": "film", "serie": "serie", "telefilm": "serie", "serie tv":
 
 
 WEB_LABEL = {"serie": "serie tv", "film": "film", "cartone": "cartoni animati", "software": "programmi per Linux",
-             "gioco": "videogiochi"}
+             "gioco": "giochi per PC (Steam, anche su Linux)"}
 
 
 def web_query(kind: str, request: str) -> str:
@@ -28,9 +28,14 @@ def web_query(kind: str, request: str) -> str:
     if m:
         title = m.group(1).strip(" «»\"'")
         return f"{label} simili a {title} consigli"
-    extra = re.sub(r"(?i)\b(?:che|quale|quali|mi|ci|consigli\w*|suggerisc\w*|propon\w*|di|da|guardare|vedere|"
-                   r"serie|tv|film|cartoni?|animati|giochi|videogiochi|programmi|nova)\b|[?.!,]", " ", request)
-    return f"{label} da vedere consigliati {' '.join(extra.split())}".strip()
+    filler = {"che", "quale", "quali", "mi", "ci", "di", "da", "a", "ad", "un", "una", "uno", "il", "la", "lo", "le", "gli",
+              "cosa", "ho", "hai", "voglia", "guardare", "vedere", "giocare", "provare", "nova", "per", "favore", "qualcosa",
+              "serie", "tv", "film", "cartone", "cartoni", "animati", "gioco", "giochi", "videogioco", "videogiochi",
+              "programma", "programmi", "app", "e", "o", "adesso", "stasera", "oggi"}
+    extra = [w for w in re.findall(r"[\w']+", request.lower())
+             if w not in filler and not re.match(r"(?:consigl|suggeri|propon)", w)]
+    verb = {"gioco": "da giocare", "software": "da provare"}.get(kind, "da vedere")
+    return f"{label} {verb} consigliati {' '.join(extra)}".strip()
 
 
 def make_tools(get_subs: Callable[[], Subscriptions], get_catalog: Callable[[], Catalog],
