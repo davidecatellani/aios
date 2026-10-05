@@ -10,6 +10,7 @@ import configparser
 import os
 import re
 from pathlib import Path
+from typing import Any
 
 from .base import Runner, Tool, params
 
@@ -194,6 +195,12 @@ def make_tools(runner: Runner | None = None) -> list[Tool]:
             return f"Avviato {name}."
         return f"Non trovo un'applicazione chiamata '{name}'. Prova a cercarla con search_apps."
 
+    def install_game(titolo: str) -> str:
+        return GameInstaller(runner).install(titolo)
+
+    def play_game(titolo: str) -> str:
+        return GameInstaller(runner).play(titolo)
+
     source_desc = "'flatpak' (preferita) oppure 'system', come indicato da search_apps"
     return [
         Tool(
@@ -217,9 +224,124 @@ def make_tools(runner: Runner | None = None) -> list[Tool]:
             requires_confirmation=True,
         ),
         Tool(
+            "install_game",
+            "Installa un gioco dal titolo, da solo: da Flathub se c'è, altrimenti con Steam (installa anche Steam se "
+            "manca). Usalo quando l'utente vuole un gioco: non mandargli link.",
+            params(titolo="Il titolo del gioco", required=["titolo"]),
+            install_game,
+            requires_confirmation=True,
+        ),
+        Tool(
+            "play_game",
+            "Avvia un gioco installato (Flathub o Steam) dal titolo.",
+            params(titolo="Il titolo del gioco", required=["titolo"]),
+            play_game,
+        ),
+        Tool(
             "launch_app",
             "Apre un'applicazione installata, dato il suo nome (es. 'Firefox') o ID Flatpak.",
             params(name="Nome o ID dell'applicazione"),
             launch_app,
         ),
     ]
+
+
+# --- giochi: Flathub o Steam, senza che l'utente debba fare niente -----------------------------------------
+STEAM_ID = "com.valvesoftware.Steam"
+STEAM_SEARCH = "https://store.steampowered.com/api/storesearch/?term={q}&l=italian&cc=IT"
+
+
+def _norm(text: str) -> str:
+    return re.sub(r"[^a-z0-9]+", " ", text.lower()).strip()
+
+
+def _http(url: str) -> bytes:
+    import urllib.request
+
+    req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AIOS"})
+    with urllib.request.urlopen(req, timeout=15) as resp:
+        return resp.read()
+
+
+class GameInstaller:
+    """Installa e avvia giochi: prima Flathub (installazione completa e automatica), poi Steam (che fa il resto
+    lui, con il tuo account: i giochi gratuiti o già tuoi si scaricano subito, quelli a pagamento si comprano lì)."""
+
+    def __init__(self, runner: Runner, fetch: Any = _http):
+        self.runner, self.fetch = runner, fetch
+
+    def flathub(self, title: str) -> dict[str, str] | None:
+        want = _norm(title)
+        for a in find_apps(self.runner, title):
+            if a.get("source") == "flatpak" and (want == _norm(a["name"]) or want in _norm(a["name"]) and len(want) > 3):
+                return a
+        return None
+
+    def steam(self, title: str) -> dict[str, Any] | None:
+        import json
+        import urllib.parse
+
+        try:
+            data = json.loads(self.fetch(STEAM_SEARCH.format(q=urllib.parse.quote(title))))
+        except Exception:
+            return None
+        items = data.get("items") or []
+        want = _norm(title)
+        best = next((i for i in items if _norm(i.get("name", "")) == want), None) or (items[0] if items else None)
+        if best is None:
+            return None
+        price = best.get("price") or {}
+        return {"id": int(best["id"]), "nome": best.get("name", title),
+                "prezzo": (price.get("final", 0) / 100) if price else 0.0}
+
+    def _steam_ready(self) -> bool:
+        code, _ = self.runner.run(["flatpak", "info", "--user", STEAM_ID])
+        if code == 0:
+            return True
+        code, _ = self.runner.run(["flatpak", "info", STEAM_ID])
+        if code == 0:
+            return True
+        ensure_flathub(self.runner)
+        code, _ = self.runner.run(["flatpak", "install", "--user", "-y", "--noninteractive", "flathub", STEAM_ID])
+        return code == 0
+
+    def install(self, title: str) -> str:
+        title = title.strip()
+        if not title:
+            return "Quale gioco?"
+        if self.runner.has("flatpak"):
+            app = self.flathub(title)
+            if app is not None:
+                code, out = self.runner.run(["flatpak", "install", "--user", "-y", "--noninteractive", "flathub", app["id"]])
+                if code == 0:
+                    from .base import offer
+
+                    offer(f"avvia {app['name']}")
+                    return f"Installato {app['name']} (gratuito, da Flathub). Vuoi che lo apra?"
+        game = self.steam(title)
+        if game is None:
+            return f"Non trovo «{title}» né su Flathub né su Steam."
+        if not self.runner.has("flatpak") or not self._steam_ready():
+            return f"«{game['nome']}» è su Steam, ma non riesco a installare Steam su questo PC."
+        # Steam fa da sé: un gioco gratuito o già tuo lo scarica subito, uno da comprare ne mostra prima la pagina
+        self.runner.spawn(["flatpak", "run", STEAM_ID, f"steam://install/{game['id']}"])
+        if game["prezzo"]:
+            price = f"{game['prezzo']:.2f}".replace(".", ",")
+            return (f"Ho chiesto a Steam di installare «{game['nome']}» ({price} €): se ce l'hai già lo scarica subito, "
+                    "altrimenti ti mostra la pagina per comprarlo e poi lo scarica da solo.")
+        return (f"Installo «{game['nome']}» con Steam (è gratuito): lo scarica da solo. La prima volta Steam ti chiede "
+                "di entrare con il tuo account.")
+
+    def play(self, title: str) -> str:
+        if self.runner.has("flatpak"):
+            app = self.flathub(title)
+            if app is not None:
+                code, _ = self.runner.run(["flatpak", "info", app["id"]])
+                if code == 0:
+                    self.runner.spawn(["flatpak", "run", app["id"]])
+                    return f"Avvio {app['name']}."
+        game = self.steam(title)
+        if game is None:
+            return f"Non trovo «{title}»."
+        self.runner.spawn(["flatpak", "run", STEAM_ID, f"steam://rungameid/{game['id']}"])
+        return f"Avvio «{game['nome']}» con Steam (se non è ancora installato, Steam lo scarica prima)."

@@ -78,7 +78,7 @@ DOMAINS: list[tuple[str, str]] = [
     ("file", "Find, open or read files, documents and photos on this computer: bills, contracts, shopping list, diet, "
              "photos of a person, place or period"),
     ("riordino", "Tidy up and organize files and folders, clean up space, collections of files"),
-    ("app", "Applications and windows: open, close, install, remove or switch between programs"),
+    ("app", "Applications, games and windows: open, close, install (also games from Steam), play, remove or switch between programs"),
     ("impostazioni", "Volume, audio output device (monitor, headphones, speakers), microphone, volume of one app, brightness, keyboard layout, Wi-Fi, Bluetooth, dark or light theme, music playback control, screenshot, lock, shut down or restart"),
     ("computer", "Time and date, battery and energy saving, system information, voice listening, opening a folder or place"),
     ("aggiornamenti", "System updates: check, install, from USB stick or GitHub, roll back to the previous version, switch to the NVIDIA graphics driver version"),
@@ -90,7 +90,7 @@ DOMAINS: list[tuple[str, str]] = [
                 "document they saw days ago, resuming a past conversation, the activity diary"),
     ("web", "Search the internet, websites, news, weather, facts that need online lookup"),
     ("ai", "AI models on this device, looking at images or the screen, dictation, reading aloud, creating images"),
-    ("gusti", "Subscriptions, recommendations for music, films, series, books, what to watch or listen"),
+    ("gusti", "Subscriptions, recommendations for music, films, series, books, games, what to watch, play or listen"),
     ("aspetto", "Themes, wallpapers, colors and look of the system, widgets on the home screen (weather, map, clock, note)"),
     ("chiacchiera", "General conversation, greetings, questions of knowledge, advice, writing help, anything not about this device"),
 ]

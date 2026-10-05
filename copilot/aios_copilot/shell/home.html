@@ -130,6 +130,16 @@ body.in-chat #conversazione { -webkit-mask-image: linear-gradient(to bottom, tra
 /* i widget a destra */
 #destra-col { overflow-y: auto; }
 .widget { cursor: pointer; }
+.carta { position: relative; }
+.chiudi-carta { position: absolute; top: 14px; right: 14px; }
+.sessione-app { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 0 12px; }
+.app-sessione { display: flex; align-items: center; gap: 8px; border: 1px solid var(--bordo); background: var(--chip);
+                color: var(--testo); border-radius: 12px; padding: 5px 10px 5px 5px; font-size: 13px; font-weight: 600;
+                max-width: 220px; }
+.app-sessione:hover { border-color: var(--turchese); }
+.app-sessione .app { width: 28px; height: 28px; flex: none; }
+.app-sessione span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.app-sessione.riaperta { opacity: .5; }
 .schermo-pc { margin-top: 10px; }
 .schermo-pc img { width: 100%; aspect-ratio: 16 / 9; object-fit: cover; border-radius: 10px; cursor: pointer;
                   background: rgba(127,127,127,.15); display: block; }
@@ -441,6 +451,23 @@ function carta(c) {
   }
   const p = el("p"); p.innerHTML = c.testo; d.append(p);
   if (c.nota) { const n = el("p", "nota"); n.innerHTML = c.nota; d.append(n); }
+  if (c.programmi && c.programmi.length) {  // i programmi che erano aperti: si riaprono uno alla volta
+    const g = el("div", "sessione-app");
+    for (const pr of c.programmi) {
+      const b = el("button", "app-sessione"); b.title = pr.file ? `${pr.nome} con ${pr.file}` : `Riapri ${pr.nome}`;
+      icona({ id: pr.app, name: pr.nome }).then(i => b.prepend(i));
+      b.append(el("span", "", pr.file || pr.nome));
+      b.onclick = async () => { b.disabled = true; b.classList.add("riaperta");
+        await api("/api/sessione/riapri", { indice: pr.indice }).catch(() => {}); };
+      g.append(b);
+    }
+    d.append(g);
+  }
+  if (c.chiudibile) {
+    const x = el("button", "via chiudi-carta"); x.append(svgIcona("chiudi")); x.title = "Non riaprire niente";
+    x.onclick = () => { api("/api/sessione/no", {}).catch(() => {}); d.remove(); };
+    d.append(x);
+  }
   if (c.azioni) {
     const a = el("div", "azioni");
     for (const az of c.azioni) {
@@ -622,7 +649,12 @@ const tokenQ = `t=${encodeURIComponent(TOKEN)}`;
 const STORICO = "aios-risultati", STORICO_MAX = 10;
 let storico = (() => { try { return JSON.parse(localStorage.getItem(STORICO)) || []; } catch { return []; } })();
 let storicoAperto = null;
-function salvaStorico() { try { localStorage.setItem(STORICO, JSON.stringify(storico)); } catch {} }
+// lo storico resta sul disco del PC (risultati.json): la pagina della shell non conserva i suoi dati tra un riavvio e l'altro
+function salvaStorico() {
+  try { localStorage.setItem(STORICO, JSON.stringify(storico)); } catch {}
+  api("/api/storico/salva", { storico }).catch(() => {});
+}
+api("/api/storico").then(r => { if (r.storico && r.storico.length && !storico.length) { storico = r.storico; disegnaStorico(); } }).catch(() => {});
 const SIMBOLO_RISULTATI = { file: "documento", foto: "foto", link: "internet", media: "video" };
 function boxRisultati(ev) {
   const lista = el("div", `elenco-${ev.tipo}`);

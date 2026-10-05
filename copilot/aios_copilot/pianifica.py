@@ -116,7 +116,7 @@ def prefetch(text: str, tools: dict[str, Any]) -> list[tuple[str, str]]:
             result = str(tool.func(**args))
         except Exception:
             return
-        if result and not result.startswith(("Nessun", "Non trovo", "Errore")):
+        if result and not result.startswith(("Nessun", "Non trovo", "Errore")) and all(r != result[:PREFETCH_CHARS] for _, r in out):
             out.append((name, result[:PREFETCH_CHARS]))
 
     if ABOUT_MAIL.search(low) and "search_mail" in tools:
@@ -125,6 +125,13 @@ def prefetch(text: str, tools: dict[str, Any]) -> list[tuple[str, str]]:
         run("search_files", query=text)
     if ABOUT_AGENDA.search(low) and "list_agenda" in tools:
         run("list_agenda", period="")
+        # «cosa ho domani e c'è qualche mail che lo riguarda?»: le mail di ciascun impegno, cercate per titolo
+        if ABOUT_MAIL.search(low) and "search_mail" in tools and out and out[-1][0] == "list_agenda":
+            for line in out[-1][1].splitlines()[:4]:
+                title = re.sub(r"^\S*\d\S*\s+", "", line).strip()  # via la data
+                words = [w for w in re.findall(r"[A-Za-zÀ-ù]{4,}", title)][:3]
+                if words:
+                    run("search_mail", query=" ".join(words))
     return out
 
 

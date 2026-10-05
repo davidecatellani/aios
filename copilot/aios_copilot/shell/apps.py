@@ -16,6 +16,7 @@ shell (barra, Nova), vedi shell/__init__.py e tools/windows.py.
 from __future__ import annotations
 
 import hashlib
+import json
 import html
 import mimetypes
 import os
@@ -1014,6 +1015,63 @@ def register_screens(app: Any) -> None:
     app.route("GET", r"/api/schermi/([0-9a-f]{16})/anteprima\.jpg", thumb)
     app.route("POST", r"/api/schermi/([0-9a-f]{16})/guarda", watch)
     app.route("POST", r"/api/schermi/([0-9a-f]{16})/manda", send)
+
+
+def history_path() -> Path:
+    return Path(os.environ.get("XDG_DATA_HOME", Path.home() / ".local" / "share")) / "aios" / "risultati.json"
+
+
+def register_session(app: Any) -> None:
+    """La carta «Riprendi da dove eri»: riaprire un programma alla volta, o dire di no; e lo storico dei risultati
+    (colonna di sinistra), salvato su disco così resta dopo il riavvio."""
+    from .. import sessione
+    from ..tools.sessione import _launch
+
+    def reopen(m: Any, b: dict[str, Any], q: dict[str, str]) -> tuple[int, Any]:
+        from . import boot_time, installed_apps, open_windows
+
+        store = sessione.Sessions()
+        snap = store.last_session()
+        if snap is None:
+            return 404, {"error": "niente da riaprire"}
+        try:
+            i = int(b.get("indice"))
+            program = snap.get("programmi", [])[i]
+        except (TypeError, ValueError, IndexError):
+            return 400, {"error": "programma non valido"}
+        done = sessione.restore({"programmi": [program], "siti": []}, installed_apps(), _launch, open_windows())
+        return 200, {"ok": bool(done), "messaggio": f"Riaperto {done[0]}." if done else f"{program.get('nome', 'Il programma')} è già aperto."}
+
+    def dismiss(m: Any, b: dict[str, Any], q: dict[str, str]) -> tuple[int, Any]:
+        from . import boot_time
+
+        sessione.Sessions().mark_offered(boot_time())
+        return 200, {"ok": True}
+
+    def history(m: Any, b: dict[str, Any], q: dict[str, str]) -> tuple[int, Any]:
+        path = history_path()
+        if m.group(0).endswith("salva"):
+            items = b.get("storico")
+            if not isinstance(items, list):
+                return 400, {"error": "storico non valido"}
+            data = json.dumps(items[:10], ensure_ascii=False)
+            if len(data) > 2_000_000:
+                return 413, {"error": "storico troppo grande"}
+            path.parent.mkdir(parents=True, exist_ok=True)
+            tmp = path.with_suffix(".tmp")
+            tmp.write_text(data)
+            tmp.replace(path)
+            return 200, {"ok": True}
+        try:
+            items = json.loads(path.read_text())
+        except (OSError, ValueError):
+            items = []
+        return 200, {"storico": items if isinstance(items, list) else []}
+
+    app.route("POST", r"/api/sessione/riapri", reopen)
+    app.route("POST", r"/api/sessione/no", dismiss)
+    app.route("GET", r"/api/storico", history)
+    app.route("POST", r"/api/storico/salva", history)
 
 
 def register_first_steps(app: Any, run: Run = _run) -> None:

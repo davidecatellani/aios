@@ -36,7 +36,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 from ..localapp import LocalApp, serve
-from .apps import register_apps, register_first_steps, register_screens, register_widgets
+from .apps import register_apps, register_first_steps, register_screens, register_session, register_widgets
 
 PAGE = Path(__file__).with_name("home.html")
 APP_ID = "org.aios.Shell"
@@ -358,10 +358,13 @@ def session_card(booted: float | None = None, now: float | None = None) -> list[
     last = sessions.last_session()
     if last is None or last["quando"] > booted:  # niente da prima del riavvio
         return []
+    from pathlib import Path as _P
+
+    programs = [{"indice": i, "app": p.get("app", ""), "nome": p.get("nome", ""),
+                 "file": _P(p["file"]).name if p.get("file") else ""} for i, p in enumerate(last.get("programmi", [])[:8])]
     return [{"tipo": "sessione", "titolo": "Riprendi da dove eri",
-             "testo": _esc(describe(last)) + ".",
-             "azioni": [{"etichetta": "Riapri tutto", "chiedi": "riapri quello che avevo aperto"},
-                        {"etichetta": "No, grazie", "chiedi": "non riaprire la sessione"}]}]
+             "testo": _esc(describe(last)) + ".", "programmi": programs, "chiudibile": True,
+             "azioni": [{"etichetta": "Riapri tutto", "chiedi": "riapri quello che avevo aperto"}]}]
 
 
 def boot_time(stat: Path = Path("/proc/stat")) -> float:
@@ -541,6 +544,7 @@ class ShellApp(LocalApp):
         register_first_steps(self)
         register_widgets(self)
         register_screens(self)
+        register_session(self)
         self.route("POST", r"/api/ascolta", self._listen)
         self.route("POST", r"/api/ascolta-si-no", self._listen_yes_no)
 

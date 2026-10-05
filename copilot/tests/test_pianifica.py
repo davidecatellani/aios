@@ -114,3 +114,46 @@ def test_recommendations_without_catalog_come_from_the_web():
     assert searched == ["serie tv simili a supernatural consigli"]
     assert answer.startswith("Ti consiglio Lucifer")  # risponde il modello, coi risultati del web davanti
     assert "Lucifer, Grimm" in model.seen[-1] and rec.name == "recommend"
+
+
+class FakeRunner:
+    def __init__(self, flathub="", steam_installed=True):
+        self.calls, self.spawned, self.flathub, self.steam_installed = [], [], flathub, steam_installed
+
+    def has(self, name):
+        return True
+
+    def run(self, cmd, **kw):
+        self.calls.append(cmd)
+        if cmd[:2] == ["flatpak", "search"]:
+            return 0, self.flathub
+        if cmd[:2] == ["flatpak", "info"]:
+            return (0, "") if self.steam_installed or "com.valvesoftware.Steam" not in cmd else (1, "")
+        if cmd[:2] == ["flatpak", "remotes"]:
+            return 0, "flathub"
+        return 0, ""
+
+    def spawn(self, cmd):
+        self.spawned.append(cmd)
+
+
+def test_games_install_by_themselves():
+    import json
+
+    from aios_copilot.tools.apps import GameInstaller
+
+    r = FakeRunner(flathub="SuperTuxKart\tnet.supertuxkart.SuperTuxKart\tKart racing game\n")
+    assert GameInstaller(r).install("SuperTuxKart").startswith("Installato SuperTuxKart")
+    assert ["flatpak", "install", "--user", "-y", "--noninteractive", "flathub", "net.supertuxkart.SuperTuxKart"] in r.calls
+
+    steam = lambda url: json.dumps({"items": [{"id": 1172470, "name": "Apex Legends", "price": None}]}).encode()  # noqa: E731
+    r = FakeRunner(steam_installed=False)
+    msg = GameInstaller(r, fetch=steam).install("apex legends")
+    assert "gratuito" in msg and r.spawned[-1][-1] == "steam://install/1172470"
+    assert any(c[-1] == "com.valvesoftware.Steam" and "install" in c for c in r.calls)  # Steam installato prima
+    paid = lambda url: json.dumps({"items": [{"id": 1091500, "name": "Cyberpunk 2077", "price": {"final": 5999}}]}).encode()  # noqa: E731
+    msg = GameInstaller(FakeRunner(), fetch=paid).install("cyberpunk 2077")
+    assert "59,99" in msg and "comprarlo" in msg
+    r = FakeRunner()
+    GameInstaller(r, fetch=steam).play("apex legends")
+    assert r.spawned[-1][-1] == "steam://rungameid/1172470"
