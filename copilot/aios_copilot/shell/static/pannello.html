@@ -14,6 +14,9 @@
           --tenue: #9FC1C6; --chip: rgba(255,255,255,.06); --sopra: rgba(46,196,182,.22); }
 }
 * { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body.lato .schede { background: none; padding: 0; }
+body.lato .schede button.attiva { background: none; box-shadow: none; font-size: 20px; padding: 2px 4px; cursor: default; }
 html, body { margin: 0; height: 100%; background: transparent; }
 body { font-family: var(--carattere, "Inter"), "Inter", "Cantarell", "DejaVu Sans", sans-serif; color: var(--testo); font-size: 15px;
        -webkit-font-smoothing: antialiased; overflow: hidden; }
@@ -49,6 +52,24 @@ body.lato #riquadro { border-radius: 22px 0 0 22px; }
                 font-family: "Noto Color Emoji", "Apple Color Emoji", "Segoe UI Emoji", sans-serif; }
 .emoji button:hover, .emoji button.sel { background: var(--sopra); transform: scale(1.1); }
 .piede { padding: 8px 16px 12px; color: var(--tenue); font-size: 12px; border-top: 1px solid var(--bordo); display: flex; gap: 12px; }
+.nd { background: var(--carta); border: 1px solid var(--bordo); border-radius: 16px; padding: 12px 14px; margin: 4px 0 12px;
+      display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.nd.acceso { border-color: rgba(123,108,246,.5); background: rgba(123,108,246,.10); }
+.nd-testo { flex: 1; } .nd-testo b, .nd-testo small { display: block; } .nd-testo small { color: var(--tenue); font-size: 13px; }
+.nd-scelte { display: flex; gap: 6px; flex-wrap: wrap; width: 100%; }
+.chip { border: 1px solid var(--bordo); background: var(--chip); color: var(--testo); font: inherit; font-size: 13px; font-weight: 600;
+        border-radius: 999px; padding: 5px 12px; cursor: pointer; }
+.chip.si { border-color: var(--turchese); color: var(--turchese-scuro); }
+@media (prefers-color-scheme: dark) { .chip.si { color: var(--turchese); } }
+.interruttore { width: 46px; height: 26px; border-radius: 999px; border: 0; background: rgba(120,140,150,.35); position: relative; cursor: pointer; flex: none; }
+.interruttore::after { content: ""; position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 50%; background: #fff; transition: left .2s; }
+.interruttore.acceso { background: linear-gradient(135deg, #7B6CF6, #3D3BB7); } .interruttore.acceso::after { left: 23px; }
+.riassunto { width: 100%; border: 0; border-radius: 14px; padding: 10px 14px; margin-bottom: 4px; font: inherit; font-weight: 700; color: #fff; cursor: pointer;
+             background: linear-gradient(135deg, var(--blu), var(--turchese)); text-align: left; }
+.notifica b { display: block; font-size: 15px; margin: 2px 0; }
+.notifica .app { margin: 0; text-transform: none; }
+.notifica.nuova { box-shadow: inset 3px 0 0 var(--turchese); }
+.notifica.urgente { box-shadow: inset 3px 0 0 #D9534F; }
 .piede kbd { font: inherit; font-weight: 700; background: var(--chip); border-radius: 6px; padding: 1px 6px; }
 </style>
 </head>
@@ -75,7 +96,9 @@ async function api(path, body) {
   if (!r.ok) throw new Error(d.error || r.status);
   return d;
 }
-const SCHEDE = { appunti: "Appunti", emoji: "Emoji" };
+const LATO = new URLSearchParams(location.hash.slice(1)).get("lato") === "1";
+if (LATO) document.body.classList.add("lato");
+const SCHEDE = LATO ? { notifiche: "Notifiche" } : { appunti: "Appunti", emoji: "Emoji" };
 let scheda = "appunti", sel = 0, voci = [], emoji = null;
 const recenti = () => { try { return JSON.parse(localStorage.getItem("emoji-recenti") || "[]"); } catch { return []; } };
 const ricorda = e => { try { localStorage.setItem("emoji-recenti", JSON.stringify([e, ...recenti().filter(x => x !== e)].slice(0, 24))); } catch {} };
@@ -90,7 +113,7 @@ function quando(t) {
 }
 
 async function apri(nome) {
-  scheda = SCHEDE[nome] ? nome : "appunti"; sel = 0;
+  scheda = SCHEDE[nome] ? nome : Object.keys(SCHEDE)[0]; sel = 0;
   $("schede").replaceChildren(...Object.entries(SCHEDE).map(([k, t]) => {
     const b = el("button", k === scheda ? "attiva" : "", t); b.onclick = () => apri(k); return b;
   }));
@@ -98,6 +121,8 @@ async function apri(nome) {
   $("piede").replaceChildren();
   for (const [k, t] of [["↑↓", "scegli"], ["Invio", "incolla"], ["Esc", "chiudi"]]) { const s = el("span"); s.append(el("kbd", "", k), " " + t); $("piede").append(s); }
   $("extra").replaceChildren();
+  $("cerca").hidden = scheda === "notifiche"; $("piede").hidden = scheda === "notifiche";
+  if (scheda === "notifiche") return notifiche();
   if (scheda === "appunti") {
     const d = await api("/api/appunti").catch(() => ({ voci: [], attivo: true }));
     voci = d.voci;
@@ -153,6 +178,56 @@ function disegna(attivo = true) {
     if (!i) box.append(el("p", "vuoto", "Nessuna emoji trovata."));
   }
   box.querySelector(".sel")?.scrollIntoView({ block: "nearest" });
+}
+
+// --- centro notifiche ------------------------------------------------------------------------------------
+async function notifiche() {
+  const d = await api("/api/notifiche").catch(() => ({ notifiche: [], non_disturbare: {}, silenzio: "" }));
+  const box = $("contenuto"); box.replaceChildren();
+  const nd = d.non_disturbare;
+  const pulisci = el("button", "piccolo", "Cancella tutte");
+  pulisci.onclick = async () => { await api("/api/notifiche/togli", { tutte: true }); notifiche(); };
+  $("extra").replaceChildren(pulisci);
+  // non disturbare
+  const quiet = el("div", "nd" + (d.silenzio ? " acceso" : ""));
+  const t = el("div", "nd-testo"); t.append(el("b", "", "Non disturbare"), el("small", "", d.silenzio ? `Attivo: ${d.silenzio}` : "Le notifiche compaiono"));
+  const sw = el("button", "interruttore" + (d.silenzio ? " acceso" : "")); sw.title = d.silenzio ? "Spegni" : "Accendi";
+  sw.onclick = async () => { await api("/api/notifiche/non-disturbare", d.silenzio ? { attivo: false, fino_a: "" } : { attivo: true }); notifiche(); };
+  quiet.append(t, sw);
+  const scelte = el("div", "nd-scelte");
+  for (const [txt, corpo] of [["1 ora", { minuti: 60 }], ["Fino a domattina", { minuti: 0 }], [nd.nei_giochi ? "✓ Mentre giochi" : "Mentre giochi", { nei_giochi: !nd.nei_giochi }]]) {
+    const b = el("button", "chip" + (txt.startsWith("✓") ? " si" : ""), txt); b.onclick = async () => { await api("/api/notifiche/non-disturbare", corpo); notifiche(); }; scelte.append(b);
+  }
+  quiet.append(scelte);
+  box.append(quiet);
+  const lista = d.notifiche;
+  if (!lista.length) { box.append(el("p", "vuoto", "Nessuna notifica. Quando ne arrivano, le ritrovi tutte qui, anche dopo un riavvio.")); return; }
+  const nuove = lista.filter(n => !n.letta).length;
+  if (nuove) {
+    const r = el("button", "riassunto", `✨ Riassumimi le ${nuove} nuove`);
+    r.onclick = () => api("/api/nova/chiedi", { testo: "cosa mi sono perso nelle notifiche?" });
+    box.append(r);
+  }
+  let giorno = "";
+  const oggi = new Date().toDateString(), ieri = new Date(Date.now() - 86400000).toDateString();
+  for (const n of lista) {
+    const d0 = new Date(n.quando * 1000), g = d0.toDateString();
+    if (g !== giorno) {
+      giorno = g;
+      box.append(el("div", "categoria", g === oggi ? "Oggi" : g === ieri ? "Ieri" : d0.toLocaleDateString("it-IT", { weekday: "long", day: "numeric", month: "long" })));
+    }
+    const c = el("button", "voce notifica" + (n.letta ? "" : " nuova") + (n.urgente ? " urgente" : ""));
+    const testa = el("small", "app"); testa.textContent = `${n.app} · ${d0.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })}` + (n.nascosta ? " · arrivata in silenzio" : "");
+    c.append(testa, el("b", "", n.titolo));
+    if (n.testo) c.append(el("div", "testo", n.testo));
+    const az = el("div", "azioni"); const via = el("span", "", "✕"); via.title = "Togli";
+    via.onclick = async e => { e.stopPropagation(); await api("/api/notifiche/togli", { id: n.id }); c.remove(); };
+    az.append(via); c.append(az);
+    c.onclick = () => n.app_id && api("/api/notifiche/apri", { app_id: n.app_id });
+    if (!n.app_id) c.style.cursor = "default";
+    box.append(c);
+  }
+  if (nuove) setTimeout(() => api("/api/notifiche/lette", {}).catch(() => {}), 1500);
 }
 
 async function usa(v) { await api("/api/appunti/usa", { id: v.id }).catch(() => {}); }

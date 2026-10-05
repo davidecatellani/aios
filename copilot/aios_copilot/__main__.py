@@ -40,6 +40,7 @@ from .tools import themes as theme_tools
 from .tools import attivita as activity_tools
 from .tools import audio as audio_tools
 from .tools import display as display_tools
+from .tools import notifiche as notification_tools
 from .tools import calcolo as calc_tools
 from .tools import cloud as cloud_tools
 from .tools import schermo as screen_tools
@@ -177,7 +178,7 @@ def make_agent(confirm: Confirm, model: str | None = None, allowed: frozenset[st
                     *settings_tools.make_tools(runner, pictures_dir=lambda: resolve_folder("PICTURES")),
                     *update_tools.make_tools(runner), *energy_tools.make_tools(), *voice_tools.make_tools(runner),
                     *timezone_tools.make_tools(), *calc_tools.make_tools(), *audio_tools.make_tools(),
-                    *activity_tools.make_tools(), *display_tools.make_tools()],
+                    *activity_tools.make_tools(), *display_tools.make_tools(), *notification_tools.make_tools()],
         "file": [*files.make_tools(get_index, meaning_query()), *photo_tools.make_tools(), *organize_tools.make_tools(library), *document_tools.make_tools(get_index, runner)],
         "agenda": [*agenda_tools.make_tools(get_agenda, user_name, extras=lambda: [model_hint()]), *contacts_tools.make_tools()],
         "posta": mail_tools.make_tools(mail_store, send, has_accounts),
@@ -213,6 +214,7 @@ def make_agent(confirm: Confirm, model: str | None = None, allowed: frozenset[st
         routers=[
             screen_tools.ScreensRouter(),  # livello 0: «fammi vedere il PC da gaming» (prima di «apri <app>»)
             audio_tools.AudioRouter(),  # livello 0: «fai uscire l'audio dal monitor»
+            notification_tools.NotificationsRouter(),  # livello 0: «cosa mi sono perso?», «non disturbarmi per un'ora»
             display_tools.DisplayRouter(),  # livello 0: luce notturna, monitor
             activity_tools.ActivityRouter(),  # livello 0: «cosa rallenta il PC?», «chiudi a forza Steam»
             session_tools.SessionRouter(),  # livello 0: «riapri quello che avevo aperto»

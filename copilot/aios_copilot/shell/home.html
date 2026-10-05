@@ -51,6 +51,12 @@ button { font: inherit; cursor: pointer; }
 .aperta .x:hover { opacity: 1; background: rgba(217,83,79,.15); color: #D9534F; }
 #ora { position: absolute; left: 50%; transform: translateX(-50%); }
 #destra { margin-left: auto; display: flex; gap: 14px; align-items: center; }
+#campanella { position: relative; border: 0; background: none; color: var(--testo); padding: 4px; border-radius: 8px; display: grid; place-items: center; cursor: pointer; }
+#campanella:hover { background: var(--chip); }
+#campanella .icona { width: 17px; height: 17px; }
+#campanella.silenzio { color: #7B6CF6; }
+#campanella .conta { position: absolute; top: -3px; right: -5px; min-width: 16px; height: 16px; padding: 0 4px; border-radius: 999px;
+                     background: #D9534F; color: #fff; font-size: 10px; font-weight: 800; display: grid; place-items: center; }
 .badge { background: rgba(46,196,182,.16); color: var(--turchese-scuro); padding: 3px 10px; border-radius: 999px; }
 @media (prefers-color-scheme: dark) { .badge { color: var(--turchese); } }
 
@@ -266,6 +272,7 @@ body.pannello .tasto { display: none; }
   <div id="destra">
     <span class="badge" id="privacy"></span>
     <span id="dispositivi" hidden></span>
+    <button id="campanella" title="Notifiche (Super+N)"></button>
     <span id="volume" title="Volume"></span>
     <span id="rete" title="Rete"></span>
     <span id="batteria"></span>
@@ -865,7 +872,19 @@ aspetto(); setInterval(aspetto, 15000);
 window.novaChiedi = (t, aVoce) => chiedi(t, aVoce);
 window.novaFocus = () => $("testo").focus();
 
+// la campanella: quante notifiche nuove, e se è «non disturbare»; al clic il centro notifiche
+async function campanella() {
+  const c = await api("/api/notifiche/conta").catch(() => null);
+  if (!c) return;
+  const b = $("campanella");
+  b.replaceChildren(svgIcona(c.silenzio ? "disturbare" : "notifiche"));
+  if (c.non_lette) b.append(el("span", "conta", c.non_lette > 9 ? "9+" : String(c.non_lette)));
+  b.classList.toggle("silenzio", !!c.silenzio);
+  b.title = c.silenzio ? `Non disturbare (${c.silenzio})` : c.non_lette ? `${c.non_lette} notifiche nuove` : "Notifiche (Super+N)";
+}
+$("campanella").onclick = () => { api("/api/pannello", { quale: "notifiche" }).catch(() => {}); setTimeout(campanella, 2500); };
 if (PARTE === "barra") {
+  campanella(); setInterval(campanella, 8000);
   // batteria: controlli rari (finestre ogni 4 s, stato ogni minuto)
   api("/api/stato").then(stato).catch(() => {});
   setInterval(finestre, 4000);
@@ -877,6 +896,7 @@ if (PARTE === "barra") {
   casa();
   setInterval(casa, 60000);
   if (PARTE === "tutto") {
+    campanella(); setInterval(campanella, 8000);
     setInterval(finestre, 4000);
     setInterval(() => api("/api/stato").then(stato).catch(() => {}), 60000);
   }

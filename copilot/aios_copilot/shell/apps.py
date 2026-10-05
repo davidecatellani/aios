@@ -23,6 +23,7 @@ import os
 import re
 import shutil
 import subprocess
+import threading
 from pathlib import Path
 from typing import Any, Callable
 
@@ -1226,6 +1227,70 @@ def register_clipboard(app: Any) -> None:
     app.route("POST", r"/api/appunti/attivo", toggle)
     app.route("GET", r"/api/emoji", emoji_list)
     app.route("POST", r"/api/scelta/chiudi", close)
+
+
+def register_notifications(app: Any) -> None:
+    """Il centro notifiche: cronologia e «Non disturbare»."""
+    from .. import notifiche as N
+
+    store = N.Store()
+
+    def items(m: Any, b: dict[str, Any], q: dict[str, str]) -> tuple[int, Any]:
+        return 200, {"notifiche": store.load()[:150], "non_lette": store.unread(), "non_disturbare": N.settings(),
+                     "silenzio": N.quiet_now()}
+
+    def read(m: Any, b: dict[str, Any], q: dict[str, str]) -> tuple[int, Any]:
+        store.mark_read()
+        return 200, {"ok": True}
+
+    def remove(m: Any, b: dict[str, Any], q: dict[str, str]) -> tuple[int, Any]:
+        if b.get("tutte"):
+            return 200, {"ok": True, "tolte": store.clear(str(b.get("app", "")))}
+        return 200, {"ok": store.remove(str(b.get("id", "")))}
+
+    def quiet(m: Any, b: dict[str, Any], q: dict[str, str]) -> tuple[int, Any]:
+        try:
+            if "minuti" in b:
+                N.quiet_for(int(b["minuti"]) or None)
+            changes = {k: v for k, v in b.items() if k != "minuti"}
+            if changes.get("attivo") is False:
+                changes["fino_a"] = ""
+            N.save(changes)
+        except (TypeError, ValueError):
+            return 400, {"error": "valore non valido"}
+        quiet_now = N.quiet_now()
+        threading.Thread(target=N.apply_mode, args=(bool(quiet_now),), daemon=True).start()
+        return 200, {"ok": True, "non_disturbare": N.settings(), "silenzio": quiet_now}
+
+    def open_panel(m: Any, b: dict[str, Any], q: dict[str, str]) -> tuple[int, Any]:
+        getattr(app, "open_panel", lambda which: None)(str(b.get("quale", "notifiche")))
+        return 200, {"ok": True}
+
+    def open_app(m: Any, b: dict[str, Any], q: dict[str, str]) -> tuple[int, Any]:
+        """Dalla notifica al programma che l'ha mandata: davanti se è aperto, altrimenti si apre."""
+        from . import focus_window, installed_apps, launch, open_windows
+
+        app_id = str(b.get("app_id", ""))
+        getattr(app, "on_pick", lambda paste: None)(False)
+        if any(w["app_id"].lower() == app_id.lower() for w in open_windows()):
+            return 200, {"ok": focus_window(app_id)}
+        found = installed_apps().get(app_id)
+        return 200, {"ok": bool(found and launch(found))}
+
+    app.route("GET", r"/api/notifiche", items)
+    app.route("GET", r"/api/notifiche/conta", lambda m, b, q: (200, {"non_lette": store.unread(), "silenzio": N.quiet_now()}))
+    app.route("POST", r"/api/notifiche/lette", read)
+    app.route("POST", r"/api/notifiche/togli", remove)
+    app.route("POST", r"/api/notifiche/non-disturbare", quiet)
+    app.route("POST", r"/api/pannello", open_panel)
+    app.route("POST", r"/api/notifiche/apri", open_app)
+
+    def ask(m: Any, b: dict[str, Any], q: dict[str, str]) -> tuple[int, Any]:
+        getattr(app, "on_pick", lambda paste: None)(False)
+        getattr(app, "ask_nova", lambda text: None)(str(b.get("testo", ""))[:500])
+        return 200, {"ok": True}
+
+    app.route("POST", r"/api/nova/chiedi", ask)
 
 
 def history_path() -> Path:

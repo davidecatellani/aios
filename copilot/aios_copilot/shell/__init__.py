@@ -36,7 +36,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 from ..localapp import LocalApp, serve
-from .apps import register_activity, register_apps, register_calendar, register_clipboard, register_display, register_cloud, register_first_steps, register_screens, register_session, register_widgets
+from .apps import register_activity, register_apps, register_calendar, register_clipboard, register_display, register_notifications, register_cloud, register_first_steps, register_screens, register_session, register_widgets
 
 PAGE = Path(__file__).with_name("home.html")
 APP_ID = "org.aios.Shell"
@@ -559,6 +559,8 @@ class ShellApp(LocalApp):
         register_activity(self)
         register_display(self)
         register_clipboard(self)
+        register_notifications(self)
+        self.open_panel: Callable[[str], None] = lambda which: None
         self.on_pick: Callable[[bool], None] = lambda paste: None  # il pannello sopra i programmi (run_gtk)
         register_calendar(self, self._agenda_factory)
         self.route("POST", r"/api/ascolta", self._listen)
@@ -761,31 +763,47 @@ def run_gtk(app: ShellApp, url: str, argv: list[str]) -> int:
         else:
             run_js(state["home_view"], "window.chiudiVista && window.chiudiVista(); window.novaFocus && window.novaFocus()")
 
-    def panel(which: str) -> None:
-        """Il pannello sopra i programmi (appunti, emoji): una finestra in primo piano che prende la tastiera."""
-        if "panel" not in state:
+    def panel(which: str) -> bool:
+        """I pannelli sopra i programmi: in mezzo appunti ed emoji, di lato le notifiche. Prendono la tastiera."""
+        side = which == "notifiche"
+        key = "side" if side else "panel"
+        other = "panel" if side else "side"
+        if other in state:
+            state[other].set_visible(False)
+        if key not in state:
             win = Gtk.ApplicationWindow(application=gtk_app, title="AIOS pannello")
             win.set_decorated(False)
-            view = view_for("pannello", url.replace("/#", "/static/pannello.html#", 1) + f"&apri={which}")
+            view = view_for("pannello", url.replace("/#", "/static/pannello.html#", 1) + f"&apri={which}"
+                            + ("&lato=1" if side else ""))
             win.set_child(view)
             ls = layer_shell()
             if ls is not None:
                 ls.init_for_window(win)
                 ls.set_layer(win, ls.Layer.OVERLAY)
                 ls.set_namespace(win, "aios-pannello")
-                ls.set_keyboard_mode(win, ls.KeyboardMode.EXCLUSIVE)
-            win.set_default_size(560, 620)
-            state.update(panel=win, panel_view=view)
+                ls.set_keyboard_mode(win, ls.KeyboardMode.EXCLUSIVE if not side else ls.KeyboardMode.ON_DEMAND)
+                if side:
+                    for e in (ls.Edge.TOP, ls.Edge.RIGHT, ls.Edge.BOTTOM):
+                        ls.set_anchor(win, e, True)
+                    ls.set_margin(win, ls.Edge.TOP, BAR_HEIGHT + 8)
+                    ls.set_margin(win, ls.Edge.BOTTOM, 8)
+            win.set_default_size(420 if side else 560, -1 if side else 620)
+            state[key], state[key + "_view"] = win, view
             win.present()
-            return
-        state["panel"].set_visible(True)
-        state["panel"].present()
-        run_js(state["panel_view"], f"window.apri && window.apri({json.dumps(which)})")
+            return False
+        if side and state[key].get_visible():  # la campanella una seconda volta: si chiude
+            state[key].set_visible(False)
+            return False
+        state[key].set_visible(True)
+        state[key].present()
+        run_js(state[key + "_view"], f"window.apri && window.apri({json.dumps(which)})")
+        return False
 
     def picked(paste: bool) -> None:
         def hide() -> bool:
-            if "panel" in state:
-                state["panel"].set_visible(False)
+            for key in ("panel", "side"):
+                if key in state:
+                    state[key].set_visible(False)
             if paste:  # la tastiera torna al programma di prima: lì si incolla
                 from ..cronologia_appunti import paste_into_active
 
@@ -795,11 +813,13 @@ def run_gtk(app: ShellApp, url: str, argv: list[str]) -> int:
         GLib.idle_add(hide)
 
     app.on_pick = picked
+    app.open_panel = lambda which: GLib.idle_add(panel, which)
+    app.ask_nova = lambda text: GLib.idle_add(lambda: to_home(text) and False)
 
     def handle(args: list[str]) -> bool:
         build()
-        if "--appunti" in args or "--emoji" in args:
-            panel("emoji" if "--emoji" in args else "appunti")
+        if "--appunti" in args or "--emoji" in args or "--notifiche" in args:
+            panel("emoji" if "--emoji" in args else "notifiche" if "--notifiche" in args else "appunti")
         elif "--nova" in args:
             to_home()
         elif "--casa" in args:
@@ -976,6 +996,9 @@ def main(argv: list[str] | None = None) -> int:
 
         # la cronologia degli appunti (Super+V)
         threading.Thread(target=cronologia_appunti.watch, kwargs={"enabled": cronologia_appunti.enabled}, daemon=True).start()
+        from .. import notifiche
+
+        threading.Thread(target=notifiche.run, daemon=True).start()  # cronologia delle notifiche e «non disturbare»
     app = ShellApp(make_agent_for_shell)
     server, url = serve(app)
     return run_gtk(app, url, [sys.argv[0], *args])
