@@ -2,6 +2,11 @@
 # Avviato dal compositore (Hyprland, o labwc di riserva) all'inizio della sessione AIOS.
 dbus-update-activation-environment --systemd WAYLAND_DISPLAY XDG_CURRENT_DESKTOP XDG_SESSION_TYPE DISPLAY HYPRLAND_INSTANCE_SIGNATURE >/dev/null 2>&1
 systemctl --user start graphical-session.target >/dev/null 2>&1 &
+# gli avvisi tecnici di Hyprland in alto (XDG_CURRENT_DESKTOP=AIOS è voluto, formato della configurazione,
+# avvio senza start-hyprland) non sono per l'utente: si tolgono appena compaiono
+if [ -n "$HYPRLAND_INSTANCE_SIGNATURE" ] && command -v hyprctl >/dev/null; then
+  (for t in 1 2 4 8; do sleep "$t"; hyprctl dismissnotify >/dev/null 2>&1; done) &
+fi
 # finestra per le password di amministratore (aggiornamenti, installazioni)
 for agent in /usr/libexec/polkit-gnome-authentication-agent-1 /usr/libexec/lxpolkit /usr/bin/lxpolkit; do
   [ -x "$agent" ] && { "$agent" >/dev/null 2>&1 & break; }
