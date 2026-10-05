@@ -41,6 +41,9 @@ def test_updates_stay_on_the_installed_variant(monkeypatch):
     monkeypatch.setattr(imageupdate, "installed_variant", lambda path=None: "nvidia")
     assert GithubSource("x/aios", opener=opener).latest().version == "2026.10.06.28"
     assert same_variant({}, "standard") and not same_variant({"variante": "nvidia"}, "standard")
+    # l'immagine universale va a tutti; chi ce l'ha non torna a quella senza driver
+    assert all(same_variant({"variante": "universale"}, v) for v in ("standard", "nvidia", "universale"))
+    assert same_variant({"variante": "nvidia"}, "universale") and not same_variant({"variante": "standard"}, "universale")
 
 
 def test_registry_tag_and_voice():

@@ -388,6 +388,9 @@ class Updates:
         from .registro import Access, image_ref, rebase_command
 
         variant = "nvidia" if "nvidia" in variant.lower() else "standard"
+        if installed_variant() == "universale":
+            return ("Questa versione di AIOS è per tutti i PC: il driver NVIDIA c'è già e si attiva da solo se c'è una scheda "
+                    "NVIDIA (con il Secure Boot disattivato nel BIOS). Non serve cambiare.")
         if not self.system.available():
             return "Questo sistema non è un'immagine AIOS: la variante non si può cambiare da qui."
         if installed_variant() == variant:

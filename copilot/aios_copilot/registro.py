@@ -40,7 +40,7 @@ def fedora_version(os_release: Path = Path("/etc/os-release")) -> str:
 
 
 def image_ref(repo: str, fedora: str | None = None, variant: str | None = None) -> str:
-    """ghcr.io/…/aios:44, o :44-nvidia per la variante con il driver NVIDIA."""
+    """ghcr.io/…/aios:44 (l'immagine universale), o :44-nvidia per i PC della vecchia variante NVIDIA (stessa immagine)."""
     if variant is None:
         from .imageupdate import installed_variant
 

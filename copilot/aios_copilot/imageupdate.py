@@ -33,7 +33,7 @@ from typing import Any, Callable
 MANIFEST = "aios-aggiornamento.json"
 ARCHIVE = "aios-aggiornamento.ociarchive"
 VERSION_FILE = Path("/usr/share/aios/versione")
-VARIANT_FILE = Path("/usr/share/aios/variante")  # «standard» o «nvidia» (driver NVIDIA nell'immagine)
+VARIANT_FILE = Path("/usr/share/aios/variante")  # «universale» (per tutti), o le vecchie «standard» e «nvidia»
 CONFIG_FILE = Path("/usr/share/aios/aggiornamenti.json")
 TOKEN_KEY = "github-aggiornamenti"
 CHUNK = 1 << 20
@@ -51,8 +51,15 @@ def installed_variant(path: Path = VARIANT_FILE) -> str:
 
 
 def same_variant(manifest: dict[str, Any], variant: str | None = None) -> bool:
-    """Un pacchetto della variante giusta: un PC NVIDIA non deve prendere l'immagine senza driver, e viceversa."""
-    return str(manifest.get("variante") or "standard") == (variant or installed_variant())
+    """Un pacchetto della variante giusta. L'immagine universale va bene per tutti (il driver NVIDIA si attiva solo
+    dove c'è la scheda); delle vecchie varianti, un PC NVIDIA non deve prendere l'immagine senza driver."""
+    offered = str(manifest.get("variante") or "standard")
+    mine = variant or installed_variant()
+    if offered == "universale":
+        return True
+    if mine == "universale":
+        return offered == "nvidia"  # ha il driver: non si torna a un'immagine senza
+    return offered == mine
 
 
 def installed_version(path: Path = VERSION_FILE) -> str:

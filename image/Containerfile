@@ -91,7 +91,8 @@ RUN set -e; \
 # Variante NVIDIA (GPU=nvidia): il driver proprietario da RPM Fusion, compilato qui per il kernel dell'immagine.
 # Il ramo «580xx» è l'ultimo che regge anche le GTX 900/10xx (Maxwell, Pascal) e va bene per le schede più nuove.
 # Il modulo non è firmato: con il Secure Boot attivo non si carica (va disattivato nel BIOS). nouveau è escluso
-# all'avvio (kargs) e Hyprland riceve le variabili giuste da aios-sessione (/usr/share/aios/variante).
+# all'avvio (kargs) e Hyprland riceve le variabili giuste da aios-sessione (se il driver è caricato).
+# Nell'immagine universale (VARIANTE=universale) c'è sempre: si carica solo dove c'è una scheda NVIDIA (regola udev).
 ARG FEDORA=44
 ARG GPU=
 ARG NVIDIA_RAMO=580xx
@@ -135,7 +136,11 @@ RUN if [ "$GPU" = nvidia ]; then \
       systemctl disable akmods.service 2>/dev/null || true; \
       dnf clean all; \
       depmod -a "$KVER"; \
-      mkdir -p /usr/lib/modules-load.d; printf 'nvidia\nnvidia_modeset\nnvidia_uvm\nnvidia_drm\n' > /usr/lib/modules-load.d/aios-nvidia.conf; \
+      # il driver si carica solo se c'è una scheda NVIDIA (immagine universale: sugli altri PC non si tocca)
+      mkdir -p /usr/lib/udev/rules.d; \
+      printf '%s\n' '# AIOS: con una scheda video NVIDIA si caricano il driver e i moduli che servono a Wayland e a CUDA' \
+        'ACTION=="add", SUBSYSTEM=="pci", ATTR{vendor}=="0x10de", ATTR{class}=="0x03[0-9]*", RUN+="/usr/sbin/modprobe -a nvidia nvidia_modeset nvidia_uvm nvidia_drm"' \
+        > /usr/lib/udev/rules.d/70-aios-nvidia.rules; \
       modinfo -k "$KVER" nvidia | head -n 4; \
       if modinfo -k "$KVER" -F license nvidia | grep -qi "MIT"; then \
         echo "ERRORE: compilato il modulo open, che non regge le schede Maxwell/Pascal" >&2; exit 1; fi; \
@@ -354,10 +359,12 @@ RUN install -Dm644 /tmp/aios-branding/aios-logo-chiaro.png /usr/share/pixmaps/ai
 ARG VERSIONE=sviluppo
 ARG REPO=davidecatellani/aios
 ARG GPU=
+# «universale»: un'immagine per tutti i PC, col driver NVIDIA che si attiva solo dove c'è una scheda NVIDIA
+ARG VARIANTE=
 LABEL org.opencontainers.image.version="${VERSIONE}" version="${VERSIONE}"
 RUN mkdir -p /usr/share/aios \
     && echo "${VERSIONE}" > /usr/share/aios/versione \
-    && echo "${GPU:-standard}" > /usr/share/aios/variante \
+    && echo "${VARIANTE:-${GPU:-standard}}" > /usr/share/aios/variante \
     && printf '{"repo": "%s"}\n' "${REPO}" > /usr/share/aios/aggiornamenti.json \
     && sed -i -e 's/^NAME=.*/NAME="AIOS"/' -e "s/^PRETTY_NAME=.*/PRETTY_NAME=\"AIOS ${VERSIONE}\"/" \
               -e 's/^LOGO=.*/LOGO=aios/' -e 's/^DEFAULT_HOSTNAME=.*/DEFAULT_HOSTNAME="aios"/' \

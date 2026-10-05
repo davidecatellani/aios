@@ -22,10 +22,10 @@ on:
         options: [fedora, lts]
         default: fedora
       gpu:
-        description: "Variante: standard, o nvidia (driver NVIDIA 580xx e CUDA per Ollama; Secure Boot disattivato)"
+        description: "Variante: universale (per tutti i PC: driver NVIDIA incluso, si attiva solo con una scheda NVIDIA), standard o nvidia"
         type: choice
-        options: [standard, nvidia]
-        default: standard
+        options: [universale, standard, nvidia]
+        default: universale
   push:
     tags: ["v*"]
 
@@ -38,7 +38,7 @@ env:
   ISO: ${{ github.event_name == 'push' || inputs.iso }}
   PUBBLICA: ${{ github.event_name == 'push' || inputs.pubblica }}
   KERNEL: ${{ inputs.kernel || 'fedora' }}
-  GPU: ${{ inputs.gpu || 'standard' }}
+  GPU: ${{ inputs.gpu || 'universale' }}
 
 jobs:
   immagine:
@@ -97,7 +97,8 @@ jobs:
           echo "VERSIONE=$(date -u +%Y.%m.%d).${GITHUB_RUN_NUMBER}" >> "$GITHUB_ENV"
           sudo podman build --build-arg FEDORA="$FEDORA" --build-arg VERSIONE="$(date -u +%Y.%m.%d).${GITHUB_RUN_NUMBER}" \
             --build-arg REPO="$GITHUB_REPOSITORY" --build-arg KERNEL="${KERNEL:-fedora}" \
-            --build-arg GPU="$([ "$GPU" = nvidia ] && echo nvidia)" -t "${IMMAGINE}:${TAG}" -f image/Containerfile .
+            --build-arg GPU="$([ "$GPU" != standard ] && echo nvidia)" --build-arg VARIANTE="$GPU" \
+            -t "${IMMAGINE}:${TAG}" -f image/Containerfile .
       - name: Strati per pacchetto
         # L'immagine divisa in strati stabili (un gruppo di pacchetti per strato, i modelli a parte): un PC
         # che si aggiorna dal registro scarica solo gli strati cambiati. Se non riesce, si tiene com'è.
@@ -118,7 +119,12 @@ jobs:
         continue-on-error: true  # se il registro non risponde, il pacchetto della Release c'è comunque
         run: |
           echo "${{ secrets.GITHUB_TOKEN }}" | sudo podman login ghcr.io -u "${{ github.actor }}" --password-stdin
-          for i in 1 2 3; do sudo podman push "${IMMAGINE}:${TAG}" && exit 0; sleep 30; done; exit 1
+          for i in 1 2 3; do sudo podman push "${IMMAGINE}:${TAG}" && break; [ "$i" = 3 ] && exit 1; sleep 30; done
+          # l'immagine universale va bene per tutti: anche i PC che seguono «-nvidia» la ricevono
+          if [ "$GPU" = universale ]; then
+            sudo podman tag "${IMMAGINE}:${TAG}" "${IMMAGINE}:${TAG}-nvidia"
+            for i in 1 2 3; do sudo podman push "${IMMAGINE}:${TAG}-nvidia" && break; sleep 30; done
+          fi
       - name: Chiavetta d'installazione
         if: env.ISO == 'true'
         run: |
