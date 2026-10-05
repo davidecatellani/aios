@@ -34,6 +34,9 @@ def make_tools(runner: Runner | None = None, updates: Updates | None = None,
     def update_status() -> str:
         return updates.describe()
 
+    def switch_variant(variante: str) -> str:
+        return updates.switch_variant(variante)
+
     def update_now() -> str:
         if updates.busy():
             return updates.progress_text()
@@ -96,7 +99,11 @@ def make_tools(runner: Runner | None = None, updates: Updates | None = None,
         code, out = runner.run(["systemctl", "reboot"])
         return "Riavvio per applicare l'aggiornamento…" if code == 0 else f"Riavvio non riuscito: {out[-200:]}"
 
+    variant_tool = Tool("switch_system_variant", "Passa alla versione di AIOS con il driver della scheda video NVIDIA "
+                        "(per l'AI veloce sulla scheda) o torna a quella standard. Si applica al riavvio.",
+                        params(variante=("Versione", ["nvidia", "standard"])), switch_variant, requires_confirmation=True)
     return [
+        variant_tool,
         Tool("update_status", "Mostra se il sistema è aggiornato e se c'è un aggiornamento pronto.", params(), update_status),
         Tool("update_now", "Controlla e prepara subito gli aggiornamenti di sistema e app.", params(), update_now,
              requires_confirmation=True),
@@ -129,6 +136,10 @@ RE_USB = re.compile(r"^aggiorna(?:\s+(?:il\s+sistema|aios))?\s+(?:dalla|con\s+la
 RE_RESTART = re.compile(r"^riavvia\s+per\s+aggiornare$|^applica\s+l'aggiornamento$")
 
 
+RE_VARIANT = re.compile(r"^(?:passa|passare|vai|torna|installa|metti|attiva)\s+(?:alla|a|la|i|il|ai)?\s*(?:versione|variante|driver|immagine)?\s*"
+                        r"(?:(?P<n>nvidia)|(?P<s>standard|senza\s+nvidia))(?:\s+(?:di|del)\s+(?:aios|sistema))?$")
+
+
 class UpdatesRouter:
     def match(self, text: str) -> Intent | None:
         token = RE_TOKEN.search(text)
@@ -150,4 +161,7 @@ class UpdatesRouter:
             return Intent("connect_github_updates", {})
         if RE_USB.match(low):
             return Intent("update_from_usb", {})
+        m = RE_VARIANT.search(low)
+        if m:
+            return Intent("switch_system_variant", {"variante": "standard" if m.group("s") else "nvidia"})
         return None

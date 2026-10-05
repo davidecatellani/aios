@@ -39,6 +39,13 @@ Dati, impostazioni e app restano; la versione precedente resta disponibile all'a
    (Impostazioni › Password). Al primo accesso Nova ti accoglie: nome, voce, Wi-Fi e cosa collegare.
    Premi **Super+Spazio** (o di' «Nova») per parlarle; il tasto **Super** da solo torna alla schermata.
 
+### Versione NVIDIA
+
+Le anteprime con «NVIDIA» nel titolo hanno il driver delle schede video NVIDIA (ramo 580, anche per le
+GTX 900 e 10xx) e Nova usa la scheda per l'AI. Il driver non è firmato: **disattiva il Secure Boot** nel BIOS.
+Da un AIOS già installato ci si passa senza reinstallare: di' a Nova «passa alla versione nvidia» (oppure
+`sudo bootc switch ghcr.io/davidecatellani/aios:44-nvidia`), poi riavvia.
+
 ### Kernel 6.18 LTS
 
 Le anteprime con «kernel LTS 6.18» nel titolo usano un kernel non firmato da Fedora: **disattiva il

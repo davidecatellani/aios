@@ -381,6 +381,37 @@ class Updates:
         return ("Sistema: AIOS pronto per il prossimo riavvio. Da adesso gli aggiornamenti scaricano solo le "
                 "differenze.")
 
+    def switch_variant(self, variant: str, lspci: Callable[[], str] | None = None) -> str:
+        """Passa alla variante dell'immagine con (nvidia) o senza (standard) il driver NVIDIA, dal registro.
+        Si prepara accanto al sistema in uso e si applica al riavvio; dati e app restano."""
+        from .imageupdate import configured_repo, installed_variant
+        from .registro import Access, image_ref, rebase_command
+
+        variant = "nvidia" if "nvidia" in variant.lower() else "standard"
+        if not self.system.available():
+            return "Questo sistema non è un'immagine AIOS: la variante non si può cambiare da qui."
+        if installed_variant() == variant:
+            return f"Il sistema è già la versione {'NVIDIA' if variant == 'nvidia' else 'standard'}."
+        if variant == "nvidia":
+            found = (lspci or (lambda: self.runner.run(["lspci"])[1]))()
+            if "nvidia" not in found.lower():
+                return "Non vedo una scheda video NVIDIA in questo PC: la versione NVIDIA non servirebbe."
+        repo = load_state().get("repo") or configured_repo()
+        ref = image_ref(repo, variant=variant)
+        problem = Access(repo).check(ref.rsplit(":", 1)[1])
+        if problem:
+            return f"Non posso ancora passare alla versione {variant}: {problem}."
+        code, out = self.runner.run(rebase_command(self.system.tool, ref))
+        if code != 0:
+            return f"Passaggio non riuscito: {out[-200:]}"
+        state = load_state()
+        state["registro"] = ref
+        state["pronto"] = {"versione": f"variante {variant}", "sicurezza": False, "quando": self.clock()}
+        save_state(state)
+        note = (" Prima di riavviare disattiva il Secure Boot nel BIOS: il driver NVIDIA di AIOS non è firmato."
+                if variant == "nvidia" else "")
+        return f"Pronto: al prossimo riavvio AIOS passa alla versione {'NVIDIA' if variant == 'nvidia' else 'standard'}.{note}"
+
     def rollback(self) -> str:
         if not self.system.available():
             return "Questo sistema non è immutabile: il ritorno alla versione precedente non è disponibile."

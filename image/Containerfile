@@ -18,7 +18,7 @@ RUN dnf install -y --skip-unavailable \
         greenboot \
         espeak-ng pipewire-utils pulseaudio-utils python3-cffi pciutils usbutils zenity \
         labwc gtk4-layer-shell wlrctl mako swayidle swaylock wlopm grim slurp brightnessctl \
-        greetd greetd-selinux cage python3-openpyxl tuned-ppd gtklock powertop \
+        greetd greetd-selinux cage python3-openpyxl tuned-ppd gtklock powertop wayvnc \
         python3-opencv \
         rsms-inter-fonts atkinson-hyperlegible-fonts google-noto-serif-fonts mozilla-fira-sans-fonts \
         opendyslexic-fonts lexend-fonts jetbrains-mono-fonts \
@@ -70,6 +70,39 @@ RUN set -e; \
     fi; \
     dnf clean all; \
     test -x /usr/bin/Hyprland; test -x /usr/bin/hyprctl; rpm -q hyprland
+
+# Variante NVIDIA (GPU=nvidia): il driver proprietario da RPM Fusion, compilato qui per il kernel dell'immagine.
+# Il ramo «580xx» è l'ultimo che regge anche le GTX 900/10xx (Maxwell, Pascal) e va bene per le schede più nuove.
+# Il modulo non è firmato: con il Secure Boot attivo non si carica (va disattivato nel BIOS). nouveau è escluso
+# all'avvio (kargs) e Hyprland riceve le variabili giuste da aios-sessione (/usr/share/aios/variante).
+ARG FEDORA=44
+ARG GPU=
+ARG NVIDIA_RAMO=580xx
+RUN if [ "$GPU" = nvidia ]; then \
+      set -e; \
+      dnf install -y --setopt=retries=10 \
+        "https://mirrors.rpmfusion.org/free/fedora/rpmfusion-free-release-${FEDORA}.noarch.rpm" \
+        "https://mirrors.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-${FEDORA}.noarch.rpm"; \
+      KVER="$(ls /usr/lib/modules | sort -V | tail -n1)"; \
+      kpkg="$(rpm -qf "/usr/lib/modules/$KVER/vmlinuz" --qf '%{NAME}' | sed 's/-core$//')"; \
+      kv="${KVER%.*}"; ver="${kv%%-*}"; rel="${kv#*-}"; \
+      dnf install -y --setopt=retries=10 "${kpkg}-devel-${kv}" \
+        || dnf install -y "https://kojipkgs.fedoraproject.org/packages/kernel/${ver}/${rel}/x86_64/kernel-devel-${kv}.x86_64.rpm"; \
+      dnf install -y --setopt=retries=10 --skip-unavailable "akmod-nvidia-${NVIDIA_RAMO}" \
+        "xorg-x11-drv-nvidia-${NVIDIA_RAMO}-cuda" "xorg-x11-drv-nvidia-${NVIDIA_RAMO}-power" libva-nvidia-driver; \
+      rpm -q "akmod-nvidia-${NVIDIA_RAMO}" "xorg-x11-drv-nvidia-${NVIDIA_RAMO}-cuda"; \
+      akmods --force --kernels "$KVER"; \
+      find "/usr/lib/modules/$KVER" -name 'nvidia.ko*' | grep -q . || { echo "ERRORE: modulo nvidia non compilato" >&2; \
+        cat /var/cache/akmods/*/*.log 2>/dev/null | tail -n 80; exit 1; }; \
+      mkdir -p /usr/lib/bootc/kargs.d /usr/lib/modprobe.d /usr/lib/dracut/dracut.conf.d; \
+      printf 'kargs = ["rd.driver.blacklist=nouveau", "modprobe.blacklist=nouveau", "nvidia-drm.modeset=1", "nvidia-drm.fbdev=1"]\n' \
+        > /usr/lib/bootc/kargs.d/10-nvidia.toml; \
+      printf 'blacklist nouveau\noptions nouveau modeset=0\n' > /usr/lib/modprobe.d/aios-nouveau.conf; \
+      printf 'omit_drivers+=" nouveau "\n' > /usr/lib/dracut/dracut.conf.d/90-aios-nvidia.conf; \
+      systemctl disable akmods.service 2>/dev/null || true; \
+      dnf clean all; \
+      modinfo -k "$KVER" nvidia | head -n 3; \
+    fi
 
 # Aspetto AIOS: niente loghi di Fedora (come chiedono le regole dei marchi Fedora per i sistemi derivati)
 # e niente giro di benvenuto di GNOME: il benvenuto è quello di Nova.
@@ -142,13 +175,19 @@ RUN mkdir -p /usr/share/aios/parlanti && cd /usr/share/aios/parlanti \
     || { echo "avviso: modello di chi parla non scaricato"; rm -f /usr/share/aios/parlanti/*; }; \
     chmod -R a+rX /usr/share/aios/parlanti; ls -l /usr/share/aios/parlanti
 
-# Ollama (modelli AI locali), dal pacchetto ufficiale per Linux. Le librerie CUDA si tolgono:
-# senza il driver NVIDIA (non incluso in Fedora) non servono e raddoppiano la chiavetta.
+# Ollama (modelli AI locali), dal pacchetto ufficiale per Linux. Le librerie CUDA si tolgono: senza il driver
+# NVIDIA non servono e raddoppiano la chiavetta. Nella variante NVIDIA resta CUDA 12 (regge anche le GTX 10xx,
+# che CUDA 13 non supporta più).
 ARG OLLAMA_ARCH=amd64
+ARG GPU=
 RUN set -e; base="https://ollama.com/download/ollama-linux-${OLLAMA_ARCH}"; \
     if curl -fsSLo /tmp/ollama.tar.zst "$base.tar.zst"; then tar --zstd -xf /tmp/ollama.tar.zst -C /usr; \
     else curl -fsSL "$base.tgz" | tar -xz -C /usr; fi; \
-    rm -rf /tmp/ollama.tar.zst /usr/lib/ollama/cuda_*; ollama --version || true
+    rm -rf /tmp/ollama.tar.zst; \
+    if [ "$GPU" = nvidia ]; then find /usr/lib/ollama -maxdepth 1 -name 'cuda_*' ! -name 'cuda_v12' -exec rm -rf {} +; \
+      ls -d /usr/lib/ollama/cuda_v12; \
+    else rm -rf /usr/lib/ollama/cuda_*; fi; \
+    rm -rf /usr/lib/ollama/rocm*; ollama --version || true
 COPY image/files/ /
 
 # I modelli di base di Nova sono già dentro: risponde anche senza internet dal primo avvio.
@@ -270,9 +309,11 @@ RUN install -Dm644 /tmp/aios-branding/aios-logo-chiaro.png /usr/share/pixmaps/ai
 # Versione e provenienza degli aggiornamenti (imageupdate.py): GitHub con l'accesso dell'utente, o chiavetta
 ARG VERSIONE=sviluppo
 ARG REPO=davidecatellani/aios
+ARG GPU=
 LABEL org.opencontainers.image.version="${VERSIONE}" version="${VERSIONE}"
 RUN mkdir -p /usr/share/aios \
     && echo "${VERSIONE}" > /usr/share/aios/versione \
+    && echo "${GPU:-standard}" > /usr/share/aios/variante \
     && printf '{"repo": "%s"}\n' "${REPO}" > /usr/share/aios/aggiornamenti.json \
     && sed -i -e 's/^NAME=.*/NAME="AIOS"/' -e "s/^PRETTY_NAME=.*/PRETTY_NAME=\"AIOS ${VERSIONE}\"/" \
               -e 's/^LOGO=.*/LOGO=aios/' -e 's/^DEFAULT_HOSTNAME=.*/DEFAULT_HOSTNAME="aios"/' \

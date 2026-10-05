@@ -33,6 +33,7 @@ from typing import Any, Callable
 MANIFEST = "aios-aggiornamento.json"
 ARCHIVE = "aios-aggiornamento.ociarchive"
 VERSION_FILE = Path("/usr/share/aios/versione")
+VARIANT_FILE = Path("/usr/share/aios/variante")  # «standard» o «nvidia» (driver NVIDIA nell'immagine)
 CONFIG_FILE = Path("/usr/share/aios/aggiornamenti.json")
 TOKEN_KEY = "github-aggiornamenti"
 CHUNK = 1 << 20
@@ -40,6 +41,18 @@ CHUNK = 1 << 20
 
 def workdir() -> Path:
     return Path(os.environ.get("AIOS_AGGIORNAMENTI_DIR", "/var/tmp/aios-aggiornamento"))
+
+
+def installed_variant(path: Path = VARIANT_FILE) -> str:
+    try:
+        return path.read_text().strip() or "standard"
+    except OSError:
+        return "standard"
+
+
+def same_variant(manifest: dict[str, Any], variant: str | None = None) -> bool:
+    """Un pacchetto della variante giusta: un PC NVIDIA non deve prendere l'immagine senza driver, e viceversa."""
+    return str(manifest.get("variante") or "standard") == (variant or installed_variant())
 
 
 def installed_version(path: Path = VERSION_FILE) -> str:
@@ -154,6 +167,7 @@ class GithubSource:
 
     def __init__(self, repo: str, token: str = "", opener: Callable[[urllib.request.Request], Any] | None = None):
         self.repo, self.token = repo, (token or "").strip()  # senza token: repository pubblico
+        self.variant: str | None = None  # None: quella installata
         self.open = opener or (lambda req: urllib.request.urlopen(req, timeout=60))
 
     def _request(self, url: str, accept: str = "application/vnd.github+json",
@@ -190,7 +204,10 @@ class GithubSource:
             if MANIFEST not in assets:
                 continue
             with self.open(self._request(assets[MANIFEST]["url"], "application/octet-stream")) as resp:
-                version, sha, parts, fedora = parse_manifest(json.loads(resp.read()))
+                manifest = json.loads(resp.read())
+            if not same_variant(manifest, self.variant):
+                continue
+            version, sha, parts, fedora = parse_manifest(manifest)
             if any(p.name not in assets for p in parts):
                 continue
 
@@ -232,7 +249,10 @@ def find_on_media(roots: list[Path] | None = None) -> Package | None:
             if not manifest.is_file():
                 continue
             try:
-                version, sha, parts, fedora = parse_manifest(json.loads(manifest.read_text()))
+                data = json.loads(manifest.read_text())
+                if not same_variant(data):
+                    continue
+                version, sha, parts, fedora = parse_manifest(data)
             except (OSError, ValueError, KeyError, TypeError):
                 continue
             if all((folder / p.name).is_file() for p in parts):

@@ -39,8 +39,13 @@ def fedora_version(os_release: Path = Path("/etc/os-release")) -> str:
     return "44"
 
 
-def image_ref(repo: str, fedora: str | None = None) -> str:
-    return f"{REGISTRY}/{repo.lower()}:{fedora or fedora_version()}"
+def image_ref(repo: str, fedora: str | None = None, variant: str | None = None) -> str:
+    """ghcr.io/…/aios:44, o :44-nvidia per la variante con il driver NVIDIA."""
+    if variant is None:
+        from .imageupdate import installed_variant
+
+        variant = installed_variant()
+    return f"{REGISTRY}/{repo.lower()}:{fedora or fedora_version()}{'-nvidia' if variant == 'nvidia' else ''}"
 
 
 def rebase_command(tool: str, ref: str) -> list[str]:

@@ -21,6 +21,11 @@ on:
         type: choice
         options: [fedora, lts]
         default: fedora
+      gpu:
+        description: "Variante: standard, o nvidia (driver NVIDIA 580xx e CUDA per Ollama; Secure Boot disattivato)"
+        type: choice
+        options: [standard, nvidia]
+        default: standard
   push:
     tags: ["v*"]
 
@@ -33,6 +38,7 @@ env:
   ISO: ${{ github.event_name == 'push' || inputs.iso }}
   PUBBLICA: ${{ github.event_name == 'push' || inputs.pubblica }}
   KERNEL: ${{ inputs.kernel || 'fedora' }}
+  GPU: ${{ inputs.gpu || 'standard' }}
 
 jobs:
   immagine:
@@ -51,7 +57,9 @@ jobs:
         run: |
           for v in 44 43; do
             if sudo skopeo inspect --raw "docker://quay.io/fedora-ostree-desktops/silverblue:$v" >/dev/null; then
-              echo "FEDORA=$v" >> "$GITHUB_ENV"; echo "Fedora $v"; exit 0
+              echo "FEDORA=$v" >> "$GITHUB_ENV"; echo "Fedora $v"
+              # l'etichetta dell'immagine: «44» o «44-nvidia» (i PC NVIDIA restano sulla loro variante)
+              echo "TAG=$v$([ "$GPU" = nvidia ] && echo -nvidia)" >> "$GITHUB_ENV"; exit 0
             fi
           done
           echo "Nessuna immagine Silverblue trovata" >&2; exit 1
@@ -88,28 +96,29 @@ jobs:
         run: |
           echo "VERSIONE=$(date -u +%Y.%m.%d).${GITHUB_RUN_NUMBER}" >> "$GITHUB_ENV"
           sudo podman build --build-arg FEDORA="$FEDORA" --build-arg VERSIONE="$(date -u +%Y.%m.%d).${GITHUB_RUN_NUMBER}" \
-            --build-arg REPO="$GITHUB_REPOSITORY" --build-arg KERNEL="${KERNEL:-fedora}" -t "${IMMAGINE}:${FEDORA}" -f image/Containerfile .
+            --build-arg REPO="$GITHUB_REPOSITORY" --build-arg KERNEL="${KERNEL:-fedora}" \
+            --build-arg GPU="$([ "$GPU" = nvidia ] && echo nvidia)" -t "${IMMAGINE}:${TAG}" -f image/Containerfile .
       - name: Strati per pacchetto
         # L'immagine divisa in strati stabili (un gruppo di pacchetti per strato, i modelli a parte): un PC
         # che si aggiorna dal registro scarica solo gli strati cambiati. Se non riesce, si tiene com'è.
         run: |
           if sudo podman run --rm --privileged --security-opt label=disable -v /var/lib/containers:/var/lib/containers \
-               "${IMMAGINE}:${FEDORA}" rpm-ostree compose build-chunked-oci --bootc --format-version=1 \
-               --from "${IMMAGINE}:${FEDORA}" --output "containers-storage:${IMMAGINE}:${FEDORA}-strati"; then
-            sudo podman tag "${IMMAGINE}:${FEDORA}-strati" "${IMMAGINE}:${FEDORA}"
-            sudo podman rmi "${IMMAGINE}:${FEDORA}-strati" || true
+               "${IMMAGINE}:${TAG}" rpm-ostree compose build-chunked-oci --bootc --format-version=1 \
+               --from "${IMMAGINE}:${TAG}" --output "containers-storage:${IMMAGINE}:${TAG}-strati"; then
+            sudo podman tag "${IMMAGINE}:${TAG}-strati" "${IMMAGINE}:${TAG}"
+            sudo podman rmi "${IMMAGINE}:${TAG}-strati" || true
             sudo podman image prune -f || true
           else
             echo "::warning::divisione in strati non riuscita: l'immagine resta com'è"
           fi
-          sudo podman image inspect "${IMMAGINE}:${FEDORA}" --format '{{len .RootFS.Layers}} strati'
+          sudo podman image inspect "${IMMAGINE}:${TAG}" --format '{{len .RootFS.Layers}} strati'
           df -h / /mnt
       - name: Pubblica
         if: env.PUBBLICA == 'true'
         continue-on-error: true  # se il registro non risponde, il pacchetto della Release c'è comunque
         run: |
           echo "${{ secrets.GITHUB_TOKEN }}" | sudo podman login ghcr.io -u "${{ github.actor }}" --password-stdin
-          for i in 1 2 3; do sudo podman push "${IMMAGINE}:${FEDORA}" && exit 0; sleep 30; done; exit 1
+          for i in 1 2 3; do sudo podman push "${IMMAGINE}:${TAG}" && exit 0; sleep 30; done; exit 1
       - name: Chiavetta d'installazione
         if: env.ISO == 'true'
         run: |
@@ -118,26 +127,26 @@ jobs:
             -v ./image/config.toml:/config.toml:ro -v /mnt/uscita:/output \
             -v /var/lib/containers/storage:/var/lib/containers/storage \
             quay.io/centos-bootc/bootc-image-builder:latest \
-            --type anaconda-iso --rootfs btrfs "${IMMAGINE}:${FEDORA}"
+            --type anaconda-iso --rootfs btrfs "${IMMAGINE}:${TAG}"
           ls -lh /mnt/uscita/bootiso
       - name: Pacchetto di aggiornamento
         # La stessa immagine come file: i PC già installati la scaricano da qui (con l'accesso dell'utente)
         # o la leggono da una chiavetta (copilot/aios_copilot/imageupdate.py). Mai formattare per aggiornare.
         run: |
           sudo mkdir -p /mnt/uscita/aggiornamento
-          sudo skopeo copy "containers-storage:${IMMAGINE}:${FEDORA}" oci-archive:/mnt/uscita/aggiornamento/aios-aggiornamento.ociarchive
+          sudo skopeo copy "containers-storage:${IMMAGINE}:${TAG}" oci-archive:/mnt/uscita/aggiornamento/aios-aggiornamento.ociarchive
           sudo chown -R "$(id -u)" /mnt/uscita
           cd /mnt/uscita/aggiornamento
           totale=$(sha256sum aios-aggiornamento.ociarchive | cut -d' ' -f1)
           split -b 1900M -d -a 1 aios-aggiornamento.ociarchive aios-aggiornamento.ociarchive.parte
           rm aios-aggiornamento.ociarchive
-          python3 - "$VERSIONE" "$FEDORA" "$totale" <<'PY'
+          python3 - "$VERSIONE" "$FEDORA" "$totale" "$GPU" <<'PY'
           import hashlib, json, pathlib, sys
           parti = []
           for p in sorted(pathlib.Path(".").glob("aios-aggiornamento.ociarchive.parte*"), key=lambda p: int(p.name.rsplit("parte", 1)[1])):
               parti.append({"nome": p.name, "sha256": hashlib.sha256(p.read_bytes()).hexdigest(), "dimensione": p.stat().st_size})
           pathlib.Path("aios-aggiornamento.json").write_text(json.dumps(
-              {"versione": sys.argv[1], "fedora": sys.argv[2], "sha256": sys.argv[3], "parti": parti}, indent=1))
+              {"versione": sys.argv[1], "fedora": sys.argv[2], "sha256": sys.argv[3], "variante": sys.argv[4], "parti": parti}, indent=1))
           PY
           ls -lh
       - name: Metti tutto in una Release
@@ -157,14 +166,14 @@ jobs:
             files+=(/mnt/uscita/bootiso/aios-installazione.iso*)
           fi
           # Qualche volta GitHub rifiuta (403/5xx) a fine caricamento: si riprova invece di buttare la costruzione.
-          tag="anteprima-${GITHUB_RUN_NUMBER}"
+          tag="anteprima-$([ "$GPU" = nvidia ] && echo nvidia-)${GITHUB_RUN_NUMBER}"
           for i in 1 2 3 4; do
             # Se nel frattempo il ramo è andato avanti, GitHub rifiuta (403) l'etichetta sul commit costruito:
             # dal secondo tentativo l'etichetta va sul ramo, e il commit costruito è scritto nelle note.
             target="$GITHUB_SHA"; [ "$i" -gt 1 ] && target="$GITHUB_REF_NAME"
             { cat "$GITHUB_WORKSPACE/image/RELEASE.md"; printf '\n---\nCostruita dal commit %s.\n' "$GITHUB_SHA"; } > /tmp/note.md
             gh release create "$tag" --repo "$GITHUB_REPOSITORY" --target "$target" --prerelease \
-              --title "AIOS ${VERSIONE} (anteprima$([ "$KERNEL" = lts ] && echo ', kernel LTS 6.18'))" \
+              --title "AIOS ${VERSIONE} (anteprima$([ "$GPU" = nvidia ] && echo ', NVIDIA')$([ "$KERNEL" = lts ] && echo ', kernel LTS 6.18'))" \
               --notes-file /tmp/note.md "${files[@]}" && exit 0
             echo "Release non creata (tentativo $i): riprovo"
             gh release delete "$tag" --repo "$GITHUB_REPOSITORY" --yes --cleanup-tag 2>/dev/null || true
@@ -177,6 +186,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           gh release list --repo "$GITHUB_REPOSITORY" --limit 200 --json tagName --jq '.[].tagName' \
-            | grep '^anteprima-[0-9]*$' | sort -t- -k2 -nr | tail -n +3 | while read -r t; do
+            | grep "^anteprima-$([ "$GPU" = nvidia ] && echo nvidia-)[0-9]*$" | sort -t- -k"$([ "$GPU" = nvidia ] && echo 3 || echo 2)" -nr \
+            | tail -n +3 | while read -r t; do
             echo "Tolgo $t"; gh release delete "$t" --repo "$GITHUB_REPOSITORY" --yes --cleanup-tag
           done
