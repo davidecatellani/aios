@@ -79,7 +79,7 @@ DOMAINS: list[tuple[str, str]] = [
              "photos of a person, place or period"),
     ("riordino", "Tidy up and organize files and folders, clean up space, collections of files"),
     ("app", "Applications and windows: open, close, install, remove or switch between programs"),
-    ("impostazioni", "Volume, brightness, keyboard layout, Wi-Fi, Bluetooth, dark or light theme, music playback control, screenshot, lock, shut down or restart"),
+    ("impostazioni", "Volume, audio output device (monitor, headphones, speakers), microphone, volume of one app, brightness, keyboard layout, Wi-Fi, Bluetooth, dark or light theme, music playback control, screenshot, lock, shut down or restart"),
     ("computer", "Time and date, battery and energy saving, system information, voice listening, opening a folder or place"),
     ("aggiornamenti", "System updates: check, install, from USB stick or GitHub, roll back to the previous version, switch to the NVIDIA graphics driver version"),
     ("chiamate", "Phone calls and SMS: answer, reject, read or send messages, make the phone ring, phone notifications"),
@@ -97,7 +97,8 @@ DOMAINS: list[tuple[str, str]] = [
 # Strumenti assegnati per nome; gli altri seguono il loro gruppo (vedi GROUP_DOMAIN).
 DOMAIN_TOOLS: dict[str, set[str]] = {
     "impostazioni": {"set_volume", "set_brightness", "set_radio", "set_theme", "media_control", "take_screenshot",
-                     "lock_screen", "power", "bluetooth_devices", "forget_bluetooth", "set_keyboard", "edit_image"},
+                     "lock_screen", "power", "bluetooth_devices", "forget_bluetooth", "set_keyboard", "edit_image",
+                     "set_audio_output", "set_audio_input", "set_app_volume", "list_audio_devices"},
     "computer": {"current_time", "system_info", "energy_choice", "energy_status", "voice_listening", "voice_status",
                  "open_location"},
     "aggiornamenti": {"auto_updates", "connect_github_updates", "update_from_usb", "update_now", "update_status", "switch_system_variant",

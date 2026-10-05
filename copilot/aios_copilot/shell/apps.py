@@ -566,6 +566,30 @@ def register_apps(app: Any, run: Run = _run) -> None:
         subprocess.Popen(["gio", "open", str(p)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
         return 200, {"ok": True}
 
+    def audio_action(m: Any, b: dict[str, Any], q: dict[str, str]) -> tuple[int, Any]:
+        """Impostazioni › Suono: scegliere uscita e microfono, volume e muto di ciascuno e dei programmi, prove."""
+        from ..audio import Audio
+
+        a, what = Audio(), str(b.get("azione", ""))
+        try:
+            target = int(b.get("id", -1))
+        except (TypeError, ValueError):
+            target = -1
+        if what == "scegli":
+            prof = b.get("profilo") if isinstance(b.get("profilo"), dict) and b.get("profilo") else None
+            ok, msg = a.choose(None if prof else target, prof)
+            return 200, {"ok": ok, "messaggio": msg}
+        if what == "volume" and target >= 0:
+            return 200, {"ok": a.volume(target, int(b.get("livello", 50)))}
+        if what == "muto" and target >= 0:
+            return 200, {"ok": a.mute(target, bool(b.get("muto")))}
+        if what == "prova":
+            return 200, {"ok": a.test_output()}
+        if what == "prova-microfono":
+            ok, msg = a.test_input()
+            return 200, {"ok": ok, "messaggio": msg}
+        return 400, {"error": "azione sconosciuta"}
+
     def settings(m: Any, b: dict[str, Any], q: dict[str, str]) -> tuple[int, Any]:
         part = q.get("parte", "")
         data: dict[str, Any] = {}
@@ -574,8 +598,11 @@ def register_apps(app: Any, run: Run = _run) -> None:
         if part in ("", "bluetooth"):
             data["bluetooth"] = bluetooth_state(run)
         if part in ("", "suono"):
+            from ..audio import Audio
+
             data["volume"] = volume_state(run)
             data["luminosita"] = brightness_state(run)
+            data["audio"] = Audio().as_json()
         if part in ("", "info"):
             data["info"] = system_info()
             try:
@@ -849,6 +876,7 @@ def register_apps(app: Any, run: Run = _run) -> None:
         ("POST", r"/api/impostazioni/wifi", wifi),
         ("POST", r"/api/impostazioni/bluetooth", bluetooth),
         ("POST", r"/api/impostazioni/(volume|luminosita)", level),
+        ("POST", r"/api/impostazioni/audio", audio_action),
         ("POST", r"/api/impostazioni/password", password),
         ("POST", r"/api/impostazioni/github", github),
         ("GET", r"/api/impostazioni/posta", mail_accounts),

@@ -868,6 +868,17 @@ def main(argv: list[str] | None = None) -> int:
     if args and forward(args):
         return 0
     threading.Thread(target=auto_power_profile, daemon=True).start()
+
+    def audio_default() -> None:  # l'uscita ottica scelta da sola all'avvio → il monitor o le casse (audio.py)
+        time.sleep(6)
+        try:
+            from ..audio import Audio
+
+            Audio().auto_default()
+        except Exception:
+            pass
+
+    threading.Thread(target=audio_default, daemon=True).start()
     from .. import kokoro
 
     threading.Thread(target=kokoro.warm_up, daemon=True).start()  # la voce pronta per la prima risposta

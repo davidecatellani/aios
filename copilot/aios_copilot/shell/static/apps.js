@@ -393,8 +393,46 @@ const VISTE = {
         const r = el("input"); r.type = "range"; r.min = 0; r.max = 100; r.value = valore ?? 50; r.disabled = valore == null;
         r.onchange = () => api(`/api/impostazioni/${rotta}`, { livello: +r.value }).catch(() => {}); return r;
       };
-      carta(riga("🔊 Volume", d.volume?.livello == null ? "Audio non disponibile" : null, cursore(d.volume?.livello, "volume")),
-            riga("☀️ Luminosità", d.luminosita?.livello == null ? "Questo schermo non la regola da qui" : null, cursore(d.luminosita?.livello, "luminosita")));
+      const au = d.audio || { uscite: [], ingressi: [], programmi: [] };
+      const azione = (corpo, poi) => api("/api/impostazioni/audio", corpo).then(r => { if (r.messaggio) dici(r); if (poi) poi(r); }).catch(e => dici({ ok: false, messaggio: e.message }));
+      const livello = (e) => {  // volume e muto di un'uscita, di un microfono o di un programma
+        const r = el("input"); r.type = "range"; r.min = 0; r.max = 150; r.value = e.livello ?? 50; r.disabled = e.livello == null;
+        r.className = "volume-audio"; r.title = "Fino a 150%: oltre 100 il suono si amplifica";
+        r.onchange = () => azione({ azione: "volume", id: e.id, livello: +r.value });
+        const m = el("button", "muto-audio" + (e.muto ? " acceso" : ""), e.muto ? "🔇" : "🔈"); m.title = e.muto ? "Riattiva" : "Silenzia";
+        m.onclick = () => { e.muto = !e.muto; m.textContent = e.muto ? "🔇" : "🔈"; m.classList.toggle("acceso", e.muto); azione({ azione: "muto", id: e.id, muto: e.muto }); };
+        const box = el("div", "livello-audio"); box.append(m, r); return box;
+      };
+      const elenco = (titolo, nota, voci, vuoto, extra) => {
+        const c = carta(el("h3", "", titolo));
+        if (nota) c.append(el("p", "nota", nota));
+        if (!voci.length) c.append(el("p", "nota", vuoto));
+        for (const e of voci) {
+          const r = el("div", "scelta-audio" + (e.predefinito ? " in-uso" : ""));
+          const nome = el("button", "nome-audio");
+          nome.append(el("span", "icona-audio", e.icona), el("span", "", e.nome),
+                      el("small", "", e.predefinito ? "in uso" : e.da_attivare && Object.keys(e.da_attivare).length ? "spenta: tocca per attivarla" : ""));
+          nome.onclick = () => azione({ azione: "scegli", id: e.id, profilo: e.da_attivare }, () => setTimeout(() => apriVista("impostazioni", "suono"), 600));
+          r.append(nome);
+          if (e.predefinito) r.append(livello(e));
+          c.append(r);
+        }
+        if (extra) c.append(extra);
+        return c;
+      };
+      const prova = el("div", "azioni");
+      prova.append(bottone("🔔 Prova l'uscita", () => azione({ azione: "prova" }), "bottone"));
+      elenco("Uscita", "Da dove esce il suono. Tocca per sceglierla: AIOS se la ricorda.", au.uscite,
+             "Non trovo uscite audio.", prova);
+      const provaMic = el("div", "azioni");
+      provaMic.append(bottone("🎙️ Prova il microfono", (ev) => { ev.target.disabled = true; dici({ ok: true, messaggio: "Parla per 4 secondi… poi ti faccio riascoltare." });
+        azione({ azione: "prova-microfono" }, () => { ev.target.disabled = false; }); }, "bottone"));
+      elenco("Ingresso", "Il microfono che usano Nova e i programmi.", au.ingressi, "Nessun microfono collegato.", provaMic);
+      const app = carta(el("h3", "", "Volume dei programmi"));
+      if (!au.programmi.length) app.append(el("p", "nota", "Nessun programma sta suonando adesso."));
+      for (const p of au.programmi) app.append(riga(p.programma, null, livello(p)));
+      carta(riga("☀️ Luminosità", d.luminosita?.livello == null ? "Questo schermo non la regola da qui" : null, cursore(d.luminosita?.livello, "luminosita")));
+      pan.append(esito);
     } else if (sezione === "voce") {
       const v = d.voce || { voci: [] };
       const c = carta(el("p", "nota", "Scegli come parla Nova. Tocca una voce per sentirla."));

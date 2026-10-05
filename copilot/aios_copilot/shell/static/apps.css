@@ -165,3 +165,17 @@ body.in-vista #casa, body.in-vista #fondo { display: none; }
 .tela { max-width: 100%; max-height: calc(100vh - 260px); cursor: crosshair; box-shadow: 0 8px 30px rgba(0,0,0,.18); touch-action: none; }
 #lampada .modifica { position: fixed; top: 54px; right: 84px; border-radius: 12px; padding: 8px 14px; border: 0;
                      background: rgba(255,255,255,.92); color: #111; font-weight: 700; }
+
+/* Impostazioni › Suono */
+.scelta-audio { display: flex; align-items: center; gap: 12px; padding: 6px 4px; border-radius: 12px; flex-wrap: wrap; }
+.scelta-audio.in-uso { background: rgba(46,196,182,.10); }
+.nome-audio { flex: 1; min-width: 220px; display: flex; align-items: center; gap: 10px; border: 0; background: none;
+              color: inherit; text-align: left; padding: 8px 10px; border-radius: 10px; font-weight: 600; }
+.nome-audio:hover { background: rgba(127,127,127,.10); }
+.nome-audio small { margin-left: auto; color: var(--tenue); font-weight: 500; }
+.scelta-audio.in-uso .nome-audio small { color: var(--turchese-scuro); font-weight: 700; }
+.icona-audio { font-size: 20px; width: 26px; text-align: center; }
+.livello-audio { display: flex; align-items: center; gap: 8px; min-width: 240px; flex: 1; }
+.livello-audio input { flex: 1; }
+.muto-audio { border: 0; background: none; font-size: 18px; padding: 4px 6px; border-radius: 8px; }
+.muto-audio.acceso { background: rgba(217,83,79,.15); }
