@@ -127,6 +127,8 @@ class LocalApp:
         def on_event(kind: str, data: dict[str, Any]) -> None:
             if kind == "routed":
                 job.add(kind="fast", level=data["level"])
+            elif kind == "fallback":  # la scorciatoia non è bastata: risponde il modello, non è più «all'istante»
+                job.add(kind="lento")
             elif kind == "tool_call":
                 job.add(kind="status", text=describe_call(data["tool"], data["args"]))
             elif kind == "token":

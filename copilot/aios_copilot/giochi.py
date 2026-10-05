@@ -37,7 +37,7 @@ RULE_FREE_GB = 2.5  # …se c'è almeno questa memoria libera
 # Fuori dai giochi i modelli di Nova restano caricati (risposte senza attese); se però la memoria libera scende
 # sotto questa soglia (un programma pesante), il modello di conversazione si scarica e si ricarica alla
 # prossima domanda (qualche secondo). Laya resta: è piccolo e ricaricarlo costa di più.
-LOW_FREE_GB = 0.8
+LOW_FREE_GB = 0.5  # sotto: il sistema è già nello swap; più in alto scaricherebbe il modello a ogni domanda
 GUARD_EVERY = 60.0
 OLLAMA = os.environ.get("AIOS_OLLAMA_URL", "http://localhost:11434").rstrip("/")
 

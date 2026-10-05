@@ -649,6 +649,7 @@ async function chiedi(text, aVoce = false) {
       next = s.next;
       for (const ev of s.events) {
         if (ev.kind === "fast") veloce = true;
+        if (ev.kind === "lento") veloce = false;
         if (ev.kind === "coda") coda = riga("⏳ in coda: rispondo appena finisco la richiesta di prima", null, dove);
         if (ev.kind === "status") { coda?.remove(); coda = null; riga(ev.text, null, dove); }
         if (ev.kind === "schede") mostraSchede(ev, text);

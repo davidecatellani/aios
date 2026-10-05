@@ -85,7 +85,7 @@ def test_low_memory_unloads_the_chat_model(tmp_path, monkeypatch):
                            clock=lambda: now[0], free=lambda: free[0])
     mode.tick()
     assert calls == []
-    free[0] = 0.5
+    free[0] = 0.3
     mode.tick()
     now[0] = 10
     mode.tick()  # non a ogni giro: al massimo una volta al minuto
