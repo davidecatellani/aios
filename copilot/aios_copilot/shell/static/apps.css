@@ -284,3 +284,15 @@ body.in-vista #casa, body.in-vista #fondo { display: none; }
                    border-radius: 8px; padding: 3px 9px; justify-self: start; }
 #lampada .togli-sfondo { right: 210px; }
 #lampada.scacchi img { background: repeating-conic-gradient(#8a979c 0% 25%, #c9d2d5 0% 50%) 50% / 24px 24px; }
+/* Personalizzazioni */
+.richiesta-aios { width: 100%; resize: vertical; font: inherit; margin-top: 10px; }
+.esempi-aios { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.chip-aios { border: 1px solid var(--bordo); background: var(--chip); color: var(--testo); border-radius: 999px; padding: 5px 12px; font-size: 13px; }
+.chip-aios:hover { border-color: var(--turchese); }
+.passi-aios { margin: 8px 0 0; padding-left: 22px; color: var(--tenue); font-size: 14px; line-height: 1.7; font-family: "JetBrains Mono", monospace; }
+.barra-lavoro { height: 4px; border-radius: 2px; margin-top: 8px; background: linear-gradient(90deg, transparent, var(--turchese), transparent);
+                background-size: 50% 100%; background-repeat: no-repeat; animation: lavoro 1.4s linear infinite; }
+@keyframes lavoro { from { background-position: -50% 0; } to { background-position: 150% 0; } }
+.diff-aios { max-height: 280px; overflow: auto; font: 12px/1.45 "JetBrains Mono", monospace; background: var(--chip); border-radius: 10px; padding: 10px; white-space: pre-wrap; }
+.diff-aios .piu { color: #1e9e57; } .diff-aios .meno { color: #D9534F; }
+.anteprima-aios:not(:empty) { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--bordo); }

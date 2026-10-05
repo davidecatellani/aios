@@ -47,13 +47,14 @@ const ICONE = {
   mouse: "M12 3a5.5 5.5 0 0 1 5.5 5.5v7a5.5 5.5 0 0 1-11 0v-7A5.5 5.5 0 0 1 12 3z M12 3v6 M6.5 9h11",
   termometro: "M10 4.5a2 2 0 0 1 4 0v9.3a4 4 0 1 1-4 0z M12 9v7",
   ventola: "M12 10.5a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3z M12 10.5C11 7 12 3.5 15 3.5c2 0 2 3-3 7z M13.3 12.8c3.5 1 5.5 4 4 6.5-1 1.8-3.6.3-4-6.5z M10.7 12.8C8.2 15.5 4.5 15.6 3.6 13c-.7-2 2-3 7.1-.2z",
+  personalizzazioni: "M12 3l1.8 4.7L18.5 9.5l-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8z M18.5 15l.9 2.1 2.1.9-2.1.9-.9 2.1-.9-2.1-2.1-.9 2.1-.9z M5 16l.6 1.4L7 18l-1.4.6L5 20l-.6-1.4L3 18l1.4-.6z",
   chip: "M7 7h10v10H7z M9.5 9.5h5v5h-5z M9 3v4 M15 3v4 M9 17v4 M15 17v4 M3 9h4 M3 15h4 M17 9h4 M17 15h4",
 };
 // i colori delle «piastrelle» delle app di AIOS nel dock
 const TINTE = { file: ["#3BA3D6", "#1867A6"], foto: ["#F2A65A", "#D9534F"], musica: ["#E36397", "#8E44AD"],
                 video: ["#7B6CF6", "#3D3BB7"], note: ["#F4C95D", "#E09F3E"], impostazioni: ["#7D8A96", "#45525E"],
                 internet: ["#2EC4B6", "#0B6E99"], attivita: ["#3DDC97", "#138A72"], calendario: ["#FF7A6B", "#C2334D"],
-                rubrica: ["#5BC0EB", "#2B6CB0"] };
+                rubrica: ["#5BC0EB", "#2B6CB0"], personalizzazioni: ["#F28AD0", "#7B6CF6"] };
 
 function svgIcona(nome, cls = "icona") {
   const ns = "http://www.w3.org/2000/svg";

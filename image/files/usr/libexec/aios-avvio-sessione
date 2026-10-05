@@ -17,6 +17,16 @@ command -v mako >/dev/null && mako --config /usr/share/aios/labwc/mako >/dev/nul
 command -v swayidle >/dev/null && swayidle -w lock 'aios-blocca' timeout 600 'aios-blocca' timeout 900 'wlopm --off "*"' \
   resume 'wlopm --on "*"' before-sleep 'aios-blocca' >/dev/null 2>&1 &
 # la shell: la giornata, la barra e Nova
-LD_PRELOAD=$(ls /usr/lib64/libgtk4-layer-shell.so* /usr/lib/x86_64-linux-gnu/libgtk4-layer-shell.so* 2>/dev/null | head -n1) \
-  aios-shell >/dev/null 2>&1 &
+# Se cade, riparte (fino a 6 volte di fila): con le personalizzazioni (codice personale) al terzo avvio fallito AIOS
+# torna da solo al codice originale (modalità sicura, aios_copilot/__init__.py).
+layer=$(ls /usr/lib64/libgtk4-layer-shell.so* /usr/lib/x86_64-linux-gnu/libgtk4-layer-shell.so* 2>/dev/null | head -n1)
+(
+  n=0
+  while [ "$n" -lt 6 ]; do
+    started=$(date +%s)
+    LD_PRELOAD="$layer" aios-shell >/dev/null 2>&1
+    [ $(( $(date +%s) - started )) -gt 60 ] && n=0 || n=$((n + 1))
+    sleep 1
+  done
+) &
 # il benvenuto è dentro la shell (primi passi con Nova)

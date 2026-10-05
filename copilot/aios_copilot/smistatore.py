@@ -93,7 +93,9 @@ DOMAINS: list[tuple[str, str]] = [
     ("web", "Search the internet, websites, news, weather, facts that need online lookup"),
     ("ai", "AI models on this device, looking at images or the screen, dictation, reading aloud, creating images"),
     ("gusti", "Subscriptions, recommendations for music, films, series, books, games, what to watch, play or listen"),
-    ("aspetto", "Themes, wallpapers, colors and look of the system, widgets on the home screen (weather, map, clock, note)"),
+    ("aspetto", "Themes, wallpapers, colors and look of the system, widgets on the home screen (weather, map, clock, note), "
+                "changing AIOS itself on request: how the home, bar, clock, apps or settings look or work (the system reprograms "
+                "itself), undo, share or reset these personalizations"),
     ("chiacchiera", "General conversation, greetings, questions of knowledge, advice, writing help, anything not about this device"),
 ]
 # Strumenti assegnati per nome; gli altri seguono il loro gruppo (vedi GROUP_DOMAIN).

@@ -28,6 +28,7 @@ from .tools import Runner, Tool, apps, default_tools, files
 from .xdg import resolve_folder
 from .tools import agenda as agenda_tools
 from .tools import foto as photo_tools
+from .tools import personalizza as customize_tools
 from .tools import rubrica as contacts_tools
 from .tools import memoria as memory_tools
 from .tools import sessione as session_tools
@@ -185,7 +186,7 @@ def make_agent(confirm: Confirm, model: str | None = None, allowed: frozenset[st
         "gusti": taste_tools.make_tools(subs, catalog, profile, web_search=web_group[0].func),
         "ai": [*ai_tools.make_management_tools(device, installed_models, downloads),
                *ai_tools.make_capability_tools(engines.available()), *cloud_tools.make_tools()],
-        "aspetto": [*widget_tools.make_tools(), *theme_tools.make_tools(ask_llm=lambda prompt: llm.chat([{"role": "user", "content": prompt}], []).get("content", ""),
+        "aspetto": [*widget_tools.make_tools(), *customize_tools.make_tools(), *theme_tools.make_tools(ask_llm=lambda prompt: llm.chat([{"role": "user", "content": prompt}], []).get("content", ""),
                                           runner=runner)],
         "memoria": memory_tools.make_tools(),
         "telefono": [*phone_tools.make_tools(runner), *identity_tools.make_tools(user_name=user_name), *screen_tools.make_tools()],
@@ -237,6 +238,7 @@ def make_agent(confirm: Confirm, model: str | None = None, allowed: frozenset[st
             organize_tools.OrganizeRouter(),  # livello 0: raccolte e riordino (dopo le cartelle)
             document_tools.DocumentsRouter(),  # livello 0: «fammi vedere la bolletta…», dieta, lista della spesa
             theme_tools.ThemesRouter(),  # livello 0: temi
+            customize_tools.CustomizeRouter(),  # livello 0: «togli l'ultima personalizzazione», «rimetti AIOS originale»
             widget_tools.WidgetRouter(),  # livello 0: «inserisci un widget per il meteo»
             settings_tools.ScreenshotRouter(),  # livello 0: «modifica lo screenshot»
             semantic_router(),  # livello 1: italiano e inglese, < 1 ms

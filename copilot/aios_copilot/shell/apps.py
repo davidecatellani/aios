@@ -1390,6 +1390,102 @@ def _has_touchpad() -> bool:
         return False
 
 
+def register_customizations(app: Any) -> None:
+    """Personalizzazioni: AIOS che si riprogramma su richiesta (codice.py, programmatore.py), con storia, annulla,
+    condivisione in file .aios e ritorno all'originale. Il lavoro dell'agente gira in sottofondo; la pagina segue."""
+    from .. import codice, programmatore
+
+    job: dict[str, Any] = {"in_corso": False, "passi": [], "esito": None}
+
+    def restart() -> None:
+        getattr(app, "restart_shell", lambda: None)()
+
+    def state(m: Any, b: dict[str, Any], q: dict[str, str]) -> tuple[int, Any]:
+        try:
+            d = codice.describe()
+        except Exception as exc:
+            d = {"esiste": False, "modifiche": [], "errore": str(exc)}
+        pending = codice.state().get("in_attesa")
+        found = []  # personalizzazioni ricevute (file .aios) nelle cartelle di solito usate
+        for folder in ("Personalizzazioni", "Scaricati", "Downloads", "Documenti", "Documents", "Scrivania", "Desktop"):
+            d0 = home() / folder
+            if d0.is_dir():
+                found += [{"nome": f.name, "percorso": str(f.relative_to(home()))} for f in sorted(d0.glob("*.aios"))[:30]]
+        return 200, {**d, "in_attesa": pending, "lavoro": {k: job[k] for k in ("in_corso", "passi", "esito")},
+                     "git": bool(shutil.which("git")), "ricevute": found}
+
+    def ask(m: Any, b: dict[str, Any], q: dict[str, str]) -> tuple[int, Any]:
+        request = str(b.get("richiesta", "")).strip()[:1000]
+        if not request:
+            return 400, {"error": "manca la richiesta"}
+        if job["in_corso"]:
+            return 409, {"error": "Nova sta già lavorando a una modifica"}
+        job.update(in_corso=True, passi=[], esito=None)
+
+        def work() -> None:
+            try:
+                r = programmatore.customize(request, on_step=lambda st: job["passi"].append(st))
+            except Exception as exc:
+                r = {"ok": False, "messaggio": str(exc)}
+            job.update(in_corso=False, esito=r)
+            if r.get("ok"):
+                restart()
+
+        threading.Thread(target=work, daemon=True).start()
+        return 200, {"ok": True}
+
+    def action(m: Any, b: dict[str, Any], q: dict[str, str]) -> tuple[int, Any]:
+        what = str(b.get("azione", ""))
+        try:
+            if what == "annulla":
+                ok, msg = codice.undo(str(b.get("id", "")))
+                if ok:
+                    restart()
+                return 200, {"ok": ok, "messaggio": f"Tolta «{msg}»." if ok else msg}
+            if what == "azzera":
+                n = codice.reset_all()
+                restart()
+                return 200, {"ok": True, "messaggio": f"AIOS è tornato originale ({n} personalizzazioni tolte)."}
+            if what == "applica":
+                r = programmatore.apply_pending()
+                if r["ok"]:
+                    restart()
+                return 200, r
+            if what == "scarta":
+                codice.discard()
+                codice.save_state(in_attesa=None)
+                return 200, {"ok": True, "messaggio": "Modifica scartata."}
+            if what == "esporta":
+                path = codice.export(str(b.get("id", "")), home() / "Personalizzazioni")
+                return 200, {"ok": True, "percorso": str(path.relative_to(home())),
+                             "messaggio": f"Salvata in {path.relative_to(home())}: dalla a chi vuoi (chiavetta, mail, Schermo AIOS)."}
+            if what == "anteprima":
+                info = codice.read_shared(safe_path(str(b.get("p", ""))))
+                return 200, {"ok": True, **{k: v for k, v in info.items() if k != "patch"},
+                             "righe": [l for l in info["patch"].split("\n-- \n")[0].splitlines()
+                                       if l[:1] in "+-" and l[:3] not in ("+++", "---")][:200]}
+            if what == "importa":
+                ok, msg = codice.import_shared(safe_path(str(b.get("p", ""))))
+                if ok:
+                    restart()
+                return 200, {"ok": ok, "messaggio": f"Applicata «{msg}»." if ok else msg}
+            if what == "riprova":  # dopo la modalità sicura: si riprova la copia personale
+                codice.set_active(True)
+                restart()
+                return 200, {"ok": True, "messaggio": "Riprovo con le tue personalizzazioni."}
+            if what == "originale":
+                codice.save_state(attivo=False)
+                restart()
+                return 200, {"ok": True, "messaggio": "Uso AIOS originale (le personalizzazioni restano, puoi riattivarle)."}
+        except (ValueError, RuntimeError, OSError) as exc:
+            return 200, {"ok": False, "messaggio": str(exc)}
+        return 400, {"error": "azione sconosciuta"}
+
+    app.route("GET", r"/api/personalizzazioni", state)
+    app.route("POST", r"/api/personalizzazioni/chiedi", ask)
+    app.route("POST", r"/api/personalizzazioni", action)
+
+
 def history_path() -> Path:
     return Path(os.environ.get("XDG_DATA_HOME", Path.home() / ".local" / "share")) / "aios" / "risultati.json"
 

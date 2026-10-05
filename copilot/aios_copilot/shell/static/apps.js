@@ -24,7 +24,7 @@ function apriVista(nome, ...args) {
 // Le schermate con uno stato che cambia da solo (un aggiornamento che scarica, le reti Wi-Fi, il volume…) si
 // ridisegnano ogni pochi secondi: fuori pagina, poi al posto di quella vecchia (niente sfarfallio), tenendo il
 // punto dove eri arrivato. Mai mentre stai scrivendo o scegliendo qualcosa.
-const VISTE_VIVE = { impostazioni: { aggiornamenti: 3000, info: 10000, wifi: 8000, bluetooth: 6000, suono: 8000, schermo: 30000 }, attivita: 2000 };
+const VISTE_VIVE = { impostazioni: { aggiornamenti: 3000, info: 10000, wifi: 8000, bluetooth: 6000, suono: 8000, schermo: 30000, personalizzazioni: 2500 }, attivita: 2000 };
 function ogniQuanto() {
   const regole = VISTE_VIVE[vistaAttuale];
   if (!regole) return 0;
@@ -114,6 +114,7 @@ function apriFile(f) {
   f = { nome: f.percorso.split("/").pop(), ...f };
   const tipo = f.tipo || tipoDa(f.percorso);
   if (tipo === "cartella") return apriVista("file", f.percorso);
+  if (/\.aios$/i.test(f.percorso)) { anteprimaAios = f.percorso; return apriVista("impostazioni", "personalizzazioni"); }
   if (tipo === "immagine") return lampada([f], 0);
   if (tipo === "audio") return apriVista("musica", f.percorso);
   if (tipo === "video") return guardaVideo(f);
@@ -345,7 +346,7 @@ const VISTE = {
     const corpo = testa(box, "Impostazioni");
     const wrap = el("div", "impostazioni"); const nav = el("div", "sezioni"); const pan = el("div", "pannello-imp");
     wrap.append(nav, pan); corpo.append(wrap);
-    const SEZ = [["wifi", "Wi-Fi"], ["bluetooth", "Bluetooth"], ["suono", "Suono"], ["schermo", "Schermo"], ["voce", "Voce di Nova"], ["mouse", "Mouse e touchpad"], ["tastiera", "Tastiera"],
+    const SEZ = [["personalizzazioni", "Personalizzazioni"], ["wifi", "Wi-Fi"], ["bluetooth", "Bluetooth"], ["suono", "Suono"], ["schermo", "Schermo"], ["voce", "Voce di Nova"], ["mouse", "Mouse e touchpad"], ["tastiera", "Tastiera"],
                  ["aspetto", "Testo e carattere"], ["accessibilita", "Accessibilità"], ["aggiornamenti", "Aggiornamenti"], ["posta", "Posta"], ["account", "Password"], ["privacy", "Privacy e memoria"],
                  ["cloud", "AI in cloud"], ["info", "Questo computer"], ["energia", "Spegni"]];
     for (const [id, t] of SEZ) {
@@ -695,6 +696,8 @@ const VISTE = {
             riga("Lettore dello schermo", a.orca ? "Legge ad alta voce quello che c'è sullo schermo (Orca). Super+Alt+S lo accende e lo spegne." : "Orca non è installato in questa versione di AIOS.", sw("lettore")),
             riga("Nova guarda per te", "Chiedi «cosa c'è sullo schermo?» o «cosa dice questo errore?»", el("span", "nota", "")));
       pan.append(esito);
+    } else if (sezione === "personalizzazioni") {
+      await disegnaPersonalizzazioni(carta, riga, dici, esito, pan);
     } else if (sezione === "cloud") {
       const c = await api("/api/cloud").catch(() => null);
       if (!c) { pan.append(el("p", "esito no", "Non riesco a leggere le impostazioni.")); return; }
@@ -883,6 +886,8 @@ function durata(sec) {
   return g ? `${g} g ${o} h` : o ? `${o} h ${m} min` : `${m} min`;
 }
 
+VISTE.personalizzazioni = box => VISTE.impostazioni(box, "personalizzazioni");
+
 // --- Calendario: il mese, la giornata scelta, le cose da fare --------------------------------------------
 const SETTIMANA = ["lun", "mar", "mer", "gio", "ven", "sab", "dom"];  // MESI e GIORNI sono in home.html
 const isoGiorno = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -1058,6 +1063,85 @@ function modificaContatto(c = { nome: "", telefoni: [], email: [], compleanno: "
   k.append(esito, a); fondo.append(k); document.body.append(fondo);
   fondo.onkeydown = e => { e.stopPropagation(); if (e.key === "Escape") fondo.remove(); };
   setTimeout(() => nome.focus(), 30);
+}
+
+// --- Personalizzazioni: AIOS che si riprogramma su richiesta (codice.py, programmatore.py) -------------------
+let anteprimaAios = "";  // un file .aios aperto da File: si mostra subito l'anteprima
+async function disegnaPersonalizzazioni(carta, riga, dici, esito, pan) {
+  const d = await api("/api/personalizzazioni").catch(e => ({ errore: e.message, modifiche: [], ricevute: [] }));
+  const fai = (corpo, ricarica = true) => api("/api/personalizzazioni", corpo).then(r => { dici(r); if (ricarica) apriVista("impostazioni", "personalizzazioni"); return r; })
+    .catch(e => dici({ ok: false, messaggio: e.message }));
+  if (!d.git) { carta(el("p", "nota", "Per le personalizzazioni serve git, che manca in questa versione di AIOS.")); return; }
+  // stato straordinario: modalità sicura o conflitto con un aggiornamento
+  if (d.guasto) carta(riga(conIcona("avviso", "AIOS è ripartito originale"), "Una personalizzazione impediva alla schermata di partire. Puoi riprovare o togliere l'ultima.",
+                           bottone("Riprova", () => fai({ azione: "riprova" })), bottone("Togli l'ultima", () => fai({ azione: "annulla", id: "ultima" }), "bottone pericolo")));
+  if (d.conflitto) carta(riga(conIcona("avviso", "Personalizzazioni da rifare"), "La nuova versione di AIOS cambia le stesse parti: per ora uso AIOS originale. Chiedi a Nova di rifarle."));
+  // chiedere una modifica
+  const testo = el("textarea", "campo richiesta-aios"); testo.rows = 3;
+  testo.placeholder = "Cosa vuoi cambiare di AIOS? Es. «voglio l'orologio rotondo», «la barra in basso», «nella Gestione attività mostrami anche i dischi»";
+  const lav = d.lavoro || {};
+  const chiedi = bottone(lav.in_corso ? "Nova sta lavorando…" : "Chiedi a Nova", async () => {
+    if (!testo.value.trim()) return;
+    const r = await api("/api/personalizzazioni/chiedi", { richiesta: testo.value }).catch(e => ({ ok: false, messaggio: e.message }));
+    if (r.ok === false) dici(r); else apriVista("impostazioni", "personalizzazioni");
+  }, "bottone primo");
+  chiedi.disabled = !!lav.in_corso;
+  const esempi = el("div", "esempi-aios");
+  for (const e of ["Voglio l'orologio rotondo", "Metti la barra in basso", "Icone del dock più grandi", "Un widget con il conto alla rovescia per le vacanze"]) {
+    const b = el("button", "chip-aios", e); b.onclick = () => { testo.value = e; testo.focus(); }; esempi.append(b);
+  }
+  const az = el("div", "piede-modulo"); az.append(chiedi);
+  carta(el("h3", "", "AIOS come lo vuoi tu"),
+        el("p", "nota", "Chiedi qualsiasi cambiamento: Nova modifica il codice di AIOS, controlla che funzioni e lo applica. Ogni modifica si può togliere o dare a un altro utente; il sistema originale resta sempre intatto. Le modifiche complesse vanno meglio con l'AI in cloud accesa."),
+        testo, esempi, az);
+  if (lav.in_corso || lav.esito) {
+    const c = carta(el("h3", "", lav.in_corso ? "Nova sta modificando AIOS…" : (lav.esito.ok ? "Fatto" : "Non è riuscito")));
+    if (lav.in_corso) c.append(el("div", "barra-lavoro"));
+    const passi = el("ol", "passi-aios");
+    for (const p of (lav.passi || []).slice(-8)) passi.append(el("li", "", p.replace(/^cerca/, "🔎 cerco").replace(/^leggi/, "📖 leggo").replace(/^modifica_file/, "✏️ modifico")
+      .replace(/^scrivi_file/, "📝 creo").replace(/^controlla/, "✅ controllo").replace(/^elenca/, "📂 guardo").replace(/^fatto/, "🏁 finito")));
+    c.append(passi);
+    if (lav.esito) c.append(el("p", lav.esito.ok ? "esito ok" : "esito no", lav.esito.messaggio + (lav.esito.ok ? " La schermata si ricarica tra pochi secondi." : "")));
+  }
+  if (d.in_attesa) carta(riga(conIcona("avviso", "Una modifica aspetta il tuo sì"), `«${d.in_attesa.richiesta}»: usa internet, comandi di sistema o cancella file.`,
+                              bottone("Applica", () => fai({ azione: "applica" }), "bottone primo"), bottone("Scarta", () => fai({ azione: "scarta" }))));
+  // le personalizzazioni fatte
+  const lista = carta(el("h3", "", `Le tue personalizzazioni${d.modifiche.length ? ` (${d.modifiche.length})` : ""}`));
+  if (!d.modifiche.length) lista.append(el("p", "nota", "Nessuna: stai usando AIOS originale."));
+  for (const m of d.modifiche) {
+    const quando = new Date(m.quando * 1000).toLocaleDateString("it-IT", { day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" });
+    const r = riga(el("b", "", m.richiesta), `${quando}${m.dettagli ? " · " + m.dettagli.split("\n")[0].slice(0, 160) : ""}`,
+      bottone("Condividi", () => fai({ azione: "esporta", id: m.id }, false)),
+      bottone("Togli", async () => { if (await chiediConferma(`Tolgo «${m.richiesta}»?`)) fai({ azione: "annulla", id: m.id }); }, "bottone pericolo"));
+    lista.append(r);
+  }
+  // ricevute da altri
+  const ric = carta(el("h3", "", "Ricevute da altri"),
+    el("p", "nota", "Un file .aios che ti hanno dato (da chiavetta, mail, Schermo AIOS…): mettilo in Scaricati o in Personalizzazioni, oppure aprilo da File."));
+  if (!d.ricevute.length) ric.append(el("p", "nota", "Nessun file .aios trovato."));
+  const prev = el("div", "anteprima-aios");
+  const mostra = async p => {
+    const a = await api("/api/personalizzazioni", { azione: "anteprima", p }).catch(e => ({ ok: false, messaggio: e.message }));
+    prev.replaceChildren();
+    if (!a.ok) return prev.append(el("p", "esito no", a.messaggio));
+    prev.append(el("h3", "", a.richiesta), el("p", "nota", `${a.riassunto || ""} · cambia: ${a.file.join(", ")} · fatta su AIOS ${a.versione_aios || "?"}`));
+    if (a.rischi.length) prev.append(el("p", "esito no", "Attenzione, usa internet, comandi o cancellazioni: " + a.rischi.slice(0, 3).join(" · ")));
+    const pre = el("pre", "diff-aios");
+    for (const l of a.righe.slice(0, 80)) pre.append(el("span", l[0] === "+" ? "piu" : "meno", l + "\n"));
+    prev.append(pre);
+    const b = el("div", "piede-modulo");
+    b.append(bottone("Applica alla mia AIOS", () => fai({ azione: "importa", p }), "bottone primo"));
+    prev.append(b);
+  };
+  for (const f of d.ricevute) ric.append(riga(f.nome, f.percorso, bottone("Guarda", () => mostra(f.percorso))));
+  ric.append(prev);
+  if (anteprimaAios) { const p = anteprimaAios; anteprimaAios = ""; mostra(p); }
+  if (d.modifiche.length) carta(el("h3", "", "Tornare indietro"),
+    riga("Usa AIOS originale per ora", d.in_uso ? "Le personalizzazioni restano, le riattivi quando vuoi" : "Le personalizzazioni sono spente",
+         d.in_uso ? bottone("Usa originale", () => fai({ azione: "originale" })) : bottone("Riattiva", () => fai({ azione: "riprova" }), "bottone primo")),
+    riga("Torna allo stato iniziale", "Toglie tutte le personalizzazioni (restano recuperabili per sicurezza)",
+         bottone("Azzera", async () => { if (await chiediConferma("Tolgo tutte le personalizzazioni e torno ad AIOS originale?")) fai({ azione: "azzera" }); }, "bottone pericolo")));
+  pan.append(esito);
 }
 
 // I monitor collegati (Impostazioni › Schermo): risoluzione, frequenza, scala, rotazione, posizione

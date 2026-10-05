@@ -36,7 +36,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 from ..localapp import LocalApp, serve
-from .apps import register_activity, register_apps, register_calendar, register_clipboard, register_accessibility, register_devices, register_display, register_notifications, register_cloud, register_first_steps, register_screens, register_session, register_widgets
+from .apps import register_activity, register_apps, register_calendar, register_clipboard, register_accessibility, register_customizations, register_devices, register_display, register_notifications, register_cloud, register_first_steps, register_screens, register_session, register_widgets
 
 PAGE = Path(__file__).with_name("home.html")
 APP_ID = "org.aios.Shell"
@@ -52,6 +52,7 @@ AIOS_APPS = [
     {"id": "aios:note", "label": "Note", "name": "Note", "vista": "note", "simbolo": "📝"},
     {"id": "aios:calendario", "label": "Calendario", "name": "Calendario", "vista": "calendario", "simbolo": "📅"},
     {"id": "aios:rubrica", "label": "Rubrica", "name": "Rubrica", "vista": "rubrica", "simbolo": "👥"},
+    {"id": "aios:personalizzazioni", "label": "Personalizza", "name": "Personalizzazioni", "vista": "personalizzazioni", "simbolo": "✨"},
     {"id": "aios:attivita", "label": "Attività", "name": "Gestione attività", "vista": "attivita", "simbolo": "📈"},
     {"id": "aios:impostazioni", "label": "Impostazioni", "name": "Impostazioni", "vista": "impostazioni", "simbolo": "⚙️"},
 ]
@@ -562,6 +563,8 @@ class ShellApp(LocalApp):
         register_notifications(self)
         register_accessibility(self)
         register_devices(self)
+        register_customizations(self)
+        self.restart_shell: Callable[[], None] = lambda: None  # dopo una personalizzazione (run_gtk)
         self.open_panel: Callable[[str], None] = lambda which: None
         self.captions: Callable[[bool], None] = lambda on: None  # sottotitoli in tempo reale (run_gtk)
         self.on_pick: Callable[[bool], None] = lambda paste: None  # il pannello sopra i programmi (run_gtk)
@@ -888,7 +891,9 @@ def run_gtk(app: ShellApp, url: str, argv: list[str]) -> int:
 
     def handle(args: list[str]) -> bool:
         build()
-        if "--sottotitoli" in args and args.index("--sottotitoli") + 1 < len(args):
+        if "--riavvia" in args:
+            app.restart_shell()
+        elif "--sottotitoli" in args and args.index("--sottotitoli") + 1 < len(args):
             captions(args[args.index("--sottotitoli") + 1] == "1")
         elif "--lettore" in args:
             from .. import accessibilita
@@ -913,6 +918,35 @@ def run_gtk(app: ShellApp, url: str, argv: list[str]) -> int:
         elif "--voce" in args and args.index("--voce") + 1 < len(args):
             to_home(args[args.index("--voce") + 1], by_voice=True)
         return False
+
+    def restart_now() -> bool:
+        """La shell riparte da capo (codice personale nuovo o tolto): stesso programma, stesso ambiente."""
+        env = dict(os.environ)
+        if env.get("AIOS_LD_PRELOAD"):
+            env["LD_PRELOAD"] = env["AIOS_LD_PRELOAD"]
+        env.pop("AIOS_CODICE", None)
+        exe = shutil.which("aios-shell") or sys.argv[0]
+        os.execve(exe, [exe], env)
+        return False
+
+    app.restart_shell = lambda: GLib.timeout_add_seconds(8, restart_now)  # il tempo di leggere la risposta
+
+    def healthy() -> bool:
+        """La shell è in piedi da un po': l'avvio è riuscito (modalità sicura del codice personale)."""
+        from .. import codice
+
+        try:
+            codice.healthy()
+            s = codice.state()
+            if s.get("guasto") and not s.get("guasto_detto"):
+                codice.save_state(guasto_detto=True)
+                _run(["notify-send", "-a", "Nova", "AIOS è ripartito originale",
+                      "Una personalizzazione impediva alla schermata di partire. Le trovi in Impostazioni › Personalizzazioni."])
+        except Exception:
+            pass
+        return False
+
+    GLib.timeout_add_seconds(25, healthy)
 
     def a11y_startup() -> bool:
         from .. import accessibilita
@@ -1026,6 +1060,8 @@ def auto_power_profile(read: Callable[[], Any] | None = None, run: Callable[[lis
 def main(argv: list[str] | None = None) -> int:
     # gtk4-layer-shell serve solo a questo processo (aios-sessione lo carica con LD_PRELOAD): i programmi
     # aperti da qui non devono ereditarlo, o quelli GTK3 come Firefox si bloccano all'avvio.
+    if os.environ.get("LD_PRELOAD"):
+        os.environ["AIOS_LD_PRELOAD"] = os.environ["LD_PRELOAD"]  # per ripartire (personalizzazioni)
     os.environ.pop("LD_PRELOAD", None)
     args = list(sys.argv[1:] if argv is None else argv)
     if args and forward(args):
@@ -1077,6 +1113,19 @@ def main(argv: list[str] | None = None) -> int:
         # ogni programma sul suo spazio; i giochi liberano la memoria di AIOS (giochi.py)
         threading.Thread(target=hypr_events, args=(game_mode.handle,), daemon=True).start()
     threading.Thread(target=save_session_forever, daemon=True).start()  # da riaprire al riavvio o altrove
+
+    def personal_code_sync() -> None:  # nuova versione di AIOS: le personalizzazioni vanno sopra la base nuova
+        from .. import codice
+
+        try:
+            if codice.exists() and codice.sync_base() == "conflitto":
+                _run(["notify-send", "-a", "Nova", "Personalizzazioni da sistemare",
+                      "La nuova versione di AIOS cambia le stesse parti di alcune tue personalizzazioni: per ora uso AIOS "
+                      "originale. Chiedi a Nova di rifarle, o guarda Impostazioni › Personalizzazioni."])
+        except Exception:
+            pass
+
+    threading.Thread(target=personal_code_sync, daemon=True).start()
     if os.environ.get("WAYLAND_DISPLAY"):
         from .. import cronologia_appunti
 
