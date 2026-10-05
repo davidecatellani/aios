@@ -36,7 +36,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 from ..localapp import LocalApp, serve
-from .apps import register_apps, register_first_steps, register_screens, register_session, register_widgets
+from .apps import register_apps, register_cloud, register_first_steps, register_screens, register_session, register_widgets
 
 PAGE = Path(__file__).with_name("home.html")
 APP_ID = "org.aios.Shell"
@@ -472,6 +472,13 @@ def status_bar(read_battery: Callable[[], Any] | None = None, run: Callable[[lis
 
     status: dict[str, Any] = {"ai": "AI in locale"}
     try:
+        from ..cloud import settings as cloud_settings
+
+        if cloud_settings().get("attivo"):
+            status["ai"] = "AI locale + cloud"
+    except Exception:
+        pass
+    try:
         reading = (read_battery or rb)()
         if reading.level is not None:
             status["batteria"] = reading.level
@@ -545,6 +552,7 @@ class ShellApp(LocalApp):
         register_widgets(self)
         register_screens(self)
         register_session(self)
+        register_cloud(self)
         self.route("POST", r"/api/ascolta", self._listen)
         self.route("POST", r"/api/ascolta-si-no", self._listen_yes_no)
 

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import re
+import time
 from datetime import date
 from typing import Any, Callable, Protocol, Sequence
 
@@ -133,6 +134,10 @@ Confirm = Callable[..., bool]
 OnEvent = Callable[[str, dict[str, Any]], None]
 
 
+class _TooSlow(Exception):
+    """Il modello locale ha superato il tempo concesso: si passa al cloud."""
+
+
 class Router(Protocol):
     """Livello veloce: riconosce una richiesta senza l'LLM, o restituisce None."""
 
@@ -148,6 +153,8 @@ def redact_secrets(text: str) -> str:
     return SECRET_RE.sub("[token segreto]", text)
 
 
+CLOUD_TOOL = Tool("send_to_cloud", "Manda la richiesta all'AI in cloud", {"type": "object", "properties": {}},
+                  lambda **_: "", sends_out=True)
 MIN_THINK_CONFIDENCE = 0.6
 MIN_TALK_CONFIDENCE = 0.75  # da qui Laya può saltare le scorciatoie («mi consigli una serie?» → risponde il modello)
 
@@ -190,6 +197,9 @@ class Agent:
         self.pianificatore = pianificatore
         # L'AI in cloud per le richieste difficili (cloud.Escalation): decide Laya, con limiti di spesa e privacy.
         self.escalation = escalation
+        self._fallback: Any = None
+        self._deadline = 0.0
+        self._local: Any = None
         self._request = ""
         self.reset()
 
@@ -306,6 +316,17 @@ class Agent:
         cloud = self._cloud_allowed(cloud, emit)
         if cloud is not None:
             return self._ask_cloud(cloud, text, schemas, calls_made, emit)
+        # al modello locale si danno pochi secondi (cloud.attesa_locale): se non basta, o la risposta non passa i
+        # controlli, la richiesta continua con il modello in cloud da dove era arrivata (senza rifare le azioni)
+        self._fallback, self._deadline, self._local = None, 0.0, None
+        if self.escalation is not None and not partial:
+            try:
+                wait = float(self.escalation.local_wait())
+            except Exception:
+                wait = 0.0
+            if wait > 0:
+                self._fallback = lambda: self._cloud_allowed(self.escalation.fallback(), emit)
+                self._deadline = wait
         think = self._should_think(text, partial)
         if think:
             emit("thinking", {})
@@ -314,6 +335,9 @@ class Agent:
         finally:
             if think:
                 self.model.think = False
+            if self._local is not None:
+                self.model, self._local = self._local, None
+            self._fallback = None
 
     def _cloud_allowed(self, cloud: Any, emit: OnEvent) -> Any:
         """Con dati privati nella conversazione il cloud si usa solo se l'utente lo permette (cloud.py)."""
@@ -345,6 +369,16 @@ class Agent:
         finally:
             self.model = local
 
+    def _escalate(self, emit: OnEvent) -> bool:
+        """Passa al modello in cloud per il resto della richiesta (una volta sola). → se è successo."""
+        fallback, self._fallback, self._deadline = self._fallback, None, 0.0
+        cloud = fallback() if fallback is not None else None
+        if cloud is None:
+            return False
+        self._local, self.model = self.model, cloud
+        emit("cloud", {"modello": cloud.label})
+        return True
+
     def _route(self, text: str, confidence: float = MIN_TALK_CONFIDENCE) -> str | None:
         """Il percorso secondo Laya, se è abbastanza sicuro."""
         if self.percorso is None:
@@ -365,11 +399,34 @@ class Agent:
               think: bool) -> str:
         available = {sch.get("function", {}).get("name", "") for sch in schemas}
         checks = 0
+        start = time.monotonic()
+
+        def slow() -> bool:
+            return bool(self._fallback) and self._deadline > 0 and time.monotonic() - start > self._deadline
+
+        def on_token(piece: str) -> None:
+            if slow():
+                raise _TooSlow()
+            emit("token", {"text": piece})
+
         for _ in range(self.max_steps):
-            if getattr(self.model, "supports_stream", False):
-                reply = self.model.chat(self.messages, schemas, on_token=lambda piece: emit("token", {"text": piece}))
-            else:
-                reply = self.model.chat(self.messages, schemas)
+            if slow():
+                self._escalate(emit)
+            try:
+                if getattr(self.model, "supports_stream", False):
+                    reply = self.model.chat(self.messages, schemas, on_token=on_token)
+                else:
+                    reply = self.model.chat(self.messages, schemas)
+            except _TooSlow:
+                emit("retry", {"why": "il modello locale ci mette troppo"})
+                self._escalate(emit)
+                continue
+            except Exception as exc:
+                if not getattr(self.model, "is_cloud", False) or self._local is None:
+                    raise
+                emit("status", {"text": f"AI in cloud non disponibile ({exc}): continuo in locale."})
+                self.model, self._local = self._local, None
+                continue
             calls = reply.get("tool_calls") or []
             self.messages.append(
                 {"role": "assistant", "content": reply.get("content") or "", "tool_calls": calls}
@@ -384,6 +441,10 @@ class Agent:
                                                              available, checks)
                     except Exception:
                         feedback = None
+                if feedback and self._fallback is not None and self._escalate(emit):
+                    emit("retry", {"why": feedback})  # il locale non ce l'ha fatta: rifà il modello grande
+                    self.messages.append({"role": "user", "content": f"(Controllo automatico di AIOS, non dell'utente: {feedback})"})
+                    continue
                 if feedback:
                     checks += 1
                     emit("retry", {"why": feedback})

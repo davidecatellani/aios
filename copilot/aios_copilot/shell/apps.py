@@ -1017,6 +1017,41 @@ def register_screens(app: Any) -> None:
     app.route("POST", r"/api/schermi/([0-9a-f]{16})/manda", send)
 
 
+def register_cloud(app: Any) -> None:
+    """Impostazioni › AI in cloud: acceso/spento, chiave, modello, limiti di spesa, attesa del locale, privacy."""
+    import time as _time
+
+    from .. import cloud
+
+    cache: dict[str, Any] = {}
+
+    def state(m: Any, b: dict[str, Any], q: dict[str, str]) -> tuple[int, Any]:
+        day, month, n = cloud.Usage().spent()
+        return 200, {**cloud.settings(), "chiave": bool(cloud.key()), "oggi": round(day, 4), "mese": round(month, 4),
+                     "richieste": n}
+
+    def change(m: Any, b: dict[str, Any], q: dict[str, str]) -> tuple[int, Any]:
+        if isinstance(b.get("chiave"), str) and b["chiave"].strip():
+            cloud.set_key(b["chiave"])
+        try:
+            cloud.save_settings({k: v for k, v in b.items() if k != "chiave"})
+        except (TypeError, ValueError):
+            return 400, {"error": "valore non valido"}
+        return state(m, b, q)
+
+    def models(m: Any, b: dict[str, Any], q: dict[str, str]) -> tuple[int, Any]:
+        if not cache.get("t") or _time.time() - cache["t"] > 3600:
+            try:
+                cache["modelli"], cache["t"] = cloud.models(), _time.time()
+            except cloud.CloudError as exc:
+                return 503, {"error": str(exc)}
+        return 200, {"modelli": cache["modelli"]}
+
+    app.route("GET", r"/api/cloud", state)
+    app.route("POST", r"/api/cloud", change)
+    app.route("GET", r"/api/cloud/modelli", models)
+
+
 def history_path() -> Path:
     return Path(os.environ.get("XDG_DATA_HOME", Path.home() / ".local" / "share")) / "aios" / "risultati.json"
 

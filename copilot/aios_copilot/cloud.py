@@ -14,6 +14,7 @@ Mistral… con una chiave sola), sopra i modelli locali.
 from __future__ import annotations
 
 import json
+import re
 import os
 import time
 import urllib.error
@@ -26,7 +27,8 @@ URL = "https://openrouter.ai/api/v1"
 KEY = "openrouter-chiave"
 DEFAULT_MODEL = "deepseek/deepseek-chat"
 DEFAULTS = {"attivo": False, "modello": DEFAULT_MODEL, "limite_giorno": 1.0, "limite_mese": 10.0,
-            "privacy": "chiedi"}  # chiedi | mai (i dati privati non escono mai) | sempre
+            "privacy": "chiedi",  # chiedi | mai (i dati privati non escono mai) | sempre
+            "attesa_locale": 5.0}  # secondi dati al modello locale prima di passare al cloud (0 = mai)
 TIMEOUT = 180
 
 
@@ -64,6 +66,8 @@ def save_settings(changes: dict[str, Any]) -> dict[str, Any]:
             conf[k] = bool(v)
         elif k in ("limite_giorno", "limite_mese"):
             conf[k] = max(0.0, min(1000.0, float(v)))
+        elif k == "attesa_locale":
+            conf[k] = max(0.0, min(120.0, float(v)))
         elif k == "modello" and isinstance(v, str) and 2 < len(v) < 120:
             conf[k] = v.strip()
         elif k == "privacy" and v in ("chiedi", "mai", "sempre"):
@@ -153,6 +157,7 @@ class CloudModel:
     """Un modello in cloud con la stessa interfaccia dei modelli locali (chat con gli strumenti)."""
 
     supports_stream = False
+    is_cloud = True
 
     def __init__(self, model: str | None = None, api_key: str | None = None,
                  post: Callable[..., dict[str, Any]] = _http, usage: Usage | None = None):
@@ -197,8 +202,22 @@ def models(post: Callable[..., dict[str, Any]] = _http) -> list[dict[str, Any]]:
         except (TypeError, ValueError):
             continue
         out.append({"id": m["id"], "nome": m.get("name", m["id"]), "ingresso": round(prompt, 2), "uscita": round(completion, 2),
-                    "contesto": m.get("context_length", 0)})
+                    "contesto": m.get("context_length", 0), "creato": int(m.get("created") or 0),
+                    "gratis": prompt == 0 and completion == 0})
     return out
+
+
+def pick(query: str, available: list[dict[str, Any]]) -> dict[str, Any] | None:
+    """«claude», «gemini gratis», «deepseek» → il modello più recente che corrisponde (gratuito se richiesto)."""
+    q = query.lower()
+    free = any(w in q for w in ("gratis", "gratuit", "free"))
+    words = [w for w in re.findall(r"[a-z0-9.]+", q) if w not in ("gratis", "gratuito", "gratuita", "free", "usa", "il", "modello")]
+    if not words:
+        return None
+    hits = [m for m in available if all(w in (m["id"] + " " + m["nome"]).lower() for w in words) and (m["gratis"] or not free)]
+    if free:
+        hits = [m for m in hits if m["gratis"]]
+    return max(hits, key=lambda m: m["creato"], default=None)
 
 
 # richieste per il modello grande: le chiede l'utente
@@ -228,6 +247,17 @@ class Escalation:
             self.note = f"Rispondo in locale: per l'AI in cloud {why}."
             return None
         return self.make()
+
+    def available(self) -> bool:
+        conf = self.conf()
+        return bool(conf.get("attivo")) and self.has_key() and not self.budget()
+
+    def local_wait(self) -> float:
+        """I secondi lasciati al modello locale prima di passare al cloud (0: niente ripiego)."""
+        return float(self.conf().get("attesa_locale", 5.0)) if self.available() else 0.0
+
+    def fallback(self) -> CloudModel | None:
+        return self.make() if self.available() else None
 
     def private_ok(self) -> str:
         return self.conf().get("privacy", "chiedi")

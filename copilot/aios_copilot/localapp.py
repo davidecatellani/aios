@@ -135,6 +135,10 @@ class LocalApp:
                 job.add(kind="token", text=data["text"])
             elif kind == "retry":  # la risposta non bastava (pianifica.verify): quella scritta finora si cancella
                 job.add(kind="ricomincia")
+            elif kind == "cloud":
+                job.add(kind="status", text=f"☁️ Rispondo con {data['modello']} (AI in cloud)")
+            elif kind == "status" and data.get("text"):
+                job.add(kind="status", text=data["text"])
             elif kind == "plan":
                 job.add(kind="status", text="🗺️ Piano: " + " → ".join(data["steps"]))
 

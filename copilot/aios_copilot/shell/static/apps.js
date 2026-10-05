@@ -338,7 +338,7 @@ const VISTE = {
     wrap.append(nav, pan); corpo.append(wrap);
     const SEZ = [["wifi", "Wi-Fi"], ["bluetooth", "Bluetooth"], ["suono", "Suono e schermo"], ["voce", "Voce di Nova"], ["tastiera", "Tastiera"],
                  ["aspetto", "Testo e carattere"], ["aggiornamenti", "Aggiornamenti"], ["posta", "Posta"], ["account", "Password"], ["privacy", "Privacy e memoria"],
-                 ["info", "Questo computer"], ["energia", "Spegni"]];
+                 ["cloud", "AI in cloud"], ["info", "Questo computer"], ["energia", "Spegni"]];
     for (const [id, t] of SEZ) {
       const b = bottone("", () => apriVista("impostazioni", id), ""); b.classList.toggle("attiva", id === sezione);
       b.append(svgIcona(id), t); nav.append(b);
@@ -572,6 +572,47 @@ const VISTE = {
                    dici(await api("/api/impostazioni/diario", { cancella: true }).catch(e => ({ ok: false, messaggio: e.message })));
                    apriVista("impostazioni", "privacy");
                  }, "bottone pericolo")));
+      pan.append(esito);
+    } else if (sezione === "cloud") {
+      const c = await api("/api/cloud").catch(() => null);
+      if (!c) { pan.append(el("p", "esito no", "Non riesco a leggere le impostazioni.")); return; }
+      const salva = (cambio) => api("/api/cloud", cambio).then(() => apriVista("impostazioni", "cloud")).catch(e => dici({ ok: false, messaggio: e.message }));
+      const num = (v, passo, fn) => { const i = el("input", "campo"); i.type = "number"; i.min = 0; i.step = passo; i.value = v; i.style.width = "90px"; i.onchange = () => fn(+i.value); return i; };
+      carta(el("p", "nota", "Un modello grande su internet (OpenRouter: DeepSeek, Claude, Gemini, GPT, Mistral…) per le richieste difficili. "
+                          + "Decide Laya, sul PC: comandi, posta, agenda e domande semplici restano qui. Se il modello del PC non risponde bene entro il tempo scelto, la richiesta passa al cloud."),
+            riga("Usa l'AI in cloud", c.chiave ? (c.attivo ? "Accesa" : "Spenta") : "Prima serve la chiave di OpenRouter",
+                 interruttore(c.attivo, () => c.chiave ? salva({ attivo: !c.attivo }) : dici({ ok: false, messaggio: "Incolla prima la chiave qui sotto." }))));
+      const chiave = el("input", "campo"); chiave.type = "password"; chiave.placeholder = c.chiave ? "Chiave impostata ✓ (incolla per cambiarla)" : "sk-or-…";
+      carta(el("h3", "", "Chiave di OpenRouter"),
+            el("p", "nota", "Si crea su openrouter.ai › Keys (puoi mettere anche lì un limite di spesa). Resta nel portachiavi del PC."),
+            riga("Chiave", null, chiave, bottone("Salva", () => salva({ chiave: chiave.value }), "bottone primo")));
+      const lista = el("select", "campo"); lista.style.maxWidth = "420px";
+      const filtro = el("input", "campo"); filtro.placeholder = "Cerca: claude, gemini, deepseek…"; filtro.style.width = "200px";
+      const gratis = el("input"); gratis.type = "checkbox";
+      const etichettaGratis = el("label", "nota"); etichettaGratis.append(gratis, " solo gratuiti");
+      const modCarta = carta(el("h3", "", "Modello"), el("p", "nota", `In uso: ${c.modello}`), riga("Scegli", "Prezzo per milione di parole (token), in dollari", filtro, etichettaGratis),
+            riga("", null, lista, bottone("Usa questo", () => lista.value && salva({ modello: lista.value }), "bottone primo")));
+      api("/api/cloud/modelli").then(r => {
+        const disegna = () => {
+          const f = filtro.value.toLowerCase();
+          lista.replaceChildren();
+          for (const m of r.modelli.filter(m => (!gratis.checked || m.gratis) && (!f || (m.id + " " + m.nome).toLowerCase().includes(f))).sort((a, b) => b.creato - a.creato).slice(0, 150)) {
+            const o = el("option", "", `${m.nome} — ${m.gratis ? "gratis" : `${m.ingresso} / ${m.uscita} $`}`); o.value = m.id;
+            if (m.id === c.modello) o.selected = true; lista.append(o);
+          }
+        };
+        filtro.oninput = disegna; gratis.onchange = disegna; disegna();
+      }).catch(() => modCarta.append(el("p", "nota", "Non riesco a leggere l'elenco dei modelli (serve internet).")));
+      const priv = el("select", "campo");
+      for (const [v, t] of [["chiedi", "Chiedimi ogni volta"], ["mai", "Mai: restano sul PC"], ["sempre", "Sempre, senza chiedere"]]) {
+        const o = el("option", "", t); o.value = v; if (v === c.privacy) o.selected = true; priv.append(o);
+      }
+      priv.onchange = () => salva({ privacy: priv.value });
+      carta(el("h3", "", "Limiti e privacy"),
+            riga("Spesa massima al giorno ($)", `Oggi: ${c.oggi.toFixed(2)} $ in ${c.richieste} richieste`, num(c.limite_giorno, 0.5, v => salva({ limite_giorno: v }))),
+            riga("Spesa massima al mese ($)", `Questo mese: ${c.mese.toFixed(2)} $`, num(c.limite_mese, 1, v => salva({ limite_mese: v }))),
+            riga("Secondi al modello del PC", "Poi passa al cloud (0 = mai)", num(c.attesa_locale, 1, v => salva({ attesa_locale: v }))),
+            riga("Dati privati (mail, documenti)", "Se una richiesta li contiene", priv));
       pan.append(esito);
     } else if (sezione === "energia") {
       const az = (t, a, cls) => bottone(t, () => { (async () => { if (a === "spegni" || a === "riavvia" ? await chiediConferma(`${t}?`) : true) api("/api/impostazioni/energia", { azione: a }).catch(() => {}); })(); }, cls);

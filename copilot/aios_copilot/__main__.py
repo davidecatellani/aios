@@ -38,6 +38,7 @@ from .tools import organize as organize_tools
 from .tools import themes as theme_tools
 from .tools import audio as audio_tools
 from .tools import calcolo as calc_tools
+from .tools import cloud as cloud_tools
 from .tools import schermo as screen_tools
 from .tools import widget as widget_tools
 from .tools import phone as phone_tools
@@ -178,7 +179,7 @@ def make_agent(confirm: Confirm, model: str | None = None, allowed: frozenset[st
         "posta": mail_tools.make_tools(mail_store, send, has_accounts),
         "gusti": taste_tools.make_tools(subs, catalog, profile, web_search=web_group[0].func),
         "ai": [*ai_tools.make_management_tools(device, installed_models, downloads),
-               *ai_tools.make_capability_tools(engines.available())],
+               *ai_tools.make_capability_tools(engines.available()), *cloud_tools.make_tools()],
         "aspetto": [*widget_tools.make_tools(), *theme_tools.make_tools(ask_llm=lambda prompt: llm.chat([{"role": "user", "content": prompt}], []).get("content", ""),
                                           runner=runner)],
         "memoria": memory_tools.make_tools(),
@@ -187,6 +188,7 @@ def make_agent(confirm: Confirm, model: str | None = None, allowed: frozenset[st
     tools = [t for group in groups.values() for t in group]
     if allowed is not None:
         tools = [t for t in tools if t.name in allowed]
+    from .cloud import Escalation
     from .pianifica import Planner
     from .smistatore import build as build_smistatore
 
@@ -202,6 +204,8 @@ def make_agent(confirm: Confirm, model: str | None = None, allowed: frozenset[st
         percorso=smistatore.percorso if os.environ.get("AIOS_SMISTATORE", "") != "spento" else None,
         # compiti in più passi: piano, ricerca preventiva, guardie e verifica (pianifica.py)
         pianificatore=Planner(llm) if os.environ.get("AIOS_PIANIFICA", "") != "spento" else None,
+        # l'AI in cloud (OpenRouter) per le richieste difficili, se l'utente l'ha accesa (cloud.py)
+        escalation=Escalation(),
         routers=[
             screen_tools.ScreensRouter(),  # livello 0: «fammi vedere il PC da gaming» (prima di «apri <app>»)
             audio_tools.AudioRouter(),  # livello 0: «fai uscire l'audio dal monitor»
