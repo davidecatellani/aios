@@ -953,6 +953,41 @@ def register_widgets(app: Any) -> None:
     app.route("GET", r"/api/mappa/(\d+)/(\d+)/(\d+)\.png", tile)
 
 
+def register_screens(app: Any) -> None:
+    """Schermo AIOS nella home: gli altri tuoi PC accesi, con l'anteprima; aprirli e mandargli file."""
+    import threading
+
+    from ..schermo import azioni
+
+    def items(m: Any, b: dict[str, Any], q: dict[str, str]) -> tuple[int, Any]:
+        return 200, {"dispositivi": [{"id": p.id, "nome": p.nome, "tipo": p.tipo} for p in azioni.peers()],
+                     "identita": azioni.identity() is not None}
+
+    def thumb(m: Any, b: dict[str, Any], q: dict[str, str]) -> tuple[int, Any]:
+        img = azioni.thumbnail(m.group(1))
+        return (200, Raw(img, "image/jpeg")) if img else (404, {"error": "anteprima non disponibile"})
+
+    def watch(m: Any, b: dict[str, Any], q: dict[str, str]) -> tuple[int, Any]:
+        ok, msg = azioni.open_viewer(m.group(1))
+        return 200, {"ok": ok, "messaggio": msg}
+
+    def send(m: Any, b: dict[str, Any], q: dict[str, str]) -> tuple[int, Any]:
+        peer_id = m.group(1)
+
+        def go() -> None:
+            paths = azioni.choose_files()
+            if paths:
+                azioni.send(peer_id, paths)
+
+        threading.Thread(target=go, name="schermo-scegli", daemon=True).start()
+        return 200, {"ok": True}
+
+    app.route("GET", r"/api/schermi", items)
+    app.route("GET", r"/api/schermi/([0-9a-f]{16})/anteprima\.jpg", thumb)
+    app.route("POST", r"/api/schermi/([0-9a-f]{16})/guarda", watch)
+    app.route("POST", r"/api/schermi/([0-9a-f]{16})/manda", send)
+
+
 def register_first_steps(app: Any, run: Run = _run) -> None:
     from ..welcome import clean_name, load_profile, save_profile
 

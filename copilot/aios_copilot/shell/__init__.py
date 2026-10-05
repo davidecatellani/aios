@@ -36,7 +36,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 from ..localapp import LocalApp, serve
-from .apps import register_apps, register_first_steps, register_widgets
+from .apps import register_apps, register_first_steps, register_screens, register_widgets
 
 PAGE = Path(__file__).with_name("home.html")
 APP_ID = "org.aios.Shell"
@@ -501,7 +501,7 @@ EXAMPLES = ["Ricordami di pagare la bolletta alle 12", "Cerca nei miei file il c
 
 # --- server della pagina -----------------------------------------------------------------------------------
 class ShellApp(LocalApp):
-    token_in_query = (*LocalApp.token_in_query, "/api/mappa/")  # i riquadri delle mappe sono <img>
+    token_in_query = (*LocalApp.token_in_query, "/api/mappa/", "/api/schermi/")  # i riquadri delle mappe sono <img>
     page = PAGE
     static_dir = PAGE.parent / "static"
 
@@ -531,6 +531,7 @@ class ShellApp(LocalApp):
         register_apps(self)
         register_first_steps(self)
         register_widgets(self)
+        register_screens(self)
         self.route("POST", r"/api/ascolta", self._listen)
         self.route("POST", r"/api/ascolta-si-no", self._listen_yes_no)
 

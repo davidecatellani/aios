@@ -83,7 +83,8 @@ DOMAINS: list[tuple[str, str]] = [
     ("computer", "Time and date, battery and energy saving, system information, voice listening, opening a folder or place"),
     ("aggiornamenti", "System updates: check, install, from USB stick or GitHub, roll back to the previous version, switch to the NVIDIA graphics driver version"),
     ("chiamate", "Phone calls and SMS: answer, reject, read or send messages, make the phone ring, phone notifications"),
-    ("telefono", "Link or unlink the phone, send files or photos to and from the phone, install AIOS on a phone"),
+    ("telefono", "Link or unlink the phone, send files or photos to and from the phone, install AIOS on a phone, "
+                 "see and control the user's other PCs (remote screen), send files to another PC"),
     ("identita", "The user's AIOS identity and account, syncing between devices, recovery phrase, revoking a device"),
     ("memoria", "The user's own past: where they left off, what they worked on yesterday or another day, a website or "
                 "document they saw days ago, resuming a past conversation, the activity diary"),

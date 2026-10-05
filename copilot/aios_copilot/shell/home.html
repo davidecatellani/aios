@@ -116,6 +116,13 @@ body.in-chat #conversazione { -webkit-mask-image: linear-gradient(to bottom, tra
 /* i widget a destra */
 #destra-col { overflow-y: auto; }
 .widget { cursor: pointer; }
+.schermo-pc { margin-top: 10px; }
+.schermo-pc img { width: 100%; aspect-ratio: 16 / 9; object-fit: cover; border-radius: 10px; cursor: pointer;
+                  background: rgba(127,127,127,.15); display: block; }
+.schermo-pc img.spenta { opacity: .35; }
+.schermo-riga { display: flex; align-items: center; gap: 6px; margin-top: 6px; }
+.schermo-riga .con-icona { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.schermo-riga button.piccolo { font-size: .8rem; padding: 3px 10px; }
 .widget .testa-risultati .tipo { margin: 0; }
 .meteo-ora { display: flex; align-items: center; gap: 12px; }
 .meteo-simbolo { font-size: 38px; }
@@ -428,7 +435,7 @@ async function casa() {
   const dc = el("div", "carta");
   dc.append(el("div", "tipo", "Dispositivi"));
   if (disp.length) for (const n of disp) { const p = el("p"); p.append(conIcona("telefono", `${n} · vicino`)); dc.append(p); }
-  else dc.append(el("p", "nota", "Nessun telefono collegato. Di' «Nova, collega il telefono»."));
+  await disegnaSchermi(dc, disp.length);
   destra.append(dc);
   await disegnaWidget(destra, dc);
   if (window.cartaPrimiPassi) window.cartaPrimiPassi();
@@ -440,6 +447,40 @@ async function casa() {
   const tutte = el("button", "", null); tutte.style.cssText = "border:0;background:none;padding:0";
   const t = el("div", "app"); t.title = "Tutte le app"; t.append(el("span", "lettera", "⋯"));
   tutte.append(t); tutte.onclick = mostraTutte; dock.append(tutte);
+}
+
+// --- Schermo AIOS: gli altri tuoi PC accesi, con l'anteprima dal vivo (schermo/azioni.py) ---------------------
+let anteprime = null;
+async function disegnaSchermi(dc, telefoni) {
+  const r = await api("/api/schermi").catch(() => ({ dispositivi: [] }));
+  clearInterval(anteprime);
+  if (!r.dispositivi.length) {
+    if (!telefoni) dc.append(el("p", "nota", "Nessun altro dispositivo acceso. Di' «Nova, collega il telefono», o accendi un altro PC con la tua identità AIOS."));
+    return;
+  }
+  const imgs = [];
+  for (const d of r.dispositivi) {
+    const box = el("div", "schermo-pc");
+    const img = el("img"); img.alt = `Schermo di ${d.nome}`; img.draggable = false;
+    const src = () => `/api/schermi/${d.id}/anteprima.jpg?${tokenQ}&t=${Date.now()}`;
+    img.src = src(); imgs.push([img, src]);
+    img.onerror = () => img.classList.add("spenta");
+    img.onload = () => img.classList.remove("spenta");
+    img.onclick = () => apriSchermo(d);
+    const riga = el("div", "schermo-riga");
+    riga.append(conIcona("schermo", d.nome));
+    const apri = el("button", "piccolo", "Apri"); apri.onclick = () => apriSchermo(d);
+    const manda = el("button", "piccolo", "Manda file");
+    manda.onclick = () => api(`/api/schermi/${d.id}/manda`, {}).catch(() => {});
+    riga.append(apri, manda);
+    box.append(img, riga);
+    dc.append(box);
+  }
+  anteprime = setInterval(() => { if (!document.hidden) imgs.forEach(([i, s]) => { i.src = s(); }); }, 5000);
+}
+async function apriSchermo(d) {
+  const r = await api(`/api/schermi/${d.id}/guarda`, {}).catch(() => null);
+  if (r && !r.ok && r.messaggio) alert(r.messaggio);
 }
 
 // --- i widget a destra (widget.py): meteo, mappa, orologio, nota; li aggiunge Nova, si tolgono con la × ----------

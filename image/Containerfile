@@ -18,7 +18,7 @@ RUN dnf install -y --skip-unavailable \
         greenboot \
         espeak-ng pipewire-utils pulseaudio-utils python3-cffi pciutils usbutils zenity \
         labwc gtk4-layer-shell wlrctl mako swayidle swaylock wlopm grim slurp brightnessctl \
-        greetd greetd-selinux cage python3-openpyxl tuned-ppd gtklock powertop wayvnc \
+        greetd greetd-selinux cage python3-openpyxl tuned-ppd gtklock powertop wayvnc wf-recorder python3-cryptography \
         python3-opencv \
         rsms-inter-fonts atkinson-hyperlegible-fonts google-noto-serif-fonts mozilla-fira-sans-fonts \
         opendyslexic-fonts lexend-fonts jetbrains-mono-fonts \
@@ -71,6 +71,21 @@ RUN set -e; \
     dnf clean all; \
     test -x /usr/bin/Hyprland; test -x /usr/bin/hyprctl; rpm -q hyprland
 
+# Codec completi (per Schermo AIOS: H.264/H.265 codificati e decodificati dalla scheda video, anche Intel e
+# AMD) da RPM Fusion, come fanno Bazzite e Universal Blue: ffmpeg al posto di ffmpeg-free, i driver VA-API
+# «freeworld» e il driver Intel completo. Senza, Fedora non codifica H.264 con la scheda video.
+ARG FEDORA=44
+RUN set -e; \
+    rpm -q rpmfusion-nonfree-release >/dev/null 2>&1 || dnf install -y --setopt=retries=10 \
+      "https://mirrors.rpmfusion.org/free/fedora/rpmfusion-free-release-${FEDORA}.noarch.rpm" \
+      "https://mirrors.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-${FEDORA}.noarch.rpm"; \
+    dnf install -y --setopt=retries=10 --allowerasing ffmpeg; \
+    dnf install -y --setopt=retries=10 --allowerasing --skip-unavailable mesa-va-drivers-freeworld intel-media-driver \
+      gstreamer1-plugins-bad-freeworld gstreamer1-plugins-ugly gstreamer1-plugin-gtk4 \
+      || echo "avviso: driver VA-API completi non installati (resta la codifica col processore)"; \
+    dnf clean all; \
+    ffmpeg -hide_banner -encoders | grep -q libx264; ffmpeg -hide_banner -encoders | grep -q h264_vaapi
+
 # Variante NVIDIA (GPU=nvidia): il driver proprietario da RPM Fusion, compilato qui per il kernel dell'immagine.
 # Il ramo «580xx» è l'ultimo che regge anche le GTX 900/10xx (Maxwell, Pascal) e va bene per le schede più nuove.
 # Il modulo non è firmato: con il Secure Boot attivo non si carica (va disattivato nel BIOS). nouveau è escluso
@@ -80,7 +95,7 @@ ARG GPU=
 ARG NVIDIA_RAMO=580xx
 RUN if [ "$GPU" = nvidia ]; then \
       set -e; \
-      dnf install -y --setopt=retries=10 \
+      rpm -q rpmfusion-nonfree-release >/dev/null 2>&1 || dnf install -y --setopt=retries=10 \
         "https://mirrors.rpmfusion.org/free/fedora/rpmfusion-free-release-${FEDORA}.noarch.rpm" \
         "https://mirrors.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-${FEDORA}.noarch.rpm"; \
       KVER="$(ls /usr/lib/modules | sort -V | tail -n1)"; \
@@ -273,7 +288,7 @@ RUN pip install --no-cache-dir --prefix=/usr --no-build-isolation /tmp/aios-copi
     && install -Dm644 /tmp/aios-copilot/aios_copilot/brand/aios-simbolo.svg /usr/share/icons/hicolor/scalable/apps/aios.svg \
     && install -Dm644 -t /usr/lib/systemd/user /tmp/aios-copilot/data/aios-chiavetta.path /tmp/aios-copilot/data/aios-chiavetta.service \
     && sed -i 's#^ExecStart=aios-#ExecStart=/usr/bin/aios-#' /usr/lib/systemd/user/aios-chiavetta.service \
-    && for s in aios-learn aios-agenda aios-mail aios-telefono aios-voce; do \
+    && for s in aios-learn aios-agenda aios-mail aios-telefono aios-voce aios-schermo; do \
          sed 's#^ExecStart=aios-#ExecStart=/usr/bin/aios-#' "/tmp/aios-copilot/data/$s.service" > "/usr/lib/systemd/user/$s.service"; \
        done \
     && install -Dm755 /tmp/aios-copilot/data/greenboot/50-aios.sh /etc/greenboot/check/required.d/50-aios.sh \
@@ -282,7 +297,7 @@ RUN pip install --no-cache-dir --prefix=/usr --no-build-isolation /tmp/aios-copi
 # Servizi: Ollama per il sistema, quelli di AIOS per ogni utente; Super+Spazio apre Nova
 RUN systemctl enable ollama.service aios-modello-base.service aios-risparmio.service aios-credenziali-registro.path greenboot-healthcheck.service \
     && systemctl --global enable aios-learn.service aios-agenda.service aios-mail.service aios-telefono.service \
-       aios-voce.service aios-chiavetta.path \
+       aios-voce.service aios-schermo.service aios-chiavetta.path \
     && dconf update
 
 # La sessione di AIOS: la shell (giornata, barra, Nova) al posto del desktop. All'accensione la

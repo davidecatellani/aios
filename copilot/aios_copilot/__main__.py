@@ -36,6 +36,7 @@ from .tools import taste as taste_tools
 from .tools import ai as ai_tools
 from .tools import organize as organize_tools
 from .tools import themes as theme_tools
+from .tools import schermo as screen_tools
 from .tools import widget as widget_tools
 from .tools import phone as phone_tools
 from .tools import identity as identity_tools
@@ -179,7 +180,7 @@ def make_agent(confirm: Confirm, model: str | None = None, allowed: frozenset[st
         "aspetto": [*widget_tools.make_tools(), *theme_tools.make_tools(ask_llm=lambda prompt: llm.chat([{"role": "user", "content": prompt}], []).get("content", ""),
                                           runner=runner)],
         "memoria": memory_tools.make_tools(),
-        "telefono": [*phone_tools.make_tools(runner), *identity_tools.make_tools(user_name=user_name)],
+        "telefono": [*phone_tools.make_tools(runner), *identity_tools.make_tools(user_name=user_name), *screen_tools.make_tools()],
     }
     tools = [t for group in groups.values() for t in group]
     if allowed is not None:
@@ -196,6 +197,7 @@ def make_agent(confirm: Confirm, model: str | None = None, allowed: frozenset[st
         planner=smistatore.plan if os.environ.get("AIOS_SMISTATORE", "") != "spento" else None,
         percorso=smistatore.percorso if os.environ.get("AIOS_SMISTATORE", "") != "spento" else None,
         routers=[
+            screen_tools.ScreensRouter(),  # livello 0: «fammi vedere il PC da gaming» (prima di «apri <app>»)
             session_tools.SessionRouter(),  # livello 0: «riapri quello che avevo aperto»
             window_tools.WindowsRouter(),  # livello 0: programmi aperti e app di AIOS (sessione AIOS)
             memory_tools.MemoryRouter(),  # livello 0: «dove mi ero fermato?», «cosa ho fatto ieri?»
