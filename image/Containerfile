@@ -109,10 +109,10 @@ RUN if [ "$GPU" = nvidia ]; then \
         "xorg-x11-drv-nvidia-${NVIDIA_RAMO}-cuda" "xorg-x11-drv-nvidia-${NVIDIA_RAMO}-power" libva-nvidia-driver \
         || echo "dnf: scriptlet di akmod fallito, si compila a mano"; \
       rpm -q "akmod-nvidia-${NVIDIA_RAMO}" "xorg-x11-drv-nvidia-${NVIDIA_RAMO}-cuda"; \
-      # il modulo «classico» (chiuso): quello «open» di NVIDIA non regge le GTX 900/10xx (Maxwell, Pascal)
-      mkdir -p /etc/nvidia; \
-      if [ -f /etc/nvidia/kernel.conf ]; then sed -i 's/^MODULE_VARIANT=.*/MODULE_VARIANT=kernel/' /etc/nvidia/kernel.conf; \
-      else echo "MODULE_VARIANT=kernel" > /etc/nvidia/kernel.conf; fi; \
+      # il modulo «classico» (chiuso): quello «open» non regge le GTX 900/10xx (Maxwell, Pascal). Il pacchetto di
+      # RPM Fusion lo sceglie guardando la scheda presente (lspci): qui, senza scheda, sceglierebbe «open»; con
+      # questa macro non indovina e resta sul classico
+      echo '%_without_kmod_nvidia_detect 1' > /etc/rpm/macros.aios-nvidia; \
       id akmods >/dev/null 2>&1 || useradd -r -M -d /var/cache/akmods -s /sbin/nologin akmods; \
       mkdir -p /var/cache/akmods /tmp/akb; chown akmods: /var/cache/akmods /tmp/akb; \
       akmods --force --kernels "$KVER" || true; \
