@@ -88,10 +88,22 @@ RUN if [ "$GPU" = nvidia ]; then \
       kv="${KVER%.*}"; ver="${kv%%-*}"; rel="${kv#*-}"; \
       dnf install -y --setopt=retries=10 "${kpkg}-devel-${kv}" \
         || dnf install -y "https://kojipkgs.fedoraproject.org/packages/kernel/${ver}/${rel}/x86_64/kernel-devel-${kv}.x86_64.rpm"; \
+      # il %post di akmod-nvidia prova a compilare come root e fallisce (nel container è atteso): dnf esce con
+      # errore ma i pacchetti restano installati, lo verifica rpm -q; il modulo si compila subito dopo
       dnf install -y --setopt=retries=10 --skip-unavailable "akmod-nvidia-${NVIDIA_RAMO}" \
-        "xorg-x11-drv-nvidia-${NVIDIA_RAMO}-cuda" "xorg-x11-drv-nvidia-${NVIDIA_RAMO}-power" libva-nvidia-driver; \
+        "xorg-x11-drv-nvidia-${NVIDIA_RAMO}-cuda" "xorg-x11-drv-nvidia-${NVIDIA_RAMO}-power" libva-nvidia-driver \
+        || echo "dnf: scriptlet di akmod fallito, si compila a mano"; \
       rpm -q "akmod-nvidia-${NVIDIA_RAMO}" "xorg-x11-drv-nvidia-${NVIDIA_RAMO}-cuda"; \
-      akmods --force --kernels "$KVER"; \
+      id akmods >/dev/null 2>&1 || useradd -r -M -d /var/cache/akmods -s /sbin/nologin akmods; \
+      mkdir -p /var/cache/akmods /tmp/akb; chown akmods: /var/cache/akmods /tmp/akb; \
+      akmods --force --kernels "$KVER" || true; \
+      if ! find "/usr/lib/modules/$KVER" -name 'nvidia.ko*' | grep -q .; then \
+        cat /var/cache/akmods/*/*.log 2>/dev/null | tail -n 40; \
+        runuser -u akmods -- env HOME=/tmp/akb akmodsbuild --kernels "$KVER" --outputdir /tmp/akb \
+          /usr/src/akmods/nvidia-${NVIDIA_RAMO}-kmod-*.src.rpm; \
+        dnf install -y /tmp/akb/kmod-nvidia-*.rpm; \
+      fi; \
+      rm -rf /tmp/akb; \
       find "/usr/lib/modules/$KVER" -name 'nvidia.ko*' | grep -q . || { echo "ERRORE: modulo nvidia non compilato" >&2; \
         cat /var/cache/akmods/*/*.log 2>/dev/null | tail -n 80; exit 1; }; \
       mkdir -p /usr/lib/bootc/kargs.d /usr/lib/modprobe.d /usr/lib/dracut/dracut.conf.d; \
