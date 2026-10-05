@@ -4,8 +4,8 @@ VirtualBox) o su un PC senza dati importanti.
 
 ### Aggiornare un PC con AIOS già installato (niente formattazione)
 
-- **Da GitHub**: di' a Nova «collega GitHub per gli aggiornamenti» (una volta sola, con un tuo
-  permesso di sola lettura); poi le nuove versioni arrivano da sole e si applicano al riavvio.
+- **Da GitHub**: le nuove versioni arrivano da sole (il repository è pubblico, non serve nessun permesso)
+  e si applicano al riavvio; per controllare subito di' a Nova «aggiorna il sistema».
 - **Da chiavetta**: copia su una chiavetta tutti i file `aios-aggiornamento…` (senza riunirli) e
   inseriscila nel PC: Nova propone di preparare l'aggiornamento («aggiorna dalla chiavetta»).
 
