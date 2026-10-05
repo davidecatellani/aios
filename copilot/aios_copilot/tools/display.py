@@ -7,6 +7,7 @@ import re
 from typing import Any
 
 from .. import accessibilita as A11Y
+from .. import dispositivi as DEV
 from .. import luce_notturna as LN
 from .. import monitor as MON
 from ..fastpath import Intent, normalize
@@ -89,7 +90,42 @@ def make_tools(monitors: Any = None) -> list[Tool]:
                  "cursore_grande": "Puntatore grande", "meno_animazioni": "Meno animazioni"}
         return f"{names[key]} {'acceso' if acceso else 'spento'}." + ("" if msg == "Fatto." else " " + msg)
 
+    def mouse_settings(opzione: str, valore: str = "") -> str:
+        o, v = opzione.lower().strip(), str(valore).lower().strip()
+        cur = DEV.settings()
+        on = v not in ("no", "false", "spento", "spegni", "0", "off")
+        if o in ("velocita", "velocità", "velocita mouse", "velocità mouse"):
+            new = cur["velocita"] + (0.25 if v in ("più", "piu", "+", "veloce", "aumenta") else -0.25 if v in ("meno", "-", "lento", "diminuisci") else 0)
+            if v.replace(".", "", 1).lstrip("-").isdigit():
+                new = float(v)
+            DEV.apply({"velocita": new})
+            return f"Velocità del puntatore: {round((max(-1, min(1, new)) + 1) * 50)}%."
+        key = {"accelerazione": "accelerazione", "mano sinistra": "mano_sinistra", "scorrimento naturale": "scorrimento_naturale",
+               "tocco per clic": "tocco_clic", "tap": "tocco_clic", "bloc num": "bloc_num"}.get(o)
+        if key is None:
+            return "Posso cambiare: velocità del puntatore, accelerazione, mano sinistra, scorrimento naturale, tocco per clic, Bloc Num."
+        DEV.apply({key: on, **({"scorrimento_naturale_mouse": on} if key == "scorrimento_naturale" else {})})
+        return f"{opzione.capitalize()} {'acceso' if on else 'spento'}."
+
+    def add_shortcut(tasti: str, programma: str = "", richiesta: str = "") -> str:
+        app_id = ""
+        if programma:
+            from ..shell import installed_apps
+
+            low = programma.lower()
+            app_id = next((a.id for a in installed_apps().values() if a.name.lower() == low or low in a.id.lower()), "")
+            if not app_id:
+                return f"Non trovo il programma «{programma}»."
+        ok, msg = DEV.add_shortcut(tasti, app_id, richiesta)
+        return msg
+
     return [
+        Tool("mouse_settings", "Mouse e touchpad: velocità del puntatore (più/meno o -1…1), accelerazione, mano sinistra, "
+             "scorrimento naturale, tocco per clic, Bloc Num all'avvio.",
+             params(opzione="Cosa cambiare", valore="più, meno, sì, no o un numero", required=["opzione"]), mouse_settings),
+        Tool("add_shortcut", "Crea una scorciatoia da tastiera (es. Super+M) che apre un programma o fa una richiesta a Nova.",
+             params(tasti="La combinazione, es. Super+M", programma="Il programma da aprire (oppure)",
+                    richiesta="La frase da chiedere a Nova", required=["tasti"]), add_shortcut),
         Tool("accessibility", "Accessibilità: accende o spegne sottotitoli in tempo reale, lettore dello schermo, contrasto alto, "
              "puntatore grande, meno animazioni, zoom, filtri colore per daltonismo.",
              params(opzione="Quale: sottotitoli, lettore, contrasto, puntatore, animazioni, zoom, daltonismo, grigi",
@@ -122,6 +158,10 @@ RE_LIST = re.compile(r"^(?:che|quali)\s+(?:schermi|monitor)\s+(?:ho|ci\s+sono|so
 
 RE_A11Y = re.compile(r"^(?P<v>attiva|accendi|metti|spegni|disattiva|togli)\s+(?:i\s+|il\s+|lo\s+|la\s+)?"
                      r"(?P<o>sottotitoli(?:\s+in\s+tempo\s+reale)?|lettore\s+(?:dello\s+)?schermo|contrasto\s+alto|puntatore\s+(?:grande|più\s+grande)|zoom|filtro\s+(?:per\s+il\s+)?daltonismo)$")
+RE_SHORTCUT = re.compile(r"^(?:crea|aggiungi|fai)\s+(?:una\s+)?scorciatoia\s+(?P<k>(?:super|ctrl|alt|shift|maiusc)(?:\s*\+\s*\w+)+)\s+"
+                         r"(?:che\s+apre|per\s+aprire)\s+(?P<app>[\w .-]+)$"
+                         r"|^(?:crea|aggiungi|fai)\s+(?:una\s+)?scorciatoia\s+(?P<k2>(?:super|ctrl|alt|shift|maiusc)(?:\s*\+\s*\w+)+)\s+(?:per|che\s+fa|che\s+dice)\s+[«\"]?(?P<req>.+?)[»\"]?$")
+RE_MOUSE = re.compile(r"^(?:rendi\s+)?(?:il\s+)?(?:mouse|puntatore)\s+(?:piu|più)\s+(?P<v>veloce|lento)$")
 RE_ZOOM = re.compile(r"^(?:ingrandisci|zooma)\s+(?:lo\s+schermo|lo\s+zoom)$")
 
 
@@ -135,6 +175,14 @@ class DisplayRouter:
                 "contrasto" if o.startswith("contrasto") else "puntatore" if o.startswith("puntatore") else \
                 "zoom" if o == "zoom" else "daltonismo"
             return Intent("accessibility", {"opzione": opt, "acceso": m.group("v") in ("attiva", "accendi", "metti")})
+        m = RE_SHORTCUT.match(low)
+        if m:
+            if m.group("app"):
+                return Intent("add_shortcut", {"tasti": m.group("k"), "programma": m.group("app").strip()})
+            return Intent("add_shortcut", {"tasti": m.group("k2"), "richiesta": m.group("req").strip()})
+        m = RE_MOUSE.match(low)
+        if m:
+            return Intent("mouse_settings", {"opzione": "velocità", "valore": "più" if m.group("v") == "veloce" else "meno"})
         if RE_ZOOM.match(low):
             return Intent("accessibility", {"opzione": "zoom", "acceso": True})
         m = RE_HZ.match(low)

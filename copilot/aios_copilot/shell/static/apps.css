@@ -279,3 +279,6 @@ body.in-vista #casa, body.in-vista #fondo { display: none; }
                 display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; overflow: hidden; padding: 4px; }
 .schermo-mini b { font-size: 22px; } .schermo-mini small { color: var(--tenue); font-size: 11px; text-align: center; }
 .carta h3 .icona { width: 20px; height: 20px; color: var(--turchese); }
+.scorciatoie { display: grid; grid-template-columns: max-content 1fr; gap: 8px 18px; align-items: center; font-size: 14px; }
+.scorciatoie kbd { font: inherit; font-weight: 700; font-size: 13px; background: var(--chip); border: 1px solid var(--bordo); border-bottom-width: 2px;
+                   border-radius: 8px; padding: 3px 9px; justify-self: start; }

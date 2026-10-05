@@ -26,7 +26,8 @@ VIEWS = {"foto": "foto", "fotografie": "foto", "immagini": "foto", "musica": "mu
 SECTIONS = {"wifi": "wifi", "wi-fi": "wifi", "rete": "wifi", "internet": "wifi", "bluetooth": "bluetooth",
             "volume": "suono", "suono": "suono", "audio": "suono", "luminosita": "schermo", "luminosità": "schermo",
             "schermo": "schermo", "monitor": "schermo", "luce notturna": "schermo", "risoluzione": "schermo",
-            "accessibilita": "accessibilita", "accessibilità": "accessibilita", "sottotitoli": "accessibilita", "voce": "voce", "password": "account", "aggiornamenti": "aggiornamenti",
+            "accessibilita": "accessibilita", "accessibilità": "accessibilita", "sottotitoli": "accessibilita",
+            "mouse": "mouse", "touchpad": "mouse", "tastiera": "tastiera", "scorciatoie": "tastiera", "voce": "voce", "password": "account", "aggiornamenti": "aggiornamenti",
             "computer": "info", "sistema": "info", "privacy": "privacy", "diario": "privacy",
             "memoria": "privacy", "testo": "aspetto", "carattere": "aspetto", "font": "aspetto", "posta": "posta",
             "mail": "posta", "email": "posta", "account di posta": "posta"}

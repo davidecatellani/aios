@@ -1343,6 +1343,40 @@ def register_accessibility(app: Any) -> None:
     app.route("POST", r"/api/accessibilita", change)
 
 
+def register_devices(app: Any) -> None:
+    """Impostazioni › Mouse e touchpad, Tastiera (ripetizione e scorciatoie)."""
+    from .. import dispositivi as D
+
+    def state(m: Any, b: dict[str, Any], q: dict[str, str]) -> tuple[int, Any]:
+        conf = D.settings()
+        return 200, {**conf, "scorciatoie": [{**x, "nome": D.pretty(x["tasti"])} for x in conf["scorciatoie"]],
+                     "di_aios": D.BUILTIN, "touchpad": _has_touchpad()}
+
+    def change(m: Any, b: dict[str, Any], q: dict[str, str]) -> tuple[int, Any]:
+        try:
+            D.apply(b)
+        except (TypeError, ValueError):
+            return 400, {"error": "valore non valido"}
+        return state(m, b, q)
+
+    def shortcut(m: Any, b: dict[str, Any], q: dict[str, str]) -> tuple[int, Any]:
+        if b.get("togli"):
+            return 200, {"ok": D.remove_shortcut(str(b["togli"]))}
+        ok, msg = D.add_shortcut(str(b.get("tasti", "")), str(b.get("app", "")), str(b.get("chiedi", "")))
+        return 200, {"ok": ok, "messaggio": msg}
+
+    app.route("GET", r"/api/dispositivi", state)
+    app.route("POST", r"/api/dispositivi", change)
+    app.route("POST", r"/api/scorciatoie", shortcut)
+
+
+def _has_touchpad() -> bool:
+    try:
+        return "touchpad" in Path("/proc/bus/input/devices").read_text().lower()
+    except OSError:
+        return False
+
+
 def history_path() -> Path:
     return Path(os.environ.get("XDG_DATA_HOME", Path.home() / ".local" / "share")) / "aios" / "risultati.json"
 

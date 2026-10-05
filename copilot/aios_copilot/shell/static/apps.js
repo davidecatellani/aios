@@ -337,7 +337,7 @@ const VISTE = {
     const corpo = testa(box, "Impostazioni");
     const wrap = el("div", "impostazioni"); const nav = el("div", "sezioni"); const pan = el("div", "pannello-imp");
     wrap.append(nav, pan); corpo.append(wrap);
-    const SEZ = [["wifi", "Wi-Fi"], ["bluetooth", "Bluetooth"], ["suono", "Suono"], ["schermo", "Schermo"], ["voce", "Voce di Nova"], ["tastiera", "Tastiera"],
+    const SEZ = [["wifi", "Wi-Fi"], ["bluetooth", "Bluetooth"], ["suono", "Suono"], ["schermo", "Schermo"], ["voce", "Voce di Nova"], ["mouse", "Mouse e touchpad"], ["tastiera", "Tastiera"],
                  ["aspetto", "Testo e carattere"], ["accessibilita", "Accessibilità"], ["aggiornamenti", "Aggiornamenti"], ["posta", "Posta"], ["account", "Password"], ["privacy", "Privacy e memoria"],
                  ["cloud", "AI in cloud"], ["info", "Questo computer"], ["energia", "Spegni"]];
     for (const [id, t] of SEZ) {
@@ -496,13 +496,65 @@ const VISTE = {
         }));
     } else if (sezione === "tastiera") {
       const k = d.tastiera || { lingue: {} };
-      const c = carta(el("p", "nota", "La disposizione dei tasti. Cambia subito, senza riavviare. Puoi anche dire a Nova «metti la tastiera inglese»."));
-      for (const [id, nome] of Object.entries(k.lingue)) {
-        c.append(riga(nome, id === k.scelta ? "In uso" : null, id === k.scelta ? el("span", "", "✓") : bottone("Usa questa", async () => {
-          dici(await api("/api/impostazioni/tastiera", { lingua: id }).catch(e => ({ ok: false, messaggio: e.message })));
-          apriVista("impostazioni", "tastiera");
-        }, "bottone primo")));
+      const lingua = el("select", "campo");
+      for (const [id, nome] of Object.entries(k.lingue)) { const o = el("option", "", nome); o.value = id; o.selected = id === k.scelta; lingua.append(o); }
+      lingua.onchange = async () => { dici(await api("/api/impostazioni/tastiera", { lingua: lingua.value }).catch(e => ({ ok: false, messaggio: e.message }))); };
+      const dv = await api("/api/dispositivi").catch(() => null);
+      carta(riga("Lingua della tastiera", "Cambia subito. Puoi anche dire a Nova «metti la tastiera inglese».", lingua));
+      if (dv) {
+        const salva = cambio => api("/api/dispositivi", cambio).then(() => dici({ ok: true, messaggio: "Fatto." })).catch(e => dici({ ok: false, messaggio: e.message }));
+        const cur = (v, min, max, passo, fn) => { const r = el("input"); r.type = "range"; r.min = min; r.max = max; r.step = passo; r.value = v; r.onchange = () => fn(+r.value); return r; };
+        carta(el("h3", "", "Tasti"),
+              riga("Ritardo prima di ripetere", "Quanto tenere premuto un tasto prima che si ripeta", cur(dv.ripetizione_ritardo, 150, 1000, 50, v => salva({ ripetizione_ritardo: v }))),
+              riga("Velocità di ripetizione", null, cur(dv.ripetizione_velocita, 5, 60, 1, v => salva({ ripetizione_velocita: v }))),
+              riga("Bloc Num acceso all'avvio", null, interruttore(dv.bloc_num, () => salva({ bloc_num: !dv.bloc_num }).then(() => apriVista("impostazioni", "tastiera")))),
+              riga("Prova qui", null, Object.assign(el("input", "campo"), { placeholder: "Scrivi per provare" })));
+        const mie = carta(el("h3", "", "Le tue scorciatoie"),
+              el("p", "nota", "Una combinazione di tasti apre un programma o fa una richiesta a Nova (es. Super+M → «metti la musica rilassante»)."));
+        for (const sc of dv.scorciatoie) mie.append(riga(el("b", "", sc.nome), sc.app ? `Apre ${sc.app}` : `Chiede a Nova «${sc.chiedi}»`,
+          bottone("Togli", async () => { await api("/api/scorciatoie", { togli: sc.tasti }); apriVista("impostazioni", "tastiera"); })));
+        const tasti = el("input", "campo"); tasti.placeholder = "Premi i tasti (es. Super+M)"; tasti.readOnly = true; tasti.style.width = "200px";
+        tasti.onkeydown = e => {
+          e.preventDefault(); e.stopPropagation();
+          if (["Control", "Alt", "Shift", "Meta", "OS", "Super"].includes(e.key)) return;
+          const parti = [e.metaKey && "Super", e.ctrlKey && "Ctrl", e.altKey && "Alt", e.shiftKey && "Shift"].filter(Boolean);
+          const nome = e.code.startsWith("Key") ? e.code.slice(3) : e.code.startsWith("Digit") ? e.code.slice(5) : /^F\d+$/.test(e.key) ? e.key : e.key.length === 1 ? e.key.toUpperCase() : e.key;
+          tasti.value = [...parti, nome].join("+");
+        };
+        const cosa = el("input", "campo"); cosa.placeholder = "Cosa fare: «apri Firefox» o una richiesta a Nova"; cosa.style.width = "380px";
+        mie.append(riga("Nuova", null, tasti), riga("Cosa fa", null, cosa),
+          riga("", null, bottone("Aggiungi", async () => {
+            const m = cosa.value.trim().match(/^apri\s+(.+)$/i);
+            const corpo = { tasti: tasti.value };
+            if (m) { const app = await api("/api/app").then(r => r.app.find(a => a.name.toLowerCase() === m[1].toLowerCase() || a.id.toLowerCase().includes(m[1].toLowerCase()))).catch(() => null);
+                     if (app) corpo.app = app.id; else corpo.chiedi = cosa.value; } else corpo.chiedi = cosa.value;
+            const r = await api("/api/scorciatoie", corpo).catch(e => ({ ok: false, messaggio: e.message }));
+            dici(r); if (r.ok) apriVista("impostazioni", "tastiera");
+          }, "bottone primo")));
+        const aios = carta(el("h3", "", "Scorciatoie di AIOS"));
+        const griglia = el("div", "scorciatoie");
+        for (const [t, cosa] of dv.di_aios) griglia.append(el("kbd", "", t), el("span", "", cosa));
+        aios.append(griglia);
       }
+      pan.append(esito);
+    } else if (sezione === "mouse") {
+      const dv = await api("/api/dispositivi").catch(() => null);
+      if (!dv) { pan.append(el("p", "esito no", "Non riesco a leggere le impostazioni.")); return; }
+      const salva = cambio => api("/api/dispositivi", cambio).then(() => apriVista("impostazioni", "mouse")).catch(e => dici({ ok: false, messaggio: e.message }));
+      const sw = k => interruttore(dv[k], () => salva({ [k]: !dv[k] }));
+      const cur = (v, min, max, passo, fn) => { const r = el("input"); r.type = "range"; r.min = min; r.max = max; r.step = passo; r.value = v; r.onchange = () => fn(+r.value); return r; };
+      carta(el("h3", "", "Puntatore"),
+            riga("Velocità del puntatore", "Lento a sinistra, veloce a destra", cur(dv.velocita, -1, 1, 0.05, v => salva({ velocita: v }))),
+            riga("Accelerazione", "Più veloce quando muovi il mouse in fretta (spenta: precisione costante, meglio per i giochi)", sw("accelerazione")),
+            riga("Mano sinistra", "Scambia il tasto destro e sinistro", sw("mano_sinistra")));
+      carta(el("h3", "", "Scorrimento"),
+            riga("Velocità di scorrimento", null, cur(dv.velocita_scorrimento, 0.2, 3, 0.1, v => salva({ velocita_scorrimento: v }))),
+            riga("Scorrimento naturale con il mouse", "La pagina segue la rotellina come sul telefono", sw("scorrimento_naturale_mouse")));
+      const tp = carta(el("h3", "", "Touchpad"));
+      if (!dv.touchpad) tp.append(el("p", "nota", "Nessun touchpad in questo computer: le scelte valgono se ne colleghi uno."));
+      tp.append(riga("Tocca per fare clic", null, sw("tocco_clic")),
+                riga("Scorrimento naturale", "Due dita su: la pagina sale, come sul telefono", sw("scorrimento_naturale")),
+                riga("Spegni mentre scrivi", "Niente clic per sbaglio col palmo", sw("disattiva_scrivendo")));
       pan.append(esito);
     } else if (sezione === "aggiornamenti") {
       const c = carta(el("p", "", d.aggiornamenti || ""));

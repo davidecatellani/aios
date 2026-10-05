@@ -36,7 +36,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 from ..localapp import LocalApp, serve
-from .apps import register_activity, register_apps, register_calendar, register_clipboard, register_accessibility, register_display, register_notifications, register_cloud, register_first_steps, register_screens, register_session, register_widgets
+from .apps import register_activity, register_apps, register_calendar, register_clipboard, register_accessibility, register_devices, register_display, register_notifications, register_cloud, register_first_steps, register_screens, register_session, register_widgets
 
 PAGE = Path(__file__).with_name("home.html")
 APP_ID = "org.aios.Shell"
@@ -561,6 +561,7 @@ class ShellApp(LocalApp):
         register_clipboard(self)
         register_notifications(self)
         register_accessibility(self)
+        register_devices(self)
         self.open_panel: Callable[[str], None] = lambda which: None
         self.captions: Callable[[bool], None] = lambda on: None  # sottotitoli in tempo reale (run_gtk)
         self.on_pick: Callable[[bool], None] = lambda paste: None  # il pannello sopra i programmi (run_gtk)
@@ -907,6 +908,8 @@ def run_gtk(app: ShellApp, url: str, argv: list[str]) -> int:
                 threading.Thread(target=minimize_all, daemon=True).start()
                 run_js(state["home_view"], f"window.apriVista && window.apriVista({json.dumps(what[0])}"
                        + (f", {json.dumps(what[1])})" if len(what) > 1 else ")"))
+        elif "--chiedi" in args and args.index("--chiedi") + 1 < len(args):
+            to_home(args[args.index("--chiedi") + 1])  # una scorciatoia personale (dispositivi.py)
         elif "--voce" in args and args.index("--voce") + 1 < len(args):
             to_home(args[args.index("--voce") + 1], by_voice=True)
         return False
