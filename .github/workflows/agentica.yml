@@ -1,0 +1,97 @@
+name: Prova agentica
+
+# Compiti in più passi (copilot/addestramento/agentica.py) con il vero ciclo di Nova e i suoi strumenti, in un
+# mondo finto: bollette, mail, agenda, web. Ogni modello gira su CPU con Ollama, come sul PC, senza e con il
+# ragionamento; alla fine una Release «agentica-N» con la tabella. Si avvia solo a mano.
+on:
+  workflow_dispatch:
+    inputs:
+      modelli:
+        description: "Modelli Ollama separati da virgola"
+        default: "qwen3.5:4b,hf.co/Menlo/Jan-nano-gguf:Q4_K_M,hf.co/Salesforce/xLAM-2-3b-fc-r-gguf:Q4_K_M,gemma4:e4b"
+
+permissions:
+  contents: write
+
+jobs:
+  elenco:
+    runs-on: ubuntu-24.04
+    outputs:
+      modelli: ${{ steps.m.outputs.modelli }}
+    steps:
+      - id: m
+        env:
+          MODELLI: ${{ inputs.modelli }}
+        run: echo "modelli=$(python3 -c "import json,os; print(json.dumps([m.strip() for m in os.environ['MODELLI'].split(',') if m.strip()]))")" >> "$GITHUB_OUTPUT"
+
+  prova:
+    needs: elenco
+    runs-on: ubuntu-24.04
+    timeout-minutes: 340
+    strategy:
+      fail-fast: false
+      matrix:
+        modello: ${{ fromJson(needs.elenco.outputs.modelli) }}
+        modo: [veloce, ragiona]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Strumenti
+        env:
+          MODELLO: ${{ matrix.modello }}
+        run: |
+          pip install -e copilot
+          curl -fsSL https://ollama.com/install.sh | sh
+          sudo systemctl stop ollama || true
+          (OLLAMA_NUM_PARALLEL=1 ollama serve > ollama.log 2>&1 &)
+          for i in $(seq 30); do curl -sf localhost:11434/api/version && break; sleep 1; done
+          ollama pull "$MODELLO"
+      - name: Compiti
+        env:
+          MODELLO: ${{ matrix.modello }}
+          MODO: ${{ matrix.modo }}
+        run: |
+          nome=$(echo "$MODELLO-$MODO" | tr '/:' '__')
+          echo "NOME=$nome" >> "$GITHUB_ENV"
+          python copilot/addestramento/agentica.py --modello "$MODELLO" $([ "$MODO" = ragiona ] && echo --ragiona) \
+            --uscita "$nome.json" | tee "$nome.txt"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ${{ env.NOME }}
+          path: |
+            ${{ env.NOME }}.json
+            ${{ env.NOME }}.txt
+
+  tabella:
+    needs: prova
+    if: always()
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: risultati
+      - name: Pubblica
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python3 - <<'PY' > tabella.md
+          import json, glob
+          rows = [json.load(open(f)) for f in sorted(glob.glob("risultati/*/*.json"))]
+          print("| modello | modo | compiti riusciti | secondi medi a compito |")
+          print("|---|---|---|---|")
+          for r in sorted(rows, key=lambda r: (-r["riusciti"], r["secondi_medi"])):
+              print(f"| {r['modello']} | {'ragiona' if r['ragiona'] else 'veloce'} | {r['riusciti']}/{r['compiti']} | {r['secondi_medi']} |")
+          print()
+          tasks = [d["compito"] for d in rows[0]["dettagli"]] if rows else []
+          print("| compito | " + " | ".join(f"{r['modello'].split('/')[-1]} {'R' if r['ragiona'] else 'V'}" for r in rows) + " |")
+          print("|---|" + "---|" * len(rows))
+          for i, t in enumerate(tasks):
+              print(f"| {t} | " + " | ".join("✓" if i < len(r["dettagli"]) and r["dettagli"][i]["ok"] else "✗" for r in rows) + " |")
+          PY
+          cat tabella.md >> "$GITHUB_STEP_SUMMARY"
+          tag="agentica-${GITHUB_RUN_NUMBER}"
+          gh release create "$tag" --repo "$GITHUB_REPOSITORY" --prerelease --title "Prova agentica ${GITHUB_RUN_NUMBER}" \
+            --notes-file tabella.md risultati/*/*.json risultati/*/*.txt
