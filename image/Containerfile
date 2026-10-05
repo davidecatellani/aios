@@ -109,6 +109,10 @@ RUN if [ "$GPU" = nvidia ]; then \
         "xorg-x11-drv-nvidia-${NVIDIA_RAMO}-cuda" "xorg-x11-drv-nvidia-${NVIDIA_RAMO}-power" libva-nvidia-driver \
         || echo "dnf: scriptlet di akmod fallito, si compila a mano"; \
       rpm -q "akmod-nvidia-${NVIDIA_RAMO}" "xorg-x11-drv-nvidia-${NVIDIA_RAMO}-cuda"; \
+      # il modulo «classico» (chiuso): quello «open» di NVIDIA non regge le GTX 900/10xx (Maxwell, Pascal)
+      mkdir -p /etc/nvidia; \
+      if [ -f /etc/nvidia/kernel.conf ]; then sed -i 's/^MODULE_VARIANT=.*/MODULE_VARIANT=kernel/' /etc/nvidia/kernel.conf; \
+      else echo "MODULE_VARIANT=kernel" > /etc/nvidia/kernel.conf; fi; \
       id akmods >/dev/null 2>&1 || useradd -r -M -d /var/cache/akmods -s /sbin/nologin akmods; \
       mkdir -p /var/cache/akmods /tmp/akb; chown akmods: /var/cache/akmods /tmp/akb; \
       akmods --force --kernels "$KVER" || true; \
@@ -128,7 +132,11 @@ RUN if [ "$GPU" = nvidia ]; then \
       printf 'omit_drivers+=" nouveau "\n' > /usr/lib/dracut/dracut.conf.d/90-aios-nvidia.conf; \
       systemctl disable akmods.service 2>/dev/null || true; \
       dnf clean all; \
-      modinfo -k "$KVER" nvidia | head -n 3; \
+      depmod -a "$KVER"; \
+      mkdir -p /usr/lib/modules-load.d; printf 'nvidia\nnvidia_modeset\nnvidia_uvm\nnvidia_drm\n' > /usr/lib/modules-load.d/aios-nvidia.conf; \
+      modinfo -k "$KVER" nvidia | head -n 4; \
+      if modinfo -k "$KVER" -F license nvidia | grep -qi "MIT"; then \
+        echo "ERRORE: compilato il modulo open, che non regge le schede Maxwell/Pascal" >&2; exit 1; fi; \
     fi
 
 # Aspetto AIOS: niente loghi di Fedora (come chiedono le regole dei marchi Fedora per i sistemi derivati)
