@@ -73,7 +73,8 @@ class Domain:
 # ma la frase dell'utente resta in italiano. Ogni ambito ha al massimo una decina di strumenti: su un
 # processore lento ogni strumento in più sono secondi di attesa.
 DOMAINS: list[tuple[str, str]] = [
-    ("agenda", "Calendar, appointments, reminders, alarms, deadlines, daily summary, what's planned today or tomorrow"),
+    ("agenda", "Calendar, appointments, reminders, alarms, deadlines, daily summary, what's planned today or tomorrow, "
+               "address book: contacts, phone numbers, email addresses, birthdays"),
     ("posta", "Email: read, search, summarize, write or reply to mail, inbox, mail accounts"),
     ("file", "Find, open or read files, documents and photos on this computer: bills, contracts, shopping list, diet, "
              "photos of a person, place or period"),

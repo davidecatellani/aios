@@ -1079,6 +1079,80 @@ def register_activity(app: Any) -> None:
     app.route("POST", r"/api/attivita/modello", unload)
 
 
+def register_calendar(app: Any, agenda: Callable[[], Any] | None = None) -> None:
+    """Calendario e Rubrica: da guardare (e ritoccare); il resto si chiede a Nova."""
+    from datetime import date, datetime, time as dtime, timedelta
+
+    from ..rubrica import Rubrica
+
+    def make() -> Any:
+        if agenda is not None:
+            return agenda()
+        from ..agenda import Agenda
+
+        return Agenda()
+
+    def item(i: Any) -> dict[str, Any]:
+        return {"tipo": i.kind, "id": i.id, "titolo": i.title, "quando": i.at.isoformat() if i.at else None,
+                "tutto_il_giorno": i.all_day, "luogo": i.location, "ripeti": i.repeat, "fatto": i.done}
+
+    def month(m: Any, b: dict[str, Any], q: dict[str, str]) -> tuple[int, Any]:
+        a = make()
+        start = date.fromisoformat(q.get("da") or date.today().replace(day=1).isoformat())
+        end = date.fromisoformat(q.get("a") or (start + timedelta(days=42)).isoformat())
+        if (end - start).days > 120:
+            return 400, {"error": "intervallo troppo lungo"}
+        items = a.between(datetime.combine(start, dtime()), datetime.combine(end, dtime()))
+        return 200, {"voci": [item(i) for i in items], "da_fare": [item(i) for i in a.todos()],
+                     "scaduti": [item(i) for i in a.overdue()]}
+
+    def new(m: Any, b: dict[str, Any], q: dict[str, str]) -> tuple[int, Any]:
+        title = str(b.get("titolo", "")).strip()[:200]
+        if not title:
+            return 400, {"error": "manca il titolo"}
+        day = date.fromisoformat(str(b.get("giorno")))
+        repeat = str(b.get("ripeti", ""))
+        repeat = repeat if repeat in ("", "daily", "weekly", "monthly", "yearly") else ""
+        hour = str(b.get("ora", "") or "")
+        a = make()
+        if b.get("promemoria"):
+            at = datetime.combine(day, dtime.fromisoformat(hour)) if hour else datetime.combine(day, dtime(9))
+            a.add_reminder(title, at, repeat)
+        elif hour:
+            start = datetime.combine(day, dtime.fromisoformat(hour))
+            a.add_event(title, start, start + timedelta(minutes=int(b.get("durata", 60) or 60)),
+                        location=str(b.get("luogo", ""))[:200], repeat=repeat)
+        else:
+            a.add_event(title, datetime.combine(day, dtime()), all_day=True, location=str(b.get("luogo", ""))[:200], repeat=repeat)
+        return 200, {"ok": True, "messaggio": f"«{title}» in agenda."}
+
+    def remove(m: Any, b: dict[str, Any], q: dict[str, str]) -> tuple[int, Any]:
+        kind = "reminder" if b.get("tipo") == "reminder" else "event"
+        return 200, {"ok": make().delete(kind, int(b.get("id", 0)))}
+
+    def done(m: Any, b: dict[str, Any], q: dict[str, str]) -> tuple[int, Any]:
+        return 200, {"ok": make().complete(int(b.get("id", 0)))}
+
+    def contacts(m: Any, b: dict[str, Any], q: dict[str, str]) -> tuple[int, Any]:
+        return 200, {"contatti": Rubrica().as_json()}
+
+    def contact_add(m: Any, b: dict[str, Any], q: dict[str, str]) -> tuple[int, Any]:
+        msg = Rubrica().add(str(b.get("nome", "")), str(b.get("telefono", "")), str(b.get("email", "")),
+                            str(b.get("compleanno", "")), str(b.get("note", "")))
+        return 200, {"ok": msg.endswith("in rubrica."), "messaggio": msg}
+
+    def contact_remove(m: Any, b: dict[str, Any], q: dict[str, str]) -> tuple[int, Any]:
+        return 200, {"ok": Rubrica().remove(str(b.get("nome", "")))}
+
+    app.route("GET", r"/api/calendario", month)
+    app.route("POST", r"/api/calendario/nuovo", new)
+    app.route("POST", r"/api/calendario/togli", remove)
+    app.route("POST", r"/api/calendario/fatto", done)
+    app.route("GET", r"/api/rubrica", contacts)
+    app.route("POST", r"/api/rubrica", contact_add)
+    app.route("POST", r"/api/rubrica/togli", contact_remove)
+
+
 def history_path() -> Path:
     return Path(os.environ.get("XDG_DATA_HOME", Path.home() / ".local" / "share")) / "aios" / "risultati.json"
 

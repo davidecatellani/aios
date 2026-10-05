@@ -28,6 +28,7 @@ from .tools import Runner, Tool, apps, default_tools, files
 from .xdg import resolve_folder
 from .tools import agenda as agenda_tools
 from .tools import foto as photo_tools
+from .tools import rubrica as contacts_tools
 from .tools import memoria as memory_tools
 from .tools import sessione as session_tools
 from .tools import fuso as timezone_tools
@@ -177,7 +178,7 @@ def make_agent(confirm: Confirm, model: str | None = None, allowed: frozenset[st
                     *timezone_tools.make_tools(), *calc_tools.make_tools(), *audio_tools.make_tools(),
                     *activity_tools.make_tools()],
         "file": [*files.make_tools(get_index, meaning_query()), *photo_tools.make_tools(), *organize_tools.make_tools(library), *document_tools.make_tools(get_index, runner)],
-        "agenda": agenda_tools.make_tools(get_agenda, user_name, extras=lambda: [model_hint()]),
+        "agenda": [*agenda_tools.make_tools(get_agenda, user_name, extras=lambda: [model_hint()]), *contacts_tools.make_tools()],
         "posta": mail_tools.make_tools(mail_store, send, has_accounts),
         "gusti": taste_tools.make_tools(subs, catalog, profile, web_search=web_group[0].func),
         "ai": [*ai_tools.make_management_tools(device, installed_models, downloads),
@@ -215,6 +216,7 @@ def make_agent(confirm: Confirm, model: str | None = None, allowed: frozenset[st
             session_tools.SessionRouter(),  # livello 0: «riapri quello che avevo aperto»
             window_tools.WindowsRouter(),  # livello 0: programmi aperti e app di AIOS (sessione AIOS)
             memory_tools.MemoryRouter(),  # livello 0: «dove mi ero fermato?», «cosa ho fatto ieri?»
+            contacts_tools.ContactsRouter(),  # livello 0: «aggiungi Mario alla rubrica», «che numero ha Giulia?»
             agenda_tools.AgendaRouter(),  # livello 0: promemoria, appuntamenti, riepilogo
             mail_tools.MailRouter(),  # livello 0: posta
             taste_tools.TasteRouter(),  # livello 0: abbonamenti e consigli

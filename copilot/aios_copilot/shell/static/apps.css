@@ -228,3 +228,47 @@ body.in-vista #casa, body.in-vista #fondo { display: none; }
 .barra-uso i { display: block; height: 100%; background: var(--turchese); border-radius: 3px; transition: width .4s; }
 .barra-uso.alto i { background: #D9534F; }
 .bottone.piccolo { padding: 5px 10px; font-size: 13px; }
+
+/* Calendario */
+.nav-mese { display: flex; align-items: center; gap: 8px; font-size: 18px; }
+.nav-mese b { min-width: 170px; text-align: center; text-transform: capitalize; }
+.calendario { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 18px; min-height: 100%; }
+@media (max-width: 1000px) { .calendario { grid-template-columns: 1fr; } }
+.mese { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); grid-template-rows: auto repeat(6, minmax(92px, 1fr)); gap: 6px; }
+.nome-giorno { color: var(--tenue); font-size: 12px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase; padding: 0 8px 4px; }
+.giorno { display: flex; flex-direction: column; align-items: stretch; gap: 3px; padding: 6px 7px; border-radius: 14px; text-align: left;
+          border: 1px solid var(--bordo); background: var(--carta); color: var(--testo); overflow: hidden; min-width: 0; }
+.giorno:hover { border-color: var(--turchese); }
+.giorno.fuori { opacity: .45; }
+.giorno.scelto { box-shadow: 0 0 0 2px var(--turchese); }
+.num-giorno { font-weight: 700; font-size: 14px; width: 26px; height: 26px; display: grid; place-items: center; border-radius: 50%; }
+.giorno.oggi .num-giorno { background: linear-gradient(135deg, var(--blu), var(--turchese)); color: #fff; }
+.evento-mini { font-size: 12px; line-height: 1.3; padding: 2px 6px; border-radius: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+               background: rgba(46,196,182,.16); border-left: 3px solid var(--turchese); }
+.evento-mini.reminder { background: rgba(242,166,90,.18); border-left-color: #F2A65A; }
+.giorno .altri { color: var(--tenue); font-size: 11px; padding-left: 4px; }
+.lato-calendario { display: flex; flex-direction: column; gap: 14px; }
+.voce-plan { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--bordo); }
+.voce-plan:last-of-type { border-bottom: 0; }
+.voce-plan .segno { width: 4px; align-self: stretch; border-radius: 2px; background: var(--turchese); }
+.voce-plan.reminder .segno { background: #F2A65A; }
+.voce-plan.scaduta small { color: #D9534F; }
+.voce-plan .cosa { flex: 1; min-width: 0; } .voce-plan .cosa small { display: block; color: var(--tenue); font-size: 13px; }
+.azioni-voce { display: flex; gap: 6px; opacity: .55; } .voce-plan:hover .azioni-voce { opacity: 1; }
+.tondo.piccolo { width: 30px; height: 30px; font-size: 13px; }
+.campo-modulo { display: flex; flex-direction: column; gap: 4px; margin-bottom: 10px; font-size: 13px; color: var(--tenue); font-weight: 600; }
+.piede-modulo { display: flex; gap: 10px; margin-top: 8px; justify-content: flex-end; }
+
+/* Rubrica */
+.rubrica { display: grid; grid-template-columns: 340px minmax(0, 1fr); gap: 18px; height: 100%; }
+@media (max-width: 900px) { .rubrica { grid-template-columns: 1fr; } }
+.elenco-contatti { display: flex; flex-direction: column; gap: 2px; overflow: auto; padding-right: 6px; max-height: calc(100vh - 170px); }
+.lettera { color: var(--turchese); font-weight: 800; font-size: 13px; padding: 8px 12px 4px; z-index: 1; }
+.contatto { display: flex; align-items: center; gap: 12px; padding: 8px 12px; border-radius: 14px; border: 0; background: none; color: var(--testo); text-align: left; }
+.contatto:hover { background: var(--chip); } .contatto.attivo { background: var(--carta); box-shadow: inset 3px 0 0 var(--turchese); }
+.contatto .cosa { min-width: 0; } .contatto .cosa b, .contatto .cosa small { display: block; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.contatto .cosa small { color: var(--tenue); font-size: 13px; }
+.avatar { flex: none; width: 38px; height: 38px; border-radius: 50%; display: grid; place-items: center; color: #fff; font-weight: 700; font-size: 14px; }
+.avatar.grande { width: 72px; height: 72px; font-size: 26px; }
+.testa-contatto { display: flex; align-items: center; gap: 18px; } .testa-contatto h3 { font-size: 26px; margin: 0; }
+.scheda-contatto .riga-imp .icona { color: var(--turchese); }

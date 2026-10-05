@@ -763,6 +763,183 @@ function durata(sec) {
   return g ? `${g} g ${o} h` : o ? `${o} h ${m} min` : `${m} min`;
 }
 
+// --- Calendario: il mese, la giornata scelta, le cose da fare --------------------------------------------
+const SETTIMANA = ["lun", "mar", "mer", "gio", "ven", "sab", "dom"];  // MESI e GIORNI sono in home.html
+const isoGiorno = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+let meseCal = null, giornoCal = null;
+VISTE.calendario = async function (box) {
+  const oggi = new Date();
+  meseCal = meseCal || new Date(oggi.getFullYear(), oggi.getMonth(), 1);
+  giornoCal = giornoCal || isoGiorno(oggi);
+  const inizio = new Date(meseCal); inizio.setDate(1 - ((meseCal.getDay() + 6) % 7));  // dal lunedì
+  const fine = new Date(inizio); fine.setDate(inizio.getDate() + 42);
+  const vai = delta => { meseCal = new Date(meseCal.getFullYear(), meseCal.getMonth() + delta, 1); apriVista("calendario"); };
+  const nav = el("span", "nav-mese");
+  nav.append(bottone("‹", () => vai(-1), "torna"), el("b", "", `${MESI[meseCal.getMonth()]} ${meseCal.getFullYear()}`), bottone("›", () => vai(1), "torna"),
+             bottone("Oggi", () => { meseCal = null; giornoCal = null; apriVista("calendario"); }));
+  const corpo = testa(box, "Calendario", [nav, bottone("＋ Nuovo", () => nuovoEvento(giornoCal), "bottone primo")]);
+  let d;
+  try { d = await api(`/api/calendario?da=${isoGiorno(inizio)}&a=${isoGiorno(fine)}`); }
+  catch (e) { corpo.append(el("p", "vuoto", `Non riesco a leggere l'agenda (${e.message}).`)); return; }
+  const perGiorno = {};
+  for (const v of d.voci) (perGiorno[v.quando.slice(0, 10)] ||= []).push(v);
+  const wrap = el("div", "calendario"); corpo.append(wrap);
+  const griglia = el("div", "mese");
+  for (const g of SETTIMANA) griglia.append(el("div", "nome-giorno", g));
+  for (let i = 0; i < 42; i++) {
+    const g = new Date(inizio); g.setDate(inizio.getDate() + i);
+    const iso = isoGiorno(g), voci = perGiorno[iso] || [];
+    const c = el("button", "giorno" + (g.getMonth() !== meseCal.getMonth() ? " fuori" : "") + (iso === isoGiorno(oggi) ? " oggi" : "") + (iso === giornoCal ? " scelto" : ""));
+    c.append(el("span", "num-giorno", String(g.getDate())));
+    for (const v of voci.slice(0, 3)) {
+      const e = el("span", "evento-mini " + v.tipo, (v.tutto_il_giorno || !v.quando ? "" : v.quando.slice(11, 16) + " ") + v.titolo);
+      c.append(e);
+    }
+    if (voci.length > 3) c.append(el("small", "altri", `+${voci.length - 3}`));
+    c.onclick = () => { giornoCal = iso; apriVista("calendario"); };
+    c.ondblclick = () => nuovoEvento(iso);
+    griglia.append(c);
+  }
+  wrap.append(griglia);
+  // a destra: la giornata scelta e le cose da fare
+  const lato = el("div", "lato-calendario"); wrap.append(lato);
+  const gs = new Date(giornoCal + "T12:00");
+  const carta = el("div", "carta"); lato.append(carta);
+  const titoloGiorno = `${GIORNI[gs.getDay()]} ${gs.getDate()} ${MESI[gs.getMonth()]}`;
+  carta.append(el("h3", "", titoloGiorno[0].toUpperCase() + titoloGiorno.slice(1)));
+  const delGiorno = perGiorno[giornoCal] || [];
+  if (!delGiorno.length) carta.append(el("p", "nota", "Niente in programma. Doppio clic su un giorno per aggiungere, o chiedi a Nova."));
+  for (const v of delGiorno) carta.append(vocePlan(v));
+  const af = el("div", "azioni"); af.append(bottone("＋ Aggiungi in questo giorno", () => nuovoEvento(giornoCal))); carta.append(af);
+  if (d.scaduti.length || d.da_fare.length) {
+    const fare = el("div", "carta"); lato.append(fare);
+    fare.append(el("h3", "", "Da fare"));
+    for (const v of [...d.scaduti, ...d.da_fare]) fare.append(vocePlan(v, true));
+  }
+  const nova = el("div", "carta suggerimento"); lato.append(nova);
+  nova.append(el("p", "nota", "Puoi anche dire a Nova: «cosa ho domani?», «sposta il dentista a giovedì», «metti in agenda la riunione che mi ha proposto Giulia»."));
+};
+function vocePlan(v, daFare = false) {
+  const r = el("div", "voce-plan " + v.tipo + (daFare && v.quando ? " scaduta" : ""));
+  const ora = v.tutto_il_giorno ? "tutto il giorno" : v.quando ? (daFare ? new Date(v.quando).toLocaleDateString("it-IT", { day: "numeric", month: "short" }) + " " : "") + v.quando.slice(11, 16) : "";
+  const testo = el("div", "cosa"); testo.append(el("b", "", v.titolo), el("small", "", [ora, v.luogo, { daily: "ogni giorno", weekly: "ogni settimana", monthly: "ogni mese", yearly: "ogni anno" }[v.ripeti] || ""].filter(Boolean).join(" · ")));
+  const azioni = el("span", "azioni-voce");
+  if (v.tipo === "reminder") azioni.append(bottone("✓", async () => { await api("/api/calendario/fatto", { id: v.id }); apriVista("calendario"); }, "tondo piccolo"));
+  azioni.append(bottone("✕", async () => {
+    if (!await chiediConferma(`Tolgo «${v.titolo}»${v.ripeti ? " (tutte le ripetizioni)" : ""}?`)) return;
+    await api("/api/calendario/togli", { tipo: v.tipo, id: v.id }); apriVista("calendario");
+  }, "tondo piccolo"));
+  r.append(el("i", "segno"), testo, azioni);
+  return r;
+}
+function nuovoEvento(giorno) {
+  const fondo = el("div"); fondo.style.cssText = "position:fixed;inset:0;z-index:50;background:rgba(3,12,18,.55);display:grid;place-items:center";
+  const c = el("div", "carta modulo"); c.style.cssText = "width:min(480px,92vw)";
+  const campo = (etichetta, input) => { const l = el("label", "campo-modulo"); l.append(el("span", "", etichetta), input); c.append(l); return input; };
+  c.append(el("h3", "", "Nuovo in agenda"));
+  const titolo = campo("Cosa", Object.assign(el("input", "campo"), { placeholder: "Dentista, compleanno di Sara…" }));
+  const g = campo("Giorno", Object.assign(el("input", "campo"), { type: "date", value: giorno }));
+  const ora = campo("Ora (vuota = tutto il giorno)", Object.assign(el("input", "campo"), { type: "time" }));
+  const luogo = campo("Dove", Object.assign(el("input", "campo"), { placeholder: "facoltativo" }));
+  const rip = el("select", "campo");
+  for (const [v, t] of [["", "Una volta"], ["daily", "Ogni giorno"], ["weekly", "Ogni settimana"], ["monthly", "Ogni mese"], ["yearly", "Ogni anno"]]) { const o = el("option", "", t); o.value = v; rip.append(o); }
+  campo("Ripeti", rip);
+  const prom = el("input"); prom.type = "checkbox"; const lp = el("label", "nota"); lp.append(prom, " È un promemoria (te lo ricordo con un avviso)"); c.append(lp);
+  const esito = el("div", "esito");
+  const a = el("div", "piede-modulo");
+  a.append(bottone("Annulla", () => fondo.remove()), bottone("Aggiungi", async () => {
+    const r = await api("/api/calendario/nuovo", { titolo: titolo.value, giorno: g.value, ora: ora.value, luogo: luogo.value, ripeti: rip.value, promemoria: prom.checked })
+      .catch(e => ({ ok: false, messaggio: e.message }));
+    if (r.ok) { fondo.remove(); giornoCal = g.value; const nd = new Date(g.value + "T12:00"); meseCal = new Date(nd.getFullYear(), nd.getMonth(), 1); apriVista("calendario"); }
+    else { esito.textContent = r.messaggio || r.error || "Non è riuscito."; esito.className = "esito no"; }
+  }, "bottone primo"));
+  c.append(esito, a); fondo.append(c); document.body.append(fondo);
+  fondo.onkeydown = e => { e.stopPropagation(); if (e.key === "Escape") fondo.remove(); };
+  setTimeout(() => titolo.focus(), 30);
+}
+
+// --- Rubrica: telefono, posta e contatti di AIOS insieme ------------------------------------------------------
+let filtroRubrica = "", sceltoRubrica = "";
+VISTE.rubrica = async function (box) {
+  const cerca = el("input", "campo"); cerca.placeholder = "Cerca nome, numero o email"; cerca.value = filtroRubrica; cerca.style.maxWidth = "320px";
+  const corpo = testa(box, "Rubrica", [cerca, bottone("＋ Nuovo contatto", () => modificaContatto(), "bottone primo")]);
+  let d;
+  try { d = await api("/api/rubrica"); }
+  catch (e) { corpo.append(el("p", "vuoto", `Non riesco a leggere la rubrica (${e.message}).`)); return; }
+  if (!d.contatti.length) {
+    corpo.append(el("p", "vuoto", "La rubrica è vuota. Si riempie da sola collegando il telefono e la posta, oppure aggiungi un contatto qui o dicendo a Nova: «aggiungi Mario Rossi alla rubrica, 333 1234567»."));
+    return;
+  }
+  const wrap = el("div", "rubrica"); corpo.append(wrap);
+  const elenco = el("div", "elenco-contatti"); const scheda = el("div", "scheda-contatto");
+  wrap.append(elenco, scheda);
+  const iniziali = n => n.split(/\s+/).filter(Boolean).slice(0, 2).map(p => p[0].toUpperCase()).join("");
+  const tinta = n => { let h = 0; for (const ch of n) h = (h * 31 + ch.charCodeAt(0)) % 360; return `hsl(${h} 55% 48%)`; };
+  const avatar = (n, cls = "avatar") => { const a = el("span", cls, iniziali(n)); a.style.background = tinta(n); return a; };
+  const mostra = c => {
+    sceltoRubrica = c.nome;
+    elenco.querySelectorAll(".contatto").forEach(b => b.classList.toggle("attivo", b.dataset.nome === c.nome));
+    scheda.replaceChildren();
+    const t = el("div", "carta");
+    const testaC = el("div", "testa-contatto"); testaC.append(avatar(c.nome, "avatar grande"), el("h3", "", c.nome));
+    t.append(testaC);
+    const fonti = { telefono: "dal telefono", posta: "dalla posta", aios: "aggiunto in AIOS" };
+    t.append(el("p", "nota", c.fonti.map(f => fonti[f] || f).join(" · ") + (c.mail_scambiate ? ` · ${c.mail_scambiate} mail scambiate` : "")));
+    const riga = (icona, valore, ...btn) => { const r = el("div", "riga-imp"); const v = el("div", "cosa"); v.append(conIcona(icona, valore)); r.append(v, ...btn); t.append(r); };
+    for (const n of c.telefoni) riga("telefono", n, bottone("Chiama", () => { chiudiVista(); chiedi(`chiama ${c.nome}`); }), bottone("SMS", () => { chiudiVista(); chiedi(`scrivi un sms a ${c.nome}`); }));
+    for (const e of c.email) riga("posta", e, bottone("Scrivi", () => { chiudiVista(); chiedi(`scrivi una mail a ${e}`); }));
+    if (c.compleanno) riga("calendario", "Compleanno: " + new Date((c.compleanno.startsWith("--") ? "2000" + c.compleanno.slice(1) : c.compleanno) + "T12:00").toLocaleDateString("it-IT", { day: "numeric", month: "long" }));
+    if (c.note) t.append(el("p", "", c.note));
+    const az = el("div", "azioni");
+    if (c.email.length) az.append(bottone("Le ultime mail", () => { chiudiVista(); chiedi(`mostrami le ultime mail di ${c.nome}`); }));
+    az.append(bottone("Modifica", () => modificaContatto(c)));
+    if (c.fonti.includes("aios")) az.append(bottone("Togli", async () => {
+      if (!await chiediConferma(`Tolgo ${c.nome} dalla rubrica di AIOS?`)) return;
+      await api("/api/rubrica/togli", { nome: c.nome }); sceltoRubrica = ""; apriVista("rubrica");
+    }, "bottone pericolo"));
+    t.append(az); scheda.append(t);
+  };
+  const disegna = () => {
+    const f = filtroRubrica.toLowerCase().trim();
+    elenco.replaceChildren();
+    let lettera = "";
+    const trovati = d.contatti.filter(c => !f || c.nome.toLowerCase().includes(f) || c.email.some(e => e.includes(f)) || c.telefoni.some(t => t.replace(/\D/g, "").includes(f.replace(/\D/g, "") || "§")));
+    for (const c of trovati) {
+      const l = (c.nome[0] || "#").toUpperCase();
+      if (l !== lettera) { lettera = l; elenco.append(el("div", "lettera", l)); }
+      const b = el("button", "contatto"); b.dataset.nome = c.nome;
+      const tx = el("span", "cosa"); tx.append(el("b", "", c.nome), el("small", "", c.telefoni[0] || c.email[0] || ""));
+      b.append(avatar(c.nome), tx); b.onclick = () => mostra(c); elenco.append(b);
+    }
+    if (!trovati.length) elenco.append(el("p", "nota", "Nessun contatto trovato."));
+    const scelto = trovati.find(c => c.nome === sceltoRubrica) || trovati[0];
+    if (scelto) mostra(scelto); else scheda.replaceChildren();
+  };
+  cerca.oninput = () => { filtroRubrica = cerca.value; disegna(); };
+  disegna();
+};
+function modificaContatto(c = { nome: "", telefoni: [], email: [], compleanno: "", note: "" }) {
+  const fondo = el("div"); fondo.style.cssText = "position:fixed;inset:0;z-index:50;background:rgba(3,12,18,.55);display:grid;place-items:center";
+  const k = el("div", "carta modulo"); k.style.cssText = "width:min(460px,92vw)";
+  const campo = (etichetta, input) => { const l = el("label", "campo-modulo"); l.append(el("span", "", etichetta), input); k.append(l); return input; };
+  k.append(el("h3", "", c.nome ? `Modifica ${c.nome}` : "Nuovo contatto"));
+  const nome = campo("Nome e cognome", Object.assign(el("input", "campo"), { value: c.nome }));
+  const tel = campo("Telefono", Object.assign(el("input", "campo"), { type: "tel", placeholder: c.telefoni.join(", ") || "333 1234567" }));
+  const mail = campo("Email", Object.assign(el("input", "campo"), { type: "email", placeholder: c.email.join(", ") || "nome@esempio.it" }));
+  const comp = campo("Compleanno", Object.assign(el("input", "campo"), { type: "date", value: /^\d{4}-/.test(c.compleanno) ? c.compleanno : "" }));
+  const note = campo("Note", Object.assign(el("input", "campo"), { value: c.note }));
+  const esito = el("div", "esito");
+  const a = el("div", "piede-modulo");
+  a.append(bottone("Annulla", () => fondo.remove()), bottone("Salva", async () => {
+    const r = await api("/api/rubrica", { nome: nome.value, telefono: tel.value, email: mail.value, compleanno: comp.value, note: note.value }).catch(e => ({ ok: false, messaggio: e.message }));
+    if (r.ok) { fondo.remove(); sceltoRubrica = nome.value.trim(); apriVista("rubrica"); }
+    else { esito.textContent = r.messaggio; esito.className = "esito no"; }
+  }, "bottone primo"));
+  k.append(esito, a); fondo.append(k); document.body.append(fondo);
+  fondo.onkeydown = e => { e.stopPropagation(); if (e.key === "Escape") fondo.remove(); };
+  setTimeout(() => nome.focus(), 30);
+}
+
 // --- imparare la voce (benvenuto e Impostazioni) -----------------------------------------------------------
 async function imparaVoce(box, { nome = "", fine } = {}) {
   const st = await api("/api/impronta").catch(() => ({ frasi: [], disponibile: false }));
