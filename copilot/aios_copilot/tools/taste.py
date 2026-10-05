@@ -16,8 +16,36 @@ KIND_WORDS = {"film": "film", "serie": "serie", "telefilm": "serie", "serie tv":
               "gioco": "gioco", "giochi": "gioco", "videogioco": "gioco", "videogiochi": "gioco"}
 
 
+WEB_LABEL = {"serie": "serie tv", "film": "film", "cartone": "cartoni animati", "software": "programmi per Linux",
+             "gioco": "videogiochi"}
+
+
+def web_query(kind: str, request: str) -> str:
+    """«che serie tv mi consigli? mi è piaciuta Supernatural» → «serie tv simili a Supernatural»."""
+    label = WEB_LABEL.get(kind, kind)
+    m = re.search(r"piaciut[oaie]\s+(?:molto\s+|tanto\s+)?(.+?)(?:[?.!,]|$)", request, re.I) or \
+        re.search(r"\b(?:come|simil[ei] a)\s+(.+?)(?:[?.!,]|$)", request, re.I)
+    if m:
+        title = m.group(1).strip(" «»\"'")
+        return f"{label} simili a {title} consigli"
+    extra = re.sub(r"(?i)\b(?:che|quale|quali|mi|ci|consigli\w*|suggerisc\w*|propon\w*|di|da|guardare|vedere|"
+                   r"serie|tv|film|cartoni?|animati|giochi|videogiochi|programmi|nova)\b|[?.!,]", " ", request)
+    return f"{label} da vedere consigliati {' '.join(extra.split())}".strip()
+
+
 def make_tools(get_subs: Callable[[], Subscriptions], get_catalog: Callable[[], Catalog],
-               get_profile: Callable[[], Profile]) -> list[Tool]:
+               get_profile: Callable[[], Profile], web_search: Callable[[str], str] | None = None) -> list[Tool]:
+    def from_web(kind: str, request: str) -> str:
+        """Senza catalogo (o senza titoli adatti) i consigli vengono dal web: Nova li riassume con le fonti."""
+        if web_search is None:
+            return ("Il catalogo non è ancora disponibile su questo computer: cerca con search_web e proponi titoli "
+                    "concreti.")
+        found = web_search(web_query(kind, request))
+        if found.startswith(("Errore", "Nessun")):
+            return f"Il catalogo non è ancora disponibile e la ricerca web non ha dato risultati ({found[:80]})."
+        return ("Il catalogo non è ancora disponibile: ecco cosa dice il web. Proponi all'utente 3-5 titoli concreti "
+                f"presi da qui, con una riga sul perché e la fonte.\n\n{found}")
+
     def list_subscriptions() -> str:
         return get_subs().summary()
 
@@ -38,15 +66,14 @@ def make_tools(get_subs: Callable[[], Subscriptions], get_catalog: Callable[[], 
             return f"Posso consigliarti: {', '.join(KINDS)}. La musica arriva presto."
         catalog = get_catalog()
         if not catalog.items:
-            return ("Il catalogo non è ancora stato scaricato: lo aggiorno quando il computer è a riposo "
-                    "(o subito con: aios-learn --now). Per film e serie serve una chiave TMDB gratuita.")
+            return from_web(kind, request)  # va al modello (agent.DEAD_END), con i risultati del web davanti
         subs = get_subs()
         picks = recommend(catalog, get_profile(), subs, kind, request)
         if not picks:
             if kind in ("film", "serie", "cartone") and not subs.active_keys():
                 return ("Non so ancora che abbonamenti hai: dimmelo («ho Netflix e Disney+»), oppure collega la posta. "
                         "Intanto posso proporti solo titoli gratuiti, e non ne ho trovati di adatti.")
-            return "Non ho trovato niente di adatto tra i titoli disponibili per te. Riprovo dopo il prossimo aggiornamento."
+            return from_web(kind, request)
         attach("media", [{"titolo": p.item.title, "anno": p.item.year, "tipo": p.item.kind, "sottotitolo": p.where,
                           "estratto": p.why, "immagine": p.item.poster} for p in picks], "Ti propongo")
         lines = [f"{n}. «{p.item.title}»{f' ({p.item.year})' if p.item.year else ''} — {p.where}\n   {p.why}"
@@ -82,6 +109,7 @@ RE_RECOMMEND = re.compile(
     rf"(?:consigli\w*|suggeris\w*|propon\w*)\s+(?:mi\s+|ci\s+)?(?:(?:un|una|qualche|dei|degli|delle)\s+|un'\s*)?(?P<kind>{_KINDS})\b"
     rf"|^(?:che|quale)\s+(?P<kind2>{_KINDS})\s+(?:guardo|guardiamo|vedo|vediamo|metto|mettiamo|scarico|installo)"
     r"|^cosa\s+(?:guardo|guardiamo|vedo|vediamo)\b"
+    rf"|^(?:che|quale|quali)\s+(?P<kind3>{_KINDS})\s+(?:mi\s+|ci\s+)?(?:consigli\w*|suggeris\w*|propon\w*)"
 )
 RE_LIKED = re.compile(r"^(?:mi|ci)\s+(?:è|e)\s+piaciut[oa](?:\s+molto)?\s+(?P<t>.+)$"
                       r"|^(?P<t2>.+?)\s+(?:mi|ci)\s+(?:è|e)\s+piaciut[oa](?:\s+molto|\s+tanto)?$", re.I)
@@ -102,7 +130,7 @@ class TasteRouter:
                     return Intent("set_subscription", {"service": ", ".join(s.name for s in services), "active": active})
         m = RE_RECOMMEND.search(low)
         if m:
-            kind = KIND_WORDS.get(m.group("kind") or m.group("kind2") or "", "film")
+            kind = KIND_WORDS.get(m.group("kind") or m.group("kind2") or m.group("kind3") or "", "film")
             if kind == "film" and re.search(r"bambin|figli|piccol", low):
                 kind = "cartone"
             return Intent("recommend", {"kind": kind, "request": text})

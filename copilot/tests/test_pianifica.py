@@ -93,3 +93,24 @@ def test_agent_plans_prefetches_guards_and_verifies():
 def test_agent_without_planner_is_unchanged():
     model = Script([{"content": "Ciao!"}])
     assert Agent(model, [], confirm=lambda *a, **k: True).ask("ciao come va") == "Ciao!"
+
+
+def test_recommendations_without_catalog_come_from_the_web():
+    from aios_copilot.recommend import Catalog, Profile
+    from aios_copilot.subscriptions import Subscriptions
+    from aios_copilot.tools.taste import TasteRouter, make_tools
+
+    searched = []
+
+    def web(q):
+        searched.append(q)
+        return "[1] 10 serie come Supernatural\nhttps://www.esempio.it/serie\nLucifer, Grimm, The Witcher…"
+
+    tools = make_tools(lambda: Subscriptions.__new__(Subscriptions), lambda: Catalog([]), lambda: Profile.__new__(Profile), web_search=web)
+    rec = next(t for t in tools if t.name == "recommend")
+    model = Script([{"content": "Ti consiglio Lucifer e Grimm (fonte: esempio.it)."}])
+    agent = Agent(model, tools, confirm=lambda *a, **k: True, routers=[TasteRouter()])
+    answer = agent.ask("che serie tv mi consigli di guardare? mi è piaciuta supernatural")
+    assert searched == ["serie tv simili a supernatural consigli"]
+    assert answer.startswith("Ti consiglio Lucifer")  # risponde il modello, coi risultati del web davanti
+    assert "Lucifer, Grimm" in model.seen[-1] and rec.name == "recommend"

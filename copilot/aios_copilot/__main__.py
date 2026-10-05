@@ -166,7 +166,7 @@ def make_agent(confirm: Confirm, model: str | None = None, allowed: frozenset[st
 
     # Gli strumenti divisi per ambito: lo smistatore (smistatore.py) dà al modello solo quelli giusti.
     groups = {
-        "web": web_tools.make_tools(),
+        "web": (web_group := web_tools.make_tools()),
         "app": [*apps_tools.make_tools(runner), *window_tools.make_tools(), *session_tools.make_tools(), *sdk.make_tools()],
         "sistema": [*system_tools.make_tools(runner),
                     *settings_tools.make_tools(runner, pictures_dir=lambda: resolve_folder("PICTURES")),
@@ -175,7 +175,7 @@ def make_agent(confirm: Confirm, model: str | None = None, allowed: frozenset[st
         "file": [*files.make_tools(get_index, meaning_query()), *photo_tools.make_tools(), *organize_tools.make_tools(library), *document_tools.make_tools(get_index, runner)],
         "agenda": agenda_tools.make_tools(get_agenda, user_name, extras=lambda: [model_hint()]),
         "posta": mail_tools.make_tools(mail_store, send, has_accounts),
-        "gusti": taste_tools.make_tools(subs, catalog, profile),
+        "gusti": taste_tools.make_tools(subs, catalog, profile, web_search=web_group[0].func),
         "ai": [*ai_tools.make_management_tools(device, installed_models, downloads),
                *ai_tools.make_capability_tools(engines.available())],
         "aspetto": [*widget_tools.make_tools(), *theme_tools.make_tools(ask_llm=lambda prompt: llm.chat([{"role": "user", "content": prompt}], []).get("content", ""),
@@ -189,7 +189,8 @@ def make_agent(confirm: Confirm, model: str | None = None, allowed: frozenset[st
     from .pianifica import Planner
     from .smistatore import build as build_smistatore
 
-    smistatore = build_smistatore(groups, always={"calculate"})  # i conti servono in ogni ambito
+    # in ogni ambito: i conti e il web (come un chatbot, Nova può sempre cercare quello che non sa)
+    smistatore = build_smistatore(groups, always={"calculate", "search_web", "read_webpage"})
     agent = Agent(
         llm,
         tools,

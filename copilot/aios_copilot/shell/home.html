@@ -708,7 +708,7 @@ async function chiedi(text, aVoce = false) {
   } catch (e) { risposta = `Non riesco a parlare con Nova (${e.message}).`; }
   coda?.remove();
   if (--inVolo === 0) $("sfera-nova").classList.remove("pensa");
-  if (veloce) riga("capito all'istante", `⚡ ${Math.max(1, Math.round(performance.now() - inizio))} ms`, dove);
+  if (veloce && performance.now() - inizio < 5000) riga("capito all'istante", `⚡ ${Math.max(1, Math.round(performance.now() - inizio))} ms`, dove);
   if (inCorso) inCorso.textContent = risposta; else nova(risposta, dove);
   if (aVoce) api("/api/parla", { testo: risposta }).catch(() => {});
   if (inVolo === 0) { aspetto(); if (!PANNELLO) setTimeout(casa, 500); }
