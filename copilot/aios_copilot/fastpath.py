@@ -122,13 +122,11 @@ class FastPath:
         name = strip_articles(m.group("x"))
         if not name or self.find_apps is None:
             return None
-        # Solo una corrispondenza esatta del nome è abbastanza sicura da non chiedere all'LLM.
-        exact = [a for a in self.find_apps(name) if a["name"].lower() == name]
-        flatpak = [a for a in exact if a["source"] == "flatpak"]
-        chosen = (flatpak or exact or [None])[0]
-        if chosen is None:
+        # un genere («un editor video», «qualche gioco») lo sceglie il modello; un nome basta: la fonte (Flathub,
+        # Steam per i giochi) la trova install_software, che installa da sé
+        if re.match(r"^(?:un|una|uno|un'|qualche|dei|degli|delle|qualcosa|programmi|app)\b", m.group("x").strip().lower()):
             return None
-        return Intent("install_app", {"app_id": chosen["id"], "source": chosen["source"]})
+        return Intent("install_software", {"nome": name})
 
     def _search(self, m: re.Match[str]) -> Intent | None:
         query = m.group("x").strip()

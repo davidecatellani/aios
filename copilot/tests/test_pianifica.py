@@ -157,3 +157,22 @@ def test_games_install_by_themselves():
     r = FakeRunner()
     GameInstaller(r, fetch=steam).play("apex legends")
     assert r.spawned[-1][-1] == "steam://rungameid/1172470"
+
+
+def test_install_software_by_name_finds_the_right_app():
+    from aios_copilot.tools.apps import GameInstaller
+
+    listing = ("Visual Studio Code - Insiders\tcom.visualstudio.code.insiders\tCode editing. Redefined.\n"
+               "Visual Studio Code\tcom.visualstudio.code\tCode editing. Redefined.\n"
+               "VSCodium\tcom.vscodium.codium\tFree/Libre Open Source Software Binaries of VS Code\n")
+
+    class R(FakeRunner):
+        def run(self, cmd, **kw):
+            if cmd[:2] == ["flatpak", "info"] and "com.visualstudio.code" in cmd:
+                self.calls.append(cmd)
+                return 1, ""  # non ancora installato
+            return super().run(cmd, **kw)
+
+    r = R(flathub=listing)
+    assert GameInstaller(r).install_any("vscode").startswith("Installato Visual Studio Code")
+    assert r.calls[-1][-1] == "com.visualstudio.code"

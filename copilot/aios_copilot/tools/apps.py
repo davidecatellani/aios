@@ -198,6 +198,9 @@ def make_tools(runner: Runner | None = None) -> list[Tool]:
     def install_game(titolo: str) -> str:
         return GameInstaller(runner).install(titolo)
 
+    def install_software(nome: str) -> str:
+        return GameInstaller(runner).install_any(nome)
+
     def play_game(titolo: str) -> str:
         return GameInstaller(runner).play(titolo)
 
@@ -224,12 +227,18 @@ def make_tools(runner: Runner | None = None) -> list[Tool]:
             requires_confirmation=True,
         ),
         Tool(
+            "install_software",
+            "Installa un programma o un gioco dal suo nome (es. «Visual Studio Code», «Spotify», «SuperTuxKart»): trova "
+            "da solo la fonte giusta (Flathub, poi Steam per i giochi) e installa tutto. Preferiscilo a install_app.",
+            params(nome="Il nome del programma o del gioco", required=["nome"]),
+            install_software,
+        ),
+        Tool(
             "install_game",
             "Installa un gioco dal titolo, da solo: da Flathub se c'è, altrimenti con Steam (installa anche Steam se "
             "manca). Usalo quando l'utente vuole un gioco: non mandargli link.",
             params(titolo="Il titolo del gioco", required=["titolo"]),
             install_game,
-            requires_confirmation=True,
         ),
         Tool(
             "play_game",
@@ -248,6 +257,11 @@ def make_tools(runner: Runner | None = None) -> list[Tool]:
 
 # --- giochi: Flathub o Steam, senza che l'utente debba fare niente -----------------------------------------
 STEAM_ID = "com.valvesoftware.Steam"
+# come le persone chiamano i programmi → come si chiamano su Flathub
+ALIASES = {"vscode": "Visual Studio Code", "vs code": "Visual Studio Code", "code": "Visual Studio Code",
+           "chrome": "Google Chrome", "google chrome": "Google Chrome", "edge": "Microsoft Edge", "word": "OnlyOffice",
+           "office": "LibreOffice", "photoshop": "GIMP", "teams": "Teams for Linux", "whatsapp": "WhatsApp Desktop",
+           "obs": "OBS Studio", "vlc": "VLC", "telegram": "Telegram Desktop", "minecraft": "Prism Launcher"}
 STEAM_SEARCH = "https://store.steampowered.com/api/storesearch/?term={q}&l=italian&cc=IT"
 
 
@@ -271,11 +285,40 @@ class GameInstaller:
         self.runner, self.fetch = runner, fetch
 
     def flathub(self, title: str) -> dict[str, str] | None:
-        want = _norm(title)
-        for a in find_apps(self.runner, title):
-            if a.get("source") == "flatpak" and (want == _norm(a["name"]) or want in _norm(a["name"]) and len(want) > 3):
-                return a
+        """La corrispondenza migliore su Flathub: nome uguale, poi che inizia così, poi che lo contiene."""
+        want = _norm(ALIASES.get(_norm(title), title))
+        found = [a for a in find_apps(self.runner, want) if a.get("source") == "flatpak"]
+        if not found and want != _norm(title):
+            found = [a for a in find_apps(self.runner, title) if a.get("source") == "flatpak"]
+        for test in (lambda n: n == want, lambda n: n.startswith(want + " ") or want.startswith(n + " "),
+                     lambda n: len(want) > 3 and want in n):
+            hit = next((a for a in found if test(_norm(a["name"])) or _norm(a["id"]).endswith(want.replace(" ", ""))), None)
+            if hit:
+                return hit
         return None
+
+    def install_any(self, name: str) -> str:
+        """Un programma o un gioco dal nome: Flathub (tutto automatico), altrimenti Steam per i giochi."""
+        name = name.strip().strip("«»\"'")
+        if not name:
+            return "Cosa installo?"
+        if self.runner.has("flatpak"):
+            app = self.flathub(name)
+            if app is not None:
+                code, _ = self.runner.run(["flatpak", "info", app["id"]])
+                if code == 0:
+                    from .base import offer
+
+                    offer(f"apri {app['name']}")
+                    return f"{app['name']} è già installato. Vuoi che lo apra?"
+                code, out = self.runner.run(["flatpak", "install", "--user", "-y", "--noninteractive", "flathub", app["id"]])
+                if code == 0:
+                    from .base import offer
+
+                    offer(f"apri {app['name']}")
+                    return f"Installato {app['name']}. Vuoi che lo apra?"
+                return f"L'installazione di {app['name']} non è riuscita: {out.strip().splitlines()[-1] if out.strip() else 'errore sconosciuto'}."
+        return self.install(name)
 
     def steam(self, title: str) -> dict[str, Any] | None:
         import json

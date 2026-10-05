@@ -43,8 +43,8 @@ def test_normalize_removes_politeness():
         ("apri il sito repubblica.it", Intent("open_location", {"target": "https://repubblica.it"})),
         ("vai su repubblica.it", Intent("open_location", {"target": "https://repubblica.it"})),
         ("apri https://example.org/a?b=1", Intent("open_location", {"target": "https://example.org/a?b=1"})),
-        ("installa VLC", Intent("install_app", {"app_id": "org.videolan.VLC", "source": "flatpak"})),
-        ("vorrei installare gimp per favore", Intent("install_app", {"app_id": "org.gimp.GIMP", "source": "flatpak"})),
+        ("installa VLC", Intent("install_software", {"nome": "vlc"})),
+        ("installa visual studio code", Intent("install_software", {"nome": "visual studio code"})),
         ("cerca su internet orari treni Milano", Intent("search_web", {"query": "orari treni milano"})),
         ("cerca un programma per montare video", Intent("search_apps", {"query": "montare video"})),
         ("quanta memoria ho libera?", Intent("system_info", {})),
@@ -100,6 +100,6 @@ def test_agent_answers_without_llm(fp):
 
 
 def test_agent_fast_path_still_asks_confirmation(fp):
-    tools = [Tool("install_app", "", params(app_id="i", source="s"), lambda **a: "Installato.", requires_confirmation=True)]
+    tools = [Tool("install_software", "", params(nome="n"), lambda **a: "Installato.", requires_confirmation=True)]
     agent = Agent(NoModel(), tools, confirm=lambda t, a: False, routers=[fp])
     assert agent.ask("installa vlc") == "Va bene, annullato."
