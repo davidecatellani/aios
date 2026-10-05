@@ -1153,6 +1153,26 @@ def register_calendar(app: Any, agenda: Callable[[], Any] | None = None) -> None
     app.route("POST", r"/api/rubrica/togli", contact_remove)
 
 
+def register_display(app: Any) -> None:
+    """Impostazioni › Schermo: luce notturna (e i monitor, monitor.py)."""
+    from .. import luce_notturna as LN
+
+    def night(m: Any, b: dict[str, Any], q: dict[str, str]) -> tuple[int, Any]:
+        if b:
+            try:
+                if b.get("adesso") is True:
+                    LN.now_on()
+                elif b.get("adesso") is False:
+                    LN.save({"fino_a": ""})
+                LN.save({k: v for k, v in b.items() if k != "adesso"})
+            except (TypeError, ValueError):
+                return 400, {"error": "valore non valido"}
+        return 200, LN.status()
+
+    app.route("GET", r"/api/luce-notturna", night)
+    app.route("POST", r"/api/luce-notturna", night)
+
+
 def history_path() -> Path:
     return Path(os.environ.get("XDG_DATA_HOME", Path.home() / ".local" / "share")) / "aios" / "risultati.json"
 

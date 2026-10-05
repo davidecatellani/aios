@@ -68,6 +68,8 @@ RUN set -e; \
         [ "$i" = 4 ] && exit 1; echo "copr non risponde: riprovo"; sleep 60; \
       done; \
     fi; \
+    # luce notturna (hyprsunset, dallo stesso repository di Hyprland; gammastep di riserva)
+    dnf install -y --setopt=retries=10 --skip-unavailable hyprsunset gammastep || echo "avviso: niente luce notturna"; \
     dnf clean all; \
     test -x /usr/bin/Hyprland; test -x /usr/bin/hyprctl; rpm -q hyprland
 

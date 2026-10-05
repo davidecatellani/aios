@@ -36,7 +36,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 from ..localapp import LocalApp, serve
-from .apps import register_activity, register_apps, register_calendar, register_cloud, register_first_steps, register_screens, register_session, register_widgets
+from .apps import register_activity, register_apps, register_calendar, register_display, register_cloud, register_first_steps, register_screens, register_session, register_widgets
 
 PAGE = Path(__file__).with_name("home.html")
 APP_ID = "org.aios.Shell"
@@ -557,6 +557,7 @@ class ShellApp(LocalApp):
         register_session(self)
         register_cloud(self)
         register_activity(self)
+        register_display(self)
         register_calendar(self, self._agenda_factory)
         self.route("POST", r"/api/ascolta", self._listen)
         self.route("POST", r"/api/ascolta-si-no", self._listen_yes_no)
@@ -896,6 +897,10 @@ def main(argv: list[str] | None = None) -> int:
             pass
 
     threading.Thread(target=audio_default, daemon=True).start()
+    if hyprland() or os.environ.get("WAYLAND_DISPLAY"):
+        from .. import luce_notturna
+
+        threading.Thread(target=luce_notturna.run, daemon=True).start()  # meno luce blu la sera
     from .. import kokoro
 
     threading.Thread(target=kokoro.warm_up, daemon=True).start()  # la voce pronta per la prima risposta

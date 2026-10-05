@@ -272,3 +272,4 @@ body.in-vista #casa, body.in-vista #fondo { display: none; }
 .avatar.grande { width: 72px; height: 72px; font-size: 26px; }
 .testa-contatto { display: flex; align-items: center; gap: 18px; } .testa-contatto h3 { font-size: 26px; margin: 0; }
 .scheda-contatto .riga-imp .icona { color: var(--turchese); }
+.riga-imp input.cursore-caldo { accent-color: #F2A65A; }

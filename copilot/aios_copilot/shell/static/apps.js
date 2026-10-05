@@ -24,7 +24,7 @@ function apriVista(nome, ...args) {
 // Le schermate con uno stato che cambia da solo (un aggiornamento che scarica, le reti Wi-Fi, il volume…) si
 // ridisegnano ogni pochi secondi: fuori pagina, poi al posto di quella vecchia (niente sfarfallio), tenendo il
 // punto dove eri arrivato. Mai mentre stai scrivendo o scegliendo qualcosa.
-const VISTE_VIVE = { impostazioni: { aggiornamenti: 3000, info: 10000, wifi: 8000, bluetooth: 6000, suono: 8000 }, attivita: 2000 };
+const VISTE_VIVE = { impostazioni: { aggiornamenti: 3000, info: 10000, wifi: 8000, bluetooth: 6000, suono: 8000, schermo: 30000 }, attivita: 2000 };
 function ogniQuanto() {
   const regole = VISTE_VIVE[vistaAttuale];
   if (!regole) return 0;
@@ -337,7 +337,7 @@ const VISTE = {
     const corpo = testa(box, "Impostazioni");
     const wrap = el("div", "impostazioni"); const nav = el("div", "sezioni"); const pan = el("div", "pannello-imp");
     wrap.append(nav, pan); corpo.append(wrap);
-    const SEZ = [["wifi", "Wi-Fi"], ["bluetooth", "Bluetooth"], ["suono", "Suono e schermo"], ["voce", "Voce di Nova"], ["tastiera", "Tastiera"],
+    const SEZ = [["wifi", "Wi-Fi"], ["bluetooth", "Bluetooth"], ["suono", "Suono"], ["schermo", "Schermo"], ["voce", "Voce di Nova"], ["tastiera", "Tastiera"],
                  ["aspetto", "Testo e carattere"], ["aggiornamenti", "Aggiornamenti"], ["posta", "Posta"], ["account", "Password"], ["privacy", "Privacy e memoria"],
                  ["cloud", "AI in cloud"], ["info", "Questo computer"], ["energia", "Spegni"]];
     for (const [id, t] of SEZ) {
@@ -352,7 +352,7 @@ const VISTE = {
     const interruttore = (acceso, fn) => { const b = el("button", "interruttore" + (acceso ? " acceso" : "")); b.onclick = fn; return b; };
     const esito = el("div", "esito");
     const dici = (r) => { esito.textContent = r.messaggio || (r.ok ? "Fatto." : "Non è riuscito."); esito.className = "esito " + (r.ok ? "ok" : "no"); };
-    const parte = { suono: "suono", wifi: "wifi", bluetooth: "bluetooth", voce: "voce", info: "info", aggiornamenti: "info",
+    const parte = { suono: "suono", schermo: "suono", wifi: "wifi", bluetooth: "bluetooth", voce: "voce", info: "info", aggiornamenti: "info",
                     tastiera: "tastiera", privacy: "privacy" }[sezione];
     const d = parte ? await api(`/api/impostazioni?parte=${parte}`).catch(e => ({ errore: e.message })) : {};
 
@@ -432,7 +432,40 @@ const VISTE = {
       const app = carta(el("h3", "", "Volume dei programmi"));
       if (!au.programmi.length) app.append(el("p", "nota", "Nessun programma sta suonando adesso."));
       for (const p of au.programmi) app.append(riga(p.programma, null, livello(p)));
-      carta(riga("☀️ Luminosità", d.luminosita?.livello == null ? "Questo schermo non la regola da qui" : null, cursore(d.luminosita?.livello, "luminosita")));
+      pan.append(esito);
+    } else if (sezione === "schermo") {
+      const cursore = (valore, rotta) => {
+        const r = el("input"); r.type = "range"; r.min = 0; r.max = 100; r.value = valore ?? 50; r.disabled = valore == null;
+        r.onchange = () => api(`/api/impostazioni/${rotta}`, { livello: +r.value }).catch(() => {}); return r;
+      };
+      await disegnaMonitor(carta, riga, dici);
+      carta(riga(conIcona("luminosita", "Luminosità"), d.luminosita?.livello == null ? "Su un monitor esterno si regola dai tasti del monitor" : null, cursore(d.luminosita?.livello, "luminosita")));
+      const ln = await api("/api/luce-notturna").catch(() => null);
+      if (ln) {
+        const salva = cambio => api("/api/luce-notturna", cambio).then(() => apriVista("impostazioni", "schermo")).catch(e => dici({ ok: false, messaggio: e.message }));
+        const c = carta(el("h3", "", "Luce notturna"),
+          el("p", "nota", "La sera lo schermo diventa più caldo, con meno luce blu: stanca meno gli occhi e aiuta a prendere sonno."),
+          riga("Accendi in automatico", ln.attiva ? (ln.modo === "sole" ? `Dal tramonto all'alba: stasera dalle ${ln.da} alle ${ln.a}` : `Dalle ${ln.inizio} alle ${ln.fine}`) : "Spenta",
+               interruttore(ln.attiva, () => salva({ attiva: !ln.attiva }))));
+        const modo = el("select", "campo");
+        for (const [v, t] of [["sole", "Dal tramonto all'alba"], ["orari", "Orari scelti da me"]]) { const o = el("option", "", t); o.value = v; o.selected = v === ln.modo; modo.append(o); }
+        modo.onchange = () => salva({ modo: modo.value });
+        c.append(riga("Quando", null, modo));
+        if (ln.modo === "orari") {
+          const ora = (v, k) => { const i = el("input", "campo"); i.type = "time"; i.value = v; i.style.width = "130px"; i.onchange = () => salva({ [k]: i.value }); return i; };
+          c.append(riga("Dalle", null, ora(ln.inizio, "inizio")), riga("Alle", null, ora(ln.fine, "fine")));
+        }
+        const caldo = el("input"); caldo.type = "range"; caldo.min = 2500; caldo.max = 5500; caldo.step = 100; caldo.value = ln.temperatura;
+        caldo.style.direction = "rtl"; caldo.className = "cursore-caldo";
+        const kv = el("b", "", `${ln.temperatura} K`);
+        caldo.oninput = () => { kv.textContent = `${caldo.value} K`; };
+        caldo.onchange = () => salva({ temperatura: +caldo.value });
+        c.append(riga("Quanto calda", "Più a destra, più calda", caldo, kv));
+        const aMano = !!ln.fino_a && ln.accesa_ora;
+        const ctrl = aMano ? [bottone("Spegni", () => salva({ adesso: false }))]
+                   : ln.accesa_ora ? [] : [bottone("Accendi fino a domattina", () => salva({ adesso: true }), "bottone primo")];
+        c.append(riga("Adesso", ln.accesa_ora ? (aMano ? `Accesa fino alle ${ln.fino_a.slice(11, 16)}` : "Accesa: è sera") : "Spenta in questo momento", ...ctrl));
+      }
       pan.append(esito);
     } else if (sezione === "voce") {
       const v = d.voce || { voci: [] };
@@ -938,6 +971,11 @@ function modificaContatto(c = { nome: "", telefoni: [], email: [], compleanno: "
   k.append(esito, a); fondo.append(k); document.body.append(fondo);
   fondo.onkeydown = e => { e.stopPropagation(); if (e.key === "Escape") fondo.remove(); };
   setTimeout(() => nome.focus(), 30);
+}
+
+// I monitor collegati (Impostazioni › Schermo): li riempie monitor.py; senza, niente
+async function disegnaMonitor(carta, riga, dici) {
+  if (typeof window.disegnaMonitorReali === "function") return window.disegnaMonitorReali(carta, riga, dici);
 }
 
 // --- imparare la voce (benvenuto e Impostazioni) -----------------------------------------------------------
