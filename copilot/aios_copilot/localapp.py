@@ -133,6 +133,10 @@ class LocalApp:
                 job.add(kind="status", text=describe_call(data["tool"], data["args"]))
             elif kind == "token":
                 job.add(kind="token", text=data["text"])
+            elif kind == "retry":  # la risposta non bastava (pianifica.verify): quella scritta finora si cancella
+                job.add(kind="ricomincia")
+            elif kind == "plan":
+                job.add(kind="status", text="🗺️ Piano: " + " → ".join(data["steps"]))
 
         from .tools.base import set_attach_sink
 

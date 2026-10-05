@@ -694,6 +694,7 @@ async function chiedi(text, aVoce = false) {
         if (ev.kind === "coda") coda = riga("⏳ in coda: rispondo appena finisco la richiesta di prima", null, dove);
         if (ev.kind === "status") { coda?.remove(); coda = null; riga(ev.text, null, dove); }
         if (ev.kind === "schede") mostraSchede(ev, text);
+        if (ev.kind === "ricomincia" && inCorso) inCorso.textContent = "";  // Nova ricontrolla e riscrive
         if (ev.kind === "token") {  // la risposta compare mentre Nova la scrive
           if (!inCorso) { coda?.remove(); coda = null; inCorso = el("div", "msg nova", ""); dove.append(inCorso); }
           inCorso.textContent += ev.text; giu();

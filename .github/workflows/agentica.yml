@@ -9,6 +9,9 @@ on:
       modelli:
         description: "Modelli Ollama separati da virgola"
         default: "qwen3.5:4b,hf.co/Menlo/Jan-nano-gguf:Q4_K_M,hf.co/Salesforce/xLAM-2-3b-fc-r-gguf:Q4_K_M,gemma4:e4b"
+      modi:
+        description: "Modi separati da virgola: veloce, ragiona; «-nuda» = senza la struttura di Nova (piano, verifica, calcolatrice)"
+        default: "veloce,ragiona"
 
 permissions:
   contents: write
@@ -18,11 +21,15 @@ jobs:
     runs-on: ubuntu-24.04
     outputs:
       modelli: ${{ steps.m.outputs.modelli }}
+      modi: ${{ steps.m.outputs.modi }}
     steps:
       - id: m
         env:
           MODELLI: ${{ inputs.modelli }}
-        run: echo "modelli=$(python3 -c "import json,os; print(json.dumps([m.strip() for m in os.environ['MODELLI'].split(',') if m.strip()]))")" >> "$GITHUB_OUTPUT"
+          MODI: ${{ inputs.modi }}
+        run: |
+          echo "modelli=$(python3 -c "import json,os; print(json.dumps([m.strip() for m in os.environ['MODELLI'].split(',') if m.strip()]))")" >> "$GITHUB_OUTPUT"
+          echo "modi=$(python3 -c "import json,os; print(json.dumps([m.strip() for m in os.environ['MODI'].split(',') if m.strip()]))")" >> "$GITHUB_OUTPUT"
 
   prova:
     needs: elenco
@@ -32,7 +39,7 @@ jobs:
       fail-fast: false
       matrix:
         modello: ${{ fromJson(needs.elenco.outputs.modelli) }}
-        modo: [veloce, ragiona]
+        modo: ${{ fromJson(needs.elenco.outputs.modi) }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -55,7 +62,8 @@ jobs:
         run: |
           nome=$(echo "$MODELLO-$MODO" | tr '/:' '__')
           echo "NOME=$nome" >> "$GITHUB_ENV"
-          python copilot/addestramento/agentica.py --modello "$MODELLO" $([ "$MODO" = ragiona ] && echo --ragiona) \
+          python copilot/addestramento/agentica.py --modello "$MODELLO" $(case "$MODO" in ragiona*) echo --ragiona;; esac) \
+            $(case "$MODO" in *-nuda) echo --nuda;; esac) \
             --uscita "$nome.json" | tee "$nome.txt"
       - uses: actions/upload-artifact@v4
         if: always()
@@ -80,10 +88,11 @@ jobs:
           python3 - <<'PY' > tabella.md
           import json, glob
           rows = [json.load(open(f)) for f in sorted(glob.glob("risultati/*/*.json"))]
+          modo = lambda r: ("ragiona" if r["ragiona"] else "veloce") + ("" if r.get("struttura", False) else " (nudo)")
           print("| modello | modo | compiti riusciti | secondi medi a compito |")
           print("|---|---|---|---|")
           for r in sorted(rows, key=lambda r: (-r["riusciti"], r["secondi_medi"])):
-              print(f"| {r['modello']} | {'ragiona' if r['ragiona'] else 'veloce'} | {r['riusciti']}/{r['compiti']} | {r['secondi_medi']} |")
+              print(f"| {r['modello']} | {modo(r)} | {r['riusciti']}/{r['compiti']} | {r['secondi_medi']} |")
           print()
           tasks = [d["compito"] for d in rows[0]["dettagli"]] if rows else []
           print("| compito | " + " | ".join(f"{r['modello'].split('/')[-1]} {'R' if r['ragiona'] else 'V'}" for r in rows) + " |")

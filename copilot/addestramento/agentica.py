@@ -18,6 +18,7 @@ import sys
 import time
 import unicodedata
 from dataclasses import dataclass, field, replace
+from datetime import date
 from pathlib import Path
 from typing import Any, Callable
 
@@ -240,10 +241,24 @@ TASKS = [
 ]
 
 
-def make_tools(world: World, domains: list[str], real: dict[str, Any], groups: dict[str, list[str]]) -> list[Any]:
+GIORNO = date(2026, 10, 5)
+
+
+def make_tools(world: World, domains: list[str], real: dict[str, Any], groups: dict[str, list[str]],
+               calculator: bool = True) -> list[Any]:
+    from aios_copilot.tools import calcolo
+
     fake = world.tools()
     names = {"current_time"} | {n for d in domains for n in groups.get(d, [])}
     out = []
+    if calculator:  # la calcolatrice è un conto puro: quella vera, con il giorno del mondo finto
+        calc = calcolo.make_tools(today=lambda: GIORNO)[0]
+
+        def counted(espressione: str = "", _f: Callable[..., str] = calc.func) -> str:
+            world.calls.append("calculate")
+            return _f(espressione)
+
+        out.append(replace(calc, func=counted))
     for n in sorted(names):
         if n in real and n in fake:
             fn = fake[n]
@@ -256,18 +271,20 @@ def make_tools(world: World, domains: list[str], real: dict[str, Any], groups: d
     return out
 
 
-def run(model_name: str, url: str, think: bool, only: int | None = None) -> dict[str, Any]:
+def run(model_name: str, url: str, think: bool, only: int | None = None, bare: bool = False) -> dict[str, Any]:
     import dati
     from aios_copilot.agent import Agent
     from aios_copilot.llm import OllamaClient
+    from aios_copilot.pianifica import Planner
 
     groups, real = dati.nova_tools()
     rows = []
     for i, t in enumerate(TASKS if only is None else TASKS[:only]):
         world = World()
         model = OllamaClient(url=url, model=model_name, timeout=900)
-        agent = Agent(model, make_tools(world, t.domains, real, groups), confirm=lambda *a, **k: True, max_steps=10,
-                      percorso=(lambda _t: ("ragionamento", 1.0)) if think else None)
+        agent = Agent(model, make_tools(world, t.domains, real, groups, calculator=not bare), confirm=lambda *a, **k: True,
+                      max_steps=12, percorso=(lambda _t: ("ragionamento", 1.0)) if think else None,
+                      pianificatore=None if bare else Planner(model, today=lambda: GIORNO))
         start = time.monotonic()
         try:
             answer = agent.ask(f"{t.text}\n\n(Oggi è {OGGI}.)")
@@ -282,7 +299,7 @@ def run(model_name: str, url: str, think: bool, only: int | None = None) -> dict
         rows.append({"compito": t.text, "ok": ok, "secondi": round(took, 1), "strumenti": world.calls, "risposta": answer[:400]})
         print(f"{'✓' if ok else '✗'} {t.text} [{took:.0f}s, {len(world.calls)} strumenti: {' '.join(world.calls)}]\n   → {answer[:160]!r}", flush=True)
     good = sum(r["ok"] for r in rows)
-    return {"modello": model_name, "ragiona": think, "riusciti": good, "compiti": len(rows),
+    return {"modello": model_name, "ragiona": think, "struttura": not bare, "riusciti": good, "compiti": len(rows),
             "secondi_medi": round(sum(r["secondi"] for r in rows) / max(len(rows), 1), 1), "dettagli": rows}
 
 
@@ -291,10 +308,11 @@ def main() -> int:
     ap.add_argument("--modello", required=True)
     ap.add_argument("--url", default="http://localhost:11434")
     ap.add_argument("--ragiona", action="store_true")
+    ap.add_argument("--nuda", action="store_true", help="solo il modello, senza piano, verifica e calcolatrice")
     ap.add_argument("--solo", type=int, default=None, help="solo i primi N compiti (prova veloce)")
     ap.add_argument("--uscita", default="")
     args = ap.parse_args()
-    res = run(args.modello, args.url, args.ragiona, args.solo)
+    res = run(args.modello, args.url, args.ragiona, args.solo, args.nuda)
     print(f"\n{res['modello']}{' (ragiona)' if res['ragiona'] else ''}: {res['riusciti']}/{res['compiti']} compiti, "
           f"{res['secondi_medi']} s in media")
     if args.uscita:

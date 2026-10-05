@@ -158,6 +158,7 @@ class Agent:
         narrow: Callable[[str], set[str] | None] | None = None,
         planner: Callable[[str, dict[str, Any]], tuple[str, dict[str, Any]] | None] | None = None,
         percorso: Callable[[str], tuple[str, float] | None] | None = None,
+        pianificatore: Any = None,
     ):
         self.model = model
         self.tools = {t.name: t for t in tools}
@@ -178,6 +179,9 @@ class Agent:
         self._side: list[tuple[str, str]] = []
         # Il percorso deciso dal System One (smistatore.percorso): «ragionamento» → il modello pensa prima di rispondere.
         self.percorso = percorso
+        # Struttura per i compiti in più passi (pianifica.Planner): piano, ricerca preventiva, guardie, verifica.
+        self.pianificatore = pianificatore
+        self._request = ""
         self.reset()
 
     def _follow_up(self, text: str) -> tuple[str | None, bool]:
@@ -272,6 +276,15 @@ class Agent:
             emit("narrowed", {"tools": len(tools), "of": len(self.tools)})
         schemas = [t.schema() for t in tools]
         calls_made: list[tuple[str, dict[str, Any], str]] = []
+        self._request = text
+        if self.pianificatore is not None and not partial and not talk:
+            try:
+                notes, private = self.pianificatore.prepare(text, {t.name: t for t in tools}, emit)
+            except Exception:
+                notes, private = "", []  # la struttura aiuta, ma non deve mai bloccare Nova
+            if notes:
+                self.messages[-1]["content"] += "\n\n" + notes
+                self.private_texts += private
         think = self._should_think(text, partial)
         if think:
             emit("thinking", {})
@@ -299,6 +312,8 @@ class Agent:
 
     def _loop(self, text: str, schemas: list[dict[str, Any]], calls_made: list[tuple[str, Any, str]], emit: OnEvent,
               think: bool) -> str:
+        available = {sch.get("function", {}).get("name", "") for sch in schemas}
+        checks = 0
         for _ in range(self.max_steps):
             if getattr(self.model, "supports_stream", False):
                 reply = self.model.chat(self.messages, schemas, on_token=lambda piece: emit("token", {"text": piece}))
@@ -311,6 +326,18 @@ class Agent:
                 else {"role": "assistant", "content": reply.get("content") or ""}
             )
             if not calls:
+                feedback = None
+                if self.pianificatore is not None:
+                    try:
+                        feedback = self.pianificatore.verify(text, reply.get("content") or "", [c[0] for c in calls_made],
+                                                             available, checks)
+                    except Exception:
+                        feedback = None
+                if feedback:
+                    checks += 1
+                    emit("retry", {"why": feedback})
+                    self.messages.append({"role": "user", "content": f"(Controllo automatico di AIOS, non dell'utente: {feedback})"})
+                    continue
                 self._remember(text, calls_made)
                 answer = strip_intro(reply.get("content") or "", text)
                 self.messages[-1]["content"] = answer  # niente presentazione da imitare nella risposta dopo
@@ -415,6 +442,14 @@ class Agent:
             warning = PRIVACY_WARNING + (f" Contiene: «{leak}»." if leak else "")
             emit("privacy_warning", {"tool": tool, "args": args, "warning": warning})
 
+        if from_model and self.pianificatore is not None:
+            try:
+                stop = self.pianificatore.guard(self._request, name, args)
+            except Exception:
+                stop = None
+            if stop:
+                emit("tool_result", {"tool": tool, "result": stop})
+                return stop
         emit("tool_call", {"tool": tool, "args": args})
         needs_ok = tool.requires_confirmation or warning is not None
         if needs_ok and not (self.confirm(tool, args, warning=warning) if warning else self.confirm(tool, args)):

@@ -36,6 +36,7 @@ from .tools import taste as taste_tools
 from .tools import ai as ai_tools
 from .tools import organize as organize_tools
 from .tools import themes as theme_tools
+from .tools import calcolo as calc_tools
 from .tools import schermo as screen_tools
 from .tools import widget as widget_tools
 from .tools import phone as phone_tools
@@ -170,7 +171,7 @@ def make_agent(confirm: Confirm, model: str | None = None, allowed: frozenset[st
         "sistema": [*system_tools.make_tools(runner),
                     *settings_tools.make_tools(runner, pictures_dir=lambda: resolve_folder("PICTURES")),
                     *update_tools.make_tools(runner), *energy_tools.make_tools(), *voice_tools.make_tools(runner),
-                    *timezone_tools.make_tools()],
+                    *timezone_tools.make_tools(), *calc_tools.make_tools()],
         "file": [*files.make_tools(get_index, meaning_query()), *photo_tools.make_tools(), *organize_tools.make_tools(library), *document_tools.make_tools(get_index, runner)],
         "agenda": agenda_tools.make_tools(get_agenda, user_name, extras=lambda: [model_hint()]),
         "posta": mail_tools.make_tools(mail_store, send, has_accounts),
@@ -185,9 +186,10 @@ def make_agent(confirm: Confirm, model: str | None = None, allowed: frozenset[st
     tools = [t for group in groups.values() for t in group]
     if allowed is not None:
         tools = [t for t in tools if t.name in allowed]
+    from .pianifica import Planner
     from .smistatore import build as build_smistatore
 
-    smistatore = build_smistatore(groups)
+    smistatore = build_smistatore(groups, always={"calculate"})  # i conti servono in ogni ambito
     agent = Agent(
         llm,
         tools,
@@ -196,6 +198,8 @@ def make_agent(confirm: Confirm, model: str | None = None, allowed: frozenset[st
         narrow=smistatore.narrow if os.environ.get("AIOS_SMISTATORE", "") != "spento" else None,
         planner=smistatore.plan if os.environ.get("AIOS_SMISTATORE", "") != "spento" else None,
         percorso=smistatore.percorso if os.environ.get("AIOS_SMISTATORE", "") != "spento" else None,
+        # compiti in più passi: piano, ricerca preventiva, guardie e verifica (pianifica.py)
+        pianificatore=Planner(llm) if os.environ.get("AIOS_PIANIFICA", "") != "spento" else None,
         routers=[
             screen_tools.ScreensRouter(),  # livello 0: «fammi vedere il PC da gaming» (prima di «apri <app>»)
             session_tools.SessionRouter(),  # livello 0: «riapri quello che avevo aperto»
