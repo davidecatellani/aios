@@ -8,6 +8,7 @@ const fileUrl = p => `/file/${encodeURIComponent(p)}?t=${encodeURIComponent(TOKE
 let vistaAttuale = null;
 const audio = new Audio();
 
+let vistaArgomenti = [], vistaGiro = 0;
 function apriVista(nome, ...args) {
   const v = VISTE[nome];
   if (!v) return;
@@ -15,10 +16,43 @@ function apriVista(nome, ...args) {
   document.body.classList.add("in-vista");
   $("tutte").hidden = true;
   const box = $("vista"); box.hidden = false; box.replaceChildren();
-  vistaAttuale = nome;
+  vistaAttuale = nome; vistaArgomenti = args; vistaGiro++;
   api("/api/casa-vai", { chiudi_viste: false }).catch(() => {});  // i programmi a finestra si fanno da parte
   v(box, ...args);
 }
+
+// Le schermate con uno stato che cambia da solo (un aggiornamento che scarica, le reti Wi-Fi, il volume…) si
+// ridisegnano ogni pochi secondi: fuori pagina, poi al posto di quella vecchia (niente sfarfallio), tenendo il
+// punto dove eri arrivato. Mai mentre stai scrivendo o scegliendo qualcosa.
+const VISTE_VIVE = { impostazioni: { aggiornamenti: 3000, info: 10000, wifi: 8000, bluetooth: 6000, suono: 8000 } };
+function ogniQuanto() {
+  const regole = VISTE_VIVE[vistaAttuale];
+  if (!regole) return 0;
+  return regole[vistaArgomenti[0] || "wifi"] || 0;
+}
+let ultimoTocco = 0;  // dopo un clic si lascia il tempo di leggere l'esito («Fatto», «Collegato»…)
+document.addEventListener("pointerdown", e => { if (e.target.closest && e.target.closest("#vista")) ultimoTocco = Date.now(); }, true);
+function occupato() {
+  if (Date.now() - ultimoTocco < 8000) return true;
+  const a = document.activeElement;
+  if (a && (a.matches("input, textarea, select, [contenteditable]") || a.closest(".menu"))) return true;
+  return !!document.querySelector(".menu, #lampada") || [...document.body.children].some(c => c.style && c.style.position === "fixed" && c.style.zIndex === "50");
+}
+async function rinfrescaVista() {
+  if (!vistaAttuale || document.hidden || occupato()) return;
+  const nome = vistaAttuale, giro = vistaGiro, args = vistaArgomenti;
+  const box = $("vista"), nuovo = el("div");
+  try { await VISTE[nome](nuovo, ...args); } catch { return; }
+  if (nome !== vistaAttuale || giro !== vistaGiro || occupato()) return;  // nel frattempo hai cambiato pagina o stai scrivendo
+  const scorre = [...box.querySelectorAll(".corpo-vista, .pannello-imp, .sezioni")].map(e => e.scrollTop);
+  box.replaceChildren(...nuovo.childNodes);
+  box.querySelectorAll(".corpo-vista, .pannello-imp, .sezioni").forEach((e, i) => { e.scrollTop = scorre[i] || 0; });
+}
+let ultimoRinfresco = 0;
+setInterval(() => {
+  const ogni = ogniQuanto();
+  if (ogni && Date.now() - ultimoRinfresco >= ogni) { ultimoRinfresco = Date.now(); rinfrescaVista(); }
+}, 1000);
 function chiudiVista() {
   if (!vistaAttuale) return;
   document.body.classList.remove("in-vista");
