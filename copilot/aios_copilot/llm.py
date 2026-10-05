@@ -28,6 +28,7 @@ def _keep_alive() -> int | str:
 
 
 KEEP_ALIVE = _keep_alive()
+NUM_CTX = int(os.environ.get("AIOS_NUM_CTX", "8192"))
 
 
 def _configured_text_model() -> str | None:
@@ -155,6 +156,9 @@ class OllamaClient:
     def _payload(self, messages: list[dict[str, Any]], tools: list[dict[str, Any]], **extra: Any) -> dict[str, Any]:
         payload = {"model": self.model, "messages": messages, "tools": tools, "stream": False,
                    "keep_alive": KEEP_ALIVE, **extra}
+        # Ollama di base tiene 4096 token: con istruzioni, strumenti e qualche scambio si supera, e allora taglia
+        # proprio l'inizio (le istruzioni di Nova). 8192 bastano a una conversazione lunga (~300 MB in più).
+        payload["options"] = {"num_ctx": NUM_CTX, **payload.get("options", {})}
         if self.model.startswith(THINKING_PREFIXES):
             payload["think"] = bool(self.think)
         return payload
