@@ -737,8 +737,12 @@ def register_apps(app: Any, run: Run = _run) -> None:
             return 200, {**carattere.load(), "messaggio": msg}
         from .. import fuso
 
+        from .. import accessibilita
+
         zone = fuso.current()
-        return 200, {**carattere.load(), "fuso": zone if zone not in fuso.UNSET else (fuso.guess() or "UTC")}
+        a11y = accessibilita.settings()
+        return 200, {**carattere.load(), "fuso": zone if zone not in fuso.UNSET else (fuso.guess() or "UTC"),
+                     "contrasto": a11y["contrasto"], "meno_animazioni": a11y["meno_animazioni"]}
 
     def card(m: Any, b: dict[str, Any], q: dict[str, str]) -> tuple[int, Any]:
         from .. import schede
@@ -1322,6 +1326,21 @@ def register_notifications(app: Any) -> None:
         return 200, {"ok": True}
 
     app.route("POST", r"/api/nova/chiedi", ask)
+
+
+def register_accessibility(app: Any) -> None:
+    """Impostazioni › Accessibilità."""
+    from .. import accessibilita as A
+
+    def state(m: Any, b: dict[str, Any], q: dict[str, str]) -> tuple[int, Any]:
+        return 200, {**A.settings(), "filtri": A.FILTERS, "orca": bool(shutil.which("orca"))}
+
+    def change(m: Any, b: dict[str, Any], q: dict[str, str]) -> tuple[int, Any]:
+        conf, msg = A.apply(b, captions=lambda on: getattr(app, "captions", lambda x: None)(on))
+        return 200, {**conf, "filtri": A.FILTERS, "orca": bool(shutil.which("orca")), "ok": True, "messaggio": msg}
+
+    app.route("GET", r"/api/accessibilita", state)
+    app.route("POST", r"/api/accessibilita", change)
 
 
 def history_path() -> Path:

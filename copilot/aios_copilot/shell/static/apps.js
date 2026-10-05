@@ -338,7 +338,7 @@ const VISTE = {
     const wrap = el("div", "impostazioni"); const nav = el("div", "sezioni"); const pan = el("div", "pannello-imp");
     wrap.append(nav, pan); corpo.append(wrap);
     const SEZ = [["wifi", "Wi-Fi"], ["bluetooth", "Bluetooth"], ["suono", "Suono"], ["schermo", "Schermo"], ["voce", "Voce di Nova"], ["tastiera", "Tastiera"],
-                 ["aspetto", "Testo e carattere"], ["aggiornamenti", "Aggiornamenti"], ["posta", "Posta"], ["account", "Password"], ["privacy", "Privacy e memoria"],
+                 ["aspetto", "Testo e carattere"], ["accessibilita", "Accessibilità"], ["aggiornamenti", "Aggiornamenti"], ["posta", "Posta"], ["account", "Password"], ["privacy", "Privacy e memoria"],
                  ["cloud", "AI in cloud"], ["info", "Questo computer"], ["energia", "Spegni"]];
     for (const [id, t] of SEZ) {
       const b = bottone("", () => apriVista("impostazioni", id), ""); b.classList.toggle("attiva", id === sezione);
@@ -612,6 +612,28 @@ const VISTE = {
                          interruttore(ap.attivo, () => api("/api/appunti/attivo", { attivo: !ap.attivo }).then(() => apriVista("impostazioni", "privacy")))),
                     riga("Svuota la cronologia degli appunti", "Anche le voci fissate",
                          bottone("Svuota", async () => { dici(await api("/api/appunti/svuota", { tutto: true }).catch(e => ({ ok: false, messaggio: e.message }))); }, "bottone pericolo")));
+      pan.append(esito);
+    } else if (sezione === "accessibilita") {
+      const a = await api("/api/accessibilita").catch(() => null);
+      if (!a) { pan.append(el("p", "esito no", "Non riesco a leggere le impostazioni.")); return; }
+      const salva = cambio => api("/api/accessibilita", cambio).then(r => { dici(r); window.novaAspetto && window.novaAspetto(); apriVista("impostazioni", "accessibilita"); })
+        .catch(e => dici({ ok: false, messaggio: e.message }));
+      const sw = k => interruttore(a[k], () => salva({ [k]: !a[k] }));
+      carta(el("h3", "", "Vista"),
+            riga("Contrasto alto", "Colori pieni e bordi netti, in AIOS e nelle app", sw("contrasto")),
+            riga("Puntatore più grande", null, sw("cursore_grande")),
+            riga("Meno animazioni", "Niente movimenti e dissolvenze", sw("meno_animazioni")),
+            riga("Zoom", "Super e + per ingrandire attorno al puntatore, Super e - per tornare indietro, Super e 0 per normale", el("span", "nota", "")),
+            riga("Testo più grande", "In Testo e carattere", bottone("Apri", () => apriVista("impostazioni", "aspetto"))));
+      const filtro = el("select", "campo");
+      for (const [v, t] of Object.entries(a.filtri)) { const o = el("option", "", t); o.value = v; o.selected = v === a.filtro; filtro.append(o); }
+      filtro.onchange = () => salva({ filtro: filtro.value });
+      carta(el("h3", "", "Filtri colore"),
+            riga("Per chi vede i colori in modo diverso", "Lo schermo corregge i colori che si confondono", filtro));
+      carta(el("h3", "", "Udito e lettura"),
+            riga("Sottotitoli in tempo reale", "Scrive in basso quello che il PC fa sentire (video, chiamate, giochi). Tutto sul computer, anche in inglese.", sw("sottotitoli")),
+            riga("Lettore dello schermo", a.orca ? "Legge ad alta voce quello che c'è sullo schermo (Orca). Super+Alt+S lo accende e lo spegne." : "Orca non è installato in questa versione di AIOS.", sw("lettore")),
+            riga("Nova guarda per te", "Chiedi «cosa c'è sullo schermo?» o «cosa dice questo errore?»", el("span", "nota", "")));
       pan.append(esito);
     } else if (sezione === "cloud") {
       const c = await api("/api/cloud").catch(() => null);

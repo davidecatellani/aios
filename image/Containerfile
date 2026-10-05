@@ -18,7 +18,7 @@ RUN dnf install -y --skip-unavailable \
         greenboot \
         espeak-ng pipewire-utils pulseaudio-utils python3-cffi pciutils usbutils zenity \
         labwc gtk4-layer-shell wlrctl mako swayidle swaylock wlopm grim slurp brightnessctl \
-        greetd greetd-selinux cage python3-openpyxl tuned-ppd gtklock powertop wayvnc wf-recorder python3-cryptography \
+        greetd greetd-selinux cage python3-openpyxl tuned-ppd gtklock powertop wayvnc wf-recorder python3-cryptography orca \
         python3-opencv \
         rsms-inter-fonts atkinson-hyperlegible-fonts google-noto-serif-fonts mozilla-fira-sans-fonts \
         opendyslexic-fonts lexend-fonts jetbrains-mono-fonts \

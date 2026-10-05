@@ -6,6 +6,7 @@ from __future__ import annotations
 import re
 from typing import Any
 
+from .. import accessibilita as A11Y
 from .. import luce_notturna as LN
 from .. import monitor as MON
 from ..fastpath import Intent, normalize
@@ -66,7 +67,33 @@ def make_tools(monitors: Any = None) -> list[Tool]:
         now = " È già accesa." if st["accesa_ora"] else ""
         return f"Luce notturna attiva {when} (stasera dalle {st['da']}), a {st['temperatura']} K.{now}"
 
+    def accessibility(opzione: str, acceso: bool = True) -> str:
+        key = {"sottotitoli": "sottotitoli", "lettore": "lettore", "lettore dello schermo": "lettore", "orca": "lettore",
+               "contrasto": "contrasto", "contrasto alto": "contrasto", "puntatore": "cursore_grande", "cursore": "cursore_grande",
+               "animazioni": "meno_animazioni", "meno animazioni": "meno_animazioni"}.get(opzione.lower().strip())
+        if opzione.lower().startswith("zoom"):
+            factor = A11Y.zoom("+" if acceso else "0")
+            return f"Zoom al {round(factor * 100)}%. Super e - per ridurre, Super e 0 per tornare normale."
+        if opzione.lower() in A11Y.FILTERS or opzione.lower() in ("daltonismo", "filtro colore", "grigi", "bianco e nero"):
+            name = {"daltonismo": "deuteranopia", "filtro colore": "deuteranopia", "bianco e nero": "grigi"}.get(opzione.lower(), opzione.lower())
+            A11Y.apply({"filtro": name if acceso else ""})
+            return f"Filtro colore: {A11Y.FILTERS[name if acceso else '']}."
+        if key is None:
+            return "Posso accendere o spegnere: sottotitoli, lettore dello schermo, contrasto alto, puntatore grande, meno animazioni, zoom, filtri colore."
+        if key == "sottotitoli":
+            from .windows import _shell
+
+            _shell("--sottotitoli", "1" if acceso else "0")  # la striscia la disegna la shell
+        _conf, msg = A11Y.apply({key: acceso})
+        names = {"sottotitoli": "Sottotitoli in tempo reale", "lettore": "Lettore dello schermo", "contrasto": "Contrasto alto",
+                 "cursore_grande": "Puntatore grande", "meno_animazioni": "Meno animazioni"}
+        return f"{names[key]} {'acceso' if acceso else 'spento'}." + ("" if msg == "Fatto." else " " + msg)
+
     return [
+        Tool("accessibility", "Accessibilità: accende o spegne sottotitoli in tempo reale, lettore dello schermo, contrasto alto, "
+             "puntatore grande, meno animazioni, zoom, filtri colore per daltonismo.",
+             params(opzione="Quale: sottotitoli, lettore, contrasto, puntatore, animazioni, zoom, daltonismo, grigi",
+                    acceso="true per accendere, false per spegnere", required=["opzione"]), accessibility),
         Tool("list_displays", "Gli schermi collegati: risoluzione, frequenza (Hz), scala, e cosa possono fare.", params(), list_displays),
         Tool("set_display", "Cambia uno schermo: risoluzione (es. 1920x1080), frequenza in Hz (es. 144; -1 = la più alta), "
              "scala in percento (100, 125, 150…), rotazione (normale, verticale, capovolto).",
@@ -93,9 +120,23 @@ RE_SCALE = re.compile(r"^(?:ingrandisci|rimpicciolisci|metti|imposta)\s+(?:tutto
 RE_LIST = re.compile(r"^(?:che|quali)\s+(?:schermi|monitor)\s+(?:ho|ci\s+sono|sono\s+collegati)|^a\s+quanti\s+hz\s+va\s+(?:lo\s+schermo|il\s+monitor)")
 
 
+RE_A11Y = re.compile(r"^(?P<v>attiva|accendi|metti|spegni|disattiva|togli)\s+(?:i\s+|il\s+|lo\s+|la\s+)?"
+                     r"(?P<o>sottotitoli(?:\s+in\s+tempo\s+reale)?|lettore\s+(?:dello\s+)?schermo|contrasto\s+alto|puntatore\s+(?:grande|più\s+grande)|zoom|filtro\s+(?:per\s+il\s+)?daltonismo)$")
+RE_ZOOM = re.compile(r"^(?:ingrandisci|zooma)\s+(?:lo\s+schermo|lo\s+zoom)$")
+
+
 class DisplayRouter:
     def match(self, text: str) -> Any:
         low = normalize(text).strip(" .!?")
+        m = RE_A11Y.match(low)
+        if m:
+            o = m.group("o")
+            opt = "sottotitoli" if o.startswith("sottotitoli") else "lettore" if o.startswith("lettore") else \
+                "contrasto" if o.startswith("contrasto") else "puntatore" if o.startswith("puntatore") else \
+                "zoom" if o == "zoom" else "daltonismo"
+            return Intent("accessibility", {"opzione": opt, "acceso": m.group("v") in ("attiva", "accendi", "metti")})
+        if RE_ZOOM.match(low):
+            return Intent("accessibility", {"opzione": "zoom", "acceso": True})
         m = RE_HZ.match(low)
         if m:
             return Intent("set_display", {"frequenza": -1 if m.group("max") else int(m.group("n"))})

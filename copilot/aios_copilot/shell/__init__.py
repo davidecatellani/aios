@@ -36,7 +36,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 from ..localapp import LocalApp, serve
-from .apps import register_activity, register_apps, register_calendar, register_clipboard, register_display, register_notifications, register_cloud, register_first_steps, register_screens, register_session, register_widgets
+from .apps import register_activity, register_apps, register_calendar, register_clipboard, register_accessibility, register_display, register_notifications, register_cloud, register_first_steps, register_screens, register_session, register_widgets
 
 PAGE = Path(__file__).with_name("home.html")
 APP_ID = "org.aios.Shell"
@@ -560,7 +560,9 @@ class ShellApp(LocalApp):
         register_display(self)
         register_clipboard(self)
         register_notifications(self)
+        register_accessibility(self)
         self.open_panel: Callable[[str], None] = lambda which: None
+        self.captions: Callable[[bool], None] = lambda on: None  # sottotitoli in tempo reale (run_gtk)
         self.on_pick: Callable[[bool], None] = lambda paste: None  # il pannello sopra i programmi (run_gtk)
         register_calendar(self, self._agenda_factory)
         self.route("POST", r"/api/ascolta", self._listen)
@@ -813,12 +815,85 @@ def run_gtk(app: ShellApp, url: str, argv: list[str]) -> int:
         GLib.idle_add(hide)
 
     app.on_pick = picked
+
+    def captions_window() -> Any:
+        """La striscia dei sottotitoli in basso, sopra i programmi: non prende né tastiera né clic."""
+        if "captions" not in state:
+            win = Gtk.Window(title="AIOS sottotitoli")
+            win.set_decorated(False)
+            label = Gtk.Label(wrap=True, justify=Gtk.Justification.CENTER, max_width_chars=70)
+            label.add_css_class("aios-sottotitoli")
+            box = Gtk.Box()
+            box.append(label)
+            label.set_hexpand(True)
+            win.set_child(box)
+            css = Gtk.CssProvider()
+            css.load_from_data(b"window { background: transparent; } .aios-sottotitoli { background: rgba(5,15,22,.82); color: #fff;"
+                               b" font-size: 24px; font-weight: 600; padding: 12px 22px; border-radius: 16px; }"
+                               b" .aios-sottotitoli.provvisorio { color: #cfe3e6; }", -1)
+            Gtk.StyleContext.add_provider_for_display(win.get_display(), css, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
+            ls = layer_shell()
+            if ls is not None:
+                ls.init_for_window(win)
+                ls.set_layer(win, ls.Layer.OVERLAY)
+                ls.set_namespace(win, "aios-sottotitoli")
+                ls.set_keyboard_mode(win, ls.KeyboardMode.NONE)
+                ls.set_anchor(win, ls.Edge.BOTTOM, True)
+                ls.set_margin(win, ls.Edge.BOTTOM, 120)
+            win.set_default_size(980, -1)
+            win.realize()
+            try:  # i clic passano ai programmi sotto
+                import cairo
+
+                win.get_surface().set_input_region(cairo.Region())
+            except Exception:
+                pass
+            state.update(captions=win, captions_label=label, captions_at=0.0)
+        return state["captions"]
+
+    def show_caption(text: str, final: bool) -> None:
+        def update() -> bool:
+            win = captions_window()
+            if not text:
+                win.set_visible(False)
+                return False
+            label = state["captions_label"]
+            label.set_text(text[-220:])
+            if final:
+                label.remove_css_class("provvisorio")
+            else:
+                label.add_css_class("provvisorio")
+            win.set_visible(True)
+            state["captions_at"] = time.monotonic()
+
+            def hide_later() -> bool:  # dopo 6 secondi senza parole la striscia sparisce
+                if time.monotonic() - state.get("captions_at", 0) >= 5.9:
+                    win.set_visible(False)
+                return False
+
+            GLib.timeout_add(6000, hide_later)
+            return False
+
+        GLib.idle_add(update)
+
+    def captions(on: bool) -> None:
+        from .. import sottotitoli
+
+        sottotitoli.toggle(on, show_caption)
+
+    app.captions = captions
     app.open_panel = lambda which: GLib.idle_add(panel, which)
     app.ask_nova = lambda text: GLib.idle_add(lambda: to_home(text) and False)
 
     def handle(args: list[str]) -> bool:
         build()
-        if "--appunti" in args or "--emoji" in args or "--notifiche" in args:
+        if "--sottotitoli" in args and args.index("--sottotitoli") + 1 < len(args):
+            captions(args[args.index("--sottotitoli") + 1] == "1")
+        elif "--lettore" in args:
+            from .. import accessibilita
+
+            accessibilita.apply({"lettore": not accessibilita.settings()["lettore"]}, captions=captions)
+        elif "--appunti" in args or "--emoji" in args or "--notifiche" in args:
             panel("emoji" if "--emoji" in args else "notifiche" if "--notifiche" in args else "appunti")
         elif "--nova" in args:
             to_home()
@@ -835,6 +910,14 @@ def run_gtk(app: ShellApp, url: str, argv: list[str]) -> int:
         elif "--voce" in args and args.index("--voce") + 1 < len(args):
             to_home(args[args.index("--voce") + 1], by_voice=True)
         return False
+
+    def a11y_startup() -> bool:
+        from .. import accessibilita
+
+        threading.Thread(target=accessibilita.startup, kwargs={"captions": captions}, daemon=True).start()
+        return False
+
+    GLib.timeout_add_seconds(4, a11y_startup)
 
     def command_line(application: Any, cmdline: Any) -> int:
         args = list(cmdline.get_arguments()[1:])

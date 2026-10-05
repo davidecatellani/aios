@@ -51,6 +51,14 @@ button { font: inherit; cursor: pointer; }
 .aperta .x:hover { opacity: 1; background: rgba(217,83,79,.15); color: #D9534F; }
 #ora { position: absolute; left: 50%; transform: translateX(-50%); }
 #destra { margin-left: auto; display: flex; gap: 14px; align-items: center; }
+/* Accessibilità: contrasto alto (colori pieni, bordi netti, testo secondario leggibile) e meno animazioni */
+body.contrasto { --carta: #FFFFFF; --chip: #FFFFFF; --bordo: #10232E; --tenue: #23343D; --testo: #000; --barra: #FFFFFF; --fondo: #F2F5F6; }
+@media (prefers-color-scheme: dark) {
+  body.contrasto { --carta: #000; --chip: #000; --bordo: #FFFFFF; --tenue: #E6EEF0; --testo: #FFF; --barra: #000; --fondo: #000; }
+}
+body.contrasto .carta, body.contrasto .bottone, body.contrasto .campo, body.contrasto #barra { border-width: 2px; backdrop-filter: none; }
+body.contrasto :focus-visible { outline: 3px solid #E9C46A !important; outline-offset: 2px; }
+body.fermo *, body.fermo *::before, body.fermo *::after { animation: none !important; transition: none !important; }
 #campanella { position: relative; border: 0; background: none; color: var(--testo); padding: 4px; border-radius: 8px; display: grid; place-items: center; cursor: pointer; }
 #campanella:hover { background: var(--chip); }
 #campanella .icona { width: 17px; height: 17px; }
@@ -853,6 +861,8 @@ async function aspetto() {
   aspettoOra = JSON.stringify(a);
   if (a.fuso && a.fuso !== fuso) { fuso = a.fuso; orologio(); }
   document.documentElement.style.setProperty("--carattere", `"${a.carattere}"`);
+  document.body.classList.toggle("contrasto", !!a.contrasto);  // Accessibilità › Contrasto alto
+  document.body.classList.toggle("fermo", !!a.meno_animazioni);  // Accessibilità › Meno animazioni
   // la barra ha un'altezza fissa: lì cambia solo il carattere
   aspettoScala = a.scala;
   adattaAlloSchermo();
