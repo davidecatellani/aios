@@ -978,9 +978,83 @@ function modificaContatto(c = { nome: "", telefoni: [], email: [], compleanno: "
   setTimeout(() => nome.focus(), 30);
 }
 
-// I monitor collegati (Impostazioni › Schermo): li riempie monitor.py; senza, niente
+// I monitor collegati (Impostazioni › Schermo): risoluzione, frequenza, scala, rotazione, posizione
 async function disegnaMonitor(carta, riga, dici) {
-  if (typeof window.disegnaMonitorReali === "function") return window.disegnaMonitorReali(carta, riga, dici);
+  const d = await api("/api/monitor").catch(() => null);
+  if (!d || !d.schermi.length) return;
+  const cambia = async (nome, cambio) => {
+    const r = await api("/api/monitor", { nome, ...cambio }).catch(e => ({ ok: false, messaggio: e.message }));
+    if (!r.ok) return dici(r);
+    confermaSchermo(r.messaggio, r.secondi);
+  };
+  const scegli = (valori, attuale, fn) => {
+    const s = el("select", "campo"); s.style.maxWidth = "240px";
+    for (const [v, t] of valori) { const o = el("option", "", t); o.value = v; o.selected = String(v) === String(attuale); s.append(o); }
+    s.onchange = () => fn(s.value); return s;
+  };
+  const accesi = d.schermi.filter(m => !m.spento);
+  if (d.schermi.length > 1) {  // la disposizione, in piccolo
+    const c = carta(el("h3", "", "Disposizione"));
+    const mappa = el("div", "mappa-schermi"); c.append(mappa);
+    const dim = m => { const w = m.larghezza / m.scala, h = m.altezza / m.scala; return m.rotazione % 2 ? [h, w] : [w, h]; };
+    const minX = Math.min(...accesi.map(m => m.x)), minY = Math.min(...accesi.map(m => m.y));
+    const maxX = Math.max(...accesi.map(m => m.x + dim(m)[0])), maxY = Math.max(...accesi.map(m => m.y + dim(m)[1]));
+    const k = Math.min(520 / (maxX - minX), 170 / (maxY - minY));
+    mappa.style.width = `${(maxX - minX) * k}px`; mappa.style.height = `${(maxY - minY) * k}px`;
+    accesi.forEach((m, i) => {
+      const b = el("div", "schermo-mini"); const [w, h] = dim(m);
+      Object.assign(b.style, { left: `${(m.x - minX) * k}px`, top: `${(m.y - minY) * k}px`, width: `${w * k - 4}px`, height: `${h * k - 4}px` });
+      b.append(el("b", "", String(i + 1)), el("small", "", m.descrizione)); mappa.append(b);
+    });
+  }
+  d.schermi.forEach((m, i) => {
+    const titolo = el("h3", ""); titolo.append(svgIcona("monitor"), d.schermi.length > 1 ? `${i + 1}. ${m.descrizione}` : m.descrizione);
+    const c = carta(titolo);
+    c.append(el("p", "nota", `${m.nome}${m.interno ? " · schermo del portatile" : ""}`));
+    if (!m.spento) {
+      const ris = m.risoluzioni, chiave = `${m.larghezza}x${m.altezza}`;
+      const prima = Object.keys(ris)[0];
+      c.append(riga("Risoluzione", chiave === prima ? "Consigliata" : `Consigliata: ${prima.replace("x", "×")}`,
+                    scegli(Object.keys(ris).map(r => [r, r.replace("x", "×") + (r === prima ? " (consigliata)" : "")]), chiave, v => cambia(m.nome, { risoluzione: v }))));
+      const fr = ris[chiave] || [m.frequenza];
+      c.append(riga("Frequenza", fr.length > 1 ? "Più alta, movimenti più fluidi (giochi, mouse)" : null,
+                    scegli(fr.map(f => [f, `${Math.round(f)} Hz`]), fr.find(f => Math.abs(f - m.frequenza) < 0.5), v => cambia(m.nome, { frequenza: +v }))));
+      if (Math.max(...fr) > m.frequenza + 5) c.append(riga(conIcona("avviso", `Questo schermo può andare a ${Math.round(Math.max(...fr))} Hz`), "Adesso va più lento di quello che può",
+                    bottone(`Usa ${Math.round(Math.max(...fr))} Hz`, () => cambia(m.nome, { frequenza: Math.max(...fr) }), "bottone primo")));
+      c.append(riga("Dimensione di testo e app", "Per schermi grandi ad alta risoluzione", scegli([1, 1.25, 1.5, 1.75, 2].map(x => [x, `${Math.round(x * 100)}%`]), m.scala, v => cambia(m.nome, { scala: +v }))));
+      c.append(riga("Rotazione", null, scegli([[0, "Normale"], [1, "Verticale (90°)"], [3, "Verticale (270°)"], [2, "Capovolto"]], m.rotazione, v => cambia(m.nome, { rotazione: +v }))));
+      const vrr = el("button", "interruttore" + (m.vrr ? " acceso" : "")); vrr.onclick = () => cambia(m.nome, { vrr: !m.vrr });
+      c.append(riga("Sincronizzazione adattiva", "FreeSync / G-Sync: niente strappi nei giochi, se lo schermo la supporta", vrr));
+      const altri = d.schermi.filter(o => o.nome !== m.nome && !o.spento);
+      if (altri.length) {
+        const pos = [];
+        for (const o of altri) for (const [k, t] of [["destra", "a destra di"], ["sinistra", "a sinistra di"], ["sopra", "sopra"], ["sotto", "sotto"]]) pos.push([`${k}|${o.nome}`, `${t} ${o.descrizione}`]);
+        for (const o of altri) pos.push([`duplica|${o.nome}`, `uguale a ${o.descrizione} (duplica)`]);
+        pos.unshift(["", "—"]);
+        c.append(riga("Posizione", null, scegli(pos, "", v => { if (!v) return; const [k, o] = v.split("|"); cambia(m.nome, k === "duplica" ? { duplica_di: o } : { accanto: k, di: o }); })));
+      }
+    }
+    if (d.schermi.length > 1) {
+      const sp = el("button", "interruttore" + (!m.spento ? " acceso" : "")); sp.onclick = () => cambia(m.nome, { spento: !m.spento });
+      c.append(riga("Acceso", null, sp));
+    }
+  });
+  const az = el("div", "azioni"); az.append(bottone("Torna alle scelte automatiche", async () => { dici(await api("/api/monitor/automatico", {})); apriVista("impostazioni", "schermo"); }));
+  carta(el("p", "nota", "Puoi anche dire a Nova: «metti lo schermo a 144 Hz», «ingrandisci tutto al 125%»."), az);
+}
+// Come su Windows: «Tieni queste impostazioni?» con il conto alla rovescia; senza risposta si torna indietro
+function confermaSchermo(testo, secondi = 15) {
+  document.getElementById("conferma-schermo")?.remove();
+  const fondo = el("div"); fondo.id = "conferma-schermo"; fondo.style.cssText = "position:fixed;inset:0;z-index:50;background:rgba(3,12,18,.55);display:grid;place-items:center";
+  const c = el("div", "carta"); c.style.cssText = "width:min(460px,90vw);display:flex;flex-direction:column;gap:12px";
+  const conto = el("p", "nota");
+  c.append(el("h3", "", "Tieni queste impostazioni?"), el("p", "", testo), conto);
+  const fine = async tieni => { clearInterval(t); fondo.remove(); await api(tieni ? "/api/monitor/conferma" : "/api/monitor/annulla", {}).catch(() => {}); apriVista("impostazioni", "schermo"); };
+  const a = el("div", "piede-modulo"); a.append(bottone("Torna indietro", () => fine(false)), bottone("Tieni", () => fine(true), "bottone primo"));
+  c.append(a); fondo.append(c); document.body.append(fondo);
+  let n = secondi; const scrivi = () => { conto.textContent = `Se non rispondi torno come prima tra ${n} secondi.`; };
+  scrivi();
+  const t = setInterval(() => { n--; scrivi(); if (n <= 0) { clearInterval(t); fondo.remove(); apriVista("impostazioni", "schermo"); } }, 1000);
 }
 
 // --- imparare la voce (benvenuto e Impostazioni) -----------------------------------------------------------

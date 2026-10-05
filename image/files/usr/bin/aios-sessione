@@ -31,6 +31,8 @@ if [ "${AIOS_COMPOSITORE:-hyprland}" != labwc ] && command -v Hyprland >/dev/nul
   mkdir -p "$run"
   printf 'input {\n    kb_layout = %s\n}\n' "$XKB_DEFAULT_LAYOUT" > "$run/tastiera.conf"
   cp -f "$config_home/aios/hyprland.conf" "$run/utente.conf" 2>/dev/null || : > "$run/utente.conf"
+  # schermi, mouse e tastiera, accessibilità scelti nelle Impostazioni (li scrive hyprconf.py)
+  cp -f "$config_home/aios/sistema-hyprland.conf" "$run/sistema.conf" 2>/dev/null || : > "$run/sistema.conf"
   sed "s#@RUN@#$run#g" /usr/share/aios/hyprland/hyprland.conf > "$run/hyprland.conf"
   # Se Hyprland non parte (si chiude entro pochi secondi), non si resta chiusi fuori: si apre la
   # sessione con labwc e l'errore resta nel registro (journalctl -t aios-sessione).

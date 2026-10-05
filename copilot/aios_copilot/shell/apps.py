@@ -1173,6 +1173,37 @@ def register_display(app: Any) -> None:
     app.route("GET", r"/api/luce-notturna", night)
     app.route("POST", r"/api/luce-notturna", night)
 
+    from ..monitor import Monitors, best_rate_advice
+
+    screens = Monitors()
+
+    def monitors(m: Any, b: dict[str, Any], q: dict[str, str]) -> tuple[int, Any]:
+        state = screens.state()
+        return 200, {"schermi": state, "consigli": best_rate_advice(state), "da_confermare": screens.pending is not None}
+
+    def change(m: Any, b: dict[str, Any], q: dict[str, str]) -> tuple[int, Any]:
+        try:
+            ok, msg = screens.change(str(b.get("nome", "")), {k: v for k, v in b.items() if k != "nome"})
+        except (TypeError, ValueError):
+            return 400, {"error": "valore non valido"}
+        return 200, {"ok": ok, "messaggio": msg, "secondi": 15 if ok else 0}
+
+    def confirm(m: Any, b: dict[str, Any], q: dict[str, str]) -> tuple[int, Any]:
+        return 200, {"ok": screens.confirm()}
+
+    def undo(m: Any, b: dict[str, Any], q: dict[str, str]) -> tuple[int, Any]:
+        return 200, {"ok": screens.revert(), "messaggio": "Tornato come prima."}
+
+    def automatic(m: Any, b: dict[str, Any], q: dict[str, str]) -> tuple[int, Any]:
+        screens.reset()
+        return 200, {"ok": True, "messaggio": "Schermi sulle scelte automatiche."}
+
+    app.route("GET", r"/api/monitor", monitors)
+    app.route("POST", r"/api/monitor", change)
+    app.route("POST", r"/api/monitor/conferma", confirm)
+    app.route("POST", r"/api/monitor/annulla", undo)
+    app.route("POST", r"/api/monitor/automatico", automatic)
+
 
 def register_clipboard(app: Any) -> None:
     """Il pannello sopra i programmi: cronologia degli appunti (Super+V) ed emoji (Super+.)."""

@@ -273,3 +273,9 @@ body.in-vista #casa, body.in-vista #fondo { display: none; }
 .testa-contatto { display: flex; align-items: center; gap: 18px; } .testa-contatto h3 { font-size: 26px; margin: 0; }
 .scheda-contatto .riga-imp .icona { color: var(--turchese); }
 .riga-imp input.cursore-caldo { accent-color: #F2A65A; }
+/* Schermo */
+.mappa-schermi { position: relative; margin: 10px auto 6px; }
+.schermo-mini { position: absolute; border-radius: 10px; border: 2px solid var(--turchese); background: rgba(46,196,182,.12);
+                display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; overflow: hidden; padding: 4px; }
+.schermo-mini b { font-size: 22px; } .schermo-mini small { color: var(--tenue); font-size: 11px; text-align: center; }
+.carta h3 .icona { width: 20px; height: 20px; color: var(--turchese); }
