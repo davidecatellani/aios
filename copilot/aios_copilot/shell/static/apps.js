@@ -526,6 +526,7 @@ const VISTE = {
       carta(riga("Versione di AIOS", null, el("b", "", i.versione || "—")),
             riga("Processore", null, el("span", "", i.processore || "—")),
             riga("Memoria", null, el("span", "", i.memoria_gb ? `${i.memoria_gb} GB` : "—")),
+            riga("Scheda video", i.scheda_video_nota || null, el("span", i.scheda_video_nota ? "avviso-testo" : "", i.scheda_video || "integrata")),
             riga("Spazio libero", null, el("span", "", i.disco_libero_gb != null ? `${i.disco_libero_gb} GB` : "—")),
             riga("Modello AI di Nova", "Tutto sul computer, niente cloud", el("span", "", i.modello || "—"),
                  bottone("Più potente?", () => { chiudiVista(); chiedi("quali modelli AI mi consigli?"); })));

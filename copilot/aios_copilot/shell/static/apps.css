@@ -86,7 +86,10 @@ body.in-vista #casa, body.in-vista #fondo { display: none; }
 .sezioni { display: flex; flex-direction: column; gap: 4px; }
 .sezioni button { display: flex; align-items: center; gap: 12px; border: 0; background: none; color: var(--testo); text-align: left; padding: 11px 14px; border-radius: 14px; font-size: 15px; font-weight: 600; }
 .sezioni button.attiva, .sezioni button:hover { background: var(--carta); }
-.pannello-imp { overflow: auto; display: flex; flex-direction: column; gap: 16px; padding-bottom: 30px; }
+.pannello-imp { overflow: auto; display: flex; flex-direction: column; gap: 16px; padding: 4px 16px 40px; margin: -4px -16px 0;
+                /* il fondo sfuma invece di tagliare le carte di netto */
+                -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 28px), transparent);
+                mask-image: linear-gradient(to bottom, #000 calc(100% - 28px), transparent); }
 .riga-imp { display: flex; align-items: center; gap: 14px; padding: 14px 4px; border-bottom: 1px solid var(--bordo); }
 .riga-imp:last-child { border-bottom: 0; }
 .riga-imp .cosa { flex: 1; }
@@ -179,3 +182,5 @@ body.in-vista #casa, body.in-vista #fondo { display: none; }
 .livello-audio input { flex: 1; }
 .muto-audio { border: 0; background: none; font-size: 18px; padding: 4px 6px; border-radius: 8px; }
 .muto-audio.acceso { background: rgba(217,83,79,.15); }
+
+.avviso-testo { color: #D9534F; font-weight: 700; }

@@ -57,7 +57,9 @@ button { font: inherit; cursor: pointer; }
 /* la giornata */
 #casa { position: absolute; top: 40px; bottom: 0; left: 0; right: 0; display: grid;
         grid-template-columns: minmax(280px, 1fr) minmax(380px, 1.5fr) minmax(260px, 1fr); gap: 36px; padding: 40px 48px 210px; }
-.colonna { display: flex; flex-direction: column; gap: 18px; overflow: hidden; }
+.colonna { display: flex; flex-direction: column; gap: 18px; overflow: hidden;
+           /* spazio per le ombre delle carte: senza, il bordo della colonna le taglia di netto (rettangoli grigi) */
+           padding: 4px 18px 28px; margin: -4px -18px 0; }
 .etichetta { font-size: 13px; letter-spacing: 2px; color: var(--tenue); font-weight: 700; text-transform: uppercase; }
 .carta { background: var(--carta); border: 1px solid var(--bordo); border-radius: 22px; padding: 20px 22px;
          box-shadow: var(--ombra), inset 0 1px 0 rgba(255,255,255,.06);
@@ -77,7 +79,7 @@ button { font: inherit; cursor: pointer; }
 
 #centro { display: flex; flex-direction: column; gap: 14px; overflow: hidden; }
 #saluto { font-size: 44px; font-weight: 800; margin: 18px 0 0; letter-spacing: -1px; }
-#sottotitolo { font-size: 20px; color: var(--tenue); margin: 0 0 8px; }
+#sottotitolo { font-size: 20px; line-height: 1.45; color: var(--tenue); margin: 0 0 8px; }
 #esempi { display: flex; flex-wrap: wrap; gap: 10px; }
 .esempio { border: 1px solid var(--bordo); background: var(--chip); color: var(--testo); border-radius: 999px; padding: 9px 16px; font-size: 15px; }
 
@@ -131,6 +133,14 @@ body.in-chat #conversazione { -webkit-mask-image: linear-gradient(to bottom, tra
 #destra-col { overflow-y: auto; }
 .widget { cursor: pointer; }
 .carta { position: relative; }
+/* senza accelerazione della scheda video (driver mancante, macchina virtuale) la sfocatura «vetro» e le ombre
+   grandi si disegnano male, a rettangoli grigi, e rallentano tutto: carte piene, ombre leggere */
+body.senza-gpu .carta, body.senza-gpu #barra, body.senza-gpu .aperta.davanti { backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important; }
+body.senza-gpu .carta { background: var(--carta-piena, var(--chip)); box-shadow: 0 1px 3px rgba(3,12,18,.10); }
+body.senza-gpu .carta, body.senza-gpu .msg { animation: none !important; }
+button:focus-visible, a:focus-visible { outline: 2px solid var(--turchese); outline-offset: 2px; }
+.campo:focus { outline: none; border-color: var(--turchese) !important; box-shadow: 0 0 0 3px rgba(46,196,182,.22); }
 .chiudi-carta { position: absolute; top: 14px; right: 14px; }
 .sessione-app { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 0 12px; }
 .app-sessione { display: flex; align-items: center; gap: 8px; border: 1px solid var(--bordo); background: var(--chip);
@@ -624,6 +634,15 @@ async function mostraTutte() {
 document.addEventListener("keydown", e => { if (e.key === "Escape") $("tutte").hidden = true; });
 
 // --- Nova ------------------------------------------------------------------------------------------------
+// Grafica senza scheda video (llvmpipe, SwiftShader…): niente vetro sfocato (vedi body.senza-gpu nel CSS)
+(() => {
+  try {
+    const gl = document.createElement("canvas").getContext("webgl");
+    const info = gl && gl.getExtension("WEBGL_debug_renderer_info");
+    const r = gl ? String(gl.getParameter(info ? info.UNMASKED_RENDERER_WEBGL : gl.RENDERER)) : "";
+    if (!gl || /llvmpipe|softpipe|swiftshader|software|lavapipe/i.test(r)) document.body.classList.add("senza-gpu");
+  } catch { document.body.classList.add("senza-gpu"); }
+})();
 const conv = $("conversazione");
 function giu() { conv.scrollTop = conv.scrollHeight; }
 // Ogni domanda ha il suo spazio subito sotto: stati, conferme e risposta ci finiscono dentro, anche se

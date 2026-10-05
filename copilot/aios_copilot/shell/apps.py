@@ -424,6 +424,11 @@ def system_info() -> dict[str, Any]:
 
         d = detect()
         info.update({"memoria_gb": round(d.ram_gb), "processore": d.cpu, "disco_libero_gb": round(d.disk_free_gb)})
+        gpu = next((g for g in d.gpus if g.vendor == "nvidia"), d.gpus[0] if d.gpus else None)
+        if gpu is not None:
+            info["scheda_video"] = gpu.name + (f", {gpu.vram_gb:.0f} GB" if gpu.vram_gb else "")
+            if gpu.vendor == "nvidia" and not Path("/proc/driver/nvidia/version").exists():
+                info["scheda_video_nota"] = "Driver NVIDIA non caricato: la grafica e l'AI usano il processore"
     except Exception:
         pass
     try:
