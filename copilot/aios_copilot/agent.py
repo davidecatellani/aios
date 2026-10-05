@@ -165,6 +165,7 @@ class Agent:
         planner: Callable[[str, dict[str, Any]], tuple[str, dict[str, Any]] | None] | None = None,
         percorso: Callable[[str], tuple[str, float] | None] | None = None,
         pianificatore: Any = None,
+        escalation: Any = None,
     ):
         self.model = model
         self.tools = {t.name: t for t in tools}
@@ -187,6 +188,8 @@ class Agent:
         self.percorso = percorso
         # Struttura per i compiti in più passi (pianifica.Planner): piano, ricerca preventiva, guardie, verifica.
         self.pianificatore = pianificatore
+        # L'AI in cloud per le richieste difficili (cloud.Escalation): decide Laya, con limiti di spesa e privacy.
+        self.escalation = escalation
         self._request = ""
         self.reset()
 
@@ -284,6 +287,14 @@ class Agent:
         schemas = [t.schema() for t in tools]
         calls_made: list[tuple[str, dict[str, Any], str]] = []
         self._request = text
+        cloud = None
+        if self.escalation is not None and not partial:
+            try:
+                cloud = self.escalation.choose(text, self._route(text, MIN_THINK_CONFIDENCE))
+            except Exception:
+                cloud = None
+            if getattr(self.escalation, "note", ""):
+                emit("status", {"text": self.escalation.note})
         if self.pianificatore is not None and not partial and not talk:
             try:
                 notes, private = self.pianificatore.prepare(text, {t.name: t for t in tools}, emit)
@@ -292,6 +303,9 @@ class Agent:
             if notes:
                 self.messages[-1]["content"] += "\n\n" + notes
                 self.private_texts += private
+        cloud = self._cloud_allowed(cloud, emit)
+        if cloud is not None:
+            return self._ask_cloud(cloud, text, schemas, calls_made, emit)
         think = self._should_think(text, partial)
         if think:
             emit("thinking", {})
@@ -300,6 +314,36 @@ class Agent:
         finally:
             if think:
                 self.model.think = False
+
+    def _cloud_allowed(self, cloud: Any, emit: OnEvent) -> Any:
+        """Con dati privati nella conversazione il cloud si usa solo se l'utente lo permette (cloud.py)."""
+        if cloud is None or not self.private_texts:
+            return cloud
+        mode = self.escalation.private_ok() if self.escalation is not None else "chiedi"
+        if mode == "sempre":
+            return cloud
+        if mode == "mai":
+            emit("status", {"text": "Rispondo in locale: ci sono dati privati e l'AI in cloud non li deve vedere."})
+            return None
+        warning = (f"In questa conversazione ci sono dati privati (file o email): mandarli a {cloud.label} "
+                   "su internet per una risposta migliore?")
+        return cloud if self.confirm(CLOUD_TOOL, {"modello": cloud.model}, warning=warning) else None
+
+    def _ask_cloud(self, cloud: Any, text: str, schemas: list[dict[str, Any]], calls_made: list[Any], emit: OnEvent) -> str:
+        """La stessa richiesta, con lo stesso ciclo e gli stessi strumenti, ma con il modello in cloud; se il cloud non
+        risponde (rete, chiave, credito) si torna al modello locale."""
+        local, self.model = self.model, cloud
+        emit("cloud", {"modello": cloud.label})
+        mark = len(self.messages)
+        try:
+            return self._loop(text, schemas, calls_made, emit, False)
+        except Exception as exc:  # CloudError e simili: la risposta la dà comunque il PC
+            del self.messages[mark:]
+            emit("status", {"text": f"AI in cloud non disponibile ({exc}): rispondo in locale."})
+            self.model = local
+            return self._loop(text, schemas, calls_made, emit, False)
+        finally:
+            self.model = local
 
     def _route(self, text: str, confidence: float = MIN_TALK_CONFIDENCE) -> str | None:
         """Il percorso secondo Laya, se è abbastanza sicuro."""
