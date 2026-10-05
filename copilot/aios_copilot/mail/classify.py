@@ -57,6 +57,7 @@ QUESTION_IMPORTANZA = "How important is it for the user to read this email soon?
 LIVELLI = ["negligible, can be ignored", "low, read when there is time", "normal", "high, read today",
            "urgent, read now"]
 MIN_LAYA_CONFIDENCE = 0.5
+USE_LAYA_IMPORTANCE = False
 
 
 def mail_questions() -> dict[str, dict[str, Any]]:
@@ -102,13 +103,14 @@ def classify(sender: str, subject: str, body: str, headers: dict[str, str], *, s
     category = str(cat["choice"]) if float(cat.get("confidence", 0)) >= MIN_LAYA_CONFIDENCE else rules.category
     if category not in CATEGORIES:
         category = rules.category
-    importance = round(level / (len(LIVELLI) - 1) * 100)
+    # L'importanza resta quella delle regole (mittente, urgenza, sicurezza): misurata su mail mai viste, Laya
+    # azzecca la categoria (83%) ma non ancora l'importanza (34%, laya-2). La si rivaluta al prossimo addestramento.
+    importance = rules.importance if not USE_LAYA_IMPORTANCE else max(0, min(100, round(level / (len(LIVELLI) - 1) * 100)))
     if SECURITY.search(f"{subject}\n{body[:3000]}"):
         importance = max(importance, rules.importance)  # un accesso sospetto si vede sempre
-    importance = max(0, min(100, importance))
     if importance >= 85 and category in ("personali", "lavoro"):
         category = "importanti"
-    return Verdict(category, importance, "secondo Nova")
+    return Verdict(category, importance, rules.reason if category == rules.category else "secondo Nova")
 
 
 def _classify_rules(sender: str, subject: str, body: str, headers: dict[str, str], *, sent_to_count: int = 0,

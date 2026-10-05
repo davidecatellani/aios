@@ -69,8 +69,10 @@ def test_mail_category_and_importance_from_laya():
         assert "Oggetto: la nonna" in state and set(questions) == set(mail_questions())
         return {"categoria": {"choice": "personali", "confidence": 0.9}, "importanza": {"score": 3.8}}
 
-    v = classify("Sara <sara@gmail.com>", "la nonna", "è in ospedale, chiamami", {}, decide=decide)
-    assert v.category == "importanti" and v.importance == 95
+    v = classify("Sara <sara@gmail.com>", "la nonna", "è in ospedale, chiamami", {}, decide=decide, sent_to_count=5)
+    assert v.category == "personali" and v.importance == 75  # importanza dalle regole (Laya non è ancora affidabile)
+    work = lambda s, q: {"categoria": {"choice": "lavoro", "confidence": 0.9}, "importanza": {"score": 0}}
+    assert classify("Luca <l@gmail.com>", "turno di lunedì", "da lunedì cambi turno", {}, decide=work).category == "lavoro"
     # senza Laya (o se non risponde) restano le regole; la correzione dell'utente vince sempre
     assert classify("Sara <sara@gmail.com>", "ciao", "come stai", {}, decide=lambda s, q: None).category == "personali"
     assert classify("x@shop.it", "ciao", "", {}, override="lavoro", decide=decide).category == "lavoro"
