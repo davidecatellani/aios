@@ -568,6 +568,18 @@ def register_apps(app: Any, run: Run = _run) -> None:
         p.write_text(str(b.get("testo", "")))
         return 200, {"ok": True, "percorso": str(p.relative_to(home()))}
 
+    def remove_bg(m: Any, b: dict[str, Any], q: dict[str, str]) -> tuple[int, Any]:
+        from .. import sfondo as S
+
+        p = path_from(b.get("p"))
+        if not S.available():
+            return 200, {"ok": False, "messaggio": "Il modello per togliere lo sfondo non è installato."}
+        try:
+            out = S.cut(S.shared(), p, background=str(b.get("sfondo", "")), crop=bool(b.get("ritaglia")))
+        except (ValueError, OSError) as exc:
+            return 200, {"ok": False, "messaggio": str(exc)}
+        return 200, {"ok": True, "percorso": str(out.relative_to(home())), "nome": out.name}
+
     def open_with(m: Any, b: dict[str, Any], q: dict[str, str]) -> tuple[int, Any]:
         p = path_from(b.get("p"))
         subprocess.Popen(["gio", "open", str(p)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
@@ -881,6 +893,7 @@ def register_apps(app: Any, run: Run = _run) -> None:
         ("POST", r"/api/file/nuova-cartella", new_folder),
         ("POST", r"/api/file/salva-immagine", save_image),
         ("POST", r"/api/file/apri-con", open_with),
+        ("POST", r"/api/file/togli-sfondo", remove_bg),
         ("GET", r"/api/nota", note_read),
         ("POST", r"/api/nota", note_save),
         ("GET", r"/api/impostazioni", settings),

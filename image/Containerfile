@@ -193,6 +193,13 @@ RUN mkdir -p /usr/share/aios/parakeet && cd /usr/share/aios/parakeet \
     || { echo "avviso: Parakeet non scaricato (resta Vosk)"; rm -f /usr/share/aios/parakeet/*; }; \
     chmod -R a+rX /usr/share/aios/parakeet; ls -l /usr/share/aios/parakeet
 
+# Togliere lo sfondo dalle foto (sfondo.py): BiRefNet lite (licenza MIT) in ONNX, 224 MB, caricato solo quando serve.
+ARG BIREFNET=https://huggingface.co/onnx-community/BiRefNet_lite-ONNX/resolve/main/onnx/model.onnx
+RUN mkdir -p /usr/share/aios/birefnet && curl -fsSL --retry 3 -o /usr/share/aios/birefnet/model.onnx "$BIREFNET" \
+    && [ "$(stat -c%s /usr/share/aios/birefnet/model.onnx)" -gt 200000000 ] \
+    || { echo "avviso: BiRefNet non scaricato (niente «togli lo sfondo»)"; rm -f /usr/share/aios/birefnet/*; }; \
+    chmod -R a+rX /usr/share/aios/birefnet; ls -l /usr/share/aios/birefnet
+
 # Voce di Nova (kokoro.py): Kokoro 82M (Apache 2.0) int8, voci italiane naturali Sara e Nicola, 120 MB.
 ARG KOKORO=https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.0
 RUN mkdir -p /usr/share/aios/kokoro && cd /usr/share/aios/kokoro \

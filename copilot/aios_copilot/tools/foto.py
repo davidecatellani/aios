@@ -204,7 +204,30 @@ def make_tools(roots: Callable[[], list[Path]] = picture_roots,
         return (f"Ho trovato {len(groups)} gruppi di foto quasi uguali ({extra} in più dell'originale): sono qui accanto. "
                 "Non cancello niente da solo: dimmi quali tenere.")
 
-    return [Tool("duplicate_photos", "Trova le foto doppie o quasi uguali (scatti in sequenza) tra le foto dell'utente.",
+    def remove_background(percorso: str = "", sfondo: str = "", ritaglia: bool = False) -> str:
+        from .. import sfondo as S
+
+        home = Path.home()
+        if not S.available():
+            return "Per togliere lo sfondo serve il modello BiRefNet, che non è installato in questa versione di AIOS."
+        target = Path(percorso).expanduser() if percorso else latest_picture(home)
+        if target is not None and not target.is_absolute():
+            target = next((p for p in (home / target, *(r / target for r in picture_roots(home))) if p.exists()), target)
+        if target is None or not target.is_file():
+            return f"Non trovo l'immagine «{percorso}»." if percorso else "Non trovo un'immagine recente: dimmi quale."
+        try:
+            out = S.cut(S.shared(), target, background=sfondo, crop=bool(ritaglia))
+        except (ValueError, OSError) as exc:
+            return f"Non ci riesco: {exc}."
+        attach("foto", [{"titolo": out.name, "percorso": str(out), "sottotitolo": "senza sfondo"}], "Senza sfondo")
+        bg = f"sfondo {sfondo}" if sfondo and sfondo != "trasparente" else "sfondo trasparente"
+        return f"Fatto: «{out.name}» ({bg}), accanto all'originale «{target.name}», che resta com'era."
+
+    return [Tool("remove_background", "Toglie lo sfondo da una foto o immagine: resta il soggetto (persona, oggetto, animale) "
+                 "su sfondo trasparente o di un colore (es. bianco per una fototessera). Senza percorso: l'immagine più recente.",
+                 params(percorso="Il file (facoltativo)", sfondo="trasparente, bianco, nero, azzurro… (facoltativo)",
+                        ritaglia="true per tenere solo il riquadro del soggetto"), remove_background),
+            Tool("duplicate_photos", "Trova le foto doppie o quasi uguali (scatti in sequenza) tra le foto dell'utente.",
                  params(), duplicate_photos, reads_private=True),
             Tool("photo_recognition", "Accende o spegne il riconoscimento delle foto (cosa c'è, scritte, persone dal volto).",
                  params(attiva=("Acceso o spento", ["si", "no"])), photo_recognition),
@@ -215,6 +238,21 @@ def make_tools(roots: Callable[[], list[Path]] = picture_roots,
                  params(query="Cosa o chi cercare nelle foto, con il periodo se c'è"), show_photos, reads_private=True)]
 
 
+def latest_picture(home: Path) -> Path | None:
+    """L'immagine più recente tra screenshot, scaricati e foto (per «togli lo sfondo» senza dire quale)."""
+    best: tuple[float, Path] | None = None
+    for root in picture_roots(home):
+        for p in [*root.glob("*"), *root.glob("*/*")][:3000]:
+            if p.suffix.lower() in IMAGES and p.is_file() and "senza sfondo" not in p.name:
+                m = p.stat().st_mtime
+                if best is None or m > best[0]:
+                    best = (m, p)
+    return best[1] if best else None
+
+
+RE_BACKGROUND = re.compile(r"^(?:togli|rimuovi|elimina|cancella|leva)\s+lo\s+sfondo(?:\s+(?:dalla|alla|dall'|all'|dal|al|da|a)\s*(?P<f>.+?))?"
+                           r"(?:\s+(?:e\s+)?(?:mettilo|mettici|con\s+lo\s+sfondo|con\s+sfondo)\s+(?P<c>bianco|nero|azzurro|grigio|blu|verde|rosso|trasparente))?$"
+                           r"|^scontorna\s*(?P<f2>.+)?$")
 RE_PHOTOS = re.compile(r"^(?:mostra(?:mi)?|fammi\s+vedere|trova(?:mi)?|cerca(?:mi)?|apri)\s+(?:le\s+|tutte\s+le\s+)?"
                        r"(?:mie\s+)?(?:foto|fotografie|immagini)\s+(?P<q>(?:di|del|della|dei|delle|con|in|a|al|alla|da|su|sul|sulla|che)\b.+)$")
 
@@ -232,6 +270,12 @@ class PhotosRouter:
         from ..fastpath import Intent, normalize
 
         low = normalize(text).strip(" .!?")
+        m = RE_BACKGROUND.match(low)
+        if m:
+            f = (m.group("f") or m.group("f2") or "").strip()
+            if re.fullmatch(r"(?:questa|quella|l'ultima|ultima)?\s*(?:foto|immagine|screenshot|schermata)?", f):
+                f = ""
+            return Intent("remove_background", {"percorso": f, "sfondo": m.group("c") or ""})
         m = RE_RECOGNITION.match(low)
         if m:
             return Intent("photo_recognition", {"attiva": "no" if m.group("v").startswith(("spegni", "disattiva")) else "si"})

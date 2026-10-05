@@ -142,7 +142,15 @@ function lampada(foto, i) {
   const succ = bottone("›", () => { i = (i + 1) % foto.length; mostra(); }, "succ");
   const modifica = bottone("✏️ Modifica", () => { box.remove(); apriVista("modifica", foto[i].percorso); }, "modifica");
   modifica.title = "Disegna, evidenzia, scrivi, oscura o ritaglia";
-  box.append(img, did, chiudi, modifica);
+  const sfondo = bottone("✂️ Togli sfondo", async () => {
+    const f = foto[i]; sfondo.disabled = true; sfondo.textContent = "Ritaglio…";
+    const r = await api("/api/file/togli-sfondo", { p: f.percorso }).catch(e => ({ ok: false, messaggio: e.message }));
+    sfondo.disabled = false; sfondo.textContent = "✂️ Togli sfondo";
+    if (!r.ok) return avviso(r.messaggio || "Non ci sono riuscito.");
+    foto.splice(i + 1, 0, { percorso: r.percorso, nome: r.nome }); i++; mostra(); box.classList.add("scacchi");
+  }, "modifica togli-sfondo");
+  sfondo.title = "Lascia solo il soggetto, su sfondo trasparente (si salva accanto all'originale)";
+  box.append(img, did, chiudi, modifica, sfondo);
   if (foto.length > 1) box.append(prec, succ);
   box.onkeydown = null;
   document.addEventListener("keydown", function k(e) {

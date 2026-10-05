@@ -282,3 +282,5 @@ body.in-vista #casa, body.in-vista #fondo { display: none; }
 .scorciatoie { display: grid; grid-template-columns: max-content 1fr; gap: 8px 18px; align-items: center; font-size: 14px; }
 .scorciatoie kbd { font: inherit; font-weight: 700; font-size: 13px; background: var(--chip); border: 1px solid var(--bordo); border-bottom-width: 2px;
                    border-radius: 8px; padding: 3px 9px; justify-self: start; }
+#lampada .togli-sfondo { right: 210px; }
+#lampada.scacchi img { background: repeating-conic-gradient(#8a979c 0% 25%, #c9d2d5 0% 50%) 50% / 24px 24px; }
