@@ -184,3 +184,47 @@ body.in-vista #casa, body.in-vista #fondo { display: none; }
 .muto-audio.acceso { background: rgba(217,83,79,.15); }
 
 .avviso-testo { color: #D9534F; font-weight: 700; }
+
+/* Gestione attività */
+.quadri-attivita { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 14px; margin-bottom: 14px; }
+.quadro { display: flex; flex-direction: column; gap: 2px; overflow: hidden; padding-bottom: 0; }
+.quadro-testa { display: flex; align-items: center; gap: 8px; color: var(--tenue); font-weight: 700; font-size: 13px; letter-spacing: .4px; }
+.quadro-testa .icona { width: 18px; height: 18px; color: var(--turchese); }
+.quadro-testa span { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.quadro-valore { font-size: 34px; font-weight: 800; letter-spacing: -.8px; font-variant-numeric: tabular-nums; }
+.quadro-sotto { color: var(--tenue); font-size: 13px; min-height: 18px; }
+.quadro .grafico { width: calc(100% + 44px); height: 56px; margin: 8px -22px 0; display: block; }
+.quadro.giallo .quadro-valore { color: #E09F3E; } .quadro.rosso .quadro-valore { color: #D9534F; }
+.quadro .core { display: flex; align-items: flex-end; gap: 2px; height: 22px; margin-top: 6px; }
+.quadro .core i { flex: 1; background: var(--turchese); opacity: .55; border-radius: 2px; min-height: 2px; transition: height .4s; }
+.quadro:has(.core) .grafico { margin-top: 6px; }
+.consiglio { display: flex; gap: 12px; align-items: center; margin-bottom: 10px; padding: 12px 18px; border-color: rgba(224,159,62,.45); }
+.consiglio .icona { width: 22px; height: 22px; color: #E09F3E; flex: none; }
+.due-colonne { display: grid; grid-template-columns: 1.3fr 1fr; gap: 14px; margin-bottom: 14px; }
+@media (max-width: 900px) { .due-colonne { grid-template-columns: 1fr; } }
+.modello-ai { display: grid; grid-template-columns: 1fr 140px auto; gap: 14px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--bordo); }
+.modello-ai .cosa small { display: block; color: var(--tenue); font-size: 13px; margin-top: 2px; }
+.split-ai { height: 10px; border-radius: 6px; background: var(--chip); overflow: hidden; border: 1px solid var(--bordo); }
+.split-ai .gpu { display: block; height: 100%; background: linear-gradient(90deg, var(--blu), var(--turchese)); }
+.riga-sensore { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--bordo); font-size: 15px; }
+.riga-sensore:last-of-type { border-bottom: 0; }
+.riga-sensore .icona { width: 20px; height: 20px; color: var(--turchese); flex: none; }
+.riga-sensore span { flex: 1; } .riga-sensore b { font-variant-numeric: tabular-nums; }
+.riga-sensore.giallo b { color: #E09F3E; } .riga-sensore.rosso b { color: #D9534F; }
+.testa-tabella { display: flex; align-items: center; gap: 14px; justify-content: space-between; }
+.testa-tabella .campo { max-width: 260px; }
+.tabella-attivita { display: flex; flex-direction: column; margin-top: 8px; }
+.riga-attivita { display: grid; grid-template-columns: minmax(0, 1fr) 150px 150px 90px; gap: 14px; align-items: center; padding: 9px 8px;
+                 border-radius: 12px; font-size: 14px; }
+.riga-attivita:not(.intestazione):hover { background: var(--chip); }
+.riga-attivita.intestazione { color: var(--tenue); font-size: 12px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; }
+.riga-attivita .nome { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
+.riga-attivita .nome b { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.riga-attivita .nome small { color: var(--tenue); white-space: nowrap; }
+.riga-attivita .num { display: flex; flex-direction: column; gap: 4px; font-variant-numeric: tabular-nums; }
+.etichetta-ai { font-style: normal; font-size: 11px; font-weight: 800; padding: 1px 7px; border-radius: 8px; color: #fff;
+                background: linear-gradient(135deg, var(--blu), var(--turchese)); }
+.barra-uso { height: 5px; border-radius: 3px; background: var(--chip); overflow: hidden; }
+.barra-uso i { display: block; height: 100%; background: var(--turchese); border-radius: 3px; transition: width .4s; }
+.barra-uso.alto i { background: #D9534F; }
+.bottone.piccolo { padding: 5px 10px; font-size: 13px; }

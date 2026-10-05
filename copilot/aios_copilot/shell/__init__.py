@@ -36,7 +36,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 from ..localapp import LocalApp, serve
-from .apps import register_apps, register_cloud, register_first_steps, register_screens, register_session, register_widgets
+from .apps import register_activity, register_apps, register_cloud, register_first_steps, register_screens, register_session, register_widgets
 
 PAGE = Path(__file__).with_name("home.html")
 APP_ID = "org.aios.Shell"
@@ -50,6 +50,7 @@ AIOS_APPS = [
     {"id": "aios:musica", "label": "Musica", "name": "Musica", "vista": "musica", "simbolo": "🎵"},
     {"id": "aios:video", "label": "Video", "name": "Video", "vista": "video", "simbolo": "🎬"},
     {"id": "aios:note", "label": "Note", "name": "Note", "vista": "note", "simbolo": "📝"},
+    {"id": "aios:attivita", "label": "Attività", "name": "Gestione attività", "vista": "attivita", "simbolo": "📈"},
     {"id": "aios:impostazioni", "label": "Impostazioni", "name": "Impostazioni", "vista": "impostazioni", "simbolo": "⚙️"},
 ]
 BROWSERS = ["org.mozilla.firefox", "firefox", "org.chromium.Chromium", "chromium-browser", "com.google.Chrome"]
@@ -122,7 +123,7 @@ def dock_apps(apps: dict[str, DesktopApp]) -> list[dict[str, Any]]:
     browser = next((apps[c] for c in BROWSERS if c in apps), None)
     if browser is not None:
         dock.insert(1, {**asdict(browser), "label": "Internet", "piastrella": "internet"})
-    dock.append(dict(AIOS_APPS[5]))
+    dock.append(dict(next(a for a in AIOS_APPS if a["id"] == "aios:impostazioni")))
     return dock
 
 
@@ -553,6 +554,7 @@ class ShellApp(LocalApp):
         register_screens(self)
         register_session(self)
         register_cloud(self)
+        register_activity(self)
         self.route("POST", r"/api/ascolta", self._listen)
         self.route("POST", r"/api/ascolta-si-no", self._listen_yes_no)
 

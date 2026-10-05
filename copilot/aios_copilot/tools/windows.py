@@ -19,7 +19,9 @@ from .base import Tool, params
 
 VIEWS = {"foto": "foto", "fotografie": "foto", "immagini": "foto", "musica": "musica", "canzoni": "musica",
          "brani": "musica", "video": "video", "filmati": "video", "note": "note", "appunti": "note", "file": "file",
-         "documenti": "file", "cartelle": "file", "impostazioni": "impostazioni", "preferenze": "impostazioni"}
+         "documenti": "file", "cartelle": "file", "impostazioni": "impostazioni", "preferenze": "impostazioni",
+         "gestione attivita": "attivita", "gestione attività": "attivita", "task manager": "attivita",
+         "monitor di sistema": "attivita", "stato del sistema": "attivita"}
 SECTIONS = {"wifi": "wifi", "wi-fi": "wifi", "rete": "wifi", "internet": "wifi", "bluetooth": "bluetooth",
             "volume": "suono", "suono": "suono", "audio": "suono", "luminosita": "suono", "luminosità": "suono",
             "schermo": "suono", "voce": "voce", "password": "account", "aggiornamenti": "aggiornamenti",
@@ -114,9 +116,9 @@ def make_tools(windows: Callable[[], list[dict[str, str]]] | None = None,
         Tool("close_window", "Chiude un programma aperto.", params(name="Nome del programma da chiudere"), close_window),
         Tool("close_all_windows", "Chiude tutti i programmi aperti.", params(), close_all, requires_confirmation=True),
         Tool("go_home", "Torna alla schermata principale di AIOS (riduce i programmi aperti).", params(), go_home),
-        Tool("show_aios_app", "Apre un'app di AIOS: file, foto, musica, video, note o impostazioni (anche una sezione: "
+        Tool("show_aios_app", "Apre un'app di AIOS: file, foto, musica, video, note, attivita (gestione attività) o impostazioni (anche una sezione: "
              "wifi, bluetooth, suono, voce, password, aggiornamenti).",
-             params(vista=("App", ["file", "foto", "musica", "video", "note", "impostazioni"]),
+             params(vista=("App", ["file", "foto", "musica", "video", "note", "impostazioni", "attivita"]),
                     sezione="Sezione delle impostazioni (facoltativa)"), show_view),
     ]
 

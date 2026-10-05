@@ -24,10 +24,11 @@ function apriVista(nome, ...args) {
 // Le schermate con uno stato che cambia da solo (un aggiornamento che scarica, le reti Wi-Fi, il volume…) si
 // ridisegnano ogni pochi secondi: fuori pagina, poi al posto di quella vecchia (niente sfarfallio), tenendo il
 // punto dove eri arrivato. Mai mentre stai scrivendo o scegliendo qualcosa.
-const VISTE_VIVE = { impostazioni: { aggiornamenti: 3000, info: 10000, wifi: 8000, bluetooth: 6000, suono: 8000 } };
+const VISTE_VIVE = { impostazioni: { aggiornamenti: 3000, info: 10000, wifi: 8000, bluetooth: 6000, suono: 8000 }, attivita: 2000 };
 function ogniQuanto() {
   const regole = VISTE_VIVE[vistaAttuale];
   if (!regole) return 0;
+  if (typeof regole === "number") return regole;
   return regole[vistaArgomenti[0] || "wifi"] || 0;
 }
 let ultimoTocco = 0;  // dopo un clic si lascia il tempo di leggere l'esito («Fatto», «Collegato»…)
@@ -625,6 +626,142 @@ const VISTE = {
     if (d.errore) pan.append(el("p", "esito no", d.errore));
   },
 };
+
+// --- Gestione attività: chi consuma, lo stato della macchina e dell'AI -------------------------------------
+const STORIA_ATTIVITA = { cpu: [], gpu: [], mem: [] };  // l'ultimo minuto e mezzo, per i grafici
+let filtroAttivita = "";
+const mb = n => n >= 1024 ? `${(n / 1024).toFixed(1).replace(".", ",")} GB` : `${n} MB`;
+const gradi = g => g == null ? "" : `${Math.round(g)} °C`;
+const caldo = (g, soglia) => g == null ? "" : g >= soglia ? " rosso" : g >= soglia - 12 ? " giallo" : "";
+function grafico(valori, colore) {  // una linea con l'area sotto, da 0 a 100
+  const ns = "http://www.w3.org/2000/svg", w = 240, h = 56;
+  const s = document.createElementNS(ns, "svg"); s.setAttribute("viewBox", `0 0 ${w} ${h}`); s.setAttribute("class", "grafico");
+  s.setAttribute("preserveAspectRatio", "none");
+  // allineata a destra: il punto più nuovo sul bordo, la storia scorre verso sinistra
+  const x0 = w - ((valori.length - 1) / 44) * w;
+  const pts = valori.map((v, i) => `${x0 + (i / 44) * w},${h - (Math.min(100, v) / 100) * (h - 4) - 2}`);
+  if (pts.length > 1) {
+    const area = document.createElementNS(ns, "path");
+    area.setAttribute("d", `M${x0},${h} L${pts.join(" L")} L${w},${h} Z`);
+    area.setAttribute("fill", colore); area.setAttribute("fill-opacity", ".16");
+    const line = document.createElementNS(ns, "polyline");
+    line.setAttribute("points", pts.join(" ")); line.setAttribute("fill", "none"); line.setAttribute("stroke", colore);
+    line.setAttribute("stroke-width", "2"); line.setAttribute("vector-effect", "non-scaling-stroke"); line.setAttribute("stroke-linejoin", "round");
+    s.append(area, line);
+  }
+  return s;
+}
+function barra(valore, cls = "") { const b = el("div", "barra-uso" + cls); const f = el("i"); f.style.width = `${Math.max(0, Math.min(100, valore))}%`; b.append(f); return b; }
+
+VISTE.attivita = async function (box) {
+  const corpo = testa(box, "Gestione attività");
+  let d;
+  try { d = await api("/api/attivita"); }
+  catch (e) { corpo.append(el("p", "vuoto", `Non riesco a leggere lo stato del computer (${e.message}).`)); return; }
+  const g0 = (d.schede_video || [])[0];
+  for (const [k, v] of [["cpu", d.processore.uso], ["gpu", g0?.uso ?? 0], ["mem", 100 * d.memoria.usata_mb / Math.max(1, d.memoria.totale_mb)]]) {
+    STORIA_ATTIVITA[k].push(v); if (STORIA_ATTIVITA[k].length > 45) STORIA_ATTIVITA[k].shift();
+  }
+  const esito = el("div", "esito");
+  const dici = r => { esito.textContent = r.messaggio || (r.ok ? "Fatto." : "Non è riuscito."); esito.className = "esito " + (r.ok ? "ok" : "no"); };
+
+  // in alto: processore, memoria, scheda video, rete
+  const quadri = el("div", "quadri-attivita");
+  const quadro = (icona, titolo, grande, sotto, storia, colore, extra) => {
+    const q = el("div", "carta quadro");
+    const t = el("div", "quadro-testa"); t.append(svgIcona(icona), el("span", "", titolo));
+    q.append(t, el("div", "quadro-valore", grande), el("small", "quadro-sotto", sotto));
+    if (storia) q.append(grafico(storia, colore));
+    if (extra) q.append(extra);
+    quadri.append(q); return q;
+  };
+  const p = d.processore;
+  const core = el("div", "core");
+  for (const c of p.core || []) { const i = el("i"); i.style.height = `${Math.max(4, c)}%`; i.title = `${Math.round(c)}%`; core.append(i); }
+  quadro("chip", "Processore", `${Math.round(p.uso)}%`, [p.gradi != null ? gradi(p.gradi) : "", `${(p.core || []).length} core`].filter(Boolean).join(" · "),
+         STORIA_ATTIVITA.cpu, "#2EC4B6", core).classList.add(...caldo(p.gradi, 90).trim().split(" ").filter(Boolean));
+  const m = d.memoria;
+  quadro("pacco", "Memoria", mb(m.usata_mb), `su ${mb(m.totale_mb)}` + (m.scambio_mb > 100 ? ` · ${mb(m.scambio_mb)} sul disco` : ""),
+         STORIA_ATTIVITA.mem, "#7B6CF6");
+  for (const g of d.schede_video || []) {
+    const sotto = !g.driver ? "Driver non caricato" : [g.gradi != null ? gradi(g.gradi) : "", g.memoria_totale ? `${mb(g.memoria_usata)} / ${mb(g.memoria_totale)}` : "",
+                  g.ventola != null ? `ventola ${g.ventola}%` : "", g.watt ? `${Math.round(g.watt)} W` : ""].filter(Boolean).join(" · ");
+    const q = quadro("monitor", g.nome, g.uso != null ? `${g.uso}%` : (g.driver ? "—" : "!"), sotto || "uso non leggibile", g === g0 && g.uso != null ? STORIA_ATTIVITA.gpu : null, "#F2A65A");
+    if (!g.driver) q.classList.add("rosso"); else if (caldo(g.gradi, 87)) q.classList.add(caldo(g.gradi, 87).trim());
+  }
+  quadro("internet", "Rete", `↓ ${d.rete.giu_kbs >= 1024 ? (d.rete.giu_kbs / 1024).toFixed(1) + " MB/s" : d.rete.giu_kbs + " KB/s"}`,
+         `↑ ${d.rete.su_kbs >= 1024 ? (d.rete.su_kbs / 1024).toFixed(1) + " MB/s" : d.rete.su_kbs + " KB/s"} · acceso da ${durata(d.acceso_da)}`);
+  corpo.append(quadri);
+
+  for (const c of d.consigli || []) { const a = el("div", "carta consiglio"); a.append(svgIcona("avviso"), el("span", "", c)); corpo.append(a); }
+
+  // l'AI: i modelli caricati e dove stanno
+  const due = el("div", "due-colonne"); corpo.append(due);
+  const ai = el("div", "carta"); due.append(ai);
+  ai.append(el("h3", "", "Intelligenza artificiale"));
+  const mod = d.ai.modelli;
+  if (mod === null) ai.append(el("p", "nota", "Il motore dei modelli (Ollama) non risponde: Nova usa solo i comandi veloci o il cloud."));
+  else if (!mod.length) ai.append(el("p", "nota", "Nessun modello caricato adesso: si carica da solo alla prossima domanda a Nova."));
+  for (const x of mod || []) {
+    const r = el("div", "modello-ai");
+    const testo = el("div", "cosa"); testo.append(el("b", "", x.nome), el("small", "", `${mb(x.memoria_mb)} · ${x.in_gpu === 100 ? "tutto nella scheda video" : x.in_gpu === 0 ? "tutto nel processore" : `${x.in_gpu}% nella scheda video, il resto nel processore`}`));
+    const split = el("div", "split-ai"); const gpu = el("i", "gpu"); gpu.style.width = `${x.in_gpu}%`; split.append(gpu); split.title = "Turchese: scheda video · Grigio: memoria normale";
+    r.append(testo, split, bottone("Togli dalla memoria", async () => { dici(await api("/api/attivita/modello", { nome: x.nome }).catch(e => ({ ok: false, messaggio: e.message }))); }));
+    ai.append(r);
+  }
+  ai.append(el("p", "nota", `Nova e i servizi di AIOS adesso: ${Math.round(d.ai.nova_cpu)}% del processore, ${mb(d.ai.nova_mb)} di memoria.`));
+  const azioniAi = el("div", "azioni");
+  azioniAi.append(bottone("Modelli consigliati per questo PC", () => { chiudiVista(); chiedi("quali modelli AI mi consigli?"); }),
+                  bottone("AI in cloud", () => apriVista("impostazioni", "cloud")));
+  ai.append(azioniAi);
+
+  // temperature e ventole
+  const sen = el("div", "carta"); due.append(sen);
+  sen.append(el("h3", "", "Temperature e ventole"));
+  const s = d.sensori;
+  const riga = (icona, nome, valore, cls = "") => { const r = el("div", "riga-sensore" + cls); r.append(svgIcona(icona), el("span", "", nome), el("b", "", valore)); sen.append(r); };
+  if (s.cpu != null) riga("termometro", "Processore", gradi(s.cpu), caldo(s.cpu, 90));
+  for (const g of d.schede_video || []) if (g.gradi != null) riga("termometro", g.nome, gradi(g.gradi), caldo(g.gradi, 87));
+  if (s.disco != null) riga("termometro", "Disco", gradi(s.disco), caldo(s.disco, 70));
+  if (s.scheda_madre != null) riga("termometro", "Scheda madre", gradi(s.scheda_madre), caldo(s.scheda_madre, 80));
+  for (const f of s.ventole) riga("ventola", f.nome, f.giri ? `${f.giri} giri/min` : "ferma");
+  for (const g of d.schede_video || []) if (g.ventola != null) riga("ventola", `Ventola di ${g.nome}`, `${g.ventola}%`);
+  if (!s.ventole.length) sen.append(el("p", "nota", "Le ventole della scheda madre non sono leggibili su questo PC (manca il sensore nel sistema)."));
+
+  // i programmi
+  const prog = el("div", "carta"); corpo.append(prog);
+  const cerca = el("input", "campo"); cerca.placeholder = "Cerca un programma"; cerca.value = filtroAttivita;
+  const t = el("div", "testa-tabella"); t.append(el("h3", "", "Programmi"), cerca); prog.append(t);
+  const tab = el("div", "tabella-attivita"); prog.append(tab);
+  const intest = el("div", "riga-attivita intestazione"); intest.append(el("span", "", "Nome"), el("span", "", "Processore"), el("span", "", "Memoria"), el("span", "", ""));
+  const disegna = () => {
+    const f = filtroAttivita.toLowerCase();
+    tab.replaceChildren(intest);
+    for (const x of d.programmi.filter(x => !f || x.nome.toLowerCase().includes(f)).slice(0, 40)) {
+      const r = el("div", "riga-attivita" + (x.ai ? " ai" : ""));
+      const nome = el("span", "nome"); nome.append(el("b", "", x.nome));
+      if (x.ai) nome.append(el("em", "etichetta-ai", "AI"));
+      if (x.processi > 1) nome.append(el("small", "", `${x.processi} processi`));
+      const cpu = el("span", "num"); cpu.append(el("b", "", `${x.cpu.toFixed(1).replace(".", ",")}%`), barra(x.cpu * 1, x.cpu > 60 ? " alto" : ""));
+      const mem = el("span", "num"); mem.append(el("b", "", mb(x.memoria_mb)), barra(100 * x.memoria_mb / Math.max(1, d.memoria.totale_mb) * 4));
+      const az = el("span", "");
+      if (x.chiudibile) az.append(bottone("Chiudi", async () => {
+        if (!await chiediConferma(`Chiudo a forza ${x.nome}? Il lavoro non salvato in quel programma si perde.`)) return;
+        dici(await api("/api/attivita/chiudi", { nome: x.nome, pid: x.pid }).catch(e => ({ ok: false, messaggio: e.message })));
+        apriVista("attivita");
+      }, "bottone pericolo piccolo"));
+      r.append(nome, cpu, mem, az); tab.append(r);
+    }
+  };
+  cerca.oninput = () => { filtroAttivita = cerca.value; disegna(); };
+  disegna();
+  prog.append(el("p", "nota", "I programmi di sistema e quelli di AIOS non si chiudono da qui. Puoi anche dire a Nova: «cosa rallenta il PC?» o «chiudi a forza Steam»."));
+  corpo.append(esito);
+};
+function durata(sec) {
+  const g = Math.floor(sec / 86400), o = Math.floor(sec % 86400 / 3600), m = Math.floor(sec % 3600 / 60);
+  return g ? `${g} g ${o} h` : o ? `${o} h ${m} min` : `${m} min`;
+}
 
 // --- imparare la voce (benvenuto e Impostazioni) -----------------------------------------------------------
 async function imparaVoce(box, { nome = "", fine } = {}) {

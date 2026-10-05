@@ -1057,6 +1057,28 @@ def register_cloud(app: Any) -> None:
     app.route("GET", r"/api/cloud/modelli", models)
 
 
+def register_activity(app: Any) -> None:
+    """Gestione attività: i programmi che consumano, lo stato della macchina e dell'AI, chiudere a forza."""
+    from .. import attivita
+
+    def state(m: Any, b: dict[str, Any], q: dict[str, str]) -> tuple[int, Any]:
+        return 200, attivita.shared().snapshot()
+
+    def end(m: Any, b: dict[str, Any], q: dict[str, str]) -> tuple[int, Any]:
+        pids = [int(p) for p in b.get("pid") or [] if str(p).isdigit()]
+        ok, msg = attivita.shared().end(str(b.get("nome", "")), pids)
+        return 200, {"ok": ok, "messaggio": msg}
+
+    def unload(m: Any, b: dict[str, Any], q: dict[str, str]) -> tuple[int, Any]:
+        ok = attivita.unload_model(str(b.get("nome", "")))
+        return 200, {"ok": ok, "messaggio": "Modello tolto dalla memoria: si ricarica alla prossima domanda." if ok
+                     else "Non riesco a parlare con Ollama."}
+
+    app.route("GET", r"/api/attivita", state)
+    app.route("POST", r"/api/attivita/chiudi", end)
+    app.route("POST", r"/api/attivita/modello", unload)
+
+
 def history_path() -> Path:
     return Path(os.environ.get("XDG_DATA_HOME", Path.home() / ".local" / "share")) / "aios" / "risultati.json"
 
