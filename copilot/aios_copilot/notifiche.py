@@ -1,6 +1,6 @@
 """Il centro notifiche: la cronologia di tutte le notifiche (anche dopo un riavvio) e «Non disturbare».
 
-- Le notifiche le mostra mako (con i colori di AIOS); AIOS le ascolta sul bus di sessione (monitor D-Bus,
+- Le notifiche le mostra mako (con i colori di SoIA); SoIA le ascolta sul bus di sessione (monitor D-Bus,
   sola lettura) e le tiene in ~/.local/share/aios/notifiche.json: le ultime 300, leggibili solo dall'utente.
 - «Non disturbare»: a mano (anche per un'ora o fino a domattina), con orari fissi, e da solo mentre si gioca.
   Le notifiche arrivano lo stesso in cronologia, solo non compaiono; quelle urgenti (critical) passano.

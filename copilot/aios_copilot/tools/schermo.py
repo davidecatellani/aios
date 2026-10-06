@@ -1,4 +1,4 @@
-"""Schermo AIOS a voce: «fammi vedere il PC da gaming», «manda la foto al portatile», «quali PC sono accesi?»."""
+"""Schermo SoIA a voce: «fammi vedere il PC da gaming», «manda la foto al portatile», «quali PC sono accesi?»."""
 
 from __future__ import annotations
 
@@ -50,12 +50,12 @@ def make_tools() -> list[Tool]:
     def list_my_pcs() -> str:
         found = azioni.peers()
         if not found:
-            return ("Non vedo altri tuoi PC accesi nella rete. Servono la stessa identità AIOS (stessa frase di "
+            return ("Non vedo altri tuoi PC accesi nella rete. Servono la stessa identità SoIA (stessa frase di "
                     "recupero) e la stessa rete.")
         return "Accesi adesso: " + ", ".join(p.nome for p in found) + ". Posso aprirne lo schermo o mandargli file."
 
     return [
-        Tool("show_remote_screen", "Apre lo schermo di un altro PC dell'utente nella stessa rete (desktop remoto di AIOS, "
+        Tool("show_remote_screen", "Apre lo schermo di un altro PC dell'utente nella stessa rete (desktop remoto di SoIA, "
              "con mouse, tastiera, suono e appunti condivisi).",
              params(chi="Nome del PC (es. «PC da gaming»); vuoto se ce n'è uno solo"), show_remote_screen),
         Tool("send_files_to_pc", "Manda file o cartelle a un altro PC dell'utente: arrivano nei suoi Scaricati.",

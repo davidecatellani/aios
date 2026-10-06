@@ -1,5 +1,5 @@
 """Mouse, touchpad e tastiera: velocità, accelerazione, mano sinistra, scorrimento (naturale e velocità), tocco per
-fare clic, ripetizione dei tasti, Bloc Num all'avvio; e le scorciatoie, quelle di AIOS e quelle personali.
+fare clic, ripetizione dei tasti, Bloc Num all'avvio; e le scorciatoie, quelle di SoIA e quelle personali.
 
 Una scorciatoia personale apre un programma oppure fa una richiesta a Nova («Super+M» → «metti la musica
 rilassante»): così ogni combinazione di tasti può fare qualsiasi cosa che Nova sa fare.
@@ -29,7 +29,7 @@ DEFAULTS: dict[str, Any] = {
     "bloc_num": False,
     "scorciatoie": [],  # {"tasti": "SUPER+M", "app": "firefox"} oppure {"tasti": …, "chiedi": "…"}
 }
-# le scorciatoie di AIOS (hyprland.conf): per l'elenco nelle Impostazioni
+# le scorciatoie di SoIA (hyprland.conf): per l'elenco nelle Impostazioni
 BUILTIN = [
     ("Super", "La giornata (schermata principale)"), ("Super+Spazio", "Chiedi a Nova sopra qualsiasi programma"),
     ("Super+V", "Cronologia degli appunti"), ("Super+.", "Emoji"), ("Super+N", "Centro notifiche"),
@@ -135,7 +135,7 @@ def add_shortcut(keys: str, app: str = "", ask: str = "", hypr: hyprconf.Run = h
     if norm is None:
         return False, "Serve un tasto con Super, Ctrl o Alt (es. Super+M)."
     if norm in RESERVED:
-        return False, f"{pretty(norm)} la usa già AIOS."
+        return False, f"{pretty(norm)} la usa già SoIA."
     sc = {"tasti": norm, "app": app.strip()} if app.strip() else {"tasti": norm, "chiedi": ask.strip()}
     line = bind_line(sc)
     if line is None:

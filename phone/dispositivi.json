@@ -1,8 +1,8 @@
 {
-  "_nota": "Bersagli di compilazione di AIOS per telefono. «base»: aosp (Pixel, GSI) o lineage (gli altri telefoni, con i file hardware mantenuti da LineageOS). Rami e nomi di rilascio vanno ricontrollati prima di ogni compilazione: cambiano con le versioni di Android.",
+  "_nota": "Bersagli di compilazione di SoIA per telefono. «base»: aosp (Pixel, GSI) o lineage (gli altri telefoni, con i file hardware mantenuti da LineageOS). Rami e nomi di rilascio vanno ricontrollati prima di ogni compilazione: cambiano con le versioni di Android.",
   "bersagli": {
     "gsi": {
-      "nome": "AIOS GSI (arm64, telefoni Treble)",
+      "nome": "SoIA GSI (arm64, telefoni Treble)",
       "base": "aosp",
       "manifest": "https://android.googlesource.com/platform/manifest",
       "ramo": "android-latest-release",
@@ -16,7 +16,7 @@
       "marca": ""
     },
     "shiba": {
-      "nome": "AIOS per Google Pixel 8",
+      "nome": "SoIA per Google Pixel 8",
       "base": "aosp",
       "manifest": "https://android.googlesource.com/platform/manifest",
       "ramo": "android-latest-release",
@@ -31,7 +31,7 @@
       "marca": "google"
     },
     "miatoll": {
-      "nome": "AIOS per Redmi Note 9 Pro / 9S, POCO M2 Pro (miatoll)",
+      "nome": "SoIA per Redmi Note 9 Pro / 9S, POCO M2 Pro (miatoll)",
       "modelli": [
         "M2003J6B2G",
         "M2003J6A1G",

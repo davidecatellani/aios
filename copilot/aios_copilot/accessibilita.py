@@ -1,9 +1,9 @@
 """Accessibilità: lettore dello schermo, zoom, contrasto alto, puntatore grande, meno animazioni, filtri per chi
 vede i colori in modo diverso, sottotitoli in tempo reale di tutto quello che il PC fa sentire.
 
-- Lettore dello schermo: Orca (legge le app e le pagine di AIOS); Super+Alt+S lo accende e lo spegne.
+- Lettore dello schermo: Orca (legge le app e le pagine di SoIA); Super+Alt+S lo accende e lo spegne.
 - Zoom: Super++ e Super+- ingrandiscono attorno al puntatore (Hyprland, cursor:zoom_factor); Super+0 torna normale.
-- Contrasto alto: le pagine di AIOS con colori pieni e bordi netti, le app GTK col tema ad alto contrasto.
+- Contrasto alto: le pagine di SoIA con colori pieni e bordi netti, le app GTK col tema ad alto contrasto.
 - Filtri colore: shader di Hyprland per deuteranopia, protanopia, tritanopia, scala di grigi, colori invertiti.
 - Sottotitoli: l'audio del PC (video, chiamate, giochi) trascritto da Parakeet in una striscia in basso.
 

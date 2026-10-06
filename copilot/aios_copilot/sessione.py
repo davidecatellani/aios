@@ -238,8 +238,8 @@ def restore(snap: dict[str, Any], apps: dict[str, Any], launch: Callable[[list[s
             open_windows: list[dict[str, str]] | None = None, same_device: bool = True) -> list[str]:
     """Riapre programmi (con il loro file) e siti. → cosa è stato riaperto.
 
-    Sullo stesso PC Firefox riapre da sé le sue schede (preferenza di AIOS: riprendi la sessione);
-    su un altro dispositivo le schede le apre AIOS."""
+    Sullo stesso PC Firefox riapre da sé le sue schede (preferenza di SoIA: riprendi la sessione);
+    su un altro dispositivo le schede le apre SoIA."""
     done: list[str] = []
     already = {w.get("app_id", "").lower() for w in open_windows or []}
     for p in snap.get("programmi", []):

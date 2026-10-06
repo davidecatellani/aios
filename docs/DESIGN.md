@@ -1,4 +1,4 @@
-# AIOS — Interfaccia e integrazione del copilota
+# SoIA — Interfaccia e integrazione del copilota
 
 > Tavole di progetto generate da [`design/concept.html`](design/concept.html).
 > Nomi, titoli e dati sono di fantasia. Per ogni idea è indicato se esiste già
@@ -6,7 +6,7 @@
 
 ## L'idea: il copilota non è un'app, è il sistema
 
-Negli altri sistemi l'assistente è un programma in più. In AIOS è il modo
+Negli altri sistemi l'assistente è un programma in più. In SoIA è il modo
 principale di usare il dispositivo:
 
 1. **Una sola casella per tutto.** In basso su PC, in fondo alla schermata su
@@ -31,10 +31,10 @@ principale di usare il dispositivo:
    Windows (Bottles) e Android (Waydroid) stanno accanto alle native, con un
    piccolo segno distintivo. 🔜
 
-## La shell di AIOS (realizzata, `copilot/aios_copilot/shell/`)
+## La shell di SoIA (realizzata, `copilot/aios_copilot/shell/`)
 
-Niente desktop classico: la sessione «AIOS» è un compositore senza interfaccia propria
-(labwc) con sopra la shell di AIOS, in tre superfici (gtk4-layer-shell):
+Niente desktop classico: la sessione «SoIA» è un compositore senza interfaccia propria
+(labwc) con sopra la shell di SoIA, in tre superfici (gtk4-layer-shell):
 
 - **la giornata**, sotto a tutto: carte (riepilogo, scadenze trovate nei documenti,
   file da riprendere), saluto, esempi, la casella di Nova e il dock;

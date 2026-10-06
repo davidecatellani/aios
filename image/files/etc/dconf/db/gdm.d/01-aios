@@ -1,4 +1,4 @@
-# Schermata di accesso: il logo di AIOS
+# Schermata di accesso: il logo di SoIA
 [org/gnome/login-screen]
 logo='/usr/share/pixmaps/aios-logo-chiaro.png'
 

@@ -265,7 +265,7 @@ class PhoneServer:
 
 
 def _identity_bundle(body: dict[str, Any], name: str) -> dict[str, Any] | None:
-    """Un dispositivo con AIOS che si abbina riceve un certificato dell'identità dell'utente."""
+    """Un dispositivo con SoIA che si abbina riceve un certificato dell'identità dell'utente."""
     from ..identity import Identity, IdentityError, unb64
 
     identity = Identity.load()
@@ -329,7 +329,7 @@ def make_handler(server: PhoneServer) -> type[BaseHTTPRequestHandler]:
                 body = PAGE.read_bytes()
                 self._headers(200, "text/html; charset=utf-8", len(body))
                 return self.wfile.write(body)
-            if url.path.startswith("/brand/"):  # loghi di AIOS: pubblici
+            if url.path.startswith("/brand/"):  # loghi di SoIA: pubblici
                 return self._brand(url.path[7:])
             if url.path.startswith("/scarica/"):
                 return self._download(url.path[9:], bool(query.get("vedi")))

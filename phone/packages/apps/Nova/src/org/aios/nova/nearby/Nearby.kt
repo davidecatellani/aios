@@ -11,7 +11,7 @@ import org.aios.nova.pc.PcBridge
 
 /**
  * Il telefono ascolta, il PC si annuncia: la ricerca BLE è affidata al chip Bluetooth con un filtro
- * (solo i dati del produttore AIOS) e sveglia Nova solo quando c'è un risultato. Così ascoltare costa
+ * (solo i dati del produttore SoIA) e sveglia Nova solo quando c'è un risultato. Così ascoltare costa
  * quasi nulla e non serve alcun servizio sempre acceso; NearbyService parte solo con il PC vicino.
  */
 object Nearby {

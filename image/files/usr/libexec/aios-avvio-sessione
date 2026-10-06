@@ -1,5 +1,5 @@
 #!/bin/sh
-# Avviato dal compositore (Hyprland, o labwc di riserva) all'inizio della sessione AIOS.
+# Avviato dal compositore (Hyprland, o labwc di riserva) all'inizio della sessione SoIA.
 dbus-update-activation-environment --systemd WAYLAND_DISPLAY XDG_CURRENT_DESKTOP XDG_SESSION_TYPE DISPLAY HYPRLAND_INSTANCE_SIGNATURE >/dev/null 2>&1
 systemctl --user start graphical-session.target >/dev/null 2>&1 &
 # gli avvisi tecnici di Hyprland in alto (XDG_CURRENT_DESKTOP=AIOS è voluto, formato della configurazione,
@@ -11,13 +11,13 @@ fi
 for agent in /usr/libexec/polkit-gnome-authentication-agent-1 /usr/libexec/lxpolkit /usr/bin/lxpolkit; do
   [ -x "$agent" ] && { "$agent" >/dev/null 2>&1 & break; }
 done
-# notifiche con i colori di AIOS
+# notifiche con i colori di SoIA
 command -v mako >/dev/null && mako --config /usr/share/aios/labwc/mako >/dev/null 2>&1 &
 # blocco schermo dopo 10 minuti di inattività, schermo spento dopo 15
 command -v swayidle >/dev/null && swayidle -w lock 'aios-blocca' timeout 600 'aios-blocca' timeout 900 'wlopm --off "*"' \
   resume 'wlopm --on "*"' before-sleep 'aios-blocca' >/dev/null 2>&1 &
 # la shell: la giornata, la barra e Nova
-# Se cade, riparte (fino a 6 volte di fila): con le personalizzazioni (codice personale) al terzo avvio fallito AIOS
+# Se cade, riparte (fino a 6 volte di fila): con le personalizzazioni (codice personale) al terzo avvio fallito SoIA
 # torna da solo al codice originale (modalità sicura, aios_copilot/__init__.py).
 layer=$(ls /usr/lib64/libgtk4-layer-shell.so* /usr/lib/x86_64-linux-gnu/libgtk4-layer-shell.so* 2>/dev/null | head -n1)
 (

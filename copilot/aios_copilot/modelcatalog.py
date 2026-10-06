@@ -1,7 +1,7 @@
-"""Catalogo dei modelli aggiornabile, firmato dal progetto AIOS.
+"""Catalogo dei modelli aggiornabile, firmato dal progetto SoIA.
 
 I modelli migliori cambiano di mese in mese: l'elenco non può stare nel codice.
-Il progetto AIOS pubblica un catalogo (JSON) con una firma Ed25519; AIOS lo scarica
+Il progetto SoIA pubblica un catalogo (JSON) con una firma Ed25519; SoIA lo scarica
 periodicamente e lo usa solo se:
 - la firma è valida per una delle chiavi fidate (/etc/aios/catalog-keys.d/*.pub,
   ~/.config/aios/catalog-keys); senza chiavi configurate nessun catalogo remoto è
@@ -78,7 +78,7 @@ def parse(data: bytes) -> tuple[int, tuple[Model, ...]]:
         if not isinstance(raw, dict) or not {"name", "capability", "size_gb", "ram_gb"} <= raw.keys():
             raise CatalogError(f"modello incompleto: {raw!r:.80}")
         if raw["capability"] not in CAPABILITIES:
-            continue  # capacità che questa versione di AIOS non conosce: la si ignora
+            continue  # capacità che questa versione di SoIA non conosce: la si ignora
         entry = {k: v for k, v in raw.items() if k in MODEL_FIELDS}
         for key in ("urls", "sha256"):
             entry[key] = tuple(entry.get(key, ()))

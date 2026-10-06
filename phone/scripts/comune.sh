@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Funzioni comuni agli script di AIOS per telefono.
+# Funzioni comuni agli script di SoIA per telefono.
 set -euo pipefail
 QUI="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PHONE="$(dirname "$QUI")"

@@ -1,4 +1,4 @@
-"""Posta di AIOS: il client email nativo, con il copilota integrato.
+"""Posta di SoIA: il client email nativo, con il copilota integrato.
 
     aios-posta            apre la posta (finestra dedicata o browser)
 

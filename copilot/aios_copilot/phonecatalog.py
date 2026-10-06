@@ -1,4 +1,4 @@
-"""Catalogo firmato delle immagini di AIOS per telefono (lo legge l'installatore, phoneinstall.py).
+"""Catalogo firmato delle immagini di SoIA per telefono (lo legge l'installatore, phoneinstall.py).
 
 Dopo scripts/firma.sh:
 
@@ -54,7 +54,7 @@ def entries_for(target: str, spec: dict, folder: Path, url: str, version: str) -
     entries = [entry]
     recovery = [p for p in outputs if p.name in ("recovery.img", "boot.img")]
     if recovery:
-        entries.append({"nome": f"Recovery di AIOS ({codename})", "versione": version, "tipo": "recovery", "marca": brand,
+        entries.append({"nome": f"Recovery di SoIA ({codename})", "versione": version, "tipo": "recovery", "marca": brand,
                         "codename": codename, "codici": spec.get("codici", []), "file": [item(p) for p in recovery]})
     return entries
 

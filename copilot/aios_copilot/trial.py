@@ -1,7 +1,7 @@
 """Prova di un nuovo modello di testo sul dispositivo, prima di adottarlo.
 
 Un modello migliore sulla carta può essere peggiore qui: troppo lento su questa CPU,
-o meno preciso nell'usare gli strumenti di AIOS. La prova misura entrambe le cose e
+o meno preciso nell'usare gli strumenti di SoIA. La prova misura entrambe le cose e
 il modello viene adottato solo se è almeno buono quanto quello attuale e abbastanza
 veloce; altrimenti si scarta e si libera lo spazio.
 """
@@ -109,7 +109,7 @@ def decide(new: Result, old: Result | None) -> tuple[bool, str]:
     if old is not None and new.quality < old.quality:
         return False, f"meno preciso del modello attuale ({new.quality:.0%} contro {old.quality:.0%})"
     if new.quality < 0.6:
-        return False, f"troppo impreciso con gli strumenti di AIOS ({new.quality:.0%})"
+        return False, f"troppo impreciso con gli strumenti di SoIA ({new.quality:.0%})"
     return True, f"{new.quality:.0%} dei compiti, {new.speed:.1f} token/s"
 
 

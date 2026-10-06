@@ -1,7 +1,7 @@
-# Servizio utente: Schermo AIOS (vedere e comandare gli altri tuoi PC nella rete, e farsi vedere da loro).
+# Servizio utente: Schermo SoIA (vedere e comandare gli altri tuoi PC nella rete, e farsi vedere da loro).
 #   systemctl --user enable --now aios-schermo
 [Unit]
-Description=AIOS: Schermo AIOS (i tuoi PC si vedono, si comandano e si passano appunti e file)
+Description=AIOS: Schermo SoIA (i tuoi PC si vedono, si comandano e si passano appunti e file)
 PartOf=graphical-session.target
 After=graphical-session.target
 

@@ -1,5 +1,5 @@
 #!/bin/sh
-# Blocca lo schermo con l'aspetto di AIOS: ora, data e un vero campo password (gtklock).
+# Blocca lo schermo con l'aspetto di SoIA: ora, data e un vero campo password (gtklock).
 # Senza gtklock, swaylock (solo il cerchio) come riserva.
 if command -v gtklock >/dev/null; then
   exec gtklock -d -s /usr/share/aios/gtklock/style.css "$@"

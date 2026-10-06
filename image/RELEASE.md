@@ -1,8 +1,8 @@
-**Anteprima** di AIOS per PC: Fedora Silverblue con Nova e i servizi di AIOS già dentro.
+**Anteprima** di SoIA per PC: Fedora Silverblue con Nova e i servizi di SoIA già dentro.
 Non è ancora stata provata su molti PC: **provala prima in una macchina virtuale** (GNOME Boxes,
 VirtualBox) o su un PC senza dati importanti.
 
-### Aggiornare un PC con AIOS già installato (niente formattazione)
+### Aggiornare un PC con SoIA già installato (niente formattazione)
 
 - **Da GitHub**: le nuove versioni arrivano da sole (il repository è pubblico, non serve nessun permesso)
   e si applicano al riavvio; per controllare subito di' a Nova «aggiorna il sistema».
@@ -35,7 +35,7 @@ Dati, impostazioni e app restano; la versione precedente resta disponibile all'a
    Se il disco aveva già Linux (per esempio Ubuntu), in «Recupera spazio» premi **«Elimina tutto»**,
    compresa la partizione EFI: se ne resta una vecchia, l'installazione si ferma con l'errore
    «Bootloader write config: grub2-mkconfig».
-3. Al riavvio compare la schermata d'accesso di AIOS: password **aios**. Poi cambiala subito
+3. Al riavvio compare la schermata d'accesso di SoIA: password **aios**. Poi cambiala subito
    (Impostazioni › Password). Al primo accesso Nova ti accoglie: nome, voce, Wi-Fi e cosa collegare.
    Premi **Super+Spazio** (o di' «Nova») per parlarle; il tasto **Super** da solo torna alla schermata.
 
@@ -43,7 +43,7 @@ Dati, impostazioni e app restano; la versione precedente resta disponibile all'a
 
 Le anteprime con «NVIDIA» nel titolo hanno il driver delle schede video NVIDIA (ramo 580, anche per le
 GTX 900 e 10xx) e Nova usa la scheda per l'AI. Il driver non è firmato: **disattiva il Secure Boot** nel BIOS.
-Da un AIOS già installato ci si passa senza reinstallare: di' a Nova «passa alla versione nvidia» (oppure
+Da un SoIA già installato ci si passa senza reinstallare: di' a Nova «passa alla versione nvidia» (oppure
 `sudo bootc switch ghcr.io/davidecatellani/aios:44-nvidia`), poi riavvia.
 
 ### Kernel 6.18 LTS

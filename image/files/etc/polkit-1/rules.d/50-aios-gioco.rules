@@ -1,4 +1,4 @@
-// AIOS: quando parte un gioco la shell ferma il nucleo di Nova (aios-nucleo) per liberare memoria e lo
+// SoIA: quando parte un gioco la shell ferma il nucleo di Nova (aios-nucleo) per liberare memoria e lo
 // riavvia alla fine (giochi.py). Solo quel servizio, solo per l'amministratore seduto al computer.
 polkit.addRule(function (action, subject) {
     if (action.id === "org.freedesktop.systemd1.manage-units" &&

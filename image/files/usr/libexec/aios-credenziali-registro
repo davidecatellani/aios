@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-"""Sposta l'accesso al registro (lasciato da AIOS per l'utente) dove rpm-ostree e bootc lo leggono.
+"""Sposta l'accesso al registro (lasciato da SoIA per l'utente) dove rpm-ostree e bootc lo leggono.
 
 Si accetta solo un accesso a ghcr.io: il file non può cambiare altro. /etc/ostree/auth.json è leggibile
 solo da root; il file lasciato dall'utente si cancella in ogni caso.

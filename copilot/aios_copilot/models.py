@@ -44,7 +44,7 @@ class Model:
     urls: tuple[str, ...] = ()  # per engine=file
     needs_gpu: bool = False
     note: str = ""
-    rank: float = 0  # più alto = più completo (nel catalogo remoto: punteggio del laboratorio AIOS)
+    rank: float = 0  # più alto = più completo (nel catalogo remoto: punteggio del laboratorio SoIA)
     license: str = "apache-2.0"
     sha256: tuple[str, ...] = ()  # impronte dei file (engine=file), verificate dopo lo scaricamento
     quant: str = "q4"  # compressione dei pesi: q8, q4 (standard), q3, q2
@@ -71,14 +71,14 @@ CPU_MAX_SIZE_GB = 5.0
 OPEN_LICENSES = {"apache-2.0", "mit", "bsd-2-clause", "bsd-3-clause", "cc-by-4.0", "openrail++"}
 
 # Catalogo integrato: vale finché non arriva un catalogo aggiornato e firmato (modelcatalog.py).
-# Le licenze indicate qui vanno ricontrollate dal laboratorio AIOS a ogni versione.
+# Le licenze indicate qui vanno ricontrollate dal laboratorio SoIA a ogni versione.
 BUILTIN_VERSION = 0
 BUILTIN: tuple[Model, ...] = (
     # testo (con uso degli strumenti). Qwen 3.5 (2026): a parità di peso nettamente meglio di Qwen 2.5,
-    # e vede anche le immagini; il 4B è quello incluso nell'immagine di AIOS.
+    # e vede anche le immagini; il 4B è quello incluso nell'immagine di SoIA.
     Model("qwen3.5:0.8b", "testo", 1.0, 2, rank=1.5, note="il più leggero, per PC con poca memoria"),
     Model("qwen3.5:2b", "testo", 2.7, 4, rank=3.2, note="più veloce del 4B ma capisce meno"),
-    Model("qwen3.5:4b", "testo", 3.4, 6, rank=4.3, note="incluso in AIOS: risponde anche senza internet"),
+    Model("qwen3.5:4b", "testo", 3.4, 6, rank=4.3, note="incluso in SoIA: risponde anche senza internet"),
     Model("qwen3.5:9b", "testo", 6.6, 10, rank=5.2, note="per PC con 16 GB o una scheda video"),
     # Qwen 3.8 (2026): solo in taglie grandi; la versione Flash Next (125B a esperti) per ora è solo per Mac
     Model("qwen3.8:27b", "testo", 18.0, 22, needs_gpu=True, rank=6.6, note="27B: per schede video da 24 GB"),
@@ -106,11 +106,11 @@ BUILTIN: tuple[Model, ...] = (
     Model("qwen2.5vl:7b", "vista", 6.0, 7, rank=3, note="legge bene testi e documenti"),
     Model("llama3.2-vision:11b", "vista", 7.9, 12, needs_gpu=True, rank=4, license="llama3.2"),
     # smistamento: modelli decisionali (API System One di Ollama), vedi smistatore.py
-    Model("tev1:0.8b", "smistamento", 0.8, 1.5, rank=1, license="together", note="incluso in AIOS: sceglie gli strumenti giusti per Nova"),
+    Model("tev1:0.8b", "smistamento", 0.8, 1.5, rank=1, license="together", note="incluso in SoIA: sceglie gli strumenti giusti per Nova"),
     Model("tev1:4b", "smistamento", 4.5, 6, rank=2, license="together", note="più preciso, per PC con 16 GB"),
     # lettura (OCR specializzato): trascrive pagine intere, tabelle comprese
     # GLM-OCR (Z.ai, 2026): 0,9B, primo su OmniDocBench; legge testo, tabelle e formule (q8_0: 1,6 GB)
-    # OvisOCR2 (2026): 0,8B su Qwen3.5, primo su OmniDocBench v1.6; nelle prove di AIOS su bollette italiane vere legge
+    # OvisOCR2 (2026): 0,8B su Qwen3.5, primo su OmniDocBench v1.6; nelle prove di SoIA su bollette italiane vere legge
     # quasi tutto (2,9% di parole perse contro il 9,9% di GLM-OCR) in metà tempo. Gira con llama.cpp (lettore.py).
     Model("ovisocr2", "lettura", 1.0, 2.0, engine="file", rank=3, license="apache-2.0", quant="q8",
           urls=("https://huggingface.co/bartowski/ATH-MaaS_OvisOCR2-GGUF/resolve/main/ATH-MaaS_OvisOCR2-Q8_0.gguf",

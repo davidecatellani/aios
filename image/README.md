@@ -1,6 +1,6 @@
-# Immagine AIOS per PC (anteprima)
+# Immagine SoIA per PC (anteprima)
 
-Fedora Silverblue (immutabile, aggiornamenti atomici) con dentro AIOS: Nova, i servizi
+Fedora Silverblue (immutabile, aggiornamenti atomici) con dentro SoIA: Nova, i servizi
 in sottofondo, Ollama, icone, scorciatoia Super+Spazio, controllo all'avvio (greenboot).
 
 ## Costruire l'immagine
@@ -9,7 +9,7 @@ in sottofondo, Ollama, icone, scorciatoia Super+Spazio, controllo all'avvio (gre
 podman build -t localhost/aios:44 -f image/Containerfile .     # dalla radice del repository
 ```
 
-Su GitHub la costruisce la procedura «Immagine AIOS» (`.github/workflows/immagine.yml`) e la
+Su GitHub la costruisce la procedura «Immagine SoIA» (`.github/workflows/immagine.yml`) e la
 pubblica come `ghcr.io/<utente>/aios:44`.
 
 ## Provarla senza reinstallare (da un Fedora Atomic: Silverblue, Kinoite…)
@@ -24,7 +24,7 @@ oppure `rpm-ostree rollback`.
 
 ## Chiavetta d'installazione
 
-Il modo più semplice: su GitHub, **Actions › Immagine AIOS › Run workflow** (con «Crea la
+Il modo più semplice: su GitHub, **Actions › Immagine SoIA › Run workflow** (con «Crea la
 chiavetta» spuntato). Dopo circa un'ora la ISO compare tra le **Releases** come «anteprima»,
 divisa in pezzi da meno di 2 GB se serve: le istruzioni per riunirla, scriverla sulla chiavetta
 e installare sono in [`RELEASE.md`](RELEASE.md).

@@ -53,7 +53,7 @@ def test_snapshot_groups_programs_and_reads_sensors(tmp_path):
     ff = next(p for p in s["programmi"] if p["nome"] == "Firefox")
     assert ff["processi"] == 2 and ff["memoria_mb"] == 200 and ff["cpu"] == 50.0 and ff["chiudibile"]
     assert next(p for p in s["programmi"] if p["nome"] == "Ollama (modelli AI)")["ai"]
-    assert not next(p for p in s["programmi"] if p["nome"].startswith("AIOS"))["chiudibile"]
+    assert not next(p for p in s["programmi"] if p["nome"].startswith("SoIA"))["chiudibile"]
     assert s["processore"]["gradi"] == 93.0 and s["sensori"]["ventole"] == [{"nome": "Ventola del case", "giri": 850}]
     assert s["schede_video"][0]["memoria_totale"] == 8192 and s["ai"]["modelli"][0]["in_gpu"] == 50
     text = " ".join(s["consigli"])

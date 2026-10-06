@@ -146,7 +146,7 @@ def test_pixel_install_unlocks_flashes_and_relocks():
     cmds = [" ".join(c[3:] if c[1] == "-s" else c[1:]) for c in flashed(phone)]
     assert cmds == ["flashing unlock", "erase avb_custom_key", "flash avb_custom_key avb_pkmd.bin",
                     "-w update --skip-reboot aios-shiba.zip", "reboot-bootloader", "flashing lock", "reboot"]
-    assert not phone.unlocked  # richiuso: avvio verificato con la chiave di AIOS
+    assert not phone.unlocked  # richiuso: avvio verificato con la chiave di SoIA
 
 
 def test_refusing_the_wipe_changes_nothing():
@@ -219,12 +219,12 @@ def test_signed_catalog_and_local_image(tmp_path):
     subprocess.run(["openssl", "genpkey", "-algorithm", "ed25519", "-out", str(pem)], check=True, capture_output=True)
     pub = base64.b64decode(modelcatalog.public_key(pem))
     doc = tmp_path / "c.json"
-    doc.write_text(json.dumps({"immagini": [{"nome": "AIOS GSI", "versione": "0.1", "tipo": "gsi",
+    doc.write_text(json.dumps({"immagini": [{"nome": "SoIA GSI", "versione": "0.1", "tipo": "gsi",
                                              "file": [{"nome": "system.img", "url": "https://x/s", "sha256": "a" * 64}]}]}))
     sig = modelcatalog.sign_file(doc, pem).read_bytes()
     served = {"https://c/t.json": doc.read_bytes(), "https://c/t.json.sig": sig}
     assert pi.update_catalog("https://c/t.json", served.__getitem__, keys=[pub]) == 1
-    assert pi.load_catalog()[0].name == "AIOS GSI"
+    assert pi.load_catalog()[0].name == "SoIA GSI"
     with pytest.raises(pi.InstallError):
         pi.update_catalog("https://c/t.json", served.__getitem__, keys=[bytes(32)])
     img = tmp_path / "system.img"
@@ -298,9 +298,9 @@ def test_install_restores_the_backup(tmp_path):
 def test_redmi_note_9_pro_uses_the_dedicated_build():
     phone = FakePhone("miatoll")
     phone.brand = "xiaomi"  # per il finto: lo sblocco avviene con Mi Unlock
-    catalog = [build("gsi"), pi.Build("AIOS miatoll", "0.1", "dispositivo", "xiaomi", "joyeuse",
+    catalog = [build("gsi"), pi.Build("SoIA miatoll", "0.1", "dispositivo", "xiaomi", "joyeuse",
                                       files=[{"nome": "aios-miatoll.zip", "url": "https://x/z", "sha256": "6" * 64}]),
-               pi.Build("AIOS recovery miatoll", "0.1", "recovery", "xiaomi", "joyeuse",
+               pi.Build("SoIA recovery miatoll", "0.1", "recovery", "xiaomi", "joyeuse",
                         files=[{"nome": "recovery.img", "url": "https://x/r", "sha256": "7" * 64, "partizione": "recovery"}])]
     ok, asked, steps = run_install(phone, catalog=catalog)
     assert ok and pi.detect(FakePhone("miatoll")).brand == "xiaomi"

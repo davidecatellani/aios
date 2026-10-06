@@ -1,4 +1,4 @@
-"""Le app di AIOS, dentro la shell: tutte in HTML, niente programmi a finestra per le cose di base.
+"""Le app di SoIA, dentro la shell: tutte in HTML, niente programmi a finestra per le cose di base.
 
 File, Foto, Musica, Video, Note, il visore dei documenti e le Impostazioni sono viste della stessa
 pagina (home.html + static/apps.js); qui c'è quello che serve dal sistema:
@@ -447,7 +447,7 @@ POWER = {"spegni": ["systemctl", "poweroff"], "riavvia": ["systemctl", "reboot"]
 
 # --- rotte della shell -----------------------------------------------------------------------------------
 def register_apps(app: Any, run: Run = _run) -> None:
-    """Aggiunge al server della shell le rotte delle app di AIOS."""
+    """Aggiunge al server della shell le rotte delle app di SoIA."""
 
     def path_from(value: Any) -> Path:
         return safe_path(str(value or ""))
@@ -970,7 +970,7 @@ def first_steps(run: Run = _run, checks: dict[str, Callable[[], bool]] | None = 
         {"id": "telefono", "simbolo": "📱", "titolo": "Collega il telefono",
          "testo": "Foto, notifiche e chiamate anche qui; funziona anche senza Wi-Fi.", "azione": {"chiedi": "collega il telefono"}},
         {"id": "aggiornamenti", "simbolo": "⬇️", "titolo": "Ricevi gli aggiornamenti",
-         "testo": "Le nuove versioni di AIOS arrivano da sole, senza reinstallare.",
+         "testo": "Le nuove versioni di SoIA arrivano da sole, senza reinstallare.",
          "azione": {"vista": "impostazioni", "parte": "aggiornamenti"}},
         {"id": "modelli", "simbolo": "🧠", "titolo": "Rendimi più brava",
          "testo": "Guardo il computer e ti propongo i modelli AI più adatti.", "azione": {"chiedi": "quali modelli AI mi consigli?"}},
@@ -1006,7 +1006,7 @@ def register_widgets(app: Any) -> None:
 
 
 def register_screens(app: Any) -> None:
-    """Schermo AIOS nella home: gli altri tuoi PC accesi, con l'anteprima; aprirli e mandargli file."""
+    """Schermo SoIA nella home: gli altri tuoi PC accesi, con l'anteprima; aprirli e mandargli file."""
     import threading
 
     from ..schermo import azioni
@@ -1391,7 +1391,7 @@ def _has_touchpad() -> bool:
 
 
 def register_customizations(app: Any) -> None:
-    """Personalizzazioni: AIOS che si riprogramma su richiesta (codice.py, programmatore.py), con storia, annulla,
+    """Personalizzazioni: SoIA che si riprogramma su richiesta (codice.py, programmatore.py), con storia, annulla,
     condivisione in file .aios e ritorno all'originale. Il lavoro dell'agente gira in sottofondo; la pagina segue."""
     from .. import codice, programmatore
 
@@ -1446,7 +1446,7 @@ def register_customizations(app: Any) -> None:
             if what == "azzera":
                 n = codice.reset_all()
                 restart()
-                return 200, {"ok": True, "messaggio": f"AIOS è tornato originale ({n} personalizzazioni tolte)."}
+                return 200, {"ok": True, "messaggio": f"SoIA è tornato originale ({n} personalizzazioni tolte)."}
             if what == "applica":
                 r = programmatore.apply_pending()
                 if r["ok"]:
@@ -1459,7 +1459,7 @@ def register_customizations(app: Any) -> None:
             if what == "esporta":
                 path = codice.export(str(b.get("id", "")), home() / "Personalizzazioni")
                 return 200, {"ok": True, "percorso": str(path.relative_to(home())),
-                             "messaggio": f"Salvata in {path.relative_to(home())}: dalla a chi vuoi (chiavetta, mail, Schermo AIOS)."}
+                             "messaggio": f"Salvata in {path.relative_to(home())}: dalla a chi vuoi (chiavetta, mail, Schermo SoIA)."}
             if what == "anteprima":
                 info = codice.read_shared(safe_path(str(b.get("p", ""))))
                 return 200, {"ok": True, **{k: v for k, v in info.items() if k != "patch"},
@@ -1477,7 +1477,7 @@ def register_customizations(app: Any) -> None:
             if what == "originale":
                 codice.save_state(attivo=False)
                 restart()
-                return 200, {"ok": True, "messaggio": "Uso AIOS originale (le personalizzazioni restano, puoi riattivarle)."}
+                return 200, {"ok": True, "messaggio": "Uso SoIA originale (le personalizzazioni restano, puoi riattivarle)."}
         except (ValueError, RuntimeError, OSError) as exc:
             return 200, {"ok": False, "messaggio": str(exc)}
         return 400, {"error": "azione sconosciuta"}

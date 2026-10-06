@@ -1,4 +1,4 @@
-# Relay cifrato di AIOS (per chi vuole ospitarne uno: server di casa, VPS, progetto AIOS).
+# Relay cifrato di SoIA (per chi vuole ospitarne uno: server di casa, VPS, progetto SoIA).
 # Copiare in /etc/systemd/system/ e attivare con: systemctl enable --now aios-relay
 # Il relay conserva solo dati cifrati end-to-end; serve un certificato HTTPS
 # (es. Let's Encrypt) o un proxy HTTPS davanti.

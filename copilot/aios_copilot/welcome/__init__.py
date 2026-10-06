@@ -1,4 +1,4 @@
-"""Benvenuto di AIOS: il primo avvio è già una conversazione con il copilota.
+"""Benvenuto di SoIA: il primo avvio è già una conversazione con il copilota.
 
 La pagina (index.html) è servita da un piccolo server locale che la collega
 all'agente vero: quello che l'utente scrive durante il benvenuto viene eseguito
@@ -83,7 +83,7 @@ def main(argv: list[str] | None = None) -> int:
 
     from ..__main__ import make_agent
 
-    parser = argparse.ArgumentParser(prog="aios-welcome", description="Benvenuto di AIOS")
+    parser = argparse.ArgumentParser(prog="aios-welcome", description="Benvenuto di SoIA")
     parser.add_argument("--first-run", action="store_true", help="non fare nulla se il benvenuto è già stato completato")
     parser.add_argument("--no-window", action="store_true", help="stampa solo l'indirizzo (es. per aprirlo da un altro dispositivo locale)")
     parser.add_argument("--port", type=int, default=0)
@@ -98,7 +98,7 @@ def main(argv: list[str] | None = None) -> int:
             print(url, flush=True)
             app.finished.wait()
         else:
-            open_window(url, app.finished, "Benvenuto in AIOS", "org.aios.Welcome")
+            open_window(url, app.finished, "Benvenuto in SoIA", "org.aios.Welcome")
     except KeyboardInterrupt:
         pass
     finally:

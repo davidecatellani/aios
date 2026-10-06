@@ -13,7 +13,7 @@
 - **Batteria**: con la batteria quasi finita l'ascolto si sospende (energy.py), e riprende in
   carica. «Smetti di ascoltare» / «ascoltami» lo spengono e lo riaccendono.
 
-Modelli: /usr/share/aios/voce (immagine AIOS) oppure ~/.local/share/aios/voce. La frase intera, una volta
+Modelli: /usr/share/aios/voce (immagine SoIA) oppure ~/.local/share/aios/voce. La frase intera, una volta
 finita, la trascrive Parakeet (parakeet.py) se c'è: molti meno errori di Vosk, che resta il «guardiano».
 """
 
@@ -506,7 +506,7 @@ class Ears:
 
 
 def deliver(text: str, run: Callable[..., Any] = subprocess.run) -> bool:
-    """Passa la richiesta a Nova: il pannello della shell di AIOS, o la finestra di Nova in altre sessioni."""
+    """Passa la richiesta a Nova: il pannello della shell di SoIA, o la finestra di Nova in altre sessioni."""
     in_shell = "AIOS" in os.environ.get("XDG_CURRENT_DESKTOP", "") and shutil.which("aios-shell")
     exe = shutil.which("aios-shell") if in_shell else (shutil.which("aios-copilot") or "aios-copilot")
     try:

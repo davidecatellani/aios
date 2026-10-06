@@ -332,10 +332,10 @@ class Library:
         if target.exists():
             marker = target / ".aios-raccolte"
             if not marker.exists():
-                raise RuntimeError(f"{target} esiste già e non è stata creata da AIOS: non la tocco.")
+                raise RuntimeError(f"{target} esiste già e non è stata creata da SoIA: non la tocco.")
             shutil.rmtree(target)
         target.mkdir(parents=True)
-        (target / ".aios-raccolte").write_text("Cartella generata da AIOS: contiene solo collegamenti ai tuoi file.\n")
+        (target / ".aios-raccolte").write_text("Cartella generata da SoIA: contiene solo collegamenti ai tuoi file.\n")
         for e in self.entries():
             if e.kind in ("app", "gioco"):
                 continue

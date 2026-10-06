@@ -383,7 +383,7 @@ def build(search: Callable[[str], list[dict[str, Any]]] | None = None) -> MeshSe
 
 
 def nearby_secrets(devices: Any) -> list:
-    """I segreti per riconoscere i propri dispositivi: telefoni abbinati (dal più recente) e identità AIOS."""
+    """I segreti per riconoscere i propri dispositivi: telefoni abbinati (dal più recente) e identità SoIA."""
     from ..identity import Identity
     from .nearby import secret_from_device, secret_from_sync_key
 
@@ -403,7 +403,7 @@ def main(argv: list[str] | None = None) -> int:
     args = list(sys.argv[1:] if argv is None else argv) or ["stato"]
     if args[0] == "servizio":
         build().run_forever()
-    elif args[0] == "collega-pc" and len(args) > 1:  # sul telefono con AIOS: il QR mostrato dal PC
+    elif args[0] == "collega-pc" and len(args) > 1:  # sul telefono con SoIA: il QR mostrato dal PC
         from .delegate import pair_with_pc
 
         config = pair_with_pc(args[1], socket.gethostname())

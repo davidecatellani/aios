@@ -1,7 +1,7 @@
 """Password e token: nel portachiavi del sistema (Secret Service, via secret-tool).
 
 Se il portachiavi non c'è (es. un sistema senza desktop), si usa un file leggibile
-solo dall'utente (0600). Nell'immagine di AIOS il portachiavi è sempre presente.
+solo dall'utente (0600). Nell'immagine di SoIA il portachiavi è sempre presente.
 """
 
 from __future__ import annotations

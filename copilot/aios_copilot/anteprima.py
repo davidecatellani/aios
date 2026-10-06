@@ -1,4 +1,4 @@
-"""Il controllo visivo del programmatore: la foto di una pagina di AIOS fatta col codice modificato, e un modello
+"""Il controllo visivo del programmatore: la foto di una pagina di SoIA fatta col codice modificato, e un modello
 di visione del PC che la guarda («le lancette segnano le 10:10?», «si legge tutto?»).
 
 La foto si fa in un processo a parte che carica il codice della copia personale (anche la modifica non ancora
@@ -29,7 +29,7 @@ SIZE = (1366, 768)
 TIMEOUT = 90
 WORKSPACE = "special:aios-prova"
 
-LOOK_PROMPT = """Questa è una schermata di AIOS (un sistema operativo) appena modificata da un programmatore.
+LOOK_PROMPT = """Questa è una schermata di SoIA (un sistema operativo) appena modificata da un programmatore.
 L'utente aveva chiesto: «{request}».
 Adesso sono le {time} di {day}.
 {question}
@@ -487,7 +487,7 @@ class Eyes:
         if report["errori"]:
             lines.append("Errori di JavaScript nella pagina (da correggere):\n" + "\n".join(f"- {e}" for e in report["errori"]))
         if report["problemi"]:
-            lines.append("Problemi nuovi rispetto ad AIOS originale (da correggere):\n"
+            lines.append("Problemi nuovi rispetto ad SoIA originale (da correggere):\n"
                          + "\n".join(f"- {e}" for e in report["problemi"]))
         if not lines:
             lines.append("Nessun errore di JavaScript, niente testi tagliati, sovrapposti o poco leggibili.")

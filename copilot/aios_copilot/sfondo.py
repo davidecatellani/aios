@@ -2,7 +2,7 @@
 o di un colore a scelta (bianco per una fototessera, per esempio).
 
 Modello: BiRefNet lite (licenza MIT) in ONNX, 224 MB, gira con onnxruntime sul processore in un paio di secondi.
-Sta in /usr/share/aios/birefnet (immagine di AIOS) o in ~/.local/share/aios/modelli/birefnet. Si carica alla
+Sta in /usr/share/aios/birefnet (immagine di SoIA) o in ~/.local/share/aios/modelli/birefnet. Si carica alla
 prima richiesta e si libera dopo qualche minuto.
 """
 

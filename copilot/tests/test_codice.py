@@ -161,7 +161,7 @@ def test_nova_tools_and_router(home, monkeypatch):
     assert r.match("annulla la personalizzazione dell'orologio").args == {"quale": "orologio"}
     assert r.match("rimetti aios originale").tool == "reset_customizations"
     assert r.match("quali personalizzazioni ho?").tool == "list_customizations"
-    assert r.match("modifica AIOS: voglio l'orologio rotondo").args == {"richiesta": "voglio l'orologio rotondo"}
+    assert r.match("modifica SoIA: voglio l'orologio rotondo").args == {"richiesta": "voglio l'orologio rotondo"}
 
 
 def test_retouch_with_the_pencil(home, monkeypatch):

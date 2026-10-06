@@ -2,7 +2,7 @@
 Type=Application
 Name=Nova
 GenericName=Assistente AI
-Comment=Nova, l'assistente di AIOS: chiedi al computer di fare qualsiasi cosa
+Comment=Nova, l'assistente di SoIA: chiedi al computer di fare qualsiasi cosa
 Exec=aios-copilot
 Icon=org.aios.Copilot
 Categories=Utility;

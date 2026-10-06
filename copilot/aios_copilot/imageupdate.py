@@ -1,7 +1,7 @@
-"""Nuove versioni di AIOS senza registro pubblico: da GitHub (con il tuo accesso) o da una chiavetta.
+"""Nuove versioni di SoIA senza registro pubblico: da GitHub (con il tuo accesso) o da una chiavetta.
 
 Ogni versione dell'immagine è pubblicata anche come pacchetto (Release del repository, procedura
-«Immagine AIOS»):
+«Immagine SoIA»):
 
     aios-aggiornamento.json                 versione, Fedora, sha256 e pezzi
     aios-aggiornamento.ociarchive.parte0…N  l'immagine in pezzi da meno di 2 GB

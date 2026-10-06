@@ -219,7 +219,7 @@ def make_agent(confirm: Confirm, model: str | None = None, allowed: frozenset[st
             display_tools.DisplayRouter(),  # livello 0: luce notturna, monitor
             activity_tools.ActivityRouter(),  # livello 0: «cosa rallenta il PC?», «chiudi a forza Steam»
             session_tools.SessionRouter(),  # livello 0: «riapri quello che avevo aperto»
-            window_tools.WindowsRouter(),  # livello 0: programmi aperti e app di AIOS (sessione AIOS)
+            window_tools.WindowsRouter(),  # livello 0: programmi aperti e app di SoIA (sessione SoIA)
             memory_tools.MemoryRouter(),  # livello 0: «dove mi ero fermato?», «cosa ho fatto ieri?»
             contacts_tools.ContactsRouter(),  # livello 0: «aggiungi Mario alla rubrica», «che numero ha Giulia?»
             agenda_tools.AgendaRouter(),  # livello 0: promemoria, appuntamenti, riepilogo
@@ -238,7 +238,7 @@ def make_agent(confirm: Confirm, model: str | None = None, allowed: frozenset[st
             organize_tools.OrganizeRouter(),  # livello 0: raccolte e riordino (dopo le cartelle)
             document_tools.DocumentsRouter(),  # livello 0: «fammi vedere la bolletta…», dieta, lista della spesa
             theme_tools.ThemesRouter(),  # livello 0: temi
-            customize_tools.CustomizeRouter(),  # livello 0: «togli l'ultima personalizzazione», «rimetti AIOS originale»
+            customize_tools.CustomizeRouter(),  # livello 0: «togli l'ultima personalizzazione», «rimetti SoIA originale»
             widget_tools.WidgetRouter(),  # livello 0: «inserisci un widget per il meteo»
             settings_tools.ScreenshotRouter(),  # livello 0: «modifica lo screenshot»
             semantic_router(),  # livello 1: italiano e inglese, < 1 ms
@@ -300,7 +300,7 @@ def run_cli(agent: Agent, request: str | None) -> int:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(prog="aios-copilot", description="Nova, l'assistente AI di AIOS")
+    parser = argparse.ArgumentParser(prog="aios-copilot", description="Nova, l'assistente AI di SoIA")
     parser.add_argument("request", nargs="?", help="richiesta singola da eseguire nel terminale")
     parser.add_argument("--cli", action="store_true", help="usa il terminale invece della finestra")
     parser.add_argument("--model", help="modello Ollama da usare (default: $AIOS_MODEL)")

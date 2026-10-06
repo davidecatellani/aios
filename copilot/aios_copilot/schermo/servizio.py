@@ -1,4 +1,4 @@
-"""Il servizio Schermo AIOS di ogni PC, e i comandi.
+"""Il servizio Schermo SoIA di ogni PC, e i comandi.
 
     aios-schermo servizio            annuncia questo PC, trova gli altri, accetta i tuoi dispositivi
     aios-schermo elenco              i tuoi dispositivi accesi nella rete
@@ -48,7 +48,7 @@ def settings() -> dict[str, Any]:
 
 def notify(text: str) -> None:
     try:
-        subprocess.Popen(["notify-send", "-a", "AIOS", "-i", "video-display", "Schermo AIOS", text],
+        subprocess.Popen(["notify-send", "-a", "SoIA", "-i", "video-display", "Schermo SoIA", text],
                          stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     except OSError:
         pass
@@ -318,7 +318,7 @@ class Server:
             return
         conn.settimeout(None)
         if not settings().get("condividi", True):
-            ch.close("Questo PC non condivide lo schermo (Impostazioni › Schermo AIOS).")
+            ch.close("Questo PC non condivide lo schermo (Impostazioni › Schermo SoIA).")
             return
         sess = self.session(ch)
         self.sessions.append(sess)
@@ -402,7 +402,7 @@ def _identity() -> Any:
 
     me = Identity.load()
     if me is None:
-        print("Questo PC non ha ancora l'identità AIOS: creala (o ripristinala con la frase di recupero) "
+        print("Questo PC non ha ancora l'identità SoIA: creala (o ripristinala con la frase di recupero) "
               "dalle Impostazioni › Account, sugli altri PC con la stessa frase.", file=sys.stderr)
     return me
 

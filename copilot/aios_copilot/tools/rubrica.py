@@ -14,7 +14,7 @@ def make_tools(rubrica: Callable[[], Rubrica] = Rubrica) -> list[Tool]:
     def find_contact(nome: str) -> str:
         found = rubrica().find(nome)
         if not found:
-            return f"Non trovo «{nome}» in rubrica (telefono, posta e contatti di AIOS)."
+            return f"Non trovo «{nome}» in rubrica (telefono, posta e contatti di SoIA)."
         return "\n".join(describe(c) for c in found[:8])
 
     def add_contact(nome: str, telefono: str = "", email: str = "", compleanno: str = "") -> str:
@@ -22,7 +22,7 @@ def make_tools(rubrica: Callable[[], Rubrica] = Rubrica) -> list[Tool]:
 
     return [
         Tool("find_contact", "Cerca una persona in rubrica: numeri di telefono, email, compleanno (rubrica del telefono, "
-             "della posta e di AIOS).", params(nome="Nome, numero o email", required=["nome"]), find_contact, reads_private=True),
+             "della posta e di SoIA).", params(nome="Nome, numero o email", required=["nome"]), find_contact, reads_private=True),
         Tool("add_contact", "Aggiunge o aggiorna un contatto in rubrica.",
              params(nome="Nome e cognome", telefono="Numero (facoltativo)", email="Email (facoltativa)",
                     compleanno="Compleanno AAAA-MM-GG (facoltativo)", required=["nome"]), add_contact),

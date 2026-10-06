@@ -7,7 +7,7 @@ import android.content.Context
 import android.content.Intent
 import org.aios.nova.pc.PcBridge
 
-/** Risultati della ricerca BLE (svegliano Nova solo per i codici AIOS): è il mio PC? cosa chiede? */
+/** Risultati della ricerca BLE (svegliano Nova solo per i codici SoIA): è il mio PC? cosa chiede? */
 class NearbyReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         val secret = PcBridge(context).nearbySecret() ?: return

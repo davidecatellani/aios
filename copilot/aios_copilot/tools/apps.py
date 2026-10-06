@@ -92,7 +92,7 @@ FLATHUB = "https://dl.flathub.org/repo/flathub.flatpakrepo"
 
 
 def ensure_flathub(runner: Runner) -> None:
-    """Flathub per l'utente: le app si installano senza password di amministratore (AIOS è immutabile)."""
+    """Flathub per l'utente: le app si installano senza password di amministratore (SoIA è immutabile)."""
     code, out = runner.run(["flatpak", "remotes", "--user", "--columns=name"])
     if code == 0 and "flathub" in out.split():
         return

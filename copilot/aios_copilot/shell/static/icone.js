@@ -1,4 +1,4 @@
-// Le icone di AIOS: tratto unico, angoli tondi, disegnate qui (niente emoji, niente icone di Linux).
+// Le icone di SoIA: tratto unico, angoli tondi, disegnate qui (niente emoji, niente icone di Linux).
 "use strict";
 const ICONE = {
   file: "M3 7.5A2.5 2.5 0 0 1 5.5 5H9l2 2h7.5A2.5 2.5 0 0 1 21 9.5v7a2.5 2.5 0 0 1-2.5 2.5h-13A2.5 2.5 0 0 1 3 16.5z",
@@ -51,7 +51,7 @@ const ICONE = {
   personalizzazioni: "M12 3l1.8 4.7L18.5 9.5l-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8z M18.5 15l.9 2.1 2.1.9-2.1.9-.9 2.1-.9-2.1-2.1-.9 2.1-.9z M5 16l.6 1.4L7 18l-1.4.6L5 20l-.6-1.4L3 18l1.4-.6z",
   chip: "M7 7h10v10H7z M9.5 9.5h5v5h-5z M9 3v4 M15 3v4 M9 17v4 M15 17v4 M3 9h4 M3 15h4 M17 9h4 M17 15h4",
 };
-// i colori delle «piastrelle» delle app di AIOS nel dock
+// i colori delle «piastrelle» delle app di SoIA nel dock
 const TINTE = { file: ["#3BA3D6", "#1867A6"], foto: ["#F2A65A", "#D9534F"], musica: ["#E36397", "#8E44AD"],
                 video: ["#7B6CF6", "#3D3BB7"], note: ["#F4C95D", "#E09F3E"], impostazioni: ["#7D8A96", "#45525E"],
                 internet: ["#2EC4B6", "#0B6E99"], attivita: ["#3DDC97", "#138A72"], calendario: ["#FF7A6B", "#C2334D"],

@@ -1,4 +1,4 @@
-"""Loghi di AIOS (sistema e copilota), serviti alle pagine locali e alla pagina del telefono."""
+"""Loghi di SoIA (sistema e copilota), serviti alle pagine locali e alla pagina del telefono."""
 
 from __future__ import annotations
 

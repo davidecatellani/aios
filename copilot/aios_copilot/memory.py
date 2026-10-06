@@ -43,11 +43,11 @@ def plan_for(device: Device) -> Plan:
     kv = "q4_0" if device.ram_gb < 8 and device.vram_gb < 6 else "q8_0"
     context = 4096 if device.ram_gb < 8 else 8192 if device.ram_gb < 24 and device.vram_gb < 12 else 16384
     files = {
-        ZRAM_CONF: f"# Generato da AIOS: RAM compressa\n[zram0]\nzram-size = {zram_mb}\ncompression-algorithm = zstd\nswap-priority = 100\n",
+        ZRAM_CONF: f"# Generato da SoIA: RAM compressa\n[zram0]\nzram-size = {zram_mb}\ncompression-algorithm = zstd\nswap-priority = 100\n",
         # Con zram conviene usare la memoria compressa prima del disco e leggere una pagina alla volta.
-        SYSCTL_CONF: "# Generato da AIOS: parametri adatti alla RAM compressa\nvm.swappiness = 180\nvm.page-cluster = 0\n"
+        SYSCTL_CONF: "# Generato da SoIA: parametri adatti alla RAM compressa\nvm.swappiness = 180\nvm.page-cluster = 0\n"
                      "vm.watermark_boost_factor = 0\nvm.watermark_scale_factor = 125\n",
-        OLLAMA_DROPIN: f"# Generato da AIOS: memoria della conversazione compressa\n[Service]\nEnvironment=OLLAMA_FLASH_ATTENTION=1\n"
+        OLLAMA_DROPIN: f"# Generato da SoIA: memoria della conversazione compressa\n[Service]\nEnvironment=OLLAMA_FLASH_ATTENTION=1\n"
                        f"Environment=OLLAMA_KV_CACHE_TYPE={kv}\nEnvironment=OLLAMA_CONTEXT_LENGTH={context}\n",
     }
     return Plan(zram_mb, kv, context, files)
@@ -101,7 +101,7 @@ def zram_status(root: Path = Path("/")) -> ZramStatus | None:
 
 
 def _dropin_env(root: Path) -> dict[str, str]:
-    """Le impostazioni che il servizio Ollama riceve dal file di AIOS."""
+    """Le impostazioni che il servizio Ollama riceve dal file di SoIA."""
     try:
         text = (root / OLLAMA_DROPIN.relative_to("/")).read_text()
     except OSError:

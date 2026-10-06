@@ -1,8 +1,8 @@
-"""Le schermate per l'adattatore «schermate» del nucleo: pagine vere di AIOS con guasti messi apposta.
+"""Le schermate per l'adattatore «schermate» del nucleo: pagine vere di SoIA con guasti messi apposta.
 
     python addestramento/schermate.py --uscita dati-schermate --quante 600
 
-Ogni foto è una pagina di AIOS (la schermata con i widget, le impostazioni, le app, il pannello) con i dati della
+Ogni foto è una pagina di SoIA (la schermata con i widget, le impostazioni, le app, il pannello) con i dati della
 persona inventata di anteprima.py, disegnata con Chromium. Sopra ci mettiamo noi quello che il programmatore
 può sbagliare, quindi la risposta giusta la sappiamo sempre, senza etichettare niente a mano:
 - un orologio con le lancette (stili, colori, numeri e tacche a caso) che segna un'ora a caso: va letta;

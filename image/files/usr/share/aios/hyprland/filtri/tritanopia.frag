@@ -1,5 +1,5 @@
 #version 300 es
-// Filtro colore di AIOS (Impostazioni › Accessibilità): tritanopia (blu-giallo)
+// Filtro colore di SoIA (Impostazioni › Accessibilità): tritanopia (blu-giallo)
 precision highp float;
 in vec2 v_texcoord;
 uniform sampler2D tex;

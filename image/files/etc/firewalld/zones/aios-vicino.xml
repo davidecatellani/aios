@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Rete diretta tra PC e telefono creata da Nova (mesh/nearby.py): solo ciò che serve ad AIOS. -->
+<!-- Rete diretta tra PC e telefono creata da Nova (mesh/nearby.py): solo ciò che serve ad SoIA. -->
 <zone target="default">
-  <short>AIOS vicino</short>
+  <short>SoIA vicino</short>
   <description>Rete Wi-Fi diretta, senza internet, tra il PC e i telefoni dell'utente.</description>
   <service name="dhcp"/>
   <service name="dns"/>

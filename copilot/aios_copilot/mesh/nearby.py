@@ -1,6 +1,6 @@
 """Vicini anche senza Wi-Fi: telefono e PC si trovano e si collegano da soli (come iPhone e Mac).
 
-1. **Riconoscersi** — ogni dispositivo AIOS annuncia via Bluetooth a basso consumo (BLE) un
+1. **Riconoscersi** — ogni dispositivo SoIA annuncia via Bluetooth a basso consumo (BLE) un
    codice di 8 byte che cambia ogni 15 minuti: un HMAC del tempo con un segreto che hanno solo
    i dispositivi dell'utente. Gli estranei vedono numeri casuali, sempre diversi: non possono
    riconoscere né seguire il telefono, né fingersi uno dei tuoi dispositivi.
@@ -21,7 +21,7 @@ condividi internet) dal suo codice BLE, firmato con lo stesso segreto: solo il t
 chiederglielo.
 
 Il segreto: per i telefoni abbinati con il QR deriva dalla loro chiave (il PC ne conserva solo
-l'impronta, che basta); per i dispositivi con l'identità AIOS dalla chiave di sincronizzazione.
+l'impronta, che basta); per i dispositivi con l'identità SoIA dalla chiave di sincronizzazione.
 """
 
 from __future__ import annotations
@@ -46,7 +46,7 @@ ROLES = {"pc": 0, "telefono": 1, "tablet": 2}
 ROLE_NAMES = {v: k for k, v in ROLES.items()}
 # bit del byte «flags» (protetti dall'HMAC: nessuno li può cambiare)
 F_INTERNET = 1           # ho internet da condividere
-F_RETE = 2               # ho aperto la rete diretta AIOS: entra
+F_RETE = 2               # ho aperto la rete diretta SoIA: entra
 F_CHIEDE_INTERNET = 4    # condividi internet con me
 F_CHIEDE_BT = 8          # apri la rete Bluetooth
 F_BATTERIA_BASSA = 16
@@ -64,7 +64,7 @@ class Secret:
     bt: str = ""  # indirizzo Bluetooth classico del telefono (per la rete Bluetooth)
 
 
-def secret_from_sync_key(sync_key: bytes, name: str = "i tuoi dispositivi AIOS") -> Secret:
+def secret_from_sync_key(sync_key: bytes, name: str = "i tuoi dispositivi SoIA") -> Secret:
     return Secret(name, hkdf(sync_key, b"aios-vicino-v1"))
 
 

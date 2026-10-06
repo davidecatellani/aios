@@ -555,7 +555,7 @@ class DownloadTask:
 
 @dataclass
 class MeaningModelTask:
-    """Il modello del significato incluso in AIOS (EmbeddingGemma) si attiva da solo, a riposo, la prima volta:
+    """Il modello del significato incluso in SoIA (EmbeddingGemma) si attiva da solo, a riposo, la prima volta:
     calibra il riconoscimento in tutte le lingue e da lì in poi i documenti si cercano anche per significato."""
 
     model: str = "embeddinggemma"
@@ -805,7 +805,7 @@ def _print_status() -> int:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(prog="aios-learn", description="Apprendimento di AIOS nei momenti di riposo")
+    parser = argparse.ArgumentParser(prog="aios-learn", description="Apprendimento di SoIA nei momenti di riposo")
     parser.add_argument("--now", action="store_true", help="esegue subito il lavoro in coda")
     parser.add_argument("--status", action="store_true", help="mostra lo stato")
     parser.add_argument("--forget", action="store_true", help="cancella frasi imparate e cronologia")

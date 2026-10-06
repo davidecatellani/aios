@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Benvenuto in AIOS</title>
+<title>Benvenuto in SoIA</title>
 <link rel="icon" href="/brand/aios-piccolo.svg" type="image/svg+xml">
 <style>
   :root {
@@ -187,7 +187,7 @@
 <div class="backdrop" aria-hidden="true"></div>
 <div class="app">
   <header>
-    <div class="brand"><img src="/brand/aios-piccolo.svg" alt=""><span>AI<b>OS</b></span></div>
+    <div class="brand"><img src="/brand/aios-piccolo.svg" alt=""><span>So<b>IA</b></span></div>
     <div class="progress" role="progressbar" aria-label="Avanzamento" aria-valuemin="0" aria-valuemax="100"><i id="progress"></i></div>
     <button class="icon-btn" id="voice" type="button" aria-pressed="false" title="Leggi ad alta voce">🔈</button>
     <button class="icon-btn" id="skip" type="button"></button>
@@ -221,7 +221,7 @@
 // ---------------------------------------------------------------------------
 const TEXT = {
   it: {
-    title: "Benvenuto in AIOS",
+    title: "Benvenuto in SoIA",
     subtitle: "Il sistema che capisce quello che gli dici.",
     skip: "Salta",
     voiceOn: "Lettura ad alta voce attiva", voiceOff: "Leggi ad alta voce",
@@ -229,7 +229,7 @@ const TEXT = {
     namePlaceholder: "Il tuo nome…",
     hint: "Premi <kbd>Invio</kbd> per inviare",
     hello: ["Ciao! 👋 Sono Nova.",
-            "In AIOS non devi cercare tra menu e impostazioni: mi dici cosa ti serve, con parole tue, e me ne occupo io."],
+            "In SoIA non devi cercare tra menu e impostazioni: mi dici cosa ti serve, con parole tue, e me ne occupo io."],
     welcomeBack: n => [`Bentornato, ${n}! 😊`],
     askName: "Prima di cominciare: come ti chiami?",
     noName: "Preferisco non dirlo",
@@ -245,10 +245,10 @@ const TEXT = {
         "Sì. La mia intelligenza artificiale gira qui, sul tuo dispositivo: non mando le tue richieste a nessun server.",
         "E non mi serve una scheda grafica potente: i comandi comuni li riconosco in pochi millesimi di secondo anche su un computer modesto. Internet lo uso solo quando serve davvero, per esempio per una ricerca, e te lo mostro sempre." ] },
       devices: { chip: "Su quali dispositivi?", say: [
-        "AIOS è lo stesso sistema sul telefono, sul tablet e sul computer: stessa interfaccia e sempre io, Nova, che mi adatto allo schermo.",
+        "SoIA è lo stesso sistema sul telefono, sul tablet e sul computer: stessa interfaccia e sempre io, Nova, che mi adatto allo schermo.",
         "I tuoi dispositivi si riconoscono tra loro: potrai copiare sul telefono e incollare sul PC, mandarti file al volo, e lasciare che il telefono chieda aiuto al computer per i compiti più pesanti. Questa parte è in arrivo." ] },
       apps: { chip: "E le mie app?", say: [
-        "AIOS è basato su Linux, quindi le applicazioni Linux funzionano direttamente. Molti programmi Windows girano tramite Bottles, e sul telefono puoi usare anche app Android.",
+        "SoIA è basato su Linux, quindi le applicazioni Linux funzionano direttamente. Molti programmi Windows girano tramite Bottles, e sul telefono puoi usare anche app Android.",
         "Non devi sapere da dove arriva un programma: chiedimelo, e ti propongo la soluzione migliore." ] },
       privacy: { chip: "E la privacy?", say: [
         "I tuoi dati restano tuoi: ragiono in locale e non tengo profili su server esterni.",
@@ -261,7 +261,7 @@ const TEXT = {
     finishChip: "Ho capito, iniziamo",
     outro: n => [`Ultima cosa${n ? ", " + n : ""}: quando ti servo, premi Super + Spazio, o il pulsante di Nova sul telefono. E puoi sempre cominciare con «Ehi Nova».`,
                  "Io sono sempre qui. Buon divertimento! ✨"],
-    start: "Inizia a usare AIOS",
+    start: "Inizia a usare SoIA",
     doneTitle: "Tutto pronto",
     doneText: "Premi Super + Spazio quando vuoi parlarmi.",
     instant: "⚡ capito all'istante, senza AI",
@@ -272,7 +272,7 @@ const TEXT = {
     renamePatterns: /^(?:mi chiamo|il mio nome è|chiamami)\s+\S/i,
   },
   en: {
-    title: "Welcome to AIOS",
+    title: "Welcome to SoIA",
     subtitle: "The system that understands what you say.",
     skip: "Skip",
     voiceOn: "Reading aloud", voiceOff: "Read aloud",
@@ -280,7 +280,7 @@ const TEXT = {
     namePlaceholder: "Your name…",
     hint: "Press <kbd>Enter</kbd> to send",
     hello: ["Hi! 👋 I'm Nova.",
-            "In AIOS you don't hunt through menus and settings: tell me what you need, in your own words, and I'll take care of it."],
+            "In SoIA you don't hunt through menus and settings: tell me what you need, in your own words, and I'll take care of it."],
     welcomeBack: n => [`Welcome back, ${n}! 😊`],
     askName: "Before we start: what's your name?",
     noName: "I'd rather not say",
@@ -296,10 +296,10 @@ const TEXT = {
         "Yes. My AI runs right here, on your device: I don't send your requests to any server.",
         "And I don't need a powerful graphics card: common commands are recognised in milliseconds even on a modest computer. I only use the internet when it's really needed, like for a search, and I always show you." ] },
       devices: { chip: "Which devices?", say: [
-        "AIOS is the same system on your phone, tablet and computer: same interface and always me, Nova, adapting to the screen.",
+        "SoIA is the same system on your phone, tablet and computer: same interface and always me, Nova, adapting to the screen.",
         "Your devices recognise each other: copy on the phone and paste on the PC, send files instantly, and let the phone ask the computer for help with heavy tasks. This part is coming soon." ] },
       apps: { chip: "What about my apps?", say: [
-        "AIOS is built on Linux, so Linux apps run natively. Many Windows programs run through Bottles, and on phones you can use Android apps too.",
+        "SoIA is built on Linux, so Linux apps run natively. Many Windows programs run through Bottles, and on phones you can use Android apps too.",
         "You don't need to know where an app comes from: just ask me and I'll suggest the best option." ] },
       privacy: { chip: "What about privacy?", say: [
         "Your data stays yours: I think locally and keep no profiles on outside servers.",
@@ -312,7 +312,7 @@ const TEXT = {
     finishChip: "Got it, let's start",
     outro: n => [`One last thing${n ? ", " + n : ""}: whenever you need me, press Super + Space, or the Nova button on your phone. You can always start with “Hey Nova”.`,
                  "I'm always here. Have fun! ✨"],
-    start: "Start using AIOS",
+    start: "Start using SoIA",
     doneTitle: "All set",
     doneText: "Press Super + Space whenever you want to talk to me.",
     instant: "⚡ understood instantly, no AI needed",

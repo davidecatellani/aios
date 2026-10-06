@@ -1,4 +1,4 @@
-/* Schermo di blocco di AIOS (gtklock): stessi colori della schermata d'accesso */
+/* Schermo di blocco di SoIA (gtklock): stessi colori della schermata d'accesso */
 window {
   background: radial-gradient(circle at 70% 25%, #0F4A63 0%, #0A2A3A 45%, #05141D 100%);
   color: #EAF4F4;

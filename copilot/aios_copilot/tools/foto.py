@@ -162,7 +162,7 @@ def make_tools(roots: Callable[[], list[Path]] = picture_roots,
                              "riposo e in carica.")
             except Exception:
                 pass
-        faces = "" if galleria.faces_available() else " (i volti arrivano con il prossimo aggiornamento di AIOS)"
+        faces = "" if galleria.faces_available() else " (i volti arrivano con il prossimo aggiornamento di SoIA)"
         return ("Acceso: quando il computer è a riposo e in carica guardo le tue foto una alla volta: cosa c'è, le "
                 f"scritte e le persone{faces}. Resta tutto qui sul computer." + extra +
                 " Quando trovo delle persone ti chiedo chi sono: le vedi in Foto › Persone.")
@@ -209,7 +209,7 @@ def make_tools(roots: Callable[[], list[Path]] = picture_roots,
 
         home = Path.home()
         if not S.available():
-            return "Per togliere lo sfondo serve il modello BiRefNet, che non è installato in questa versione di AIOS."
+            return "Per togliere lo sfondo serve il modello BiRefNet, che non è installato in questa versione di SoIA."
         target = Path(percorso).expanduser() if percorso else latest_picture(home)
         if target is not None and not target.is_absolute():
             target = next((p for p in (home / target, *(r / target for r in picture_roots(home))) if p.exists()), target)

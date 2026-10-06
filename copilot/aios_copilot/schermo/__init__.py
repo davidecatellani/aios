@@ -1,4 +1,4 @@
-"""Schermo AIOS: vedere e comandare gli altri dispositivi dell'utente nella stessa rete.
+"""Schermo SoIA: vedere e comandare gli altri dispositivi dell'utente nella stessa rete.
 
 Un protocollo nostro, al posto del VNC. Il VNC manda rettangoli di pixel (compressi poco e male); qui lo
 schermo viaggia come video H.265/H.264, codificato dalla scheda video quando c'è (NVENC, VA-API). Si
@@ -16,7 +16,7 @@ Pezzi:
 - servizio.py    il servizio di ogni PC: annuncia, accetta i dispositivi dell'utente, trasmette
 - visore.py      la finestra che mostra lo schermo di un altro PC e gli passa mouse e tastiera
 
-Chi può collegarsi: solo un dispositivo con un certificato valido della stessa identità AIOS (la stessa
+Chi può collegarsi: solo un dispositivo con un certificato valido della stessa identità SoIA (la stessa
 frase di recupero) e non revocato. Ogni collegamento ha chiavi nuove (segretezza in avanti) e chi è
 guardato lo vede subito, con una notifica.
 """

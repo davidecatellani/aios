@@ -1,5 +1,5 @@
 #!/bin/sh
-# Collega i modelli inclusi nell'immagine AIOS (/usr, sola lettura) nella cartella di Ollama.
+# Collega i modelli inclusi nell'immagine SoIA (/usr, sola lettura) nella cartella di Ollama.
 # I file grandi (blobs) sono collegamenti, non copie; gli elenchi (manifests) si copiano,
 # così Ollama può aggiornarli. Quello che c'è già non si tocca.
 src=/usr/share/aios/modelli

@@ -1,5 +1,5 @@
 [Unit]
-Description=AIOS: scarica il modello AI di base di Nova se manca (di solito è già incluso)
+Description=SoIA: scarica il modello AI di base di Nova se manca (di solito è già incluso)
 After=ollama.service
 Wants=ollama.service
 

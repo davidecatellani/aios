@@ -1,8 +1,8 @@
 """Il fuso orario: l'orologio deve mostrare l'ora di casa, non quella di Greenwich.
 
-Se il sistema è rimasto in UTC (installazione senza fuso, o /etc/localtime mancante) AIOS lo
+Se il sistema è rimasto in UTC (installazione senza fuso, o /etc/localtime mancante) SoIA lo
 deduce dalla lingua del sistema (it_IT → Europe/Rome) e lo imposta con timedatectl: la regola polkit
-di AIOS lo permette all'amministratore seduto al computer, senza finestre di password.
+di SoIA lo permette all'amministratore seduto al computer, senza finestre di password.
 Si cambia anche a voce: «imposta il fuso orario di Londra», «metti l'ora italiana».
 """
 

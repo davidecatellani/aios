@@ -4,7 +4,7 @@ Dato un audio, il modello dice quante voci diverse ci sono (fino a 8) e quando p
 [(0.0, 8.2, 0), (8.2, 15.4, 1), …] — persona 0, 1… nell'ordine in cui hanno parlato la prima volta.
 Non capisce le parole (quello è Parakeet): unendo le due cose si ottengono trascrizioni con chi parla.
 
-Usi in AIOS:
+Usi in SoIA:
 - ascolto: in una frase con più voci (TV accesa, ospiti) si tiene solo la parte della voce principale;
 - «trascrivi la riunione» / i messaggi vocali: testo diviso per persona.
 

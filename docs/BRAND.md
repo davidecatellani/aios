@@ -1,6 +1,6 @@
 # Marchio
 
-Il sistema si chiama **AIOS**; l'assistente AI si chiama **Nova** («Ehi Nova, …»).
+Il sistema si chiama **SoIA**; l'assistente AI si chiama **Nova** («Ehi Nova, …»).
 
 ## I loghi scelti
 
@@ -12,92 +12,69 @@ Il sistema si chiama **AIOS**; l'assistente AI si chiama **Nova** («Ehi Nova, �
 | <img src="brand/copilota.png" width="96"> | `brand/copilota.png` (+ `copilota.svg` vettoriale) | **Nova**, l'assistente: si legge bene anche a 16 px; nelle pagine «respira», più veloce quando lavora |
 
 Note sui vettoriali: il simbolo SVG è ripulito (tolto un arco doppio); la sfera SVG
-ha l'ambra piena (semitrasparente virava al verde). La scritta «AIOS» del logo
+ha l'ambra piena (semitrasparente virava al verde). La scritta «SoIA» del logo
 completo è ancora testo che dipende dai caratteri installati: per una versione
 definitiva serve la scritta **convertita in tracciati** («outline»), con il carattere
 arrotondato del PNG.
 
 Regole d'uso:
 - colori del marchio: blu profondo `#0B6E99`, turchese `#2EC4B6`, ambra `#E9C46A`
-  (sono anche il tema predefinito di AIOS); su fondo chiaro per i testi si usa il
+  (sono anche il tema predefinito di SoIA); su fondo chiaro per i testi si usa il
   turchese scurito `#0F8077`, per il contrasto;
 - il simbolo e la sfera non si deformano, non si ruotano e non si mettono su fondi
   che ne coprano i colori; attorno lasciare almeno un quarto della loro larghezza;
 - icone di sistema: `copilot/data/icons/hicolor/` (`org.aios.Copilot`, `org.aios.Welcome`).
 
-![Il marchio nelle pagine di AIOS](img/marchio.png)
+![Il marchio nelle pagine di SoIA](img/marchio.png)
 
-# Prompt usati per i loghi
+# Prompt per i loghi di SoIA
 
-Prompt pronti per un generatore di immagini (ChatGPT, Midjourney, ecc.). L'idea
-visiva comune: **AIOS** è un sistema che collega tutti i tuoi dispositivi (un anello,
-un'orbita), e il suo **copilota** è una presenza luminosa e calda (la «sfera» che
-nell'interfaccia indica l'AI). Colori di partenza: blu profondo #0B6E99, turchese
-#2EC4B6, ambra calda #E9C46A.
+Prompt pronti per un generatore di immagini (ChatGPT, Midjourney, ecc.). L'idea visiva: **SoIA** (anagramma di
+AIOS; con la I maiuscola si legge «IA») è un **germoglio di soia**: un seme che cresce con chi lo usa, come il
+sistema che si personalizza e si riprogramma su misura. **Nova**, l'assistente, resta la sfera luminosa calda.
+Colori: blu profondo #0B6E99, turchese #2EC4B6, ambra calda #E9C46A, blu notte #0A2A3A.
 
-Consigli: chiedi sempre **sfondo trasparente o bianco, stile vettoriale piatto**, e
-poi una **versione monocromatica**; controlla che il simbolo si legga a 16×16 pixel
-(icona di sistema) e a 512×512 (app store). Il nome del copilota è da decidere: i
-prompt usano «il copilota».
+Consigli: allega al generatore la sfera di Nova (`brand/copilota.png`) perché lo stile sia coerente; chiedi
+sempre sfondo trasparente o bianco e stile vettoriale piatto; controlla il simbolo a 16×16 e a 512×512 pixel.
+La scritta va controllata lettera per lettera: «SoIA» con S, I, A maiuscole e la o minuscola.
 
-## Logo del sistema operativo (AIOS)
+1. **Logo completo (simbolo + scritta)**
+   > Logo vettoriale piatto per un sistema operativo chiamato "SoIA". Simbolo a sinistra: un germoglio di soia
+   > stilizzato, un piccolo seme tondo da cui nascono due foglioline morbide e arrotondate che si aprono verso
+   > l'alto come due mani; la curva del gambo e delle foglie forma un arco fluido, quasi un'orbita. Il seme è
+   > una piccola sfera luminosa ambra #E9C46A, le foglie in gradiente dal blu profondo #0B6E99 al turchese
+   > #2EC4B6. A destra la scritta esatta "SoIA" (S maiuscola, o minuscola, I e A maiuscole) in un sans-serif
+   > moderno e arrotondato, peso semibold: "So" in blu profondo #0B6E99 e "IA" in turchese #2EC4B6. Linee
+   > pulite, nessun dettaglio fotografico, niente ombre, ben leggibile in piccolo. Sfondo bianco.
 
-1. **Anello dei dispositivi**
-   > Logo minimalista vettoriale per un sistema operativo chiamato "AIOS". Simbolo: un
-   > anello continuo, come un'orbita, che passa attorno a tre piccoli punti di dimensioni
-   > diverse (un telefono, un tablet, un computer stilizzati come cerchi) e li collega in
-   > un unico gesto fluido. Colori: gradiente dal blu profondo #0B6E99 al turchese
-   > #2EC4B6. Stile piatto, geometrico, linee pulite, nessun dettaglio fotografico, ben
-   > leggibile anche a dimensioni piccolissime. Sfondo bianco. Accanto, la scritta "AIOS"
-   > in un carattere sans-serif moderno e arrotondato, peso semibold.
+2. **Solo il simbolo (icone grandi, 64–512 px)**
+   > Lo stesso simbolo del germoglio di soia, da solo e centrato, senza scritte: seme tondo ambra #E9C46A con
+   > un leggero bagliore e due foglioline arrotondate in gradiente #0B6E99 → #2EC4B6. Proporzioni quadrate,
+   > margine generoso attorno, stile vettoriale piatto, sfondo trasparente.
 
-2. **La «A» aperta**
-   > Logo vettoriale per il sistema operativo "AIOS": una lettera A maiuscola stilizzata,
-   > formata da due tratti morbidi che non si chiudono in alto; al posto della barra
-   > orizzontale c'è un piccolo cerchio luminoso color ambra #E9C46A che rappresenta
-   > l'intelligenza artificiale. Tratti in blu profondo #0B6E99. Design piatto, minimal,
-   > simmetrico, adatto come icona di sistema e come favicon. Sfondo trasparente.
+3. **Simbolo piccolo (16–48 px)**
+   > Versione semplificatissima del germoglio per favicon e icone di sistema da 16 a 48 pixel: solo un cerchio
+   > pieno ambra #E9C46A e due foglie piene turchesi #2EC4B6, forme grandi e spesse, nessuna sfumatura, nessun
+   > dettaglio sottile. Sfondo trasparente.
 
-3. **Icona d'app (quadrato arrotondato)**
-   > Icona di app in stile moderno (quadrato con angoli molto arrotondati) per il sistema
-   > operativo "AIOS": su fondo blu notte #0A2A3A, un anello sottile turchese #2EC4B6
-   > inclinato come un'orbita attorno a una piccola sfera luminosa ambra #E9C46A con un
-   > leggero bagliore. Nessuna scritta. Illuminazione morbida, profondità leggera,
-   > pulita e premium, in stile icone di sistema operativo 2026.
+4. **Icona d'app (quadrato arrotondato)**
+   > Icona d'app moderna, quadrato con angoli molto arrotondati, fondo blu notte #0A2A3A: al centro il
+   > germoglio di soia con il seme ambra #E9C46A che emette una luce morbida e le due foglioline turchesi
+   > #2EC4B6. Nessuna scritta. Profondità leggera, pulita e premium, nello stile delle icone di sistema del 2026.
 
-## Logo del copilota (l'agente AI)
+5. **Per la schermata di avvio (fondo scuro)**
+   > Il logo completo di "SoIA" (germoglio + scritta "SoIA") in versione per fondo scuro: foglie e scritta
+   > bianche, solo il seme resta ambra #E9C46A con un bagliore sottile. Sfondo trasparente, stile piatto,
+   > proporzioni orizzontali 3:1.
 
-1. **La sfera viva**
-   > Logo per un assistente di intelligenza artificiale gentile e affidabile: una sfera
-   > morbida e luminosa, fatta di due o tre strati sovrapposti e traslucidi che sembrano
-   > respirare, con colori dal turchese #2EC4B6 all'ambra calda #E9C46A. Nessun volto,
-   > nessun robot, niente circuiti: deve sembrare calmo, umano e accogliente. Stile
-   > vettoriale piatto con sfumature leggere, sfondo bianco, leggibile anche in piccolo.
+6. **Monocromatico**
+   > Lo stesso logo di "SoIA" (germoglio + scritta) in un solo colore, nero pieno su sfondo bianco, senza
+   > sfumature, adatto a stampa e timbri; poi la stessa versione in bianco su sfondo nero.
 
-2. **Il seme / la scintilla**
-   > Simbolo minimalista per un copilota AI che vive dentro il computer e impara con
-   > l'utente: un piccolo seme stilizzato da cui nasce una scintilla a quattro punte,
-   > linee arrotondate, colore ambra #E9C46A con un contorno blu profondo #0B6E99. Piatto,
-   > geometrico, amichevole, adatto come icona da 16 a 512 pixel. Sfondo trasparente.
-
-3. **Bolla di dialogo + orbita** (lega il copilota al sistema)
-   > Logo per l'assistente AI del sistema operativo AIOS: una bolla di dialogo
-   > arrotondata, senza spigoli, il cui contorno diventa un'orbita che gira attorno a un
-   > punto luminoso. Gradiente dal blu #0B6E99 al turchese #2EC4B6, punto centrale ambra
-   > #E9C46A. Stile piatto e moderno, coerente con un logo ad anello del sistema
-   > operativo. Sfondo bianco, nessuna scritta.
-
-## Per il nome del copilota (facoltativo)
-
-> Proponimi 15 nomi brevi (2–3 sillabe), facili da pronunciare in italiano e in inglese,
-> per un assistente AI che vive nel sistema operativo, aiuta senza invadere e rispetta
-> la privacy. Evita nomi già usati da assistenti famosi e parole che suonino come
-> comandi comuni. Per ogni nome spiega in una riga l'idea.
-
-## Insieme coordinato
-
-> Crea una tavola di identità visiva per il sistema operativo "AIOS" e il suo assistente
-> AI: logo del sistema (anello che collega i dispositivi), logo dell'assistente (sfera
-> luminosa calda), palette (#0B6E99, #2EC4B6, #E9C46A, #0A2A3A, bianco), un carattere
-> sans-serif arrotondato, esempi d'uso: icona d'app, schermata di avvio scura con il
-> logo al centro, favicon. Stile piatto, pulito, premium, presentazione su fondo chiaro.
+7. **Tavola coordinata con Nova** (allega `brand/copilota.png`)
+   > Crea una tavola di identità visiva per il sistema operativo "SoIA" e la sua assistente AI "Nova". Logo di
+   > SoIA: il germoglio di soia con il seme ambra e le foglie blu-turchese, con la scritta "SoIA" ("So" blu,
+   > "IA" turchese). Logo di Nova: la sfera luminosa dell'immagine allegata, da non modificare. Palette
+   > #0B6E99, #2EC4B6, #E9C46A, #0A2A3A, bianco; carattere sans-serif arrotondato; esempi d'uso: icona d'app,
+   > schermata di avvio scura con il logo al centro, favicon, barra in alto con la scritta piccola. Stile
+   > piatto, pulito, premium, su fondo chiaro.

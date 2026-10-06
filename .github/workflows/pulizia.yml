@@ -1,7 +1,7 @@
 name: Pulizia Release
 
 # Toglie le Release «anteprima» vecchie (ISO e pacchetti da diversi GB) e le loro etichette:
-# restano le due più recenti. La stessa pulizia la fa «Immagine AIOS» dopo ogni nuova Release.
+# restano le due più recenti. La stessa pulizia la fa «Immagine SoIA» dopo ogni nuova Release.
 on:
   workflow_dispatch:
   push:

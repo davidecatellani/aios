@@ -1,4 +1,4 @@
-"""L'agente programmatore: Nova che modifica il codice di AIOS su richiesta dell'utente («voglio l'orologio rotondo»).
+"""L'agente programmatore: Nova che modifica il codice di SoIA su richiesta dell'utente («voglio l'orologio rotondo»).
 
 Lavora sulla copia personale del codice (codice.py) come farebbe un programmatore: cerca dove si fa la cosa,
 legge i file, li modifica con cambi precisi, controlla che il codice regga e salva la modifica nella storia con
@@ -26,10 +26,10 @@ PAGE_FILES = (".html", ".js", ".css")
 RISKY = re.compile(r"\b(?:urllib|requests\.|http\.client|socket\.|subprocess|os\.system|os\.remove|os\.unlink|shutil\.rmtree|"
                    r"\.unlink\(|rmtree|eval\(|exec\(|fetch\(\s*[\"']https?:|XMLHttpRequest|WebSocket\()")
 
-MAP = """Mappa del codice di AIOS (Python + pagine HTML/JS/CSS nella shell, mostrate da WebKitGTK):
+MAP = """Mappa del codice di SoIA (Python + pagine HTML/JS/CSS nella shell, mostrate da WebKitGTK):
 - aios_copilot/shell/home.html: la schermata principale (barra in alto con finestre aperte, orologio, campanella; la giornata a
   sinistra; Nova al centro; i widget a destra: render in JS di meteo, mappa, orologio, nota; il dock in basso). CSS in testa al file.
-- aios_copilot/shell/static/apps.js e apps.css: le app di AIOS dentro la shell (File, Foto, Musica, Video, Note, Calendario,
+- aios_copilot/shell/static/apps.js e apps.css: le app di SoIA dentro la shell (File, Foto, Musica, Video, Note, Calendario,
   Rubrica, Gestione attività, Impostazioni con tutte le sezioni). icone.js: le icone (tracciati SVG) e i colori delle piastrelle.
 - aios_copilot/shell/static/pannello.html: il pannello sopra i programmi (appunti, emoji, notifiche).
 - aios_copilot/shell/__init__.py e shell/apps.py: il server della shell (rotte /api/...) e la finestra GTK.
@@ -37,7 +37,7 @@ MAP = """Mappa del codice di AIOS (Python + pagine HTML/JS/CSS nella shell, most
 - Colori e stile: variabili CSS in :root di home.html (--turchese, --blu, --carta, --testo, --tenue…), tema chiaro e scuro
   (prefers-color-scheme). I testi per l'utente sono in italiano."""
 
-SYSTEM = """Sei il programmatore di AIOS: modifichi il codice del sistema operativo dell'utente per fare quello che chiede.
+SYSTEM = """Sei il programmatore di SoIA: modifichi il codice del sistema operativo dell'utente per fare quello che chiede.
 {map}
 
 Come lavori:
@@ -76,7 +76,7 @@ TOOLS = [
                                       "parameters": _param(percorso="File nuovo", contenuto="Contenuto")}},
     {"type": "function", "function": {"name": "controlla", "description": "Controlla che il codice modificato regga (sintassi, parentesi, moduli).",
                                       "parameters": {"type": "object", "properties": {}}}},
-    {"type": "function", "function": {"name": "guarda", "description": "Disegna una pagina di AIOS col codice modificato e la "
+    {"type": "function", "function": {"name": "guarda", "description": "Disegna una pagina di SoIA col codice modificato e la "
                                       "controlla: errori di JavaScript, testi tagliati o sovrapposti, e cosa si vede nella foto.",
                                       "parameters": _param(pagina="casa, impostazioni/<sezione>, attivita, calendario, pannello/emoji…",
                                                            domanda="Cosa controllare in particolare")}},

@@ -1,4 +1,4 @@
-"""Le app HTML di AIOS: file solo nella cartella personale, documenti in un riquadro, impostazioni."""
+"""Le app HTML di SoIA: file solo nella cartella personale, documenti in un riquadro, impostazioni."""
 
 import zipfile
 

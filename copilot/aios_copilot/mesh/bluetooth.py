@@ -1,15 +1,15 @@
 """Dispositivi Bluetooth condivisi tra i dispositivi dell'utente.
 
 Le chiavi di abbinamento Bluetooth sono legate a ogni coppia di apparecchi: non si
-possono copiare dal telefono al PC. AIOS ottiene lo stesso effetto così:
+possono copiare dal telefono al PC. SoIA ottiene lo stesso effetto così:
 
-1. ogni dispositivo AIOS annota i dispositivi Bluetooth abbinati (nome, indirizzo, tipo)
+1. ogni dispositivo SoIA annota i dispositivi Bluetooth abbinati (nome, indirizzo, tipo)
    e l'elenco viaggia con la sincronizzazione cifrata (sync.py);
 2. quando uno di quei dispositivi è vicino e raggiungibile, gli altri si abbinano da soli:
    cuffie e altoparlanti in automatico; tastiere, mouse e simili solo con conferma
    (chi si finge la tua tastiera potrebbe digitare al posto tuo).
 
-Serve AIOS su entrambi i lati (Android da solo non condivide l'elenco). Molti dispositivi
+Serve SoIA su entrambi i lati (Android da solo non condivide l'elenco). Molti dispositivi
 vanno messi in modalità abbinamento, o supportano più collegamenti (multipoint).
 """
 

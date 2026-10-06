@@ -1,5 +1,5 @@
 #!/bin/sh
-# Avviato da greetd come utente «greeter»: la schermata d'accesso di AIOS a tutto schermo (cage).
+# Avviato da greetd come utente «greeter»: la schermata d'accesso di SoIA a tutto schermo (cage).
 # Se non parte, l'accesso testuale di greetd: non si resta mai chiusi fuori.
 export HOME=/tmp/aios-accesso XDG_CACHE_HOME=/tmp/aios-accesso/cache XDG_DATA_HOME=/tmp/aios-accesso/dati
 export XDG_CONFIG_HOME=/tmp/aios-accesso/config GTK_THEME=Adwaita:dark

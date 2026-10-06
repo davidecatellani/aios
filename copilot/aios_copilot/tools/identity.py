@@ -23,7 +23,7 @@ def make_tools(command: Callable[[dict[str, Any]], dict[str, Any] | None] = send
     def identity_status() -> str:
         me = ident.Identity.load()
         if me is None:
-            return ("Non hai ancora un'identità AIOS. Con «crea la mia identità» i tuoi dispositivi si riconoscono "
+            return ("Non hai ancora un'identità SoIA. Con «crea la mia identità» i tuoi dispositivi si riconoscono "
                     "tra loro e si sincronizzano (agenda, nome, temi) in modo cifrato.")
         this = me.certificate.id
         lines = [f"Identità di {me.name or 'utente'}. Dispositivi:"]
@@ -41,9 +41,9 @@ def make_tools(command: Callable[[dict[str, Any]], dict[str, Any] | None] = send
 
     def create_identity(name: str = "") -> str:
         if ident.Identity.load() is not None:
-            return "Hai già un'identità AIOS su questo dispositivo: «la mia identità» per vederla."
+            return "Hai già un'identità SoIA su questo dispositivo: «la mia identità» per vederla."
         me, words = ident.create(name or user_name())
-        return ("Fatto: ho creato la tua identità AIOS. Questa è la tua frase di recupero: scrivila su carta e "
+        return ("Fatto: ho creato la tua identità SoIA. Questa è la tua frase di recupero: scrivila su carta e "
                 "conservala in un posto sicuro. Serve per ritrovare la tua identità se perdi tutti i dispositivi; "
                 "chi la conosce può prendere il tuo posto, quindi non fotografarla e non darla a nessuno.\n\n"
                 f"{format_phrase(words)}\n\n"
@@ -69,7 +69,7 @@ def make_tools(command: Callable[[dict[str, Any]], dict[str, Any] | None] = send
     def revoke_device(name: str) -> str:
         me = ident.Identity.load()
         if me is None:
-            return "Non c'è un'identità AIOS su questo dispositivo."
+            return "Non c'è un'identità SoIA su questo dispositivo."
         try:
             gone = me.revoke(name)
         except ident.IdentityError as exc:
@@ -83,7 +83,7 @@ def make_tools(command: Callable[[dict[str, Any]], dict[str, Any] | None] = send
     def set_relay(url: str, fingerprint: str = "") -> str:
         me = ident.Identity.load()
         if me is None:
-            return "Prima serve un'identità AIOS («crea la mia identità»)."
+            return "Prima serve un'identità SoIA («crea la mia identità»)."
         url = url.strip().rstrip("/")
         if url in ("", "no", "nessuno", "spento"):
             me.data.pop("relay", None)
@@ -98,19 +98,19 @@ def make_tools(command: Callable[[dict[str, Any]], dict[str, Any] | None] = send
 
     def sync_now() -> str:
         if ident.Identity.load() is None:
-            return "Prima serve un'identità AIOS («crea la mia identità»)."
+            return "Prima serve un'identità SoIA («crea la mia identità»)."
         reply = command({"azione": "sincronizza"})
         if reply is None:
             return "Il servizio aios-telefono non è attivo: systemctl --user enable --now aios-telefono"
         return "Sincronizzazione:\n" + ("\n".join(reply.get("righe", [])) or "nessun altro dispositivo da raggiungere")
 
     return [
-        Tool("identity_status", "Mostra l'identità AIOS dell'utente e i suoi dispositivi.", params(), identity_status),
-        Tool("create_identity", "Crea l'identità AIOS dell'utente (chiave principale e frase di recupero).",
+        Tool("identity_status", "Mostra l'identità SoIA dell'utente e i suoi dispositivi.", params(), identity_status),
+        Tool("create_identity", "Crea l'identità SoIA dell'utente (chiave principale e frase di recupero).",
              params([], name="Nome dell'utente"), create_identity, requires_confirmation=True),
         Tool("show_recovery_phrase", "Mostra la frase di recupero dell'identità.", params(), show_recovery_phrase,
              requires_confirmation=True, reads_private=True),
-        Tool("restore_identity", "Ritrova l'identità AIOS su questo dispositivo con la frase di recupero (17 parole).",
+        Tool("restore_identity", "Ritrova l'identità SoIA su questo dispositivo con la frase di recupero (17 parole).",
              params(phrase="Frase di recupero"), restore_identity, requires_confirmation=True),
         Tool("revoke_device", "Revoca un dispositivo (perso, rubato, venduto): non sarà più riconosciuto.",
              params(name="Nome del dispositivo"), revoke_device, requires_confirmation=True),
@@ -122,8 +122,8 @@ def make_tools(command: Callable[[dict[str, Any]], dict[str, Any] | None] = send
     ]
 
 
-RE_CREATE = re.compile(r"^(?:crea|creami|attiva)\s+(?:la\s+mia\s+|una\s+)?(?:identità|account)(?:\s+aios)?$|^crea\s+il\s+mio\s+account(?:\s+aios)?$")
-RE_STATUS = re.compile(r"^(?:la\s+mia\s+identità|il\s+mio\s+account|(?:i\s+)?dispositivi\s+del\s+mio\s+account)(?:\s+aios)?\??$")
+RE_CREATE = re.compile(r"^(?:crea|creami|attiva)\s+(?:la\s+mia\s+|una\s+)?(?:identità|account)(?:\s+(?:aios|soia))?$|^crea\s+il\s+mio\s+account(?:\s+(?:aios|soia))?$")
+RE_STATUS = re.compile(r"^(?:la\s+mia\s+identità|il\s+mio\s+account|(?:i\s+)?dispositivi\s+del\s+mio\s+account)(?:\s+(?:aios|soia))?\??$")
 RE_PHRASE = re.compile(r"^(?:mostra(?:mi)?|dammi|qual\s+è|rivedi)\s+(?:la\s+(?:mia\s+)?)?frase\s+di\s+recupero\??$")
 RE_RESTORE = re.compile(r"^(?:ripristina|recupera|ritrova)\s+(?:la\s+mia\s+identità|il\s+mio\s+account)\s*:?\s*(?P<p>.*)$")
 RE_REVOKE = re.compile(r"^(?:revoca|scollega\s+dal\s+mio\s+account|rimuovi\s+dal\s+mio\s+account)\s+(?:il\s+|la\s+|lo\s+)?"

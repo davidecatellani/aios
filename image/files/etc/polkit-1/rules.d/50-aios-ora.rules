@@ -1,4 +1,4 @@
-// AIOS: fuso orario e ora automatica li imposta Nova (all'avvio, se il sistema è rimasto in UTC, o a voce)
+// SoIA: fuso orario e ora automatica li imposta Nova (all'avvio, se il sistema è rimasto in UTC, o a voce)
 // per l'amministratore seduto al computer, senza finestre di password.
 polkit.addRule(function (action, subject) {
     if ((action.id === "org.freedesktop.timedate1.set-timezone" || action.id === "org.freedesktop.timedate1.set-ntp") &&

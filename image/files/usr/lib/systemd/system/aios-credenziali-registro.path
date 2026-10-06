@@ -1,5 +1,5 @@
 [Unit]
-Description=AIOS: accesso al registro delle immagini lasciato dall'utente
+Description=SoIA: accesso al registro delle immagini lasciato dall'utente
 
 [Path]
 PathExists=/var/lib/aios-registro/auth.json

@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>AIOS</title>
+<title>SoIA</title>
 <style>
 :root {
   --blu: #0B6E99; --turchese: #2EC4B6; --turchese-scuro: #0F8077; --ambra: #E9C46A; --notte: #0A2A3A;
@@ -274,7 +274,7 @@ body.pannello .tasto { display: none; }
 </head>
 <body>
 <div id="barra">
-  <span id="logo" title="Torna alla schermata">AI<b>OS</b></span>
+  <span id="logo" title="Torna alla schermata">So<b>IA</b></span>
   <div id="app-aperte"></div>
   <span id="ora"></span>
   <div id="destra">
@@ -355,7 +355,7 @@ const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls)
 // --- orologio e barra -------------------------------------------------------------------------------
 const GIORNI = ["domenica", "lunedì", "martedì", "mercoledì", "giovedì", "venerdì", "sabato"];
 const MESI = ["gennaio","febbraio","marzo","aprile","maggio","giugno","luglio","agosto","settembre","ottobre","novembre","dicembre"];
-// il fuso lo dice AIOS (/api/aspetto): se il sistema è rimasto in UTC l'orologio mostra comunque l'ora di casa
+// il fuso lo dice SoIA (/api/aspetto): se il sistema è rimasto in UTC l'orologio mostra comunque l'ora di casa
 let fuso = "";
 function orologio() {
   let p = {};
@@ -540,13 +540,13 @@ async function casa() {
   tutte.append(t); tutte.onclick = mostraTutte; dock.append(tutte);
 }
 
-// --- Schermo AIOS: gli altri tuoi PC accesi, con l'anteprima dal vivo (schermo/azioni.py) ---------------------
+// --- Schermo SoIA: gli altri tuoi PC accesi, con l'anteprima dal vivo (schermo/azioni.py) ---------------------
 let anteprime = null;
 async function disegnaSchermi(dc, telefoni) {
   const r = await api("/api/schermi").catch(() => ({ dispositivi: [] }));
   clearInterval(anteprime);
   if (!r.dispositivi.length) {
-    if (!telefoni) dc.append(el("p", "nota", "Nessun altro dispositivo acceso. Di' «Nova, collega il telefono», o accendi un altro PC con la tua identità AIOS."));
+    if (!telefoni) dc.append(el("p", "nota", "Nessun altro dispositivo acceso. Di' «Nova, collega il telefono», o accendi un altro PC con la tua identità SoIA."));
     return;
   }
   const imgs = [];

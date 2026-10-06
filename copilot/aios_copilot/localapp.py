@@ -316,7 +316,7 @@ def make_handler(app: LocalApp, port_ref: list[int]) -> type[BaseHTTPRequestHand
                 return self._json({"error": "host non valido"}, 403)
             if method == "GET" and url.path in ("/", "/index.html"):
                 return self._send(200, app.page.read_bytes(), "text/html; charset=utf-8")
-            if method == "GET" and url.path.startswith("/brand/"):  # loghi di AIOS: pubblici
+            if method == "GET" and url.path.startswith("/brand/"):  # loghi di SoIA: pubblici
                 return self._brand(url.path[7:])
             if method == "GET" and url.path == "/theme.css":  # colori del tema attivo: niente di privato
                 from .themeapply import current_css

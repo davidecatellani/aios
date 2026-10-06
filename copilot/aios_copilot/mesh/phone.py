@@ -1,6 +1,6 @@
 """Il telefono tramite KDE Connect (app per Android e iPhone, protocollo cifrato in rete locale).
 
-Il demone kdeconnectd fa già scoperta e cifratura; AIOS lo comanda con kdeconnect-cli.
+Il demone kdeconnectd fa già scoperta e cifratura; SoIA lo comanda con kdeconnect-cli.
 L'abbinamento si conferma una volta sola sul telefono; dopo, il collegamento è automatico
 ogni volta che i due dispositivi sono sulla stessa rete.
 """

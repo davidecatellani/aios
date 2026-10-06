@@ -1,4 +1,4 @@
-# SDK delle abilità: la tua app nel copilota di AIOS
+# SDK delle abilità: la tua app nel copilota di SoIA
 
 Con un file JSON la tua app offre le sue funzioni al copilota. L'utente le usa
 parlando («metti un timer di 10 minuti», «cerca una ricetta con la zucca»): le frasi
@@ -41,7 +41,7 @@ Mettilo in `/usr/share/aios/abilita/` (pacchetto di sistema), `/etc/aios/abilita
 | `privato` | `true` se il risultato contiene dati personali |
 | `invia_fuori` | `true` se manda dati fuori dal dispositivo |
 
-## Regole di sicurezza (applicate da AIOS)
+## Regole di sicurezza (applicate da SoIA)
 
 - **Nessuna shell**: ogni valore è un argomento a sé; il programma da eseguire è fisso;
   un valore che comincia con `-` viene rifiutato (niente opzioni nascoste).

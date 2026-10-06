@@ -1,6 +1,6 @@
-"""La tastiera di AIOS: la lingua scelta all'installazione, cambiabile da Impostazioni o a voce.
+"""La tastiera di SoIA: la lingua scelta all'installazione, cambiabile da Impostazioni o a voce.
 
-La scelta dell'utente sta in ~/.config/aios/tastiera. Con Hyprland (il compositore di AIOS) si applica
+La scelta dell'utente sta in ~/.config/aios/tastiera. Con Hyprland (il compositore di SoIA) si applica
 subito con «hyprctl keyword input:kb_layout»; aios-sessione la rilegge all'avvio. Con labwc (riserva)
 si riscrive il suo ambiente ($XDG_RUNTIME_DIR/aios-labwc/environment) e «labwc --reconfigure».
 """
@@ -56,7 +56,7 @@ def set_layout(layout: str, run: Callable[[list[str]], int] | None = None) -> st
             pass
         return f"Tastiera {LAYOUTS[layout].lower()} attiva."
     env = session_env_file()
-    if env.exists():  # sessione AIOS: si applica subito
+    if env.exists():  # sessione SoIA: si applica subito
         lines = [ln for ln in env.read_text().splitlines() if not ln.startswith("XKB_DEFAULT_LAYOUT=")]
         env.write_text("\n".join(lines + [f"XKB_DEFAULT_LAYOUT={layout}"]) + "\n")
         try:

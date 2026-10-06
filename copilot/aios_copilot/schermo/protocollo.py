@@ -1,4 +1,4 @@
-"""Il protocollo Schermo AIOS, versione 1.
+"""Il protocollo Schermo SoIA, versione 1.
 
 Stretta di mano (tre messaggi, sul modello di Noise XX / SIGMA):
 
@@ -259,7 +259,7 @@ def accept(sock: socket.socket, identity: Any) -> Channel:
     """Lato di chi viene guardato (il servizio)."""
     msg1 = _recv_exact(sock, len(MAGIC) + 48)
     if not msg1.startswith(MAGIC):
-        raise HandshakeError("non è un visore AIOS")
+        raise HandshakeError("non è un visore SoIA")
     e = os.urandom(32)
     head = x25519_public(e) + os.urandom(16)
     shared = _dh(e, msg1[len(MAGIC):len(MAGIC) + 32])

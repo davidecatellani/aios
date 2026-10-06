@@ -1,4 +1,4 @@
-"""La struttura di compilazione di AIOS per telefono (phone/) e il catalogo firmato delle immagini."""
+"""La struttura di compilazione di SoIA per telefono (phone/) e il catalogo firmato delle immagini."""
 
 import base64
 import json

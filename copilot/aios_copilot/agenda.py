@@ -471,7 +471,7 @@ def run_service(agenda: Agenda, notify_fn: Callable[[str, str], None] = notify,
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(prog="aios-agenda", description="Agenda e promemoria di AIOS")
+    parser = argparse.ArgumentParser(prog="aios-agenda", description="Agenda e promemoria di SoIA")
     parser.add_argument("comando", nargs="?", default="servizio",
                         choices=["servizio", "oggi", "domani", "settimana", "riepilogo", "esporta", "importa"])
     parser.add_argument("file", nargs="?")

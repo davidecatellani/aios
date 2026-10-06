@@ -2,7 +2,7 @@
 
 Si apre il browser sulla pagina di accesso del provider; la risposta torna a un
 piccolo server su 127.0.0.1 che vive solo per il tempo dell'accesso. La password
-non passa mai da AIOS: si conservano solo i token, nel portachiavi.
+non passa mai da SoIA: si conservano solo i token, nel portachiavi.
 """
 
 from __future__ import annotations
@@ -23,7 +23,7 @@ from typing import Any, Callable
 
 from .providers import OAuthConfig
 
-PAGE_OK = "<html><body style='font-family:sans-serif;text-align:center;padding:60px'><h2>Fatto ✓</h2><p>Puoi chiudere questa pagina e tornare ad AIOS.</p></body></html>"
+PAGE_OK = "<html><body style='font-family:sans-serif;text-align:center;padding:60px'><h2>Fatto ✓</h2><p>Puoi chiudere questa pagina e tornare ad SoIA.</p></body></html>"
 
 
 class OAuthError(RuntimeError):
@@ -31,7 +31,7 @@ class OAuthError(RuntimeError):
 
 
 def client_credentials(cfg: OAuthConfig) -> tuple[str, str | None]:
-    """Client id (e secret, per Google) registrati da AIOS presso il provider."""
+    """Client id (e secret, per Google) registrati da SoIA presso il provider."""
     cid = os.environ.get(f"{cfg.env_prefix}_CLIENT_ID")
     secret = os.environ.get(f"{cfg.env_prefix}_CLIENT_SECRET")
     if not cid:
@@ -42,7 +42,7 @@ def client_credentials(cfg: OAuthConfig) -> tuple[str, str | None]:
         except (OSError, ValueError, AttributeError):
             pass
     if not cid:
-        raise OAuthError("Manca il client id OAuth di AIOS per questo provider (vedi docs: oauth.json).")
+        raise OAuthError("Manca il client id OAuth di SoIA per questo provider (vedi docs: oauth.json).")
     return cid, secret
 
 

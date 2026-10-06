@@ -10,7 +10,7 @@
 - **App** (Flatpak) aggiornate a riposo; **firmware** (fwupd) solo segnalato, perché
   di solito richiede un riavvio guidato; **modelli AI** con il loro catalogo firmato.
 - Gli aggiornamenti di **sicurezza** sono evidenziati e anticipati.
-- Immagine AIOS **privata**: le nuove versioni arrivano dal registro di GitHub, solo gli strati
+- Immagine SoIA **privata**: le nuove versioni arrivano dal registro di GitHub, solo gli strati
   cambiati (registro.py), oppure come pacchetto completo dalla Release o da una chiavetta
   (imageupdate.py), sempre con il permesso di sola lettura dell'utente.
 
@@ -135,7 +135,7 @@ class SystemBackend:
         if code != 0 or "No updates available" in out:
             return None  # 77: niente di nuovo
         version = re.search(r"Version:\s*(\S+)", out)
-        return Update("sistema", f"AIOS {version.group(1) if version else 'nuovo'} (dal registro, solo le differenze)",
+        return Update("sistema", f"SoIA {version.group(1) if version else 'nuovo'} (dal registro, solo le differenze)",
                       bool(SECURITY_WORDS.search(out)), version.group(1) if version else "")
 
     def prepare_cmd(self) -> list[str]:
@@ -191,12 +191,12 @@ class Updates:
         self.package: Any = None  # nuova versione trovata su GitHub o sulla chiavetta
 
     def find_package(self, sources: tuple[str, ...] = ("chiavetta", "github")) -> Any:
-        """La versione più recente di AIOS disponibile (prima la chiavetta: è gratis e veloce)."""
+        """La versione più recente di SoIA disponibile (prima la chiavetta: è gratis e veloce)."""
         from .imageupdate import newer
 
         current = self.version()
         if not current:
-            return None  # non è un'immagine AIOS
+            return None  # non è un'immagine SoIA
         best = None
         for source in sources:
             try:
@@ -219,13 +219,13 @@ class Updates:
         if ref and self.system.from_registry(ref):
             system = self.system.check_registry()  # incrementale: solo gli strati cambiati
         elif ref and "github" in sources:
-            system = Update("sistema", "AIOS dal registro di GitHub: questa volta si scarica tutto, poi solo le "
+            system = Update("sistema", "SoIA dal registro di GitHub: questa volta si scarica tutto, poi solo le "
                                        "differenze", False, REGISTRY_SWITCH)
         elif self.system.available():
             self.package = self.find_package(sources)
             if self.package is not None:
                 p = self.package
-                system = Update("sistema", f"AIOS {p.version} ({'dalla chiavetta' if p.origin == 'chiavetta' else 'da GitHub'}, "
+                system = Update("sistema", f"SoIA {p.version} ({'dalla chiavetta' if p.origin == 'chiavetta' else 'da GitHub'}, "
                                            f"{p.size / 1e9:.1f} GB)", False, p.version)
             elif not self.version():
                 system = self.system.check()
@@ -271,20 +271,20 @@ class Updates:
         try:
             archive = assemble(pkg)
         except (OSError, ValueError) as exc:
-            return f"Sistema: AIOS {pkg.version} non preparato: {exc}"
+            return f"Sistema: SoIA {pkg.version} non preparato: {exc}"
         code, out = self.runner.run(stage_command(self.system.tool, archive))
         if code != 0:
             # il file scaricato resta: al prossimo tentativo non si riscaricano gigabyte
             if "not allowed" in out or "Not authorized" in out:
-                return (f"Sistema: AIOS {pkg.version} è scaricato ma il sistema non mi dà il permesso di installarlo. "
-                        "Serve una regola di AIOS che manca in questa versione: chiedi all'assistenza il comando, "
+                return (f"Sistema: SoIA {pkg.version} è scaricato ma il sistema non mi dà il permesso di installarlo. "
+                        "Serve una regola di SoIA che manca in questa versione: chiedi all'assistenza il comando, "
                         "poi dimmi di nuovo «aggiorna il sistema» (non riscarico niente).")
-            return f"Sistema: AIOS {pkg.version} non preparato: {out[-200:]}"
+            return f"Sistema: SoIA {pkg.version} non preparato: {out[-200:]}"
         archive.unlink(missing_ok=True)  # ormai è nel sistema
         state = load_state()
         state["pronto"] = {"versione": pkg.version, "sicurezza": u.security, "quando": self.clock()}
         save_state(state)
-        return f"Sistema: AIOS {pkg.version} pronto per il prossimo riavvio (dati, impostazioni e app restano)."
+        return f"Sistema: SoIA {pkg.version} pronto per il prossimo riavvio (dati, impostazioni e app restano)."
 
     # --- in sottofondo, con l'avanzamento visibile ----------------------------------------------------
     _worker: threading.Thread | None = None
@@ -311,7 +311,7 @@ class Updates:
             state.pop("in_corso", None)
             state["ultimo_esito"] = report
             save_state(state)
-            notify("Aggiornamento di AIOS", "\n".join(report)[:300])
+            notify("Aggiornamento di SoIA", "\n".join(report)[:300])
 
         Updates._worker = threading.Thread(target=work, daemon=True)
         Updates._worker.start()
@@ -378,7 +378,7 @@ class Updates:
         state = load_state()
         state["pronto"] = {"versione": "registro", "sicurezza": False, "quando": self.clock()}
         save_state(state)
-        return ("Sistema: AIOS pronto per il prossimo riavvio. Da adesso gli aggiornamenti scaricano solo le "
+        return ("Sistema: SoIA pronto per il prossimo riavvio. Da adesso gli aggiornamenti scaricano solo le "
                 "differenze.")
 
     def switch_variant(self, variant: str, lspci: Callable[[], str] | None = None) -> str:
@@ -389,10 +389,10 @@ class Updates:
 
         variant = "nvidia" if "nvidia" in variant.lower() else "standard"
         if installed_variant() == "universale":
-            return ("Questa versione di AIOS è per tutti i PC: il driver NVIDIA c'è già e si attiva da solo se c'è una scheda "
+            return ("Questa versione di SoIA è per tutti i PC: il driver NVIDIA c'è già e si attiva da solo se c'è una scheda "
                     "NVIDIA (con il Secure Boot disattivato nel BIOS). Non serve cambiare.")
         if not self.system.available():
-            return "Questo sistema non è un'immagine AIOS: la variante non si può cambiare da qui."
+            return "Questo sistema non è un'immagine SoIA: la variante non si può cambiare da qui."
         if installed_variant() == variant:
             return f"Il sistema è già la versione {'NVIDIA' if variant == 'nvidia' else 'standard'}."
         if variant == "nvidia":
@@ -411,9 +411,9 @@ class Updates:
         state["registro"] = ref
         state["pronto"] = {"versione": f"variante {variant}", "sicurezza": False, "quando": self.clock()}
         save_state(state)
-        note = (" Prima di riavviare disattiva il Secure Boot nel BIOS: il driver NVIDIA di AIOS non è firmato."
+        note = (" Prima di riavviare disattiva il Secure Boot nel BIOS: il driver NVIDIA di SoIA non è firmato."
                 if variant == "nvidia" else "")
-        return f"Pronto: al prossimo riavvio AIOS passa alla versione {'NVIDIA' if variant == 'nvidia' else 'standard'}.{note}"
+        return f"Pronto: al prossimo riavvio SoIA passa alla versione {'NVIDIA' if variant == 'nvidia' else 'standard'}.{note}"
 
     def rollback(self) -> str:
         if not self.system.available():
@@ -440,12 +440,12 @@ class Updates:
             if st["precedente"]:
                 lines.append(f"Versione precedente disponibile: {st['precedente']} («torna alla versione precedente del sistema»).")
         else:
-            lines.append("Il sistema non è un'immagine AIOS immutabile: aggiorno app e firmware.")
+            lines.append("Il sistema non è un'immagine SoIA immutabile: aggiorno app e firmware.")
         pending = [Update(**u) for u in state.get("trovati", []) if u["kind"] != "sistema"]
         for u in pending:
             lines.append(("🔒 " if u.security else "• ") + u.summary)
         if self.version():
-            lines.append(f"Versione di AIOS: {self.version()}.")
+            lines.append(f"Versione di SoIA: {self.version()}.")
             gh = self.github()
             lines.append("Nuove versioni da GitHub: " + ("non configurato; oppure da chiavetta." if gh is None else
                          "collegato con il tuo accesso." if gh.token else "dal repository pubblico, senza accesso."))
@@ -507,7 +507,7 @@ def connect_github(token: str, repo: str = "") -> str:
     state["repo"] = repo
     state.pop("registro", None)
     save_state(state)
-    done = f"Collegato: le nuove versioni di AIOS arriveranno da {repo}, con il tuo accesso di sola lettura."
+    done = f"Collegato: le nuove versioni di SoIA arriveranno da {repo}, con il tuo accesso di sola lettura."
     try:
         problem = Updates().try_registry(force=True)
     except Exception as exc:
@@ -520,7 +520,7 @@ def connect_github(token: str, repo: str = "") -> str:
 GITHUB_HELP = (
     "Per scaricare gli aggiornamenti dal tuo repository privato mi serve un permesso di sola lettura:\n"
     "1. apri https://github.com/settings/personal-access-tokens/new\n"
-    "2. nome «AIOS aggiornamenti», scadenza a tua scelta; «Repository access» › «Only select repositories» › {repo};\n"
+    "2. nome «SoIA aggiornamenti», scadenza a tua scelta; «Repository access» › «Only select repositories» › {repo};\n"
     "3. «Permissions» › «Contents» › «Read-only» (nient'altro), poi «Generate token»;\n"
     "4. incolla il token nella finestra che apro (resta nel portachiavi del PC, non passa dal modello AI);\n   se la finestra non si apre, incollalo qui in chat: lo riconosco senza modello AI.\n"
     "Per aggiornamenti piccoli (solo le differenze) serve invece un token «classico» "
@@ -548,7 +548,7 @@ def health_check(run: Callable[[list[str]], tuple[int, str]] | None = None) -> l
         import aios_copilot.__main__  # noqa: F401  il copilota si avvia
     except Exception as exc:
         problems.append(f"copilota: {exc}")
-    # Solo ciò che rende AIOS inutilizzabile: un servizio che aspetta internet o un controllo che
+    # Solo ciò che rende SoIA inutilizzabile: un servizio che aspetta internet o un controllo che
     # richiede la rete (senza Wi-Fi) non deve far riavviare il PC.
     code, out = run(["systemctl", "is-failed", "ollama.service"])
     if code == 0 and out.strip() == "failed":
@@ -609,10 +609,10 @@ def announcements(found: list[Update], report: list[str]) -> list[tuple[str, str
     system = next((u for u in found if u.kind == "sistema"), None)
     sys_line = next((r for r in report if r.startswith("Sistema")), "")
     if system is not None and "pronto" in sys_line:
-        out.append(("Aggiornamento di sicurezza pronto" if system.security else "Nuova versione di AIOS pronta",
+        out.append(("Aggiornamento di sicurezza pronto" if system.security else "Nuova versione di SoIA pronta",
                     "Si applica al prossimo riavvio, quando vuoi tu: dimmi «riavvia per aggiornare»."))
     elif system is not None and sys_line:
-        out.append(("Aggiornamento di AIOS non riuscito", sys_line.removeprefix("Sistema: ")[:240]))
+        out.append(("Aggiornamento di SoIA non riuscito", sys_line.removeprefix("Sistema: ")[:240]))
     apps = next((u for u in found if u.kind == "app"), None)
     app_line = next((r for r in report if r.startswith("App")), "")
     if apps is not None and "aggiornate" in app_line:
@@ -643,7 +643,7 @@ def main(argv: list[str] | None = None) -> int:
 
         from .imageupdate import configured_repo
 
-        print(GITHUB_HELP.format(repo=load_state().get("repo") or configured_repo() or "il repository di AIOS",
+        print(GITHUB_HELP.format(repo=load_state().get("repo") or configured_repo() or "il repository di SoIA",
                                  dove="incolla il token qui sotto"))
         print(connect_github(getpass.getpass("Token: ")))
     elif args[0] == "chiavetta":
@@ -651,12 +651,12 @@ def main(argv: list[str] | None = None) -> int:
         system = next((x for x in found if x.kind == "sistema" and u.package is not None), None)
         if system is None:
             if "--avvisa" not in args:
-                print("Sulla chiavetta non c'è una versione di AIOS più recente di quella in uso.")
+                print("Sulla chiavetta non c'è una versione di SoIA più recente di quella in uso.")
             return 0
         if "--avvisa" in args:
             from .mesh.service import notify_with_actions
 
-            if notify_with_actions("💾 Aggiornamento di AIOS sulla chiavetta", f"{system.summary}. Lo preparo? "
+            if notify_with_actions("💾 Aggiornamento di SoIA sulla chiavetta", f"{system.summary}. Lo preparo? "
                                    "Si applica al prossimo riavvio, i tuoi dati restano.",
                                    {"installa": "Prepara", "no": "Non ora"}) != "installa":
                 return 0

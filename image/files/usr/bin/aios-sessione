@@ -1,6 +1,6 @@
 #!/bin/sh
-# La sessione di AIOS: il compositore Hyprland (solo schermo, input e animazioni, niente interfaccia
-# sua) con la shell di AIOS sopra. Configurazione in /usr/share/aios/hyprland; l'utente può
+# La sessione di SoIA: il compositore Hyprland (solo schermo, input e animazioni, niente interfaccia
+# sua) con la shell di SoIA sopra. Configurazione in /usr/share/aios/hyprland; l'utente può
 # aggiungere righe sue in ~/.config/aios/hyprland.conf. Se Hyprland manca (o con
 # AIOS_COMPOSITORE=labwc) si usa labwc, configurato in /usr/share/aios/labwc.
 export XDG_CURRENT_DESKTOP=AIOS

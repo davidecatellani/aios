@@ -1,18 +1,18 @@
-"""Il codice personale: AIOS che si riprogramma su richiesta dell'utente.
+"""Il codice personale: SoIA che si riprogramma su richiesta dell'utente.
 
-Il codice di AIOS nell'immagine (immutabile) è la «base». Quando l'utente chiede a Nova di cambiare qualcosa
+Il codice di SoIA nell'immagine (immutabile) è la «base». Quando l'utente chiede a Nova di cambiare qualcosa
 («voglio l'orologio rotondo»), Nova crea una copia del codice in ~/.local/share/aios/codice, un repository git:
 
-- ramo «base»: il codice originale, uno scatto per ogni versione di AIOS;
+- ramo «base»: il codice originale, uno scatto per ogni versione di SoIA;
 - ramo «mio»: la base più le modifiche dell'utente, una per richiesta, con la richiesta come descrizione.
 
 Il pacchetto (aios_copilot/__init__.py) gira dalla copia se è attiva. Ogni modifica si annulla da sola
-(git revert); «AIOS originale» spegne la copia senza cancellarla. Quando arriva una nuova versione di AIOS si
+(git revert); «SoIA originale» spegne la copia senza cancellarla. Quando arriva una nuova versione di SoIA si
 aggiorna la base e le modifiche ci vanno sopra (git merge); se non ci stanno, la copia resta ferma e si usa la
 base finché Nova non le riapplica.
 
 Modalità sicura: ogni avvio della shell si conta (aios_copilot/__init__.py, prima di caricare la copia); la shell,
-quando funziona, azzera il conto. Al terzo avvio non riuscito di fila la copia è «guasta» e AIOS riparte dal codice
+quando funziona, azzera il conto. Al terzo avvio non riuscito di fila la copia è «guasta» e SoIA riparte dal codice
 originale (e lo dice).
 
 Condividere: ogni modifica si esporta in un file «.aios» (la richiesta, il riassunto e il cambiamento al codice)
@@ -88,7 +88,7 @@ def exists() -> bool:
 
 
 def ensure(base: Path | None = None) -> None:
-    """Crea la copia personale (la prima volta) e la tiene allineata alla versione di AIOS installata."""
+    """Crea la copia personale (la prima volta) e la tiene allineata alla versione di SoIA installata."""
     if not shutil.which("git"):
         raise RuntimeError("manca git nel sistema")
     if not exists():
@@ -106,7 +106,7 @@ def ensure(base: Path | None = None) -> None:
 
 
 def sync_base(base: Path | None = None) -> str:
-    """Nuova versione di AIOS: si aggiorna la base e le modifiche dell'utente ci vanno sopra."""
+    """Nuova versione di SoIA: si aggiorna la base e le modifiche dell'utente ci vanno sopra."""
     version = base_version()
     if not exists() or state().get("base") == version:
         return ""
@@ -116,7 +116,7 @@ def sync_base(base: Path | None = None) -> str:
     if git("status", "--porcelain").strip():
         git("commit", "-q", "-m", f"AIOS {version} (base)")
     git("checkout", "-q", "-f", "mio")
-    p = subprocess.run(["git", *AUTHOR, "merge", "-q", "--no-edit", "-m", f"Personalizzazioni sopra AIOS {version}", "base"],
+    p = subprocess.run(["git", *AUTHOR, "merge", "-q", "--no-edit", "-m", f"Personalizzazioni sopra SoIA {version}", "base"],
                        cwd=root(), capture_output=True, text=True)
     if p.returncode != 0:
         git("merge", "--abort", check=False)
@@ -213,7 +213,7 @@ def undo(change: str) -> tuple[bool, str]:
 
 
 def reset_all() -> int:
-    """Torna ad AIOS originale: le modifiche si tolgono tutte (restano nella storia di git, recuperabili)."""
+    """Torna ad SoIA originale: le modifiche si tolgono tutte (restano nella storia di git, recuperabili)."""
     n = len(history())
     if exists():
         git("tag", "-f", f"prima-di-azzerare-{int(time.time())}", "mio")
@@ -253,7 +253,7 @@ def read_shared(path: Path) -> dict[str, Any]:
     """Il contenuto di un file .aios, per mostrarlo prima di applicarlo: cosa fa, quali file tocca, cosa c'è di delicato."""
     data = json.loads(path.read_text())
     if data.get("formato") != FORMAT or not isinstance(data.get("patch"), str):
-        raise ValueError("non è un file di personalizzazione di AIOS")
+        raise ValueError("non è un file di personalizzazione di SoIA")
     files = sorted({line[6:] for line in data["patch"].splitlines() if line.startswith("+++ b/")})
     if any(not f.startswith("aios_copilot/") or f in ("aios_copilot/__init__.py", "aios_copilot/codice.py") for f in files):
         raise ValueError("questa personalizzazione tocca file che non si possono cambiare")
@@ -274,7 +274,7 @@ def import_shared(path: Path) -> tuple[bool, str]:
     tmp.unlink(missing_ok=True)
     if p.returncode != 0:
         git("am", "--abort", check=False)
-        return False, "Non si adatta alla tua versione di AIOS (le stesse parti sono cambiate in modo diverso)."
+        return False, "Non si adatta alla tua versione di SoIA (le stesse parti sono cambiate in modo diverso)."
     ok, msg = check()
     if not ok:
         git("reset", "-q", "--hard", "HEAD~1")

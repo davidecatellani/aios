@@ -13,4 +13,4 @@ else
   grim "$file" || exit 1
 fi
 command -v wl-copy >/dev/null && wl-copy --type image/png < "$file"
-notify-send --app-name=AIOS --icon="$file" "Schermata salvata" "In Immagini › Schermate, e negli appunti: puoi incollarla." 2>/dev/null
+notify-send --app-name=SoIA --icon="$file" "Schermata salvata" "In Immagini › Schermate, e negli appunti: puoi incollarla." 2>/dev/null

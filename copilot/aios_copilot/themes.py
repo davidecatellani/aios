@@ -1,11 +1,11 @@
-"""Temi di AIOS: colori, forme, sfondo e copilota. Un tema è SOLO DATI, mai codice.
+"""Temi di SoIA: colori, forme, sfondo e copilota. Un tema è SOLO DATI, mai codice.
 
 Si creano parlando: «crea un tema in stile marino», «un tema autunnale», «un tema
 partendo da questo disegno», «come questo ma più scuro». La leggibilità è garantita:
 ogni coppia testo/sfondo rispetta il contrasto WCAG (≥ 4,5:1) e viene corretta se serve.
 
 Lo sfondo è un'immagine (da un disegno o dal modello di immagini) oppure una «ricetta»
-(onde, montagne, stelle, energia...) che AIOS disegna da sé: funziona su ogni dispositivo
+(onde, montagne, stelle, energia...) che SoIA disegna da sé: funziona su ogni dispositivo
 e nei pacchetti del market non viaggia mai codice (niente SVG altrui).
 """
 
@@ -120,7 +120,7 @@ class Theme:
         return Theme(**{k: v for k, v in d.items() if k in known})
 
     def css(self) -> str:
-        """Variabili CSS per le app di AIOS (stessi nomi usati da benvenuto e posta)."""
+        """Variabili CSS per le app di SoIA (stessi nomi usati da benvenuto e posta)."""
         def block(p: Palette) -> str:
             return (f"--bg: {p.bg}; --surface: color-mix(in srgb, {p.surface} 88%, transparent); --surface-strong: {p.surface};"
                     f" --solid: {p.surface}; --soft: color-mix(in srgb, {p.accent} 7%, {p.surface}); --side: color-mix(in srgb, {p.accent} 6%, {p.bg});"
@@ -130,7 +130,7 @@ class Theme:
                     f" --bg-glow-1: color-mix(in srgb, {p.accent} 35%, {p.bg}); --bg-glow-2: color-mix(in srgb, {p.accent2} 30%, {p.bg});"
                     f" --glow1: color-mix(in srgb, {p.accent} 35%, {p.bg}); --glow2: color-mix(in srgb, {p.accent2} 30%, {p.bg});"
                     f" --radius: {self.radius}px; font-family: '{self.font}', Inter, Cantarell, system-ui, sans-serif;")
-        return (f"/* Tema AIOS: {self.name} */\n:root {{ {block(self.light)} }}\n"
+        return (f"/* Tema SoIA: {self.name} */\n:root {{ {block(self.light)} }}\n"
                 f"@media (prefers-color-scheme: dark) {{ :root {{ {block(self.dark)} }} }}\n")
 
 
@@ -362,7 +362,7 @@ def remix(theme: Theme, change: str) -> Theme:
     return new
 
 
-# --- sfondi disegnati da AIOS ------------------------------------------------------------------------
+# --- sfondi disegnati da SoIA ------------------------------------------------------------------------
 
 
 def wallpaper_svg(recipe: dict, width: int = 1920, height: int = 1080, dark: bool = False) -> str:
@@ -469,6 +469,6 @@ def wallpaper_files(theme: Theme) -> tuple[Path | None, Path | None]:
 def default_theme() -> Theme:
     # i colori del marchio: blu profondo, turchese, ambra (docs/BRAND.md)
     light, dark = build_palettes("#0b6e99", "#2ec4b6")
-    return Theme("aios", "AIOS", "Il tema predefinito", light, dark, 14, "Inter",
+    return Theme("aios", "SoIA", "Il tema predefinito", light, dark, 14, "Inter",
                  {"kind": "ricetta", "style": "gradiente", "colors": ["#0b6e99", "#2ec4b6", "#e9c46a"], "seed": 1},
                  ["#0b6e99", "#2ec4b6", "#e9c46a"], "integrato")

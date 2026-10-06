@@ -74,7 +74,7 @@ def make_tools(runner: Runner | None = None, updates: Updates | None = None,
             done = f"Non serve nessun token: il repository {public} è pubblico, le nuove versioni arrivano già da lì."
             return done + (" Gli aggiornamenti scaricheranno solo le differenze." if not problem else
                            f" Per ora come pacchetto completo: {problem}.")
-        repo = load_state().get("repo") or configured_repo() or "il repository di AIOS"
+        repo = load_state().get("repo") or configured_repo() or "il repository di SoIA"
         token = secret("Aggiornamenti da GitHub", "Incolla il token di sola lettura (Contents: read) per " + repo)
         if token is None:  # nessuna finestra disponibile: il token si incolla in chat (UpdatesRouter lo riconosce)
             return GITHUB_HELP.format(repo=repo, dove="incolla il token qui in chat, da solo")
@@ -87,7 +87,7 @@ def make_tools(runner: Runner | None = None, updates: Updates | None = None,
         found = updates.check(("chiavetta",))
         system = next((u for u in found if u.kind == "sistema" and updates.package is not None), None)
         if system is None:
-            return ("Non trovo una versione più recente di AIOS sulla chiavetta: copia nella chiavetta i file "
+            return ("Non trovo una versione più recente di SoIA sulla chiavetta: copia nella chiavetta i file "
                     "«aios-aggiornamento…» della Release (tutti, senza riunirli) e inseriscila.")
         if updates.busy():
             return updates.progress_text()
@@ -99,7 +99,7 @@ def make_tools(runner: Runner | None = None, updates: Updates | None = None,
         code, out = runner.run(["systemctl", "reboot"])
         return "Riavvio per applicare l'aggiornamento…" if code == 0 else f"Riavvio non riuscito: {out[-200:]}"
 
-    variant_tool = Tool("switch_system_variant", "Passa alla versione di AIOS con il driver della scheda video NVIDIA "
+    variant_tool = Tool("switch_system_variant", "Passa alla versione di SoIA con il driver della scheda video NVIDIA "
                         "(per l'AI veloce sulla scheda) o torna a quella standard. Si applica al riavvio.",
                         params(variante=("Versione", ["nvidia", "standard"])), switch_variant, requires_confirmation=True)
     return [
@@ -111,10 +111,10 @@ def make_tools(runner: Runner | None = None, updates: Updates | None = None,
              rollback_system, requires_confirmation=True),
         Tool("auto_updates", "Attiva o disattiva gli aggiornamenti automatici.", params(on=("Attivi?", ["sì", "no"])),
              auto_updates),
-        Tool("connect_github_updates", "Collega il PC al repository GitHub privato di AIOS per ricevere le nuove "
+        Tool("connect_github_updates", "Collega il PC al repository GitHub privato di SoIA per ricevere le nuove "
              "versioni (permesso di sola lettura dell'utente, chiesto in una finestra locale).", params(),
              connect_github_updates),
-        Tool("update_from_usb", "Prepara la nuova versione di AIOS dalla chiavetta inserita (si applica al riavvio, "
+        Tool("update_from_usb", "Prepara la nuova versione di SoIA dalla chiavetta inserita (si applica al riavvio, "
              "senza formattare).", params(), update_from_usb, requires_confirmation=True),
         Tool("restart_to_update", "Riavvia il computer per applicare l'aggiornamento pronto.", params(),
              restart_to_update, requires_confirmation=True),
@@ -125,19 +125,19 @@ RE_STATUS = re.compile(r"^(?:ci sono|ho)\s+(?:degli\s+|nuovi\s+)?aggiornamenti\?
                        r"|^stato\s+degli\s+aggiornamenti$"
                        r"|^(?:come\s+va|come\s+procede|a\s+che\s+punto\s+(?:è|e)|quanto\s+manca(?:\s+al(?:l')?)?)\s*"
                        r"(?:l'|con\s+l')?aggiornamento\??$")
-RE_NOW = re.compile(r"^aggiorna\s+(?:il\s+sistema|il\s+computer|il\s+pc|tutto|aios)(?:\s+(?:ora|adesso|subito))?$")
+RE_NOW = re.compile(r"^aggiorna\s+(?:il\s+sistema|il\s+computer|il\s+pc|tutto|aios|soia)(?:\s+(?:ora|adesso|subito))?$")
 RE_ROLLBACK = re.compile(r"^(?:torna|ritorna)\s+alla\s+versione\s+precedente(?:\s+del\s+sistema)?$")
 RE_AUTO = re.compile(r"^(?P<v>attiva|disattiva)\s+(?:gli\s+)?aggiornamenti\s+automatici$")
 RE_GITHUB = re.compile(r"^(?:collega|configura|attiva|imposta)\s+(?:a\s+)?github\b"
                        r"|\bgithub\b.*\b(?:aggiornament\w*|token)\b|\b(?:aggiornament\w*|token)\b.*\bgithub\b")
 RE_TOKEN = re.compile(r"\b(?:github_pat_[A-Za-z0-9_]{20,}|gh[pousr]_[A-Za-z0-9]{30,})\b")
-RE_USB = re.compile(r"^aggiorna(?:\s+(?:il\s+sistema|aios))?\s+(?:dalla|con\s+la)\s+chiavetta$"
+RE_USB = re.compile(r"^aggiorna(?:\s+(?:il\s+sistema|aios|soia))?\s+(?:dalla|con\s+la)\s+chiavetta$"
                     r"|^installa\s+l'aggiornamento\s+dalla\s+chiavetta$")
 RE_RESTART = re.compile(r"^riavvia\s+per\s+aggiornare$|^applica\s+l'aggiornamento$")
 
 
 RE_VARIANT = re.compile(r"^(?:passa|passare|vai|torna|installa|metti|attiva)\s+(?:alla|a|la|i|il|ai)?\s*(?:versione|variante|driver|immagine)?\s*"
-                        r"(?:(?P<n>nvidia)|(?P<s>standard|senza\s+nvidia))(?:\s+(?:di|del)\s+(?:aios|sistema))?$")
+                        r"(?:(?P<n>nvidia)|(?P<s>standard|senza\s+nvidia))(?:\s+(?:di|del)\s+(?:aios|soia|sistema))?$")
 
 
 class UpdatesRouter:

@@ -1,13 +1,13 @@
 """Il nucleo: un solo modello piccolo in memoria, con un adattatore (LoRA) per ogni compito.
 
-Invece di tenere caricati più modelli piccoli (Tev1 per l'ambito, Qwen 0.8B per i campi…), AIOS carica una
+Invece di tenere caricati più modelli piccoli (Tev1 per l'ambito, Qwen 0.8B per i campi…), SoIA carica una
 volta sola Qwen3.5 0.8B e sopra ci mette degli «adattatori»: pochi MB ciascuno, addestrati sulle frasi di
 Nova (copilot/addestramento). Il modello base è condiviso; per ogni richiesta si accende l'adattatore giusto:
 
 - smistamento: l'ambito della frase (agenda, posta, file…) e l'azione da fare;
 - campi: i valori dell'azione (cosa ricordare, quando…) in JSON;
 - documenti: legge bollette, scontrini, avvisi di pagamento (campi in JSON o tutto il testo);
-- schermate: controlla una pagina di AIOS dopo una personalizzazione (l'ora delle lancette di un orologio, testi
+- schermate: controlla una pagina di SoIA dopo una personalizzazione (l'ora delle lancette di un orologio, testi
   sovrapposti, tagliati, poco leggibili o fuori dallo schermo), per il programmatore (anteprima.py).
 
 Qwen3.5 vede anche le immagini (con il proiettore mmproj.gguf): il nucleo descrive le foto e legge i
@@ -196,7 +196,7 @@ class Nucleo:
         return self.see(image, PROMPT_TESTO, adapter, SYSTEM_DOCUMENTO, None, 700)
 
     def check_screen(self, image: bytes) -> dict[str, Any] | None:
-        """Controlla una schermata di AIOS con l'adattatore «schermate» (None se l'adattatore non c'è)."""
+        """Controlla una schermata di SoIA con l'adattatore «schermate» (None se l'adattatore non c'è)."""
         if "schermate" not in self.adapters():
             return None
         try:

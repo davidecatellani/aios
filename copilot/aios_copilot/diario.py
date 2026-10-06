@@ -1,10 +1,10 @@
-"""Il diario di AIOS: Nova ricorda cosa hai fatto, per rispondere a «dove mi ero fermato?»,
+"""Il diario di SoIA: Nova ricorda cosa hai fatto, per rispondere a «dove mi ero fermato?»,
 «su cosa ho lavorato ieri?», «che sito era quello sulle bici che ho visto 5 giorni fa?».
 
 Cosa si annota, un file per giorno in ~/.local/share/aios/diario (leggibile solo dall'utente):
 - le conversazioni con Nova (domanda e risposta; i segreti incollati sono già tolti);
 - i programmi aperti e i titoli delle loro finestre (la shell guarda ogni mezzo minuto);
-- i file e i documenti aperti dalle app di AIOS.
+- i file e i documenti aperti dalle app di SoIA.
 I siti visitati non si copiano: si leggono, quando servono, dalla cronologia di Firefox (che non
 contiene la navigazione anonima). Niente esce dal computer. Il diario si spegne o si cancella da
 Impostazioni › Privacy o chiedendolo a Nova; le pagine più vecchie di KEEP_DAYS si buttano da sole.

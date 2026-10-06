@@ -21,7 +21,7 @@ def make_tools(monitors: Any = None) -> list[Tool]:
     def list_displays() -> str:
         state = screens().state()
         if not state:
-            return "Non riesco a leggere gli schermi (serve la sessione AIOS con Hyprland)."
+            return "Non riesco a leggere gli schermi (serve la sessione SoIA con Hyprland)."
         lines = [MON.describe(m) + " Può: " + ", ".join(
             f"{r.replace('x', '×')} fino a {max(f):g} Hz" for r, f in list(m["risoluzioni"].items())[:4]) for m in state]
         return "\n".join(lines + MON.best_rate_advice(state))

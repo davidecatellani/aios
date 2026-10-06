@@ -135,7 +135,7 @@ def add_account(address: str, use_oauth: bool = False, ask: Callable[[str], str]
 def main(argv: list[str] | None = None) -> int:
     from ..agenda import notify
 
-    parser = argparse.ArgumentParser(prog="aios-mail", description="Posta di AIOS")
+    parser = argparse.ArgumentParser(prog="aios-mail", description="Posta di SoIA")
     parser.add_argument("comando", nargs="?", default="servizio",
                         choices=["servizio", "aggiungi", "sincronizza", "stato", "archivia", "non-archiviare"])
     parser.add_argument("valore", nargs="?")

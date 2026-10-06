@@ -1,13 +1,13 @@
 <?xml version="1.0"?>
-<!-- Il compositore di AIOS: nessuna interfaccia propria (niente menu, niente barre).
-     La shell di AIOS (aios-shell) disegna la giornata, la barra e Nova; le app si aprono a tutto schermo. -->
+<!-- Il compositore di SoIA: nessuna interfaccia propria (niente menu, niente barre).
+     La shell di SoIA (aios-shell) disegna la giornata, la barra e Nova; le app si aprono a tutto schermo. -->
 <labwc_config>
   <core>
     <decoration>server</decoration>
     <gap>0</gap>
   </core>
   <theme>
-    <name>AIOS</name>
+    <name>SoIA</name>
     <cornerRadius>12</cornerRadius>
     <font place=""><name>Cantarell</name><size>11</size><weight>bold</weight></font>
   </theme>
@@ -41,7 +41,7 @@
   </keyboard>
   <mouse>
     <default/>
-    <!-- niente menu del desktop: sul fondo c'è la giornata di AIOS -->
+    <!-- niente menu del desktop: sul fondo c'è la giornata di SoIA -->
     <context name="Root">
       <mousebind button="Left" action="Press"/>
       <mousebind button="Right" action="Press"/>
@@ -52,7 +52,7 @@
     <device category="touchpad"><naturalScroll>yes</naturalScroll><tap>yes</tap></device>
   </libinput>
   <windowRules>
-    <!-- le app occupano tutto lo spazio sotto la barra di AIOS -->
+    <!-- le app occupano tutto lo spazio sotto la barra di SoIA -->
     <windowRule identifier="*" type="normal"><action name="Maximize"/></windowRule>
   </windowRules>
 </labwc_config>

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Crea le chiavi di AIOS (una volta sola, poi custodirle offline con una copia di sicurezza).
-# Chi ha queste chiavi può firmare aggiornamenti per tutti i telefoni AIOS: mai nel repository.
+# Crea le chiavi di SoIA (una volta sola, poi custodirle offline con una copia di sicurezza).
+# Chi ha queste chiavi può firmare aggiornamenti per tutti i telefoni SoIA: mai nel repository.
 source "$(dirname "$0")/comune.sh"
 SRC="${1:?uso: chiavi.sh CARTELLA_SORGENTI (per development/tools/make_key)}"
 mkdir -p "$CHIAVI" && chmod 700 "$CHIAVI"

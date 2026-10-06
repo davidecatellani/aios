@@ -107,7 +107,7 @@ def test_nova_does_not_introduce_itself_every_time():
     assert strip_intro("Ciao! Sono Nova, il tuo assistente. Domani piove.", "che tempo fa domani") == "Domani piove."
     assert strip_intro("Ciao Davide! Ecco i file.", "trova i file") == "Ecco i file."
     assert strip_intro("Mi chiamo Nova.", "come ti chiami?") == "Mi chiamo Nova."
-    assert strip_intro("Sono Nova, l'assistente di AIOS.", "chi è Nova?") == "Sono Nova, l'assistente di AIOS."
+    assert strip_intro("Sono Nova, l'assistente di SoIA.", "chi è Nova?") == "Sono Nova, l'assistente di SoIA."
     assert strip_intro("Ciao! Come stai?", "ciao") == "Ciao! Come stai?"
     assert strip_intro("Il sistema è aggiornato.", "aggiorna") == "Il sistema è aggiornato."
 

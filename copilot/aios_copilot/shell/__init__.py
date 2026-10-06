@@ -1,4 +1,4 @@
-"""La shell di AIOS: la schermata del sistema, al posto del desktop classico.
+"""La shell di SoIA: la schermata del sistema, al posto del desktop classico.
 
 Non c'è un desktop con icone e menu: c'è la giornata (le carte preparate da Nova), il saluto,
 la casella di Nova in basso (scrivi o parla) e un dock con poche app. Le app si aprono a tutto
@@ -12,11 +12,11 @@ Pezzi:
 - GTK/WebKit: due superfici della stessa pagina, «casa» (sotto a tutto, a schermo intero) e la
   barra in alto (layer-shell; compositore Hyprland, image/files/usr/share/aios/hyprland; labwc di riserva).
 
-    aios-shell                avvia la shell (dalla sessione AIOS)
+    aios-shell                avvia la shell (dalla sessione SoIA)
     aios-shell --nova         torna alla schermata con il cursore nella casella di Nova (Super+Spazio)
     aios-shell --casa         torna alla schermata (Super): riduce le app aperte
     aios-shell --voce TESTO   richiesta detta a voce (servizio aios-voce)
-    aios-shell --vista NOME[:PARTE]  apre un'app di AIOS (file, foto, musica, video, note, impostazioni:wifi…)
+    aios-shell --vista NOME[:PARTE]  apre un'app di SoIA (file, foto, musica, video, note, impostazioni:wifi…)
 """
 
 from __future__ import annotations
@@ -43,7 +43,7 @@ APP_ID = "org.aios.Shell"
 DAYS = ["lunedì", "martedì", "mercoledì", "giovedì", "venerdì", "sabato", "domenica"]
 MONTHS = ["gennaio", "febbraio", "marzo", "aprile", "maggio", "giugno", "luglio", "agosto",
           "settembre", "ottobre", "novembre", "dicembre"]
-# Il dock: le app di AIOS (viste HTML della shell), poi il browser. Gli altri programmi sono in «Tutte».
+# Il dock: le app di SoIA (viste HTML della shell), poi il browser. Gli altri programmi sono in «Tutte».
 AIOS_APPS = [
     {"id": "aios:file", "label": "File", "name": "File", "vista": "file", "simbolo": "📁"},
     {"id": "aios:foto", "label": "Foto", "name": "Foto", "vista": "foto", "simbolo": "🖼️"},
@@ -57,7 +57,7 @@ AIOS_APPS = [
     {"id": "aios:impostazioni", "label": "Impostazioni", "name": "Impostazioni", "vista": "impostazioni", "simbolo": "⚙️"},
 ]
 BROWSERS = ["org.mozilla.firefox", "firefox", "org.chromium.Chromium", "chromium-browser", "com.google.Chrome"]
-# Le app di sistema di GNOME e Fedora non si mostrano: le loro funzioni le fanno le app di AIOS.
+# Le app di sistema di GNOME e Fedora non si mostrano: le loro funzioni le fanno le app di SoIA.
 SYSTEM_HIDDEN = re.compile(r"^(org\.gnome\.|gnome-|org\.freedesktop\.|org\.fedoraproject\.|nm-|ibus|yelp|"
                            r"system-config|htop|fedora-|anaconda|liveinst|setroubleshoot|org\.kde\.kdeconnect|"
                            r"kde-connect|kdeconnect|mpv|org\.aios\.|com\.mitchellh\.ptyxis|org\.gnome\.Ptyxis|ptyxis)", re.I)
@@ -73,7 +73,7 @@ class DesktopApp:
     exec: str
     keywords: str = ""
     windows: bool = False  # app Windows (Bottles/Wine): segno distintivo nel dock
-    game: bool = False  # un gioco (Categories=Game): quando è aperto AIOS libera la memoria (giochi.py)
+    game: bool = False  # un gioco (Categories=Game): quando è aperto SoIA libera la memoria (giochi.py)
 
 
 def app_dirs() -> list[Path]:
@@ -392,15 +392,15 @@ def update_cards(now: float | None = None, booted: float | None = None) -> list[
     booted = boot_time() if booted is None else booted
     cards: list[dict[str, Any]] = []
     if state.get("in_corso"):
-        cards.append({"tipo": "aggiornamento", "titolo": "Sto aggiornando AIOS",
+        cards.append({"tipo": "aggiornamento", "titolo": "Sto aggiornando SoIA",
                       "testo": "Scarico in sottofondo: puoi continuare a usare il computer.",
                       "azioni": [{"etichetta": "A che punto è?", "chiedi": "come va l'aggiornamento?"}]})
     ready = state.get("pronto") or {}
     if ready and ready.get("quando", 0) > booted:  # preparato dopo l'ultimo avvio: non ancora applicato
         version = ready.get("versione", "")
         cards.append({"tipo": "aggiornamento",
-                      "titolo": "Aggiornamento di sicurezza pronto" if ready.get("sicurezza") else "Nuova versione di AIOS pronta",
-                      "testo": (f"AIOS {_esc(version)}: " if version and version != "registro" else "") +
+                      "titolo": "Aggiornamento di sicurezza pronto" if ready.get("sicurezza") else "Nuova versione di SoIA pronta",
+                      "testo": (f"SoIA {_esc(version)}: " if version and version != "registro" else "") +
                                "si applica al riavvio, dati e app restano.",
                       "azioni": [{"etichetta": "Riavvia ora", "chiedi": "riavvia per aggiornare"}]})
     apps = state.get("app_aggiornate") or {}
@@ -723,8 +723,8 @@ def run_gtk(app: ShellApp, url: str, argv: list[str]) -> int:
         if "home" in state:
             return
         ls = layer_shell()
-        home, home_view = window("AIOS", "casa")
-        bar, bar_view = window("AIOS barra", "barra")
+        home, home_view = window("SoIA", "casa")
+        bar, bar_view = window("SoIA barra", "barra")
         if ls is not None:
             edges = (ls.Edge.TOP, ls.Edge.BOTTOM, ls.Edge.LEFT, ls.Edge.RIGHT)
             ls.init_for_window(home)  # la giornata, sotto alle app
@@ -741,7 +741,7 @@ def run_gtk(app: ShellApp, url: str, argv: list[str]) -> int:
             ls.auto_exclusive_zone_enable(bar)
             bar.set_default_size(-1, BAR_HEIGHT)
             bar.present()
-        else:  # senza il compositore di AIOS (es. dentro GNOME): finestre normali
+        else:  # senza il compositore di SoIA (es. dentro GNOME): finestre normali
             home.set_default_size(1280, 800)
         home.present()
         state.update(home=home, home_view=home_view, bar=bar, bar_view=bar_view)
@@ -777,7 +777,7 @@ def run_gtk(app: ShellApp, url: str, argv: list[str]) -> int:
         if other in state:
             state[other].set_visible(False)
         if key not in state:
-            win = Gtk.ApplicationWindow(application=gtk_app, title="AIOS pannello")
+            win = Gtk.ApplicationWindow(application=gtk_app, title="SoIA pannello")
             win.set_decorated(False)
             view = view_for("pannello", url.replace("/#", "/static/pannello.html#", 1) + f"&apri={which}"
                             + ("&lato=1" if side else ""))
@@ -823,7 +823,7 @@ def run_gtk(app: ShellApp, url: str, argv: list[str]) -> int:
     def captions_window() -> Any:
         """La striscia dei sottotitoli in basso, sopra i programmi: non prende né tastiera né clic."""
         if "captions" not in state:
-            win = Gtk.Window(title="AIOS sottotitoli")
+            win = Gtk.Window(title="SoIA sottotitoli")
             win.set_decorated(False)
             label = Gtk.Label(wrap=True, justify=Gtk.Justification.CENTER, max_width_chars=70)
             label.add_css_class("aios-sottotitoli")
@@ -940,7 +940,7 @@ def run_gtk(app: ShellApp, url: str, argv: list[str]) -> int:
             s = codice.state()
             if s.get("guasto") and not s.get("guasto_detto"):
                 codice.save_state(guasto_detto=True)
-                _run(["notify-send", "-a", "Nova", "AIOS è ripartito originale",
+                _run(["notify-send", "-a", "Nova", "SoIA è ripartito originale",
                       "Una personalizzazione impediva alla schermata di partire. Le trovi in Impostazioni › Personalizzazioni."])
         except Exception:
             pass
@@ -962,7 +962,7 @@ def run_gtk(app: ShellApp, url: str, argv: list[str]) -> int:
         return 0
 
     def dark_theme(*_: Any) -> None:
-        """AIOS è scuro di base; chiaro solo se l'utente lo sceglie («tema chiaro», gsettings prefer-light).
+        """SoIA è scuro di base; chiaro solo se l'utente lo sceglie («tema chiaro», gsettings prefer-light).
         Le pagine seguono subito il cambio (prefers-color-scheme di WebKit)."""
         gtk_settings = Gtk.Settings.get_default()
         try:
@@ -1110,17 +1110,17 @@ def main(argv: list[str] | None = None) -> int:
 
         game_mode = giochi.GameMode(apps_now, notify=notify)
         threading.Thread(target=giochi.run, args=(game_mode,), daemon=True).start()
-        # ogni programma sul suo spazio; i giochi liberano la memoria di AIOS (giochi.py)
+        # ogni programma sul suo spazio; i giochi liberano la memoria di SoIA (giochi.py)
         threading.Thread(target=hypr_events, args=(game_mode.handle,), daemon=True).start()
     threading.Thread(target=save_session_forever, daemon=True).start()  # da riaprire al riavvio o altrove
 
-    def personal_code_sync() -> None:  # nuova versione di AIOS: le personalizzazioni vanno sopra la base nuova
+    def personal_code_sync() -> None:  # nuova versione di SoIA: le personalizzazioni vanno sopra la base nuova
         from .. import codice
 
         try:
             if codice.exists() and codice.sync_base() == "conflitto":
                 _run(["notify-send", "-a", "Nova", "Personalizzazioni da sistemare",
-                      "La nuova versione di AIOS cambia le stesse parti di alcune tue personalizzazioni: per ora uso AIOS "
+                      "La nuova versione di SoIA cambia le stesse parti di alcune tue personalizzazioni: per ora uso SoIA "
                       "originale. Chiedi a Nova di rifarle, o guarda Impostazioni › Personalizzazioni."])
         except Exception:
             pass

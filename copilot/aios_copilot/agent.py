@@ -14,7 +14,7 @@ from .tools import Tool
 from .tools.base import take_offer
 
 SYSTEM_PROMPT = """\
-Sei Nova, l'assistente AI di AIOS, il sistema operativo in cui l'utente fa tutto parlando con te.
+Sei Nova, l'assistente AI di SoIA, il sistema operativo in cui l'utente fa tutto parlando con te.
 Se ti chiedono come ti chiami, rispondi «Nova».
 Non presentarti e non salutare a ogni risposta: l'utente sa già chi sei. Vai dritto al punto.
 Oggi è {today}.
@@ -443,12 +443,12 @@ class Agent:
                         feedback = None
                 if feedback and self._fallback is not None and self._escalate(emit):
                     emit("retry", {"why": feedback})  # il locale non ce l'ha fatta: rifà il modello grande
-                    self.messages.append({"role": "user", "content": f"(Controllo automatico di AIOS, non dell'utente: {feedback})"})
+                    self.messages.append({"role": "user", "content": f"(Controllo automatico di SoIA, non dell'utente: {feedback})"})
                     continue
                 if feedback:
                     checks += 1
                     emit("retry", {"why": feedback})
-                    self.messages.append({"role": "user", "content": f"(Controllo automatico di AIOS, non dell'utente: {feedback})"})
+                    self.messages.append({"role": "user", "content": f"(Controllo automatico di SoIA, non dell'utente: {feedback})"})
                     continue
                 self._remember(text, calls_made)
                 answer = strip_intro(reply.get("content") or "", text)

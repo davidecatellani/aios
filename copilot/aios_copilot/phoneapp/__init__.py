@@ -1,4 +1,4 @@
-"""Pagina dell'installatore di AIOS per telefono (aperta da Nova: «installa AIOS sul telefono»)."""
+"""Pagina dell'installatore di SoIA per telefono (aperta da Nova: «installa SoIA sul telefono»)."""
 
 from __future__ import annotations
 
@@ -45,7 +45,7 @@ class InstallApp(LocalApp):
         if problems and not dry:
             return 400, {"error": " ".join(problems)}
         system, recovery = pi.choose_build(phone, pi.load_catalog())
-        system = system or pi.Build("AIOS (prova)", "0", "gsi", files=[{"nome": "aios-system.img", "partizione": "system"}])
+        system = system or pi.Build("SoIA (prova)", "0", "gsi", files=[{"nome": "aios-system.img", "partizione": "system"}])
         recovery = recovery or pi.Build("recovery (prova)", "0", "recovery", files=[{"nome": "vbmeta.img", "partizione": "vbmeta"},
                                                                                    {"nome": "recovery.img", "partizione": "recovery"}])
         try:
@@ -59,7 +59,7 @@ class InstallApp(LocalApp):
         def work():
             ok = installer.run()
             self.result = ("Modalità prova completata: questi sono i passi che farei." if dry else
-                           "Fatto: AIOS è installato. Benvenuto nel tuo nuovo telefono!") if ok else "Installazione interrotta."
+                           "Fatto: SoIA è installato. Benvenuto nel tuo nuovo telefono!") if ok else "Installazione interrotta."
             self.running, self.question = False, None
 
         threading.Thread(target=work, daemon=True).start()
@@ -87,7 +87,7 @@ class InstallApp(LocalApp):
 def main(argv: list[str] | None = None) -> int:
     app = InstallApp()
     _, url = serve(app)
-    open_window(url, app.finished, "Installa AIOS sul telefono", "org.aios.PhoneInstall", (760, 820))
+    open_window(url, app.finished, "Installa SoIA sul telefono", "org.aios.PhoneInstall", (760, 820))
     return 0
 
 

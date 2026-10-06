@@ -29,7 +29,7 @@ if [ -n "$ign" ]; then echo "ignoredisk --drives=$ign" > /tmp/aios-dischi.ks; el
 mkdir -p /usr/local/bin
 cat > /usr/local/bin/aios-log <<'AIOSLOG'
 #!/bin/bash
-# Raccoglie i registri dell'installazione di AIOS su una chiavetta (non quella di installazione).
+# Raccoglie i registri dell'installazione di SoIA su una chiavetta (non quella di installazione).
 #
 # Nella chiavetta d'installazione è già presente come comando: Ctrl+Alt+F2, poi scrivi  aios-log
 # Con una chiavetta vecchia: copia questo file sulla chiavetta dei registri come log.sh, rinominala LOG
@@ -94,7 +94,7 @@ cp /usr/local/bin/aios-log /root/aios-log 2>/dev/null
 %end
 
 %post
-# all'accesso parte la sessione di AIOS (la shell), non il desktop GNOME
+# all'accesso parte la sessione di SoIA (la shell), non il desktop GNOME
 mkdir -p /var/lib/AccountsService/users
 printf '[User]\nSession=aios\nSystemAccount=false\n' > /var/lib/AccountsService/users/aios
 chmod 600 /var/lib/AccountsService/users/aios

@@ -15,7 +15,7 @@ from pathlib import Path
 from ..tools.base import Runner
 
 WIREPLUMBER_CONF = "wireplumber/wireplumber.conf.d/51-aios-telefono.conf"
-WIREPLUMBER_TEXT = """# Generato da AIOS: il PC fa da vivavoce Bluetooth del telefono
+WIREPLUMBER_TEXT = """# Generato da SoIA: il PC fa da vivavoce Bluetooth del telefono
 monitor.bluez.properties = {
   bluez5.roles = [ a2dp_sink a2dp_source hfp_hf hfp_ag hsp_hs hsp_ag ]
   bluez5.hfphsp-backend = "ofono"

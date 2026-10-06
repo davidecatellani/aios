@@ -1,5 +1,5 @@
 #version 300 es
-// Filtro colore di AIOS (Impostazioni › Accessibilità): colori invertiti
+// Filtro colore di SoIA (Impostazioni › Accessibilità): colori invertiti
 precision highp float;
 in vec2 v_texcoord;
 uniform sampler2D tex;

@@ -1,5 +1,5 @@
 [Unit]
-Description=AIOS: installa l'accesso al registro delle immagini (aggiornamenti incrementali)
+Description=SoIA: installa l'accesso al registro delle immagini (aggiornamenti incrementali)
 
 [Service]
 Type=oneshot

@@ -1,6 +1,6 @@
-"""AIOS Copilot: l'assistente AI locale che gestisce il sistema in lingua naturale.
+"""SoIA Copilot: l'assistente AI locale che gestisce il sistema in lingua naturale.
 
-Il codice personale (codice.py): se l'utente ha fatto modificare AIOS a Nova, ha una sua copia del codice in
+Il codice personale (codice.py): se l'utente ha fatto modificare SoIA a Nova, ha una sua copia del codice in
 ~/.local/share/aios/codice. Qui, prima di qualsiasi altro modulo, il pacchetto si sposta su quella copia: tutto
 (schermata, Nova, app, servizi) gira dal codice personale. Se la copia è guasta (la shell non parte), è in conflitto
 con un aggiornamento o si chiede AIOS_CODICE=base, resta il codice originale dell'immagine.

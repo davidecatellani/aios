@@ -2,7 +2,7 @@
 
 Un modello come Qwen3 30B-A3B ha 30 miliardi di parametri divisi in «esperti», ma per
 ogni parola ne usa circa 3: va veloce come un modello piccolo e ragiona quasi come uno
-grande. AIOS decide dove tenerne i pezzi in base al dispositivo:
+grande. SoIA decide dove tenerne i pezzi in base al dispositivo:
 
 - gpu      tutto nella memoria della scheda video
 - ram      tutto nella RAM (Ollama)
@@ -130,7 +130,7 @@ def unit_path() -> Path:
 def write_unit(cmd: list[str]) -> Path:
     path = unit_path()
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text("[Unit]\nDescription=AIOS: modello a esperti (llama.cpp)\n\n[Service]\n"
+    path.write_text("[Unit]\nDescription=SoIA: modello a esperti (llama.cpp)\n\n[Service]\n"
                     f"ExecStart={' '.join(cmd)}\nRestart=on-failure\nNice=5\n\n[Install]\nWantedBy=default.target\n")
     return path
 

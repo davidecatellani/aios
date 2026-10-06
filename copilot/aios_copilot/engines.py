@@ -9,7 +9,7 @@
     immagini     → generate_image (stable-diffusion.cpp)
 
 Ogni funzione è disponibile solo se il modello è installato E il programma che lo
-esegue è presente (nell'immagine di AIOS lo sono tutti).
+esegue è presente (nell'immagine di SoIA lo sono tutti).
 """
 
 from __future__ import annotations
@@ -230,7 +230,7 @@ def generate_image(prompt: str, model: str, out_dir: Path, run: Callable[[list[s
     if binary is None or not files:
         return None
     out_dir.mkdir(parents=True, exist_ok=True)
-    target = out_dir / f"AIOS {time.strftime('%Y-%m-%d %H-%M-%S')}.png"
+    target = out_dir / f"SoIA {time.strftime('%Y-%m-%d %H-%M-%S')}.png"
     steps = "1" if "turbo" in model else "20"  # i modelli "turbo" bastano pochi passaggi
     run([binary, "-m", str(files[0]), "-p", prompt, "-o", str(target), "--steps", steps, "--cfg-scale", "1.0" if steps == "1" else "7"])
     return target if target.exists() else None

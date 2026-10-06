@@ -1,6 +1,6 @@
-# AIOS — Architettura
+# SoIA — Architettura
 
-AIOS è un sistema operativo grafico, unico per computer, tablet e telefoni, in cui
+SoIA è un sistema operativo grafico, unico per computer, tablet e telefoni, in cui
 un **copilota AI locale** è il modo principale di interagire: si chiede in lingua
 naturale ("installa un programma per montare video", "cerca gli orari dei treni per
 Milano") e l'AI esegue, chiedendo conferma per le azioni importanti.
@@ -93,7 +93,7 @@ successiva.
 
 Il copilota tradizionale manda ogni frase a un grande modello linguistico. Su un
 telefono o un PC senza GPU questo significa secondi di attesa per ogni comando.
-AIOS parte da un'idea diversa: **essendo il sistema operativo, sa già quasi tutto**
+SoIA parte da un'idea diversa: **essendo il sistema operativo, sa già quasi tutto**
 (app installate, file, impostazioni, cosa c'è sullo schermo). Il modello linguistico
 serve solo per la parte che il sistema davvero non sa.
 
@@ -151,7 +151,7 @@ veri va misurata sul primo dispositivo (da questo ambiente non si possono scaric
 
 **Verso un modello "nostro".** Addestrare da zero un modello generalista costa milioni
 e non serve. La strada percorribile è un modello piccolo **specializzato sulle
-azioni di AIOS**, ottenuto con fine-tuning e distillazione da un modello grande,
+azioni di SoIA**, ottenuto con fine-tuning e distillazione da un modello grande,
 usando come dati le richieste reali (anonime e con consenso) e il catalogo delle
 azioni del sistema. Un modello da 1 miliardo di parametri addestrato su questo
 compito può battere un modello generalista dieci volte più grande.
@@ -173,7 +173,7 @@ lasciare libero il computer.
 **Il rischio vero non è il cloud.** Un'AI che (1) legge dati privati, (2) legge
 contenuti di terzi (web, documenti ricevuti) e (3) può comunicare all'esterno può
 essere manipolata da istruzioni nascoste in una pagina per far uscire dati, anche
-se tutto gira in locale. Le difese di AIOS:
+se tutto gira in locale. Le difese di SoIA:
 
 - percorsi mai letti (chiavi, password, browser, posta) e segreti rimossi dall'indice;
 - cartelle escludibili a voce, con rimozione immediata dall'indice;
@@ -202,7 +202,7 @@ richiesta, con piano, conferma e registro per annullare.
 
 `themes.py` (temi come soli dati, palette con contrasto WCAG garantito, atmosfere,
 estrazione dei colori da un'immagine, ritocchi, sfondi disegnati), `themeapply.py`
-(GTK/libadwaita, GNOME, KDE, app di AIOS via `/theme.css`, tema precedente),
+(GTK/libadwaita, GNOME, KDE, app di SoIA via `/theme.css`, tema precedente),
 `thememarket.py` (indice firmato, pacchetti validati, temi «ispirati a» solo per uso
 personale). Prossimi passi: interfaccia del market con anteprime e valutazioni,
 sfondi generati dal modello di immagini quando installato.
@@ -232,7 +232,7 @@ lo scarica a riposo con pausa e ripresa; `engines.py` lo collega alle funzioni d
 sistema (il copilota cambia modello, compaiono vista, voce, dettatura, immagini).
 
 **Catalogo aggiornabile.** I modelli migliori cambiano di mese in mese, quindi
-l'elenco non sta nel codice: il progetto AIOS pubblica un catalogo JSON firmato
+l'elenco non sta nel codice: il progetto SoIA pubblica un catalogo JSON firmato
 (Ed25519, `modelcatalog.py`), scaricato una volta a settimana con una richiesta
 uguale per tutti. È accettato solo con firma valida per una chiave fidata
 (`/etc/aios/catalog-keys.d/`), versione più alta di quella in uso (niente ritorni
@@ -241,13 +241,13 @@ scaricamento. Senza chiavi configurate vale il catalogo integrato. Ogni modello
 riporta la licenza; l'impostazione «solo licenze aperte» esclude quelle con
 condizioni.
 
-**Il laboratorio AIOS** (servizio del progetto, da costruire) valuta i nuovi modelli
-aperti sui compiti reali di AIOS (uso degli strumenti, italiano, resistenza alle
+**Il laboratorio SoIA** (servizio del progetto, da costruire) valuta i nuovi modelli
+aperti sui compiti reali di SoIA (uso degli strumenti, italiano, resistenza alle
 istruzioni nascoste, velocità per classe di hardware) e pubblica nel catalogo solo
 quelli che superano le soglie, con il punteggio.
 
 **Prova sul dispositivo** (`trial.py`): prima di adottare un nuovo modello di testo
-se ne misura la velocità reale e la precisione su un insieme di compiti di AIOS;
+se ne misura la velocità reale e la precisione su un insieme di compiti di SoIA;
 lo si adotta solo se è almeno buono quanto l'attuale e abbastanza veloce, altrimenti
 si scarta e si libera lo spazio. Il modello precedente resta: «torna al modello di
 prima».
@@ -255,7 +255,7 @@ prima».
 ### Memoria compressa: modelli più grandi su dispositivi piccoli
 
 Un modello linguistico, per ogni parola, legge tutti i suoi pesi dalla memoria: la
-memoria limita sia *quale* modello entra sia *quanto* è veloce. AIOS comprime in tre
+memoria limita sia *quale* modello entra sia *quanto* è veloce. SoIA comprime in tre
 punti, sempre in base al dispositivo (`memory.py`, `models.py`):
 
 - **Pesi del modello compressi (quantizzazione).** Il catalogo contiene varianti a
@@ -263,7 +263,7 @@ punti, sempre in base al dispositivo (`memory.py`, `models.py`):
   quello a 4 bit non entra; un 32B a 3 bit entra in 24 GB. La compressione toglie un
   po' di qualità, quindi ogni variante ha un punteggio atteso (`score`) e la
   **catena di prove** decide: se la variante scelta, provata sul dispositivo, è troppo
-  lenta o meno precisa del modello attuale, viene scartata (non si ripropone) e AIOS
+  lenta o meno precisa del modello attuale, viene scartata (non si ripropone) e SoIA
   prova da solo la successiva, mai sotto il modello già in uso. Senza GPU si
   escludono i modelli che richiedono di leggere più di 5 GB per parola: sarebbero
   troppo lenti per una conversazione.
@@ -283,7 +283,7 @@ stato e quanto si sta risparmiando.
 **Modelli a esperti (MoE, `moe.py`).** Un modello come Qwen3 30B-A3B ha 30 miliardi
 di parametri ma per ogni parola ne usa circa 3: va veloce come un modello piccolo e
 ragiona quasi come uno grande. Il catalogo indica per ogni modello a esperti quanti GB
-si leggono per parola (`active_gb`); AIOS stima la velocità di ogni sistemazione e
+si leggono per parola (`active_gb`); SoIA stima la velocità di ogni sistemazione e
 sceglie la più veloce sopra le 4 parole al secondo:
 
 | Modalità | Quando | Motore |
@@ -293,7 +293,7 @@ sceglie la più veloce sopra le 4 parole al secondo:
 | gpu+ram | attenzione sulla GPU, esperti in RAM | llama.cpp `--n-cpu-moe` |
 | disco | gli esperti più usati in RAM, gli altri letti dal disco NVMe/SSD quando servono (mmap) | llama.cpp |
 
-Per le ultime due Ollama non basta (rifiuta i modelli più grandi della RAM): AIOS
+Per le ultime due Ollama non basta (rifiuta i modelli più grandi della RAM): SoIA
 avvia `llama-server` come servizio utente (`aios-esperti.service`) direttamente sul
 file GGUF già scaricato da Ollama, senza copie, e il copilota gli parla con l'API
 OpenAI (`llm.LlamaServerClient`). La stima tiene conto che gli esperti non sono usati
@@ -301,7 +301,7 @@ tutti allo stesso modo; la velocità vera la misura la prova sul dispositivo, ch
 scarta il modello se è lento (e ferma il servizio). Tornando al modello di prima,
 il servizio si ferma e la memoria si libera.
 
-Ricerca futura del laboratorio AIOS: pesi compressi senza perdita, decompressi
+Ricerca futura del laboratorio SoIA: pesi compressi senza perdita, decompressi
 direttamente durante il calcolo.
 
 ### Abilità delle app (`sdk.py`, [SDK.md](SDK.md))
@@ -315,7 +315,7 @@ protezione dalle fughe. `aios-abilita` per elencare, validare, installare e prov
 ### Aggiornamenti del sistema (`updates.py`)
 
 - **Sistema immutabile** (rpm-ostree / Fedora Atomic, oppure bootc): due volte al
-  giorno, a riposo e in carica, AIOS controlla e **prepara** il nuovo sistema accanto a
+  giorno, a riposo e in carica, SoIA controlla e **prepara** il nuovo sistema accanto a
   quello in uso; parte al riavvio successivo, in modo atomico. **Mai un riavvio
   forzato**: una notifica avvisa, e «riavvia per aggiornare» lo applica quando vuoi.
 - Gli aggiornamenti di **sicurezza** (avvisi Important/Critical, CVE) sono evidenziati.
@@ -359,7 +359,7 @@ Il telefono e il PC si collegano da soli quando sono vicini (stessa rete):
   appunti. Notifiche e SMS sono dati privati (protezione dalle fughe del copilota);
   ogni invio chiede conferma, e un nome ambiguo nella rubrica non viene indovinato.
 - **Delega AI dal telefono al PC** (`mesh/delegate.py`):
-  - *cervello prestato*: sul telefono con AIOS il copilota resta quello del telefono,
+  - *cervello prestato*: sul telefono con SoIA il copilota resta quello del telefono,
     con i suoi strumenti, ma il ragionamento lo fa il modello del PC (`/api/modello`)
     quando è vicino. `HybridModel` torna al modello del telefono appena il PC non
     risponde e lo riprova dopo 30 secondi. Il certificato del PC è «fissato» al
@@ -383,7 +383,7 @@ Il telefono e il PC si collegano da soli quando sono vicini (stessa rete):
   ydotool, wtype o xdotool sul PC; solo da telefoni abbinati e vicini.
 - **Bluetooth condiviso** (`mesh/bluetooth.py`): le chiavi di abbinamento non si
   possono copiare, quindi l'elenco dei dispositivi viaggia con la sincronizzazione e
-  ogni dispositivo AIOS abbina da sé quelli dell'utente quando sono vicini (audio in
+  ogni dispositivo SoIA abbina da sé quelli dell'utente quando sono vicini (audio in
   automatico, dispositivi di input solo con conferma).
 - **Documenti** (`documents.py`): il documento giusto per mese, anno e argomento; la
   parte della dieta per giorno e pasto; la lista della spesa. Dal telefono il file
@@ -401,7 +401,7 @@ collegano da soli.
   casuali che cambiano; le richieste nei flag non si possono falsificare.
 - **Chi ascolta, chi annuncia**: il PC si annuncia sempre (bluetoothctl) e cerca con un
   ritmo deciso da `energy.py`; il telefono affida l'ascolto al chip Bluetooth con un
-  filtro e si sveglia solo per i codici AIOS (nessun servizio sempre acceso). Con il PC
+  filtro e si sveglia solo per i codici SoIA (nessun servizio sempre acceso). Con il PC
   vicino parte `NearbyService`, con la sua notifica, e si spegne quando il PC se ne va.
 - **Il collegamento lo sceglie Nova** (`choose_link`): Wi-Fi diretto creato dal PC
   (rete nascosta, senza internet, nome e password ricavati dal segreto e cambiati ogni
@@ -415,20 +415,20 @@ collegano da soli.
 - **Da fare**: un identificativo produttore BLE registrato (oggi 0xFFFF, riservato alle
   prove); annunci per più telefoni contemporaneamente; prove su dispositivi veri.
 
-### AIOS sul telefono: base AOSP e installazione dal PC (`phoneinstall.py`, `phoneapp/`)
+### SoIA sul telefono: base AOSP e installazione dal PC (`phoneinstall.py`, `phoneapp/`)
 
-AIOS per telefono è basato su **AOSP** (Android open source): chiamate, fotocamera, rete
-e batteria funzionano, le app Android girano; sopra ci sono l'interfaccia di AIOS e
-Nova. Si installa **dal PC, con il cavo USB**: «Nova, installa AIOS sul telefono» apre
+SoIA per telefono è basato su **AOSP** (Android open source): chiamate, fotocamera, rete
+e batteria funzionano, le app Android girano; sopra ci sono l'interfaccia di SoIA e
+Nova. Si installa **dal PC, con il cavo USB**: «Nova, installa SoIA sul telefono» apre
 l'installatore guidato.
 
 | Marca | Strada |
 |---|---|
-| Google Pixel | immagine per il modello; sblocco, chiave di avvio di AIOS (`avb_custom_key`) e **richiusura**: avvio verificato |
+| Google Pixel | immagine per il modello; sblocco, chiave di avvio di SoIA (`avb_custom_key`) e **richiusura**: avvio verificato |
 | Motorola | codice di sblocco di Motorola (inviato per email), poi GSI da fastbootd |
 | Xiaomi / Redmi / POCO | permesso di Xiaomi (Mi Unlock, attesa di alcuni giorni), poi GSI |
 | Oppo | solo i modelli con l'app ufficiale «Deep Testing», poi GSI |
-| Samsung | modalità download e heimdall: recovery di AIOS con fastbootd, poi GSI; avviso sul contatore Knox; modelli nordamericani non sbloccabili |
+| Samsung | modalità download e heimdall: recovery di SoIA con fastbootd, poi GSI; avviso sul contatore Knox; modelli nordamericani non sbloccabili |
 
 Prima di tutto: batteria ≥ 50%, permesso della marca (non cancella nulla), **backup
 completo sul PC** (foto e video, documenti, musica, WhatsApp, rubrica in .vcf, SMS e
@@ -517,7 +517,7 @@ dei temi.
 |---|---|
 | **1 — Copilota** *(in corso; benvenuto conversazionale ✅)* | `aios-copilot` funzionante su qualsiasi Linux: ricerca web, installazione/avvio app, overlay grafico richiamabile da tastiera, motore di intenti veloce, classificatore semantico |
 | 1b — Conoscenza personale *(in corso)* | indice dei file ✅, protezione dalle fughe di dati ✅, apprendimento a riposo ✅, agenda e promemoria ✅, riepilogo del mattino ✅, consigli personalizzati |
-| 2 — Immagine PC | immagine immutabile con shell AIOS, copilota integrato, Bottles e Waydroid preinstallati |
+| 2 — Immagine PC | immagine immutabile con shell SoIA, copilota integrato, Bottles e Waydroid preinstallati |
 | 3 — Mesh *(in corso: telefono↔PC ✅)* | collegamento tra i dispositivi dello stesso utente, delega AI dal telefono al PC |
 | 4 — Mobile | immagine per 1–2 telefoni/tablet, input vocale |
 | 5 — Ecosistema | SDK per esporre le funzioni delle app al copilota, memoria personale semantica |

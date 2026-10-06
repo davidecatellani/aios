@@ -1,4 +1,4 @@
-"""Nuove versioni di AIOS da GitHub (accesso dell'utente) o da chiavetta, senza formattare."""
+"""Nuove versioni di SoIA da GitHub (accesso dell'utente) o da chiavetta, senza formattare."""
 
 import hashlib
 import io
@@ -155,7 +155,7 @@ def test_updates_prefers_usb_and_stages_without_formatting(tmp_path, monkeypatch
     found = u.check()
     system = next(x for x in found if x.kind == "sistema")
     assert "2026.10.05.8" in system.summary and "GitHub" in system.summary  # la più recente vince
-    assert u.check(("chiavetta",))[0].summary.startswith("AIOS 2026.10.04.7 (dalla chiavetta")
+    assert u.check(("chiavetta",))[0].summary.startswith("SoIA 2026.10.04.7 (dalla chiavetta")
     report = u.prepare([u.check(("chiavetta",))[0]])
     assert "pronto per il prossimo riavvio" in report[0]
     staged = [c for c in r.ran if c[:2] == ["rpm-ostree", "rebase"]]

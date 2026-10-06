@@ -1,6 +1,6 @@
-"""Programmi a finestra e app di AIOS, comandati da Nova.
+"""Programmi a finestra e app di SoIA, comandati da Nova.
 
-Nella sessione AIOS le cose di base (file, foto, musica, video, note, impostazioni) sono app HTML
+Nella sessione SoIA le cose di base (file, foto, musica, video, note, impostazioni) sono app HTML
 della shell; i programmi installati (Firefox, giochi, app Windows…) sono finestre a schermo intero
 che la shell e Nova tengono in ordine: «passa a Firefox», «chiudi Spotify», «quali programmi sono
 aperti?», «torna alla schermata», «apri le impostazioni del Wi-Fi».
@@ -96,14 +96,14 @@ def make_tools(windows: Callable[[], list[dict[str, str]]] | None = None,
         return f"Chiusi {len(done)} programmi." if done else "Non c'era niente da chiudere."
 
     def go_home() -> str:
-        return "Ecco la schermata." if shell("--casa") else "La shell di AIOS non è in esecuzione."
+        return "Ecco la schermata." if shell("--casa") else "La shell di SoIA non è in esecuzione."
 
     def show_view(vista: str, sezione: str = "") -> str:
         target = VIEWS.get(vista.lower(), vista.lower())
         if target not in set(VIEWS.values()):
             return f"Non conosco l'app «{vista}»."
         arg = target + (f":{SECTIONS.get(sezione.lower(), sezione.lower())}" if sezione and target == "impostazioni" else "")
-        return f"Apro {vista}." if shell("--vista", arg) else "La shell di AIOS non è in esecuzione."
+        return f"Apro {vista}." if shell("--vista", arg) else "La shell di SoIA non è in esecuzione."
 
     def keyboard_layout(lingua: str) -> str:
         from .. import keyboard
@@ -118,8 +118,8 @@ def make_tools(windows: Callable[[], list[dict[str, str]]] | None = None,
              switch_window),
         Tool("close_window", "Chiude un programma aperto.", params(name="Nome del programma da chiudere"), close_window),
         Tool("close_all_windows", "Chiude tutti i programmi aperti.", params(), close_all, requires_confirmation=True),
-        Tool("go_home", "Torna alla schermata principale di AIOS (riduce i programmi aperti).", params(), go_home),
-        Tool("show_aios_app", "Apre un'app di AIOS: file, foto, musica, video, note, calendario, rubrica, attivita (gestione attività) o impostazioni (anche una sezione: "
+        Tool("go_home", "Torna alla schermata principale di SoIA (riduce i programmi aperti).", params(), go_home),
+        Tool("show_aios_app", "Apre un'app di SoIA: file, foto, musica, video, note, calendario, rubrica, attivita (gestione attività) o impostazioni (anche una sezione: "
              "wifi, bluetooth, suono, voce, password, aggiornamenti).",
              params(vista=("App", ["file", "foto", "musica", "video", "note", "impostazioni", "attivita", "calendario", "rubrica"]),
                     sezione="Sezione delle impostazioni (facoltativa)"), show_view),
@@ -138,7 +138,7 @@ RE_VIEW = re.compile(r"^(?:apri|aprimi|mostra|mostrami|fammi\s+vedere|vai\s+(?:s
 
 
 class WindowsRouter:
-    """Frasi sui programmi aperti e sulle app di AIOS, senza modello AI (solo nella sessione AIOS)."""
+    """Frasi sui programmi aperti e sulle app di SoIA, senza modello AI (solo nella sessione SoIA)."""
 
     def __init__(self, windows: Callable[[], list[dict[str, str]]] | None = None, active: Callable[[], bool] = in_aios_session):
         self.windows, self.active = windows, active

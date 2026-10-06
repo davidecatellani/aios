@@ -1,5 +1,5 @@
-# AIOS per PC (anteprima): basato su Fedora Silverblue immutabile, con l'aspetto di AIOS, Nova (anche a voce)
-# e i servizi di AIOS.
+# SoIA per PC (anteprima): basato su Fedora Silverblue immutabile, con l'aspetto di SoIA, Nova (anche a voce)
+# e i servizi di SoIA.
 #
 #   podman build -t aios:44 -f image/Containerfile .          (dalla radice del repository)
 #   rpm-ostree rebase ostree-unverified-registry:ghcr.io/<utente>/aios:44   (da un Fedora Atomic già installato)
@@ -10,7 +10,7 @@
 ARG FEDORA=44
 FROM quay.io/fedora-ostree-desktops/silverblue:${FEDORA}
 
-# Programmi di sistema usati da AIOS
+# Programmi di sistema usati da SoIA
 RUN dnf install -y --skip-unavailable \
         python3-pip python3-setuptools python3-gobject webkitgtk6.0 \
         ffmpeg-free poppler-utils libnotify wl-clipboard libsecret \
@@ -49,7 +49,7 @@ RUN if [ "$KERNEL" = lts ]; then \
       test -f "/usr/lib/modules/$(ls /usr/lib/modules)/vmlinuz"; \
     fi
 
-# Hyprland, il compositore di AIOS: da Fedora se c'è, altrimenti dal primo COPR che lo offre per questa
+# Hyprland, il compositore di SoIA: da Fedora se c'è, altrimenti dal primo COPR che lo offre per questa
 # versione di Fedora (sdegler/hyprland è quello mantenuto oggi; solopasha/hyprland quello storico). Deve
 # esserci: senza, la sessione ripiegherebbe su labwc senza dirlo (è successo nell'anteprima 20).
 ARG FEDORA=44
@@ -73,7 +73,7 @@ RUN set -e; \
     dnf clean all; \
     test -x /usr/bin/Hyprland; test -x /usr/bin/hyprctl; rpm -q hyprland
 
-# Codec completi (per Schermo AIOS: H.264/H.265 codificati e decodificati dalla scheda video, anche Intel e
+# Codec completi (per Schermo SoIA: H.264/H.265 codificati e decodificati dalla scheda video, anche Intel e
 # AMD) da RPM Fusion, come fanno Bazzite e Universal Blue: ffmpeg al posto di ffmpeg-free, i driver VA-API
 # «freeworld» e il driver Intel completo. Senza, Fedora non codifica H.264 con la scheda video.
 ARG FEDORA=44
@@ -138,7 +138,7 @@ RUN if [ "$GPU" = nvidia ]; then \
       depmod -a "$KVER"; \
       # il driver si carica solo se c'è una scheda NVIDIA (immagine universale: sugli altri PC non si tocca)
       mkdir -p /usr/lib/udev/rules.d; \
-      printf '%s\n' '# AIOS: con una scheda video NVIDIA si caricano il driver e i moduli che servono a Wayland e a CUDA' \
+      printf '%s\n' '# SoIA: con una scheda video NVIDIA si caricano il driver e i moduli che servono a Wayland e a CUDA' \
         'ACTION=="add", SUBSYSTEM=="pci", ATTR{vendor}=="0x10de", ATTR{class}=="0x03[0-9]*", RUN+="/usr/sbin/modprobe -a nvidia nvidia_modeset nvidia_uvm nvidia_drm"' \
         > /usr/lib/udev/rules.d/70-aios-nvidia.rules; \
       modinfo -k "$KVER" nvidia | head -n 4; \
@@ -146,7 +146,7 @@ RUN if [ "$GPU" = nvidia ]; then \
         echo "ERRORE: compilato il modulo open, che non regge le schede Maxwell/Pascal" >&2; exit 1; fi; \
     fi
 
-# Aspetto AIOS: niente loghi di Fedora (come chiedono le regole dei marchi Fedora per i sistemi derivati)
+# Aspetto SoIA: niente loghi di Fedora (come chiedono le regole dei marchi Fedora per i sistemi derivati)
 # e niente giro di benvenuto di GNOME: il benvenuto è quello di Nova.
 RUN dnf swap -y fedora-logos generic-logos || echo "avviso: loghi Fedora non sostituiti"; \
     dnf remove -y gnome-tour gnome-initial-setup || echo "avviso: benvenuto di GNOME non rimosso"; \
@@ -279,7 +279,7 @@ RUN set -e; rm -f /usr/share/aios/nucleo/.gitkeep /usr/share/aios/nucleo/.gitign
       chmod -R a+rX /usr/share/aios/nucleo; systemctl enable aios-nucleo.service; \
     else echo "Nucleo senza adattatori: Nova userà Tev1"; fi
 
-# Il decisore: Laya, il System One di Nova (copilot/aios_copilot/decisore.py), addestrato per AIOS
+# Il decisore: Laya, il System One di Nova (copilot/aios_copilot/decisore.py), addestrato per SoIA
 # (flusso «Laya», Release «laya-N»: la mette in image/laya il flusso di costruzione). Ambito, azione, percorso,
 # posta, «è per Nova?», giochi: tutte le decisioni rapide in ~0,2 s. Gira con torch per CPU in un ambiente a
 # parte (/usr/lib/aios/laya); se manca, decide Tev1.
@@ -298,7 +298,7 @@ RUN set -e; rm -f /usr/share/aios/laya/.gitkeep /usr/share/aios/laya/.gitignore;
 RUN mkdir -p /etc/flatpak/remotes.d \
     && curl -fsSL -o /etc/flatpak/remotes.d/flathub.flatpakrepo https://dl.flathub.org/repo/flathub.flatpakrepo
 
-# Nova e i programmi di AIOS
+# Nova e i programmi di SoIA
 COPY copilot /tmp/aios-copilot
 # onnxruntime e tokenizers: le impronte delle foto (SigLIP2) senza torch; sherpa-onnx: Parakeet per l'ascolto
 # (se per questa versione di Python non ci sono ancora, Nova funziona lo stesso, senza impronte)
@@ -321,15 +321,15 @@ RUN pip install --no-cache-dir --prefix=/usr --no-build-isolation /tmp/aios-copi
     && install -Dm755 /tmp/aios-copilot/data/greenboot/50-aios.sh /etc/greenboot/check/required.d/50-aios.sh \
     && rm -rf /tmp/aios-copilot
 
-# Servizi: Ollama per il sistema, quelli di AIOS per ogni utente; Super+Spazio apre Nova
+# Servizi: Ollama per il sistema, quelli di SoIA per ogni utente; Super+Spazio apre Nova
 RUN systemctl enable ollama.service aios-modello-base.service aios-risparmio.service aios-credenziali-registro.path greenboot-healthcheck.service \
     && systemctl --global enable aios-learn.service aios-agenda.service aios-mail.service aios-telefono.service \
        aios-voce.service aios-schermo.service aios-chiavetta.path \
     && dconf update
 
-# La sessione di AIOS: la shell (giornata, barra, Nova) al posto del desktop. All'accensione la
-# schermata d'accesso di AIOS (greetd + aios-accesso, in HTML) al posto di GDM; GDM resta installato
-# e riparte da solo solo se l'accesso di AIOS non riesce ad avviarsi (greetd.service.d/aios.conf).
+# La sessione di SoIA: la shell (giornata, barra, Nova) al posto del desktop. All'accensione la
+# schermata d'accesso di SoIA (greetd + aios-accesso, in HTML) al posto di GDM; GDM resta installato
+# e riparte da solo solo se l'accesso di SoIA non riesce ad avviarsi (greetd.service.d/aios.conf).
 # controlli: se manca un pezzo della sessione, la costruzione si ferma (non un'anteprima a metà)
 RUN test -x /usr/bin/Hyprland && test -x /usr/bin/hyprctl && test -x /usr/bin/labwc && test -x /usr/bin/greetd \
     && test -x /usr/bin/cage
@@ -345,7 +345,7 @@ RUN chmod 755 /usr/libexec/aios-nucleo /usr/libexec/aios-decisore /usr/bin/aios-
          if [ -f "$f" ]; then sed -i -e 's/^Name=.*/Name=GNOME (riserva)/' -e '/^Name\[/d' "$f"; fi; \
        done
 
-# Il marchio di AIOS: logo all'avvio e all'accesso, nome del sistema, app tecniche nascoste dal menu
+# Il marchio di SoIA: logo all'avvio e all'accesso, nome del sistema, app tecniche nascoste dal menu
 COPY image/branding/ /tmp/aios-branding/
 RUN install -Dm644 /tmp/aios-branding/aios-logo-chiaro.png /usr/share/pixmaps/aios-logo-chiaro.png \
     && install -Dm644 /tmp/aios-branding/aios-logo-chiaro.png /usr/share/plymouth/themes/spinner/watermark.png \
@@ -371,9 +371,9 @@ RUN mkdir -p /usr/share/aios \
     && echo "${VERSIONE}" > /usr/share/aios/versione \
     && echo "${VARIANTE:-${GPU:-standard}}" > /usr/share/aios/variante \
     && printf '{"repo": "%s"}\n' "${REPO}" > /usr/share/aios/aggiornamenti.json \
-    && sed -i -e 's/^NAME=.*/NAME="AIOS"/' -e "s/^PRETTY_NAME=.*/PRETTY_NAME=\"AIOS ${VERSIONE}\"/" \
+    && sed -i -e 's/^NAME=.*/NAME="SoIA"/' -e "s/^PRETTY_NAME=.*/PRETTY_NAME=\"SoIA ${VERSIONE}\"/" \
               -e 's/^LOGO=.*/LOGO=aios/' -e 's/^DEFAULT_HOSTNAME=.*/DEFAULT_HOSTNAME="aios"/' \
-              -e 's/^VARIANT=.*/VARIANT="AIOS"/' /usr/lib/os-release \
+              -e 's/^VARIANT=.*/VARIANT="SoIA"/' /usr/lib/os-release \
     && for k in LOGO=aios DEFAULT_HOSTNAME=\"aios\"; do grep -q "^${k%%=*}=" /usr/lib/os-release || echo "$k" >> /usr/lib/os-release; done
 
 # Controllo finale (gli avvisi non bloccano l'anteprima)

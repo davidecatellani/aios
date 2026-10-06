@@ -17,7 +17,7 @@ from pathlib import Path
 from typing import Callable
 
 LLAMA_DIR = Path("/usr/lib/aios/llama")
-BEST = "ovisocr2"  # il lettore di documenti di AIOS (models.py): si scarica da solo la prima volta che serve
+BEST = "ovisocr2"  # il lettore di documenti di SoIA (models.py): si scarica da solo la prima volta che serve
 MIN_PAGE_TEXT = 40  # sotto questi caratteri la pagina è un'immagine: si legge con l'OCR
 MAX_PAGES = 20
 OVIS_PROMPT = ("Extract all readable content from the image in natural human reading order and output the result as a single "

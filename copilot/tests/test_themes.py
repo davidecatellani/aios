@@ -127,7 +127,7 @@ def test_apply_preserves_user_gtk_css_and_remembers_previous(tmp_path):
     assert themeapply.previous().id == sea.id
     themeapply.reset(r)
     assert user_css.read_text().strip() == "/* mia regola */\nwindow { padding: 2px; }"
-    assert "Tema AIOS: AIOS" in themeapply.current_css()
+    assert "Tema SoIA: SoIA" in themeapply.current_css()
 
 
 def test_kde_scheme():
@@ -238,5 +238,5 @@ def test_apps_receive_the_theme(tmp_path):
     conn = http.client.HTTPConnection("127.0.0.1", port)
     conn.request("GET", "/theme.css", headers={"Host": f"127.0.0.1:{port}"})
     resp = conn.getresponse()
-    assert resp.status == 200 and b"Tema AIOS: Marino" in resp.read()
+    assert resp.status == 200 and b"Tema SoIA: Marino" in resp.read()
     server.shutdown()

@@ -1,5 +1,5 @@
 #!/bin/bash
-# Raccoglie i registri dell'installazione di AIOS su una chiavetta (non quella di installazione).
+# Raccoglie i registri dell'installazione di SoIA su una chiavetta (non quella di installazione).
 #
 # Nella chiavetta d'installazione è già presente come comando: Ctrl+Alt+F2, poi scrivi  aios-log
 # Con una chiavetta vecchia: copia questo file sulla chiavetta dei registri come log.sh, rinominala LOG

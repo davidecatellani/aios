@@ -5,5 +5,5 @@
     <string name="send">Invia</string>
     <string name="hello">Ciao! Sono Nova. Quando il computer è vicino uso il suo modello AI; altrimenti quello del telefono.</string>
     <string name="restore_title">Ripristina dal computer</string>
-    <string name="restore_text">Sul computer, nell\'installatore di AIOS, collega il telefono con il cavo: Nova ti riporta foto, rubrica e impostazioni. Oppure incolla qui l\'indirizzo del codice QR mostrato dal computer.</string>
+    <string name="restore_text">Sul computer, nell\'installatore di SoIA, collega il telefono con il cavo: Nova ti riporta foto, rubrica e impostazioni. Oppure incolla qui l\'indirizzo del codice QR mostrato dal computer.</string>
 </resources>

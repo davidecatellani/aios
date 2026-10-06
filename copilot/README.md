@@ -1,8 +1,8 @@
 <img src="../docs/brand/copilota.png" alt="" width="72" align="right">
 
-# AIOS Copilot
+# SoIA Copilot
 
-L'assistente AI locale di AIOS. È pensato per essere veloce anche **senza GPU**:
+L'assistente AI locale di SoIA. È pensato per essere veloce anche **senza GPU**:
 
 1. i comandi comuni ("apri Firefox", "installa VLC", "apri i Download", "cerca …")
    vengono capiti dal **motore di intenti** in circa 10 µs, senza usare il modello AI;
@@ -93,7 +93,7 @@ systemctl --user enable --now aios-mail   # servizio (dopo aver copiato data/aio
 - **Notifiche solo delle mail importanti** (persone a cui scrivi, urgenze, accessi
   sospetti), mai delle promozioni, mai due volte.
 - **Archiviazione automatica** solo delle categorie scelte, solo posta letta e più
-  vecchia di una settimana: la mail viene spostata in «AIOS/…», mai cancellata; se
+  vecchia di una settimana: la mail viene spostata in «SoIA/…», mai cancellata; se
   il server non permette di spostarla in sicurezza, resta dov'è.
 - Le mail si scaricano senza segnarle come lette; si leggono come testo (nessun
   codice o immagine remota eseguiti); le date trovate diventano «Aggiungi in agenda».
@@ -101,7 +101,7 @@ systemctl --user enable --now aios-mail   # servizio (dopo aver copiato data/aio
   «riassumi questa mail», «scrivi una risposta». Le mail sono dati, mai ordini: una
   mail che chiede di «inoltrare tutto» non fa partire nulla senza la tua conferma,
   che mostra destinatario e testo.
-- Gmail e Outlook con OAuth richiedono un client id di AIOS registrato presso
+- Gmail e Outlook con OAuth richiedono un client id di SoIA registrato presso
   Google/Microsoft (`~/.config/aios/oauth.json`).
 
 | PC | Telefono |
@@ -123,7 +123,7 @@ systemctl --user enable --now aios-mail   # servizio (dopo aver copiato data/aio
 
 ### Modelli AI adatti al tuo dispositivo
 
-AIOS legge memoria, processore (AVX2, core), GPU (NVIDIA, AMD, Intel), NPU e spazio
+SoIA legge memoria, processore (AVX2, core), GPU (NVIDIA, AMD, Intel), NPU e spazio
 libero, e propone per ogni capacità il modello gratuito più completo che ci sta
 davvero, lasciando sempre memoria al resto del sistema:
 
@@ -141,7 +141,7 @@ davvero, lasciando sempre memoria al resto del sistema:
 vista» (con conferma) li mette in coda: si scaricano a riposo e in carica, a passi
 riprendibili, e appena pronti vengono **collegati al sistema** da soli. Le funzioni
 compaiono al copilota solo quando modello e programma (whisper.cpp, piper,
-stable-diffusion.cpp, presenti nell'immagine di AIOS) ci sono davvero. Una volta a
+stable-diffusion.cpp, presenti nell'immagine di SoIA) ci sono davvero. Una volta a
 settimana, se c'è di meglio, il riepilogo del mattino lo segnala.
 
 ```bash
@@ -152,7 +152,7 @@ aios-memoria stato | configura         # RAM compressa e memoria del modello com
 
 **Memoria compressa.** Il catalogo ha varianti dei modelli compresse a 3 e 2 bit:
 su una GPU da 12 GB entra un modello da 14 miliardi di parametri, su una da 24 GB uno
-da 32. Se una variante, provata sul tuo dispositivo, è lenta o imprecisa, AIOS la
+da 32. Se una variante, provata sul tuo dispositivo, è lenta o imprecisa, SoIA la
 scarta e prova da solo la successiva. «ottimizza la memoria» (con conferma e password)
 attiva la RAM compressa (zram + zstd) e comprime la memoria della conversazione del
 modello a 8 o 4 bit; «quanta memoria ho» mostra quanto si risparmia.
@@ -162,16 +162,16 @@ piccola parte dei loro parametri: con 32 GB di RAM e senza scheda video vanno ve
 come un 3B ragionando quasi come un 30B. Con 16 GB e un disco NVMe gli esperti meno
 usati restano sul disco e si leggono solo quando servono (con llama.cpp,
 `llama-server`); con una scheda video piccola l'attenzione va sulla GPU e gli esperti
-in RAM. AIOS sceglie la sistemazione da solo e la verifica con la prova sul dispositivo.
+in RAM. SoIA sceglie la sistemazione da solo e la verifica con la prova sul dispositivo.
 
-L'elenco dei modelli si aggiorna con un **catalogo firmato** dal progetto AIOS: i
+L'elenco dei modelli si aggiorna con un **catalogo firmato** dal progetto SoIA: i
 modelli nuovi arrivano senza aggiornare il codice. Prima di adottare un nuovo
-modello di testo, AIOS lo **prova sul tuo dispositivo** (velocità e precisione sui
+modello di testo, SoIA lo **prova sul tuo dispositivo** (velocità e precisione sui
 compiti del copilota) e lo tiene solo se va meglio; altrimenti lo scarta.
 
 ### Tutto in ordine, senza creare cartelle
 
-AIOS cataloga da solo **tutto** quello che hai su Scrivania, Download, Documenti,
+SoIA cataloga da solo **tutto** quello che hai su Scrivania, Download, Documenti,
 Immagini, Video e Musica, più le app installate:
 
 | Cosa | Come lo ordina |
@@ -202,13 +202,13 @@ tema di prima».
 ![Temi](../docs/img/temi.png)
 
 - Il tema cambia colori (chiari e scuri), accento, forme, carattere e sfondo di
-  GNOME/KDE, delle app GTK e delle app di AIOS. Nei file GTK occupa solo un blocco
+  GNOME/KDE, delle app GTK e delle app di SoIA. Nei file GTK occupa solo un blocco
   tra marcatori: le tue personalizzazioni restano.
 - **Leggibilità garantita**: ogni coppia testo/sfondo rispetta il contrasto WCAG
   (≥ 4,5:1, ≥ 7:1 per «alto contrasto») e viene corretta se serve.
 - Da un disegno: colori principali estratti in locale (ffmpeg + k-means), il disegno
   diventa lo sfondo. Da una descrizione: atmosfere conosciute subito, le altre con una
-  palette proposta dal modello e controllata. Sfondi disegnati da AIOS (onde,
+  palette proposta dal modello e controllata. Sfondi disegnati da SoIA (onde,
   montagne, stelle, energia, foglie…), senza file esterni.
 - **Market**: indice firmato (stesse chiavi del catalogo dei modelli), pacchetti con
   impronta SHA-256 che possono contenere **solo** `theme.json` e un'immagine: niente
@@ -245,11 +245,11 @@ copilota ha letto i tuoi file e poi il modello vuole inviare qualcosa su interne
 l'azione si ferma e ti mostra cosa uscirebbe, evidenziando i dati presi dai tuoi file.
 I contenuti di pagine web e documenti vengono passati al modello come dati, mai come
 istruzioni. Indice e cronologia sono leggibili solo dal tuo utente (permessi 600);
-la cifratura vera è quella del disco, prevista nell'immagine di AIOS.
+la cifratura vera è quella del disco, prevista nell'immagine di SoIA.
 
 ### Benvenuto
 
-Al primo accesso AIOS si presenta con una conversazione: il copilota chiede come ti
+Al primo accesso SoIA si presenta con una conversazione: il copilota chiede come ti
 chiami, spiega il sistema con parole semplici (come parlargli, privacy, app,
 dispositivi, funzionamento offline) e ti fa provare subito comandi veri, mostrando
 quando una richiesta è stata capita all'istante senza modello AI.
@@ -336,20 +336,20 @@ privati (chiavi, password, profili dei browser).
 risponde con il modello AI del PC, più grande di quello del telefono: cerca nei file
 e nella posta, legge l'agenda, cerca sul web. Dal telefono non si può cambiare nulla
 sul PC, e le conferme (es. inviare una mail) arrivano sul telefono. Su un telefono con
-AIOS il copilota usa da solo il modello del PC quando è vicino e torna al suo quando
+SoIA il copilota usa da solo il modello del PC quando è vicino e torna al suo quando
 ci si allontana.
 
 ![«Chiedi al PC» sul telefono (esempio con un modello simulato)](../docs/img/telefono-chiedi.png)
 
 ```bash
-aios-telefono servizio | stato | abbina | collega-pc URL   # collega-pc: sul telefono con AIOS
+aios-telefono servizio | stato | abbina | collega-pc URL   # collega-pc: sul telefono con SoIA
 ```
 
 ### Un'identità per tutti i tuoi dispositivi
 
-«crea la mia identità» genera la tua chiave AIOS e una **frase di recupero** di 17
+«crea la mia identità» genera la tua chiave SoIA e una **frase di recupero** di 17
 parole da scrivere su carta. I dispositivi collegati con «collega il telefono» (o
-`aios-telefono collega-pc` su un altro PC con AIOS) ricevono un certificato e si
+`aios-telefono collega-pc` su un altro PC con SoIA) ricevono un certificato e si
 **sincronizzano da soli**, cifrati end-to-end: agenda e promemoria, il tuo nome, i
 temi. Se perdi un dispositivo: «revoca il Pixel 8». Se li perdi tutti: «ripristina la
 mia identità: …» con le 17 parole.
@@ -367,7 +367,7 @@ Il relay si può ospitare da sé: `aios-relay --porta 8744 --certificato cert.pe
 
 ### Aggiornamenti
 
-AIOS si aggiorna da solo a riposo e in carica e prepara il nuovo sistema per il
+SoIA si aggiorna da solo a riposo e in carica e prepara il nuovo sistema per il
 prossimo riavvio, senza mai riavviare da solo. «ci sono aggiornamenti?», «aggiorna il
 sistema», «riavvia per aggiornare», «torna alla versione precedente del sistema».
 
@@ -390,9 +390,9 @@ aios-aggiornamenti stato | controlla | prepara | ripristina | verifica
 ![Documenti dal telefono](../docs/img/telefono-documenti.png)
 ![Tastiera e touchpad dal telefono](../docs/img/telefono-tastiera.png)
 
-### AIOS sul telefono
+### SoIA sul telefono
 
-«Nova, installa AIOS sul telefono» (o `aios-installatore`) apre l'installatore guidato:
+«Nova, installa SoIA sul telefono» (o `aios-installatore`) apre l'installatore guidato:
 collega il telefono con il cavo USB e Nova fa backup, sblocco, installazione e
 ripristino, chiedendoti solo ciò che va fatto sul telefono. Pixel, Samsung, Motorola,
 Xiaomi/Redmi e Oppo. Servono gli strumenti Android sul PC (`adb`, `fastboot`; per

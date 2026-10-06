@@ -1,9 +1,9 @@
-"""Aggiornamenti incrementali: AIOS dal registro delle immagini di GitHub (ghcr.io).
+"""Aggiornamenti incrementali: SoIA dal registro delle immagini di GitHub (ghcr.io).
 
 La costruzione (immagine.yml) pubblica l'immagine divisa in strati stabili. Un PC che si aggiorna dal
 registro scarica solo gli strati cambiati (di solito qualche centinaio di MB) invece del pacchetto
 completo della Release (~8 GB). Se l'immagine nel registro è pubblica non serve nessun accesso; se è
-privata, lo stesso token già dato ad AIOS per gli aggiornamenti, se può leggere i pacchetti (token
+privata, lo stesso token già dato ad SoIA per gli aggiornamenti, se può leggere i pacchetti (token
 «classico» con read:packages; i token «fine-grained» il registro non li accetta).
 
 Passi (con token): 1) si prova il token col registro; 2) l'accesso si lascia in /var/lib/aios-registro, dove un
@@ -75,7 +75,7 @@ class Access:
         return self.open(urllib.request.Request(url, headers={"User-Agent": "AIOS", **headers}))
 
     def check(self, tag: str | None = None) -> str:
-        """→ "" se il token può scaricare l'immagine di AIOS, altrimenti il motivo in parole semplici."""
+        """→ "" se il token può scaricare l'immagine di SoIA, altrimenti il motivo in parole semplici."""
         try:
             auth = {}
             if self.token:
@@ -99,7 +99,7 @@ class Access:
                 return ("il token non può leggere il registro delle immagini: serve un token «classico» con il "
                         "permesso read:packages (i token «fine-grained» il registro non li accetta)")
             if exc.code == 404:
-                return "nel registro non c'è ancora l'immagine di AIOS (arriva con la prossima anteprima)"
+                return "nel registro non c'è ancora l'immagine di SoIA (arriva con la prossima anteprima)"
             return f"errore {exc.code} dal registro"
         except (OSError, ValueError) as exc:
             return f"registro non raggiungibile ({exc})"

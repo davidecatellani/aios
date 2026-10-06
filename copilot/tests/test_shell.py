@@ -1,4 +1,4 @@
-"""La shell di AIOS: carte della giornata, app, finestre, sicurezza della pagina."""
+"""La shell di SoIA: carte della giornata, app, finestre, sicurezza della pagina."""
 
 import json
 import urllib.request
@@ -28,7 +28,7 @@ def test_installed_apps_and_dock(tmp_path):
     desktop(d, "org.aios.Copilot", Name="Nova", Exec="aios-copilot")
     desktop(d, "giochino", Name="Giochino", Exec="flatpak run com.usebottles.bottles -b Giochino")
     apps = shell.installed_apps([d])
-    # le app di sistema di GNOME non si vedono: File, Foto, Impostazioni… sono le app HTML di AIOS
+    # le app di sistema di GNOME non si vedono: File, Foto, Impostazioni… sono le app HTML di SoIA
     assert set(apps) == {"org.mozilla.firefox", "giochino"} and apps["giochino"].windows
     assert [a["label"] for a in shell.dock_apps(apps)] == ["File", "Internet", "Foto", "Musica", "Video", "Note",
                                                           "Impostazioni"]
@@ -76,7 +76,7 @@ def test_windows_via_wlrctl():
     def run(cmd):
         ran.append(cmd)
         if cmd[:3] == ["wlrctl", "toplevel", "list"]:
-            return 0, "org.mozilla.firefox: Notizie — Firefox\norg.aios.Shell: AIOS\nfoot: foot\n"
+            return 0, "org.mozilla.firefox: Notizie — Firefox\norg.aios.Shell: SoIA\nfoot: foot\n"
         return 0, ""
 
     assert [w["app_id"] for w in shell.open_windows(run)] == ["org.mozilla.firefox", "foot"]
@@ -148,7 +148,7 @@ def test_update_cards():
     updates.save_state({"pronto": {"versione": "2026.10.05.21", "sicurezza": False, "quando": 2000},
                         "app_aggiornate": {"quando": 5000, "nomi": ["Firefox", "VLC"]}})
     cards = shell.update_cards(now=6000, booted=1000)
-    assert [c["titolo"] for c in cards] == ["Nuova versione di AIOS pronta", "App aggiornate"]
+    assert [c["titolo"] for c in cards] == ["Nuova versione di SoIA pronta", "App aggiornate"]
     assert cards[0]["azioni"][0]["chiedi"] == "riavvia per aggiornare"
     # dopo il riavvio l'aggiornamento è applicato: la carta sparisce
     assert [c["titolo"] for c in shell.update_cards(now=6000, booted=3000)] == ["App aggiornate"]

@@ -2,7 +2,7 @@ name: Prove voci
 
 # Genera la stessa frase con le voci italiane candidate per Nova, misura quanto ci mette ognuna su
 # un processore senza scheda video (il runner di GitHub, 4 core) e mette i file audio nel ramo
-# «prove-voci», da ascoltare. Non tocca l'immagine di AIOS.
+# «prove-voci», da ascoltare. Non tocca l'immagine di SoIA.
 on:
   workflow_dispatch:
   push:

@@ -37,20 +37,20 @@ FRIENDLY = {
     "utility process": "Firefox", "forkserver": "Firefox", "chrome": "Chrome", "chromium": "Chromium",
     "chromium-browser": "Chromium", "code": "Visual Studio Code", "steam": "Steam", "steamwebhelper": "Steam",
     "ollama": "Ollama (modelli AI)", "hyprland": "Hyprland (grafica)", "pipewire": "Audio (PipeWire)",
-    "wireplumber": "Audio (PipeWire)", "pipewire-pulse": "Audio (PipeWire)", "wf-recorder": "Schermo AIOS",
-    "webkitwebprocess": "AIOS (pagine)", "webkitnetworkpro": "AIOS (pagine)", "webkitgpuprocess": "AIOS (pagine)",
+    "wireplumber": "Audio (PipeWire)", "pipewire-pulse": "Audio (PipeWire)", "wf-recorder": "Schermo SoIA",
+    "webkitwebprocess": "SoIA (pagine)", "webkitnetworkpro": "SoIA (pagine)", "webkitgpuprocess": "SoIA (pagine)",
     "mako": "Notifiche", "swayidle": "Blocco schermo", "networkmanager": "Rete", "wine64-preloader": "App Windows",
     "wineserver": "App Windows", "discord": "Discord", "spotify": "Spotify", "thunderbird": "Thunderbird",
     "telegram-desktop": "Telegram", "obs": "OBS Studio", "gimp": "GIMP", "blender": "Blender",
     "libreoffice": "LibreOffice", "soffice.bin": "LibreOffice", "vlc": "VLC", "mpv": "mpv",
 }
-# parti di AIOS (riconosciute dalla riga di comando): l'AI e la shell
-AIOS_PARTS = (("aios_copilot.shell", "AIOS (schermata e Nova)"), ("aios-shell", "AIOS (schermata e Nova)"),
-              ("aios_copilot.schermo", "Schermo AIOS"), ("aios-schermo", "Schermo AIOS"),
+# parti di SoIA (riconosciute dalla riga di comando): l'AI e la shell
+AIOS_PARTS = (("aios_copilot.shell", "SoIA (schermata e Nova)"), ("aios-shell", "SoIA (schermata e Nova)"),
+              ("aios_copilot.schermo", "Schermo SoIA"), ("aios-schermo", "Schermo SoIA"),
               ("aios_copilot.decisore", "Laya (decisore)"), ("aios-decisore", "Laya (decisore)"),
-              ("aios_copilot.nucleo", "AIOS (servizi)"), ("aios-nucleo", "AIOS (servizi)"),
+              ("aios_copilot.nucleo", "SoIA (servizi)"), ("aios-nucleo", "SoIA (servizi)"),
               ("aios_copilot", "Nova"), ("aios-copilot", "Nova"))
-AI_GROUPS = {"Ollama (modelli AI)", "Nova", "Laya (decisore)", "AIOS (schermata e Nova)"}
+AI_GROUPS = {"Ollama (modelli AI)", "Nova", "Laya (decisore)", "SoIA (schermata e Nova)"}
 # senza questi la sessione cade: mai chiusi da qui
 PROTECTED = re.compile(r"^(hyprland|aios|systemd|dbus|pipewire|wireplumber|greetd|gtklock|xdg-desktop-portal|"
                        r"polkit|webkit|mako|swayidle|labwc|login|sd-pam|bash|sh|ollama)", re.I)
@@ -354,7 +354,7 @@ class TaskManager:
             g["processi"] += 1
             g["pid"].append(pid)
             g["mio"] = g["mio"] or p.uid == self.me
-            g["protetto"] = g["protetto"] or bool(PROTECTED.match(p.name)) or p.group.startswith("AIOS") or p.uid != self.me
+            g["protetto"] = g["protetto"] or bool(PROTECTED.match(p.name)) or p.group.startswith("SoIA") or p.uid != self.me
         rows = [g for g in groups.values() if g["nome"] != "Kernel" or g["cpu"] >= 1]
         for g in rows:
             g["cpu"] = round(g["cpu"], 1)
@@ -399,7 +399,7 @@ class TaskManager:
         if not procs:
             low = name.lower()
             procs = [p for p in read_procs(self.root) if low in p.group.lower() or low == p.name.lower()]
-        mine = [p for p in procs if p.uid == self.me and not PROTECTED.match(p.name) and not p.group.startswith("AIOS")
+        mine = [p for p in procs if p.uid == self.me and not PROTECTED.match(p.name) and not p.group.startswith("SoIA")
                 and p.pid != os.getpid()]
         if not procs:
             return False, f"Non trovo «{name}» tra i programmi in esecuzione."

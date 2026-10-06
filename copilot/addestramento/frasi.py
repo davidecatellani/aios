@@ -215,13 +215,13 @@ ESEMPI: list[tuple[str, str, dict[str, str]]] = [
     ("phone_status", "il telefono è collegato?", {}),
     ("improve_photos", "migliora le ultime foto", {"which": "ultime"}),
     ("forget_phone", "scollega {dispositivo}", {"name": "{dispositivo}"}),
-    ("install_aios_phone", "installa AIOS sul telefono", {}),
+    ("install_aios_phone", "installa SoIA sul telefono", {}),
     # identita
     ("identity_status", "quali dispositivi ho collegati al mio account?", {}),
     ("sync_now", "sincronizza adesso con gli altri dispositivi", {}),
     ("revoke_device", "mi hanno rubato {dispositivo}, revocalo", {"name": "{dispositivo}"}),
     ("show_recovery_phrase", "fammi vedere la frase di recupero", {}),
-    ("create_identity", "crea la mia identità AIOS", {}),
+    ("create_identity", "crea la mia identità SoIA", {}),
     # memoria
     ("where_left_off", "dove mi ero fermato?", {}),
     ("where_left_off", "cosa stavo facendo prima?", {}),

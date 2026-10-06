@@ -1,8 +1,8 @@
 name: Schermate del nucleo
 
-# Gli occhi del programmatore: l'adattatore «schermate» del nucleo (Qwen3.5 0.8B) controlla una pagina di AIOS dopo
+# Gli occhi del programmatore: l'adattatore «schermate» del nucleo (Qwen3.5 0.8B) controlla una pagina di SoIA dopo
 # una personalizzazione (l'ora delle lancette di un orologio, testi sovrapposti, tagliati, poco leggibili o fuori
-# dallo schermo). Si addestra su pagine vere di AIOS con guasti messi apposta (copilot/addestramento/schermate.py),
+# dallo schermo). Si addestra su pagine vere di SoIA con guasti messi apposta (copilot/addestramento/schermate.py),
 # quindi la risposta giusta si sa sempre. Parte dall'ultima Release «adattatori-…» (modello base, proiettore delle
 # immagini e gli altri adattatori), misura e pubblica una Release «adattatori-schermate-N» completa: la costruzione
 # dell'immagine prende la più recente. Si avvia solo a mano.

@@ -1,5 +1,5 @@
-// AIOS: gli aggiornamenti del sistema (rpm-ostree e bootc) e delle app di sistema (Flatpak) li prepara Nova per l'utente amministratore
-// seduto al computer, senza finestre di password: in AIOS non ci sono finestre di sistema. Gli altri
+// SoIA: gli aggiornamenti del sistema (rpm-ostree e bootc) e delle app di sistema (Flatpak) li prepara Nova per l'utente amministratore
+// seduto al computer, senza finestre di password: in SoIA non ci sono finestre di sistema. Gli altri
 // utenti e gli accessi da remoto restano soggetti alle regole normali.
 polkit.addRule(function (action, subject) {
     var flatpak = ["org.freedesktop.Flatpak.app-update", "org.freedesktop.Flatpak.runtime-update",

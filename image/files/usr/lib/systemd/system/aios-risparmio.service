@@ -1,5 +1,5 @@
 [Unit]
-Description=AIOS: risparmio energetico per i portatili
+Description=SoIA: risparmio energetico per i portatili
 After=multi-user.target tuned.service
 
 [Service]

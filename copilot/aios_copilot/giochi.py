@@ -1,4 +1,4 @@
-"""Modalità gioco: quando parte un gioco AIOS si fa da parte e gli lascia memoria e processore.
+"""Modalità gioco: quando parte un gioco SoIA si fa da parte e gli lascia memoria e processore.
 
 Si accorge dei giochi dalle finestre (Hyprland): Steam (steam_app_…), gamescope, Wine/Proton (.exe), gli
 emulatori più noti, e ogni app che nel suo file .desktop si dichiara gioco (Categories=Game). Allora:
@@ -8,7 +8,7 @@ emulatori più noti, e ogni app che nel suo file .desktop si dichiara gioco (Cat
   all'ascolto solo Vosk, senza caricare Parakeet né il riconoscimento di chi parla.
 Quando ricaricare: se l'ultimo gioco si chiude, dopo mezzo minuto (un caricamento tra due finestre non fa
 ripartire tutto). Se il gioco resta aperto ma passa in secondo piano (ridotto a icona, si torna alla
-schermata di AIOS o a un altro programma), decide il modello decisionale (Tev, API System One): «l'utente è
+schermata di SoIA o a un altro programma), decide il modello decisionale (Tev, API System One): «l'utente è
 uscito un attimo dal gioco o sta facendo altro e gli servirà Nova?». Se il modello decisionale non c'è, una
 regola: fuori dal gioco da 3 minuti e memoria libera a sufficienza. Tornando nel gioco, la memoria si libera
 di nuovo. I modelli di Ollama si ricaricano da soli alla prima richiesta a Nova, che risponde sempre.
@@ -86,7 +86,7 @@ def unload_ollama() -> list[str]:
 
 
 def nucleo(action: str) -> bool:
-    """Ferma o riavvia aios-nucleo (la regola polkit di AIOS lo permette all'utente seduto al computer)."""
+    """Ferma o riavvia aios-nucleo (la regola polkit di SoIA lo permette all'utente seduto al computer)."""
     try:
         return subprocess.run(["systemctl", action, "--no-block", "aios-nucleo.service"], capture_output=True,
                               timeout=15).returncode == 0
@@ -181,7 +181,7 @@ class GameMode:
                     if not self.on:
                         self.enter(self.games[data.strip()], quiet=True)
                 elif self._away_since is None:
-                    self._away_since = self.clock()  # ridotto a icona, schermata di AIOS, un altro programma
+                    self._away_since = self.clock()  # ridotto a icona, schermata di SoIA, un altro programma
 
     def tick(self) -> None:
         """Da chiamare ogni tanto: esce dalla modalità gioco mezzo minuto dopo la chiusura dell'ultimo gioco."""

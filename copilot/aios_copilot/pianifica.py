@@ -28,7 +28,7 @@ from typing import Any, Callable
 MAX_STEPS = 6
 MAX_CHECKS = 2
 
-PLAN_PROMPT = """Sei il pianificatore di Nova, l'assistente di AIOS. Scomponi la richiesta in passi brevi da fare con gli strumenti.
+PLAN_PROMPT = """Sei il pianificatore di Nova, l'assistente di SoIA. Scomponi la richiesta in passi brevi da fare con gli strumenti.
 Oggi è {today}.
 Strumenti: {tools}
 

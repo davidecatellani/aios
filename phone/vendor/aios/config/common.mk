@@ -1,4 +1,4 @@
-# Ciò che AIOS aggiunge a qualsiasi base (AOSP o LineageOS).
+# Ciò che SoIA aggiunge a qualsiasi base (AOSP o LineageOS).
 
 # Nova (app di sistema) e la sovrapposizione delle impostazioni di sistema
 PRODUCT_PACKAGES += \
@@ -17,5 +17,5 @@ PRODUCT_SYSTEM_EXT_PROPERTIES += \
 # Energia: vedi energy.mk
 $(call inherit-product, vendor/aios/config/energy.mk)
 
-# Regole SELinux di AIOS
+# Regole SELinux di SoIA
 SYSTEM_EXT_PRIVATE_SEPOLICY_DIRS += vendor/aios/sepolicy

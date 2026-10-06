@@ -49,7 +49,7 @@
         <!-- Lavoro in sottofondo solo tramite JobScheduler, con i vincoli di energia -->
         <service android:name=".energy.EnergyJobService" android:exported="false"
                  android:permission="android.permission.BIND_JOB_SERVICE" />
-        <!-- Vicini: la ricerca BLE sveglia Nova solo per i codici AIOS; il servizio vive solo col PC vicino -->
+        <!-- Vicini: la ricerca BLE sveglia Nova solo per i codici SoIA; il servizio vive solo col PC vicino -->
         <receiver android:name=".nearby.NearbyReceiver" android:exported="false" />
         <service android:name=".nearby.NearbyService" android:exported="false"
                  android:foregroundServiceType="connectedDevice" />

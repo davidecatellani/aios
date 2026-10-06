@@ -11,7 +11,7 @@ Ordine dei livelli in Nova (agent.py): regole fisse (microsecondi) → smistator
 modello di conversazione con gli strumenti dell'ambito → se serve, tutti gli strumenti.
 Se lo smistatore non c'è, non risponde o è incerto, il modello riceve gli strumenti di base (CORE).
 Chi decide, in ordine: Laya (decisore.py, il System One addestrato per Nova: ambito, azione e percorso in
-un colpo solo), il nucleo (nucleo.py: lo 0.8B con gli adattatori LoRA di AIOS, che compila anche i campi),
+un colpo solo), il nucleo (nucleo.py: lo 0.8B con gli adattatori LoRA di SoIA, che compila anche i campi),
 Tev1 in Ollama.
 """
 
@@ -85,16 +85,16 @@ DOMAINS: list[tuple[str, str]] = [
                  "temperature, fans, memory use, force quit a frozen program, free memory used by AI models, voice listening, opening a folder or place"),
     ("aggiornamenti", "System updates: check, install, from USB stick or GitHub, roll back to the previous version, switch to the NVIDIA graphics driver version"),
     ("chiamate", "Phone calls and SMS: answer, reject, read or send messages, make the phone ring, phone notifications"),
-    ("telefono", "Link or unlink the phone, send files or photos to and from the phone, install AIOS on a phone, "
+    ("telefono", "Link or unlink the phone, send files or photos to and from the phone, install SoIA on a phone, "
                  "see and control the user's other PCs (remote screen), send files to another PC"),
-    ("identita", "The user's AIOS identity and account, syncing between devices, recovery phrase, revoking a device"),
+    ("identita", "The user's SoIA identity and account, syncing between devices, recovery phrase, revoking a device"),
     ("memoria", "The user's own past: where they left off, what they worked on yesterday or another day, a website or "
                 "document they saw days ago, resuming a past conversation, the activity diary"),
     ("web", "Search the internet, websites, news, weather, facts that need online lookup"),
     ("ai", "AI models on this device, looking at images or the screen, dictation, reading aloud, creating images"),
     ("gusti", "Subscriptions, recommendations for music, films, series, books, games, what to watch, play or listen"),
     ("aspetto", "Themes, wallpapers, colors and look of the system, widgets on the home screen (weather, map, clock, note), "
-                "changing AIOS itself on request: how the home, bar, clock, apps or settings look or work (the system reprograms "
+                "changing SoIA itself on request: how the home, bar, clock, apps or settings look or work (the system reprograms "
                 "itself), undo, share or reset these personalizations"),
     ("chiacchiera", "General conversation, greetings, questions of knowledge, advice, writing help, anything not about this device"),
 ]

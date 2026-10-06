@@ -1,10 +1,10 @@
-name: Immagine AIOS
+name: Immagine SoIA
 
-# Costruisce l'immagine AIOS per PC (image/Containerfile) e la mette in una Release «anteprima»:
+# Costruisce l'immagine SoIA per PC (image/Containerfile) e la mette in una Release «anteprima»:
 # - sempre il pacchetto di aggiornamento (aios-aggiornamento.*): i PC installati lo scaricano con
 #   l'accesso dell'utente o lo leggono da una chiavetta, senza formattare;
 # - a scelta la chiavetta d'installazione (ISO) e la pubblicazione su ghcr.io.
-# Si avvia a mano (Actions › Immagine AIOS › Run workflow) o con un'etichetta v*.
+# Si avvia a mano (Actions › Immagine SoIA › Run workflow) o con un'etichetta v*.
 on:
   workflow_dispatch:
     inputs:
@@ -53,7 +53,7 @@ jobs:
           sudo docker image prune -af || true
           df -h / /mnt
       - name: Versione di Fedora
-        # La più recente stabile disponibile tra quelle provate con AIOS
+        # La più recente stabile disponibile tra quelle provate con SoIA
         run: |
           for v in 44 43; do
             if sudo skopeo inspect --raw "docker://quay.io/fedora-ostree-desktops/silverblue:$v" >/dev/null; then
@@ -179,7 +179,7 @@ jobs:
             target="$GITHUB_SHA"; [ "$i" -gt 1 ] && target="$GITHUB_REF_NAME"
             { cat "$GITHUB_WORKSPACE/image/RELEASE.md"; printf '\n---\nCostruita dal commit %s.\n' "$GITHUB_SHA"; } > /tmp/note.md
             gh release create "$tag" --repo "$GITHUB_REPOSITORY" --target "$target" --prerelease \
-              --title "AIOS ${VERSIONE} (anteprima$([ "$GPU" = nvidia ] && echo ', NVIDIA')$([ "$KERNEL" = lts ] && echo ', kernel LTS 6.18'))" \
+              --title "SoIA ${VERSIONE} (anteprima$([ "$GPU" = nvidia ] && echo ', NVIDIA')$([ "$KERNEL" = lts ] && echo ', kernel LTS 6.18'))" \
               --notes-file /tmp/note.md "${files[@]}" && exit 0
             echo "Release non creata (tentativo $i): riprovo"
             gh release delete "$tag" --repo "$GITHUB_REPOSITORY" --yes --cleanup-tag 2>/dev/null || true

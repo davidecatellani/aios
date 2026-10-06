@@ -1,4 +1,4 @@
-"""Le azioni di Schermo AIOS per la home e per Nova: chi c'è, apri lo schermo, manda file, anteprime."""
+"""Le azioni di Schermo SoIA per la home e per Nova: chi c'è, apri lo schermo, manda file, anteprime."""
 
 from __future__ import annotations
 
@@ -29,7 +29,7 @@ def peers() -> list[Peer]:
 def _who(query: str) -> tuple[Peer | None, str]:
     found = peers()
     if not found:
-        return None, ("Non vedo altri tuoi PC accesi nella rete. Su ogni PC serve la stessa identità AIOS "
+        return None, ("Non vedo altri tuoi PC accesi nella rete. Su ogni PC serve la stessa identità SoIA "
                       "(Impostazioni › Account, con la stessa frase di recupero) e devono essere nella stessa rete.")
     peer = find_peer(query, found)
     if peer is None:
@@ -65,7 +65,7 @@ def send(query: str, paths: list[Path], sender: Callable[..., list[str]] | None 
         return False, why
     me = identity()
     if me is None:
-        return False, "Prima serve l'identità AIOS su questo PC (Impostazioni › Account)."
+        return False, "Prima serve l'identità SoIA su questo PC (Impostazioni › Account)."
     sender = sender or send_files_to
     notify = notify or default_notify
     what = describe(paths)

@@ -136,7 +136,7 @@ def describe(result: dict[str, Any], phone_name: str) -> str:
 
 
 def mount_phone(bus: Any, device: str) -> Path | None:
-    """Monta (in sola lettura per AIOS) la memoria del telefono tramite KDE Connect."""
+    """Monta (in sola lettura per SoIA) la memoria del telefono tramite KDE Connect."""
     path = f"/modules/kdeconnect/devices/{device}/sftp"
     if not bus._call(path, SFTP_IFACE, "mountAndWait"):
         return None

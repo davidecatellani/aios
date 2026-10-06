@@ -275,7 +275,7 @@ def _ca_request(base: str, method: str, path: str, body: bytes | None, auth: str
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(prog="aios-relay", description="Relay cifrato per la sincronizzazione di AIOS")
+    parser = argparse.ArgumentParser(prog="aios-relay", description="Relay cifrato per la sincronizzazione di SoIA")
     parser.add_argument("--porta", type=int, default=8744)
     parser.add_argument("--indirizzo", default="0.0.0.0")
     parser.add_argument("--dati", default="relay.db")
@@ -286,7 +286,7 @@ def main(argv: list[str] | None = None) -> int:
         print("Attenzione: senza --certificato e --chiave il relay va messo dietro un proxy HTTPS.", file=sys.stderr)
     serve(RelayStore(args.dati), args.indirizzo, args.porta,
           Path(args.certificato) if args.certificato else None, Path(args.chiave) if args.chiave else None)
-    print(f"Relay AIOS in ascolto sulla porta {args.porta}.")
+    print(f"Relay SoIA in ascolto sulla porta {args.porta}.")
     threading.Event().wait()
     return 0
 

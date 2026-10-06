@@ -99,7 +99,7 @@ def watch(identity: Any, host: str, port: int, name: str, quality: str = "alta")
     app = Gtk.Application(application_id="org.aios.Schermo")
 
     def build(app: Gtk.Application) -> None:
-        win = Gtk.ApplicationWindow(application=app, title=f"{name} — Schermo AIOS")
+        win = Gtk.ApplicationWindow(application=app, title=f"{name} — Schermo SoIA")
         win.set_default_size(1280, 760)
         header = Gtk.HeaderBar()
         info = Gtk.Label(label="collegamento…")

@@ -16,7 +16,7 @@ from ..mesh.phone import KdeConnect
 from ..mesh.service import send_command
 from .base import Runner, Tool, params
 
-NO_KDECONNECT = ("Per collegare il telefono serve KDE Connect sul PC (è nell'immagine di AIOS) e l'app "
+NO_KDECONNECT = ("Per collegare il telefono serve KDE Connect sul PC (è nell'immagine di SoIA) e l'app "
                  "KDE Connect sul telefono (Android o iPhone), sulla stessa rete Wi-Fi.")
 
 
@@ -159,7 +159,7 @@ def make_tools(runner: Runner | None = None, command: Callable[[dict[str, Any]],
         known, here = bt.remember_local(), set(bt.paired())
         if not known:
             return "Non hai ancora dispositivi Bluetooth abbinati."
-        lines = ["I tuoi dispositivi Bluetooth (condivisi tra i tuoi dispositivi AIOS):"]
+        lines = ["I tuoi dispositivi Bluetooth (condivisi tra i tuoi dispositivi SoIA):"]
         for mac, info in known.items():
             state = "abbinato qui" if mac in here else f"abbinato a {info.get('da') or 'un altro dispositivo'}: lo collego qui appena è vicino"
             lines.append(f"  {info.get('nome', mac)} — {state}")
@@ -176,7 +176,7 @@ def make_tools(runner: Runner | None = None, command: Callable[[dict[str, Any]],
         import sys
 
         runner.spawn([sys.executable, "-m", "aios_copilot.phoneapp"])
-        return ("Apro l'installatore di AIOS per telefono. Collega il telefono con un cavo USB dati: ti guido io passo "
+        return ("Apro l'installatore di SoIA per telefono. Collega il telefono con un cavo USB dati: ti guido io passo "
                 "per passo. Prima di cancellare qualsiasi cosa faccio il backup completo sul PC, e alla fine lo rimetto "
                 "sul telefono nuovo.")
 
@@ -270,7 +270,7 @@ def make_tools(runner: Runner | None = None, command: Callable[[dict[str, Any]],
         return f"Scollegato «{name}»: non potrà più aprire i file del PC né ricevere notifiche finché non lo ricolleghi."
 
     return [
-        Tool("install_aios_phone", "Apre l'installatore guidato di AIOS per un telefono collegato via USB "
+        Tool("install_aios_phone", "Apre l'installatore guidato di SoIA per un telefono collegato via USB "
              "(Pixel, Samsung, Motorola, Xiaomi, Oppo), con backup e ripristino.", params(), install_aios_phone),
         Tool("bluetooth_devices", "Elenca i dispositivi Bluetooth dell'utente condivisi tra telefono e PC.", params(),
              bluetooth_devices),
@@ -351,7 +351,7 @@ RE_HOTSPOT = re.compile(r"^(?:usa|prendi|condividi|attiva)\s+(?:l'|la\s+)?(?:int
                         r"(?:del|dal)\s+(?:mio\s+)?(?:telefono|cellulare)$|^hotspot\s+(?:del\s+)?(?:telefono|cellulare)$")
 RE_UNLINK = re.compile(r"^(?:smetti\s+di\s+usare|stacca|chiudi|spegni)\s+(?:l'|la\s+)?(?:internet|connessione|"
                        r"collegamento|hotspot)\s+(?:del|col|con\s+il)\s+(?:mio\s+)?(?:telefono|cellulare)$")
-RE_INSTALL_PHONE = re.compile(r"^(?:installa|metti|porta)\s+aios\s+(?:sul|nel)\s+(?:mio\s+)?(?:telefono|cellulare|smartphone)$")
+RE_INSTALL_PHONE = re.compile(r"^(?:installa|metti|porta)\s+(?:aios|soia)\s+(?:sul|nel)\s+(?:mio\s+)?(?:telefono|cellulare|smartphone)$")
 RE_BT = re.compile(r"^(?:i\s+)?(?:miei\s+)?dispositivi\s+bluetooth$|^(?:quali|che)\s+dispositivi\s+bluetooth\s+ho\??$")
 RE_BT_FORGET = re.compile(r"^(?:dimentica|scollega\s+ovunque)\s+(?:le\s+|il\s+|la\s+|lo\s+|gli\s+)?(?P<n>.+?)\s+(?:dal|del)\s+bluetooth$"
                           r"|^dimentica\s+il\s+dispositivo\s+bluetooth\s+(?P<m>.+)$")

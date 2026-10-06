@@ -1,14 +1,14 @@
-# AIOS per telefono: compilazione dell'immagine
+# SoIA per telefono: compilazione dell'immagine
 
-AIOS per telefono è **Android open source** con sopra Nova e le scelte di AIOS
+SoIA per telefono è **Android open source** con sopra Nova e le scelte di SoIA
 (energia, tema, collegamento al PC). Due basi:
 
 | Base | Per | Perché |
 |---|---|---|
-| **AOSP** | Google Pixel, GSI (Motorola, Samsung, Oppo…) | il sistema di riferimento; sui Pixel l'avvio resta verificato con la chiave di AIOS |
+| **AOSP** | Google Pixel, GSI (Motorola, Samsung, Oppo…) | il sistema di riferimento; sui Pixel l'avvio resta verificato con la chiave di SoIA |
 | **LineageOS** | telefoni con supporto ufficiale LineageOS, es. **Redmi Note 9 Pro (miatoll)** | file hardware già mantenuti per centinaia di modelli: chiamate, fotocamera, sensori funzionano |
 
-AIOS non modifica la base: `scripts/prepara.sh` collega nei sorgenti
+SoIA non modifica la base: `scripts/prepara.sh` collega nei sorgenti
 `vendor/aios` (configurazione) e `packages/apps/Nova` (l'app di sistema); su LineageOS
 anche `vendor/extra/product.mk`, che LineageOS include da sé.
 
@@ -30,7 +30,7 @@ packages/apps/Nova/           app di sistema (Kotlin, senza librerie esterne):
   llm/LocalModel.kt           llama.cpp avviato solo quando serve, spento dopo 60 s
   setup/RestoreActivity.kt    primo avvio: «Ripristina dal computer»
 scripts/
-  prepara.sh BERSAGLIO        scarica i sorgenti e collega AIOS
+  prepara.sh BERSAGLIO        scarica i sorgenti e collega SoIA
   llama-android.sh            compila llama.cpp per Android con l'NDK
   compila.sh BERSAGLIO        compila
   chiavi.sh SORGENTI          crea le chiavi (una volta, poi offline)
@@ -44,7 +44,7 @@ Serve un PC Linux x86_64 con **almeno 300 GB liberi, 32–64 GB di RAM**, `repo`
 `git`, `python3` e l'NDK di Android. La prima compilazione richiede diverse ore.
 
 ```bash
-phone/scripts/prepara.sh miatoll          # sorgenti di LineageOS 22.2 + AIOS
+phone/scripts/prepara.sh miatoll          # sorgenti di LineageOS 22.2 + SoIA
 phone/scripts/llama-android.sh            # llama.cpp per Nova
 phone/scripts/chiavi.sh ~/aios-android/lineage-lineage-22.2   # solo la prima volta
 phone/scripts/compila.sh miatoll
@@ -54,9 +54,9 @@ aios-catalogo-telefoni --bersaglio miatoll --cartella phone/uscita/miatoll \
 ```
 
 Pubblicati `telefoni.json` e `telefoni.json.sig` insieme ai file, l'installatore
-(`aios-installatore`, «Nova, installa AIOS sul telefono») li trova, verifica firma e
+(`aios-installatore`, «Nova, installa SoIA sul telefono») li trova, verifica firma e
 impronte, e per un Redmi Note 9 Pro (che con MIUI si presenta come «joyeuse») sceglie
-l'immagine dedicata: recovery di AIOS e sistema via `adb sideload`.
+l'immagine dedicata: recovery di SoIA e sistema via `adb sideload`.
 
 Per il miatoll serve prima il firmware MIUI minimo indicato dal wiki di LineageOS
 (pagina «fw_update»): lo controlleremo nell'installatore.

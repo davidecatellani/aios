@@ -1,4 +1,4 @@
-# AIOS: il servizio che applica i valori di energia al primo avvio.
+# SoIA: il servizio che applica i valori di energia al primo avvio.
 type aios_energia, domain, coredomain;
 type aios_energia_exec, system_file_type, exec_type, file_type;
 init_daemon_domain(aios_energia)

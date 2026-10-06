@@ -129,7 +129,7 @@ def make_tools(
         if target is None or not target.is_file():
             return "Non trovo uno screenshot da modificare: dimmi «fai uno screenshot»." if not percorso else f"Non trovo {percorso}."
         if not _shell("--vista", f"modifica:{target}"):
-            return "La shell di AIOS non è in esecuzione."
+            return "La shell di SoIA non è in esecuzione."
         return f"Apro {target.name} per modificarlo: penna, evidenziatore, frecce, testo, oscura e ritaglia."
 
     def lock_screen() -> str:

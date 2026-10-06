@@ -1,4 +1,4 @@
-<p align="center"><img src="docs/brand/aios-logo.png" alt="AIOS" width="520"></p>
+<p align="center"><img src="docs/brand/aios-logo.png" alt="SoIA" width="520"></p>
 
 <p align="center"><b>Il sistema operativo in cui fai tutto parlando con Nova, l'assistente AI locale.</b><br>
 Computer, tablet e telefono: lo stesso sistema, collegati tra loro, senza mandare i tuoi dati a nessuno.</p>
@@ -11,18 +11,18 @@ Computer, tablet e telefono: lo stesso sistema, collegati tra loro, senza mandar
   <a href="docs/SDK.md">SDK per le app</a>
 </p>
 
-<p align="center"><img src="docs/img/welcome-desktop.png" alt="Il benvenuto di AIOS: una conversazione con Nova" width="820"></p>
+<p align="center"><img src="docs/img/welcome-desktop.png" alt="Il benvenuto di SoIA: una conversazione con Nova" width="820"></p>
 
 <p align="center"><img src="docs/img/nova-finestra.png" alt="Nova: di' «Nova» e parla, oppure scrivi" width="520"></p>
 
-## Perché AIOS
+## Perché SoIA
 
 - **Parli, Nova fa.** Di' «Nova» e chiedi a voce, oppure scrivi: installare un programma, trovare
   un documento, rispondere a una mail, cambiare tema. Nova ascolta e risponde a voce, tutto sul
   computer (niente viene registrato o inviato). Niente menu da imparare.
 - **Veloce anche senza scheda video.** I comandi comuni sono capiti in microsecondi da un
   motore di intenti e da un classificatore semantico; il modello AI (tramite
-  [Ollama](https://ollama.com)) serve solo per il resto, e AIOS sceglie quello adatto al tuo
+  [Ollama](https://ollama.com)) serve solo per il resto, e SoIA sceglie quello adatto al tuo
   computer — compresso o «a esperti» quando la memoria è poca.
 - **Privato per davvero.** Nova impara dai tuoi file e dalle tue abitudini, ma tutto resta sul
   dispositivo. Quando qualcosa deve uscire (una ricerca, una mail), lo vedi e lo approvi.
@@ -67,10 +67,10 @@ Molte di queste frasi sono riconosciute all'istante, senza modello AI.
 </tr>
 </table>
 
-## Installare AIOS sul PC
+## Installare SoIA sul PC
 
-Oggi AIOS si installa **sopra un Linux esistente** (Fedora, Ubuntu/Debian, Arch, con GNOME o
-KDE). L'immagine AIOS completa, installabile da chiavetta, è in [anteprima](#immagine-aios-per-pc-anteprima).
+Oggi SoIA si installa **sopra un Linux esistente** (Fedora, Ubuntu/Debian, Arch, con GNOME o
+KDE). L'immagine SoIA completa, installabile da chiavetta, è in [anteprima](#immagine-aios-per-pc-anteprima).
 
 ```bash
 git clone https://github.com/davidecatellani/aios.git
@@ -81,7 +81,7 @@ cd aios
 Lo script ti chiede conferma prima di usare la password o la rete, e:
 
 1. installa i programmi di sistema che servono (GTK 4, WebKitGTK, ffmpeg, KDE Connect, …);
-2. installa Nova e i programmi di AIOS nella tua cartella personale (`~/.local/share/aios`);
+2. installa Nova e i programmi di SoIA nella tua cartella personale (`~/.local/share/aios`);
 3. installa [Ollama](https://ollama.com) e un primo modello AI piccolo (circa 1 GB): poi Nova ti
    propone in automatico modelli migliori adatti al tuo computer;
 4. aggiunge Nova al menu, la scorciatoia **Super+Spazio** e il benvenuto al prossimo accesso;
@@ -92,36 +92,36 @@ e un modello piccolo), circa 5 GB liberi. La scheda video non serve.
 
 | Per… | Comando |
 |---|---|
-| aprire il benvenuto | `aios-welcome` (o dal menu: «Benvenuto in AIOS») |
+| aprire il benvenuto | `aios-welcome` (o dal menu: «Benvenuto in SoIA») |
 | parlare con Nova | **Super+Spazio**, oppure `aios-copilot "la tua richiesta"` |
-| aggiornare AIOS | `git pull && ./install.sh` |
-| togliere AIOS | `./install.sh --disinstalla` (i tuoi dati restano; `--cancella-dati` per toglierli) |
+| aggiornare SoIA | `git pull && ./install.sh` |
+| togliere SoIA | `./install.sh --disinstalla` (i tuoi dati restano; `--cancella-dati` per toglierli) |
 | installare senza domande | `./install.sh --si` |
 
 Dopo l'installazione: installa l'app **KDE Connect** sul telefono (Android o iPhone) e di'
 «Nova, collega il telefono».
 
-### Immagine AIOS per PC (anteprima)
+### Immagine SoIA per PC (anteprima)
 
-Il sistema completo: Fedora Silverblue immutabile con AIOS già dentro, aggiornamenti atomici
+Il sistema completo: Fedora Silverblue immutabile con SoIA già dentro, aggiornamenti atomici
 preparati a riposo e applicati al riavvio, ritorno automatico alla versione precedente se
 qualcosa non va. Si costruisce dal [`Containerfile`](image/Containerfile) e se ne crea anche la
 chiavetta d'installazione: vedi [`image/README.md`](image/README.md).
 
-## AIOS sul telefono
+## SoIA sul telefono
 
-AIOS per telefono è basato su **Android open source** (AOSP; LineageOS per i modelli che supporta)
-e si installa **dal PC, con il cavo USB**: «Nova, installa AIOS sul telefono» apre un installatore
+SoIA per telefono è basato su **Android open source** (AOSP; LineageOS per i modelli che supporta)
+e si installa **dal PC, con il cavo USB**: «Nova, installa SoIA sul telefono» apre un installatore
 guidato che fa il backup completo, sblocca, installa e rimette tutto al suo posto.
 Pixel, Samsung, Motorola, Xiaomi/Redmi, Oppo (dove la marca lo permette).
 
-<p align="center"><img src="docs/img/installatore.png" alt="L'installatore di AIOS per telefono" width="760"></p>
+<p align="center"><img src="docs/img/installatore.png" alt="L'installatore di SoIA per telefono" width="760"></p>
 
 La compilazione dell'immagine è in [`phone/`](phone/README.md) (primo bersaglio: Redmi Note 9 Pro).
 
 ## Stato del progetto
 
-AIOS è in sviluppo attivo. Onestamente, ad oggi:
+SoIA è in sviluppo attivo. Onestamente, ad oggi:
 
 | Parte | Stato |
 |---|---|
@@ -134,9 +134,9 @@ AIOS è in sviluppo attivo. Onestamente, ad oggi:
 | Identità unica, sincronizzazione cifrata, relay | ✅ |
 | Aggiornamenti automatici (rpm-ostree/bootc), batteria gestita da Nova, SDK per le app | ✅ |
 | `install.sh` su Linux esistente | ✅ provato su Ubuntu 24.04 |
-| Immagine AIOS per PC: shell AIOS (niente desktop classico), Nova a voce, aggiornamenti senza formattare | 🧪 anteprima, in prova su un PC vero |
+| Immagine SoIA per PC: shell SoIA (niente desktop classico), Nova a voce, aggiornamenti senza formattare | 🧪 anteprima, in prova su un PC vero |
 | Installatore per telefono | 🧪 provato con telefoni simulati |
-| Immagine AIOS per telefono | 🛠️ struttura di compilazione pronta, prima compilazione da fare |
+| Immagine SoIA per telefono | 🛠️ struttura di compilazione pronta, prima compilazione da fare |
 
 Le parti segnate ✅ sono coperte da oltre 300 test automatici. Alcune integrazioni (desktop
 reali, modelli veri, telefoni veri, provider di posta) vanno ancora provate sul campo:
@@ -156,10 +156,10 @@ le segnalazioni sono benvenute.
 |---|---|
 | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | architettura, scelte tecniche e roadmap |
 | [`docs/DESIGN.md`](docs/DESIGN.md) | interfaccia e integrazione di Nova, con tavole di progetto |
-| [`copilot/README.md`](copilot/README.md) | Nova e i programmi di AIOS: tutte le funzioni e i comandi |
+| [`copilot/README.md`](copilot/README.md) | Nova e i programmi di SoIA: tutte le funzioni e i comandi |
 | [`docs/SDK.md`](docs/SDK.md) | come una app offre le sue funzioni a Nova |
-| [`image/README.md`](image/README.md) | immagine AIOS per PC |
-| [`phone/README.md`](phone/README.md) | immagine AIOS per telefono |
+| [`image/README.md`](image/README.md) | immagine SoIA per PC |
+| [`phone/README.md`](phone/README.md) | immagine SoIA per telefono |
 | [`docs/BRAND.md`](docs/BRAND.md) | marchio, loghi e regole d'uso |
 
 ## Sviluppo
@@ -176,9 +176,9 @@ marchio). I test girano su GitHub a ogni modifica.
 
 ## Licenza
 
-AIOS è software libero: puoi usarlo, studiarlo, modificarlo e ridistribuirlo secondo la
+SoIA è software libero: puoi usarlo, studiarlo, modificarlo e ridistribuirlo secondo la
 [GNU General Public License, versione 3 o successive](LICENSE) (GPL-3.0-or-later). Chi distribuisce
 versioni modificate deve renderne disponibile il codice sorgente con la stessa licenza.
 
-I loghi di AIOS e di Nova ([`docs/brand/`](docs/brand/)) identificano il progetto: per usarli in
+I loghi di SoIA e di Nova ([`docs/brand/`](docs/brand/)) identificano il progetto: per usarli in
 versioni modificate o in altri prodotti, chiedi prima.

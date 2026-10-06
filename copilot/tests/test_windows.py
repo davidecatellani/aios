@@ -1,4 +1,4 @@
-"""Programmi a finestra e app di AIOS comandati da Nova."""
+"""Programmi a finestra e app di SoIA comandati da Nova."""
 
 from aios_copilot.agent import Agent
 from aios_copilot.tools import windows as w

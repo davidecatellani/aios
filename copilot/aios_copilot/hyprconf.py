@@ -2,7 +2,7 @@
 
 Ogni parte (monitor.py, dispositivi.py, accessibilita.py) tiene le sue scelte in un JSON e dà le sue righe di
 configurazione; qui si mettono insieme in ~/.config/aios/sistema-hyprland.conf, che aios-sessione copia accanto
-alla configurazione di AIOS (source = sistema.conf). Mentre la sessione è aperta, i cambi si applicano subito con
+alla configurazione di SoIA (source = sistema.conf). Mentre la sessione è aperta, i cambi si applicano subito con
 «hyprctl keyword» (lo fa ogni parte) e si aggiorna anche la copia di lavoro, così un ricaricamento non li perde.
 """
 
@@ -70,7 +70,7 @@ def write() -> str:
             continue
         if lines:
             parts.append(f"# {mod}\n" + "\n".join(lines))
-    text = "# Scritto da AIOS (Impostazioni): non modificare a mano, usa ~/.config/aios/hyprland.conf\n" + "\n\n".join(parts) + "\n"
+    text = "# Scritto da SoIA (Impostazioni): non modificare a mano, usa ~/.config/aios/hyprland.conf\n" + "\n\n".join(parts) + "\n"
     config_dir().mkdir(parents=True, exist_ok=True)
     conf_path().write_text(text)
     if run_copy().parent.is_dir():

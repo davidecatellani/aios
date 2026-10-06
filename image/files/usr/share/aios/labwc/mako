@@ -11,7 +11,7 @@ default-timeout=7000
 anchor=top-right
 max-history=100
 
-# «Non disturbare» (Centro notifiche di AIOS): le notifiche non compaiono, restano in cronologia
+# «Non disturbare» (Centro notifiche di SoIA): le notifiche non compaiono, restano in cronologia
 [mode=non-disturbare]
 invisible=1
 

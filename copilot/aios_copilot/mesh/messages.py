@@ -1,7 +1,7 @@
 """Notifiche, SMS e rubrica del telefono sul PC (tramite il demone KDE Connect, D-Bus).
 
 KDE Connect porta sul PC le notifiche del telefono, le conversazioni SMS e i contatti
-(sincronizzati in ~/.local/share/kpeoplevcard). AIOS ci aggiunge l'intelligenza:
+(sincronizzati in ~/.local/share/kpeoplevcard). SoIA ci aggiunge l'intelligenza:
 messaggi delle persone separati dal resto, codici di verifica riconosciuti e copiati,
 risposte e SMS dal copilota (sempre con conferma prima di inviare).
 Tutto resta sul PC: nulla passa da servizi esterni.

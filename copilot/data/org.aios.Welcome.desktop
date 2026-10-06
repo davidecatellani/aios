@@ -1,8 +1,8 @@
 [Desktop Entry]
 Type=Application
-Name=Benvenuto in AIOS
-Name[en]=Welcome to AIOS
-Comment=Scopri AIOS parlando con Nova
+Name=Benvenuto in SoIA
+Name[en]=Welcome to SoIA
+Comment=Scopri SoIA parlando con Nova
 Exec=aios-welcome
 Icon=org.aios.Welcome
 Categories=System;

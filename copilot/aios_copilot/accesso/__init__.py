@@ -1,9 +1,9 @@
-"""L'accesso ad AIOS: la schermata per entrare, in HTML come il resto del sistema (niente GDM).
+"""L'accesso ad SoIA: la schermata per entrare, in HTML come il resto del sistema (niente GDM).
 
 Gira come utente «greeter» sotto greetd, dentro cage (un compositore che mostra una sola app a
 schermo intero): una finestra WebKit con accesso.html servita da 127.0.0.1. La pagina chiede la
 password; qui la si passa a greetd con il suo protocollo (JSON con la lunghezza davanti, sul socket
-$GREETD_SOCK) e, se è giusta, greetd avvia la sessione di AIOS (aios-sessione) e questa app esce.
+$GREETD_SOCK) e, se è giusta, greetd avvia la sessione di SoIA (aios-sessione) e questa app esce.
 
 Se qualcosa non va (manca WebKit, la finestra non parte), aios-accesso-avvio ripiega sull'accesso
 testuale di greetd (agreety), e se greetd stesso fallisce systemd riavvia GDM: non si resta mai fuori.
@@ -137,7 +137,7 @@ def run_window(app: AccessApp, url: str) -> int:
     gtk_app = Gtk.Application(application_id="org.aios.Accesso")
 
     def activate(application: Any) -> None:
-        win = Gtk.ApplicationWindow(application=application, title="AIOS")
+        win = Gtk.ApplicationWindow(application=application, title="SoIA")
         win.set_decorated(False)
         view = WebKit.WebView()
         view.load_uri(url)

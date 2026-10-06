@@ -1,5 +1,5 @@
-"""Nova che riprogramma AIOS: «voglio l'orologio rotondo», «metti la barra in basso», «togli l'ultima
-personalizzazione», «rimetti AIOS originale», «condividi la personalizzazione dell'orologio»."""
+"""Nova che riprogramma SoIA: «voglio l'orologio rotondo», «metti la barra in basso», «togli l'ultima
+personalizzazione», «rimetti SoIA originale», «condividi la personalizzazione dell'orologio»."""
 
 from __future__ import annotations
 
@@ -45,23 +45,23 @@ def make_tools(restart: Any = _restart_shell) -> list[Tool]:
     def list_customizations() -> str:
         items = codice.history()
         if not items:
-            return "Non hai personalizzazioni: AIOS è quello originale. Chiedimi pure di cambiare qualcosa."
+            return "Non hai personalizzazioni: SoIA è quello originale. Chiedimi pure di cambiare qualcosa."
         return "Le tue personalizzazioni (dalla più recente):\n" + "\n".join(f"• {i['richiesta']}" for i in items)
 
     def reset_customizations() -> str:
         n = codice.reset_all()
         restart()
-        return f"AIOS è tornato originale ({n} personalizzazioni tolte; restano recuperabili)."
+        return f"SoIA è tornato originale ({n} personalizzazioni tolte; restano recuperabili)."
 
     def share_customization(quale: str = "ultima") -> str:
         item = codice.find(quale)
         if item is None:
             return "Non trovo quella personalizzazione."
         path = codice.export(item["id"])
-        return f"Ecco il file da dare a chi vuoi: {path}. Chi lo apre in AIOS vede cosa fa e decide se applicarlo."
+        return f"Ecco il file da dare a chi vuoi: {path}. Chi lo apre in SoIA vede cosa fa e decide se applicarlo."
 
     return [
-        Tool("customize_system", "Modifica AIOS stesso (il codice del sistema) come chiede l'utente: aspetto o funzionamento di "
+        Tool("customize_system", "Modifica SoIA stesso (il codice del sistema) come chiede l'utente: aspetto o funzionamento di "
              "schermata, barra, orologio, widget, app, impostazioni (es. «voglio l'orologio rotondo», «la barra in basso», "
              "«nella gestione attività mostrami anche i dischi»). Ci vuole qualche minuto; si può annullare.",
              params(richiesta="La richiesta dell'utente, completa",
@@ -69,10 +69,10 @@ def make_tools(restart: Any = _restart_shell) -> list[Tool]:
                     required=["richiesta"]), customize_system),
         Tool("apply_pending_customization", "Applica la personalizzazione rimasta in attesa di conferma.", params(),
              apply_pending_customization, requires_confirmation=True),
-        Tool("undo_customization", "Toglie una personalizzazione di AIOS (l'ultima o quella indicata).",
+        Tool("undo_customization", "Toglie una personalizzazione di SoIA (l'ultima o quella indicata).",
              params(quale="Quale: «ultima» o parole della richiesta (es. orologio)"), undo_customization),
-        Tool("list_customizations", "Elenca le personalizzazioni fatte ad AIOS.", params(), list_customizations),
-        Tool("reset_customizations", "Riporta AIOS allo stato originale togliendo tutte le personalizzazioni.", params(),
+        Tool("list_customizations", "Elenca le personalizzazioni fatte ad SoIA.", params(), list_customizations),
+        Tool("reset_customizations", "Riporta SoIA allo stato originale togliendo tutte le personalizzazioni.", params(),
              reset_customizations, requires_confirmation=True),
         Tool("share_customization", "Prepara il file di una personalizzazione da dare a un altro utente.",
              params(quale="Quale personalizzazione"), share_customization),
@@ -81,12 +81,12 @@ def make_tools(restart: Any = _restart_shell) -> list[Tool]:
 
 RE_UNDO = re.compile(r"^(?:togli|annulla|elimina|rimuovi)\s+(?:l'|la\s+)?(?:ultima\s+)?personalizzazione"
                      r"(?:\s+(?:dell'|(?:del|della|dello|dei|delle|di)\s+)(?P<q>.+))?$")
-RE_RESET = re.compile(r"^(?:rimetti|riporta|torna\s+a(?:d)?)\s+(?:aios\s+)?(?:originale|come\s+era\s+all'inizio|allo\s+stato\s+(?:iniziale|originale))"
+RE_RESET = re.compile(r"^(?:rimetti|riporta|torna\s+a(?:d)?)\s+(?:(?:aios|soia)\s+)?(?:originale|come\s+era\s+all'inizio|allo\s+stato\s+(?:iniziale|originale))"
                       r"|^(?:togli|annulla)\s+tutte\s+le\s+personalizzazioni$")
 RE_LIST = re.compile(r"^(?:quali|che)\s+personalizzazioni\s+(?:ho|ci\s+sono)")
 RE_APPLY = re.compile(r"^applica\s+(?:la\s+)?personalizzazione$")
 RE_SHARE = re.compile(r"^(?:condividi|esporta)\s+(?:la\s+)?(?:mia\s+)?personalizzazione(?:\s+(?:dell'|(?:del|della|dello|di)\s+)(?P<q>.+))?$")
-RE_DO = re.compile(r"^(?:riprogramma|modifica|cambia|personalizza)\s+aios\s*[:,]?\s*(?P<r>.+)$")
+RE_DO = re.compile(r"^(?:riprogramma|modifica|cambia|personalizza)\s+(?:aios|soia)\s*[:,]?\s*(?P<r>.+)$")
 
 
 class CustomizeRouter:

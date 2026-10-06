@@ -1,4 +1,4 @@
-"""Finestra di Nova (GTK4), con la grafica di AIOS.
+"""Finestra di Nova (GTK4), con la grafica di SoIA.
 
 È un'applicazione a istanza singola: richiamarla di nuovo (es. con Super+Spazio)
 riporta in primo piano la finestra già aperta invece di aprirne un'altra.

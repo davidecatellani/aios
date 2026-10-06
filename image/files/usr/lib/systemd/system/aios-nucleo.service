@@ -1,5 +1,5 @@
 [Unit]
-Description=Nucleo di Nova: un modello piccolo con gli adattatori LoRA di AIOS
+Description=Nucleo di Nova: un modello piccolo con gli adattatori LoRA di SoIA
 ConditionPathExists=/usr/share/aios/nucleo/base.gguf
 After=local-fs.target
 

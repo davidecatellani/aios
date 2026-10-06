@@ -1,7 +1,7 @@
-"""Carattere e dimensione del testo per tutto AIOS: «ingrandisci il testo», «usa un carattere più
+"""Carattere e dimensione del testo per tutto SoIA: «ingrandisci il testo», «usa un carattere più
 leggibile», «metti il font Lexend», Impostazioni › Aspetto.
 
-La scelta sta in ~/.config/aios/aspetto.json. Le pagine di AIOS (schermata, barra, app, pannello di
+La scelta sta in ~/.config/aios/aspetto.json. Le pagine di SoIA (schermata, barra, app, pannello di
 Nova) la leggono da /api/aspetto e la applicano subito; i programmi GTK la ricevono da gsettings
 (carattere dell'interfaccia e fattore di scala del testo) e la usano alla prossima apertura, o
 subito se la seguono già (Firefox, le app GNOME).
@@ -19,7 +19,7 @@ from typing import Any, Callable
 
 # I caratteri proposti: nome per Nova → famiglia, con una riga che spiega a cosa serve.
 CHOICES: dict[str, tuple[str, str]] = {
-    "normale": ("Inter", "Quello di AIOS: moderno e pulito"),
+    "normale": ("Inter", "Quello di SoIA: moderno e pulito"),
     "leggibile": ("Atkinson Hyperlegible", "Disegnato per chi vede poco: lettere che non si confondono"),
     "dislessia": ("OpenDyslexic", "Lettere col fondo pesante, pensato per la dislessia"),
     "lettura": ("Lexend", "Spaziato e morbido, si legge con meno fatica"),

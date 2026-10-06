@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 300" width="1000" height="300">
-  <title>AIOS (per fondi scuri)</title>
+  <title>SoIA (per fondi scuri)</title>
   <defs>
     <linearGradient id="g" x1="0%" y1="20%" x2="100%" y2="80%">
       <stop offset="0%" stop-color="#1593AD"/>
@@ -22,5 +22,5 @@
     </g>
   </g>
   <text x="430" y="205" font-family="DejaVu Sans, Cantarell, sans-serif" font-weight="700" font-size="170"
-        letter-spacing="8" fill="#FFFFFF">AIOS</text>
+        letter-spacing="8" fill="#FFFFFF">SoIA</text>
 </svg>

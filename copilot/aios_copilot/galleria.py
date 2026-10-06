@@ -478,7 +478,7 @@ class NucleoCaptioner(Captioner):
 
 
 def vision_model() -> str | None:
-    """Il modello di visione pronto (quello scelto in AIOS, o MiniCPM-V se è già scaricato)."""
+    """Il modello di visione pronto (quello scelto in SoIA, o MiniCPM-V se è già scaricato)."""
     try:
         from . import engines
 

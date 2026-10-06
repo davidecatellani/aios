@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Scarica i sorgenti della base (AOSP o LineageOS) e ci collega AIOS.
+# Scarica i sorgenti della base (AOSP o LineageOS) e ci collega SoIA.
 #   scripts/prepara.sh miatoll | gsi | shiba
 source "$(dirname "$0")/comune.sh"
 B="${1:?uso: prepara.sh BERSAGLIO}"
@@ -14,7 +14,7 @@ if [ ! -d .repo ]; then
 fi
 repo sync -c -j"$(nproc)" --no-tags --optimized-fetch
 
-# AIOS si aggiunge senza modificare la base: collegamenti a questa cartella del repository
+# SoIA si aggiunge senza modificare la base: collegamenti a questa cartella del repository
 mkdir -p vendor packages/apps
 ln -sfn "$PHONE/vendor/aios" vendor/aios
 ln -sfn "$PHONE/packages/apps/Nova" packages/apps/Nova

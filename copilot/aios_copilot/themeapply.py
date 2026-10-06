@@ -1,4 +1,4 @@
-"""Applica un tema a tutto il sistema: app GTK/libadwaita, GNOME, KDE e app di AIOS.
+"""Applica un tema a tutto il sistema: app GTK/libadwaita, GNOME, KDE e app di SoIA.
 
 Nei file di configurazione GTK il tema occupa solo un blocco tra due marcatori: le
 personalizzazioni dell'utente fuori dal blocco restano intatte. Il tema precedente
@@ -62,7 +62,7 @@ def gtk_block(p: Palette) -> str:
 
 
 def write_block(path: Path, block: str | None) -> None:
-    """Sostituisce (o toglie, con None) solo il blocco di AIOS nel file."""
+    """Sostituisce (o toglie, con None) solo il blocco di SoIA nel file."""
     try:
         text = path.read_text()
     except OSError:
@@ -105,7 +105,7 @@ def apply(theme: Theme, runner: Runner | None = None) -> list[str]:
     done = []
     css_path().parent.mkdir(parents=True, exist_ok=True)
     css_path().write_text(theme.css())
-    done.append("app di AIOS")
+    done.append("app di SoIA")
 
     dark_pref = False
     if runner.has("gsettings"):
@@ -152,7 +152,7 @@ def previous() -> Theme:
 
 
 def reset(runner: Runner | None = None) -> None:
-    """Torna al tema predefinito e toglie i blocchi di AIOS dai file GTK."""
+    """Torna al tema predefinito e toglie i blocchi di SoIA dai file GTK."""
     apply(default_theme(), runner)
     for version in ("gtk-4.0", "gtk-3.0"):
         write_block(config_dir() / version / "gtk.css", None)

@@ -1,4 +1,4 @@
-# AIOS: Super+Spazio apre Nova; il cambio della lingua della tastiera resta sul tasto dedicato
+# SoIA: Super+Spazio apre Nova; il cambio della lingua della tastiera resta sul tasto dedicato
 [org/gnome/desktop/wm/keybindings]
 switch-input-source=['XF86Keyboard']
 
@@ -14,7 +14,7 @@ binding='<Super>space'
 color-scheme='prefer-dark'
 accent-color='teal'
 
-# Aspetto di AIOS: sfondo (chiaro e scuro), blocco schermo, colore del marchio
+# Aspetto di SoIA: sfondo (chiaro e scuro), blocco schermo, colore del marchio
 [org/gnome/desktop/background]
 picture-uri='file:///usr/share/backgrounds/aios/aios-chiaro.svg'
 picture-uri-dark='file:///usr/share/backgrounds/aios/aios-scuro.svg'

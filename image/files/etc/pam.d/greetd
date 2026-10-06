@@ -1,5 +1,5 @@
 #%PAM-1.0
-# Accesso ad AIOS (greetd). Il portachiavi si apre con la password di accesso: Nova ci tiene i
+# Accesso ad SoIA (greetd). Il portachiavi si apre con la password di accesso: Nova ci tiene i
 # permessi (GitHub, posta) senza chiederli ogni volta.
 auth       substack     system-auth
 -auth      optional     pam_gnome_keyring.so

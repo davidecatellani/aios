@@ -1,4 +1,4 @@
-// Nova, l'assistente di AIOS, come app di sistema. Solo Kotlin e SDK di sistema:
+// Nova, l'assistente di SoIA, come app di sistema. Solo Kotlin e SDK di sistema:
 // nessuna libreria esterna, niente servizi sempre attivi (la batteria prima di tutto).
 android_app {
     name: "Nova",

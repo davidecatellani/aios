@@ -19,7 +19,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Callable
 
-UA = "AIOS/1.0 (https://github.com/davidecatellani/aios)"  # OpenStreetMap chiede di farsi riconoscere
+UA = "SoIA/1.0 (https://github.com/davidecatellani/aios)"  # OpenStreetMap chiede di farsi riconoscere
 GEO = "https://geocoding-api.open-meteo.com/v1/search"
 METEO = "https://api.open-meteo.com/v1/forecast"
 TILE = "https://tile.openstreetmap.org/{z}/{x}/{y}.png"

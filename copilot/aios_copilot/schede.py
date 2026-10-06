@@ -3,7 +3,7 @@
 Quando l'utente chiede di film, serie, cartoni o libri e Nova risponde con dei titoli, la pagina mostra
 una scheda per titolo: la miniatura e un riassunto da Wikipedia (gratuita, senza chiave), il collegamento
 alla pagina e a JustWatch per sapere dove vederlo. Le immagini passano dal server locale (pochi siti
-ammessi, salvate in ~/.cache/aios/miniature), così la pagina di AIOS non carica niente da fuori.
+ammessi, salvate in ~/.cache/aios/miniature), così la pagina di SoIA non carica niente da fuori.
 """
 
 from __future__ import annotations
@@ -20,7 +20,7 @@ from typing import Any, Callable
 MEDIA_QUESTION = re.compile(r"(?i)\b(?:serie|serie\s+tv|telefilm|film|cartoni|cartone|anime|documentari\w*|libri|libro|"
                             r"romanz\w+|fumett\w+|videogioc\w+|giochi)\b")
 IMAGE_HOSTS = ("upload.wikimedia.org", "image.tmdb.org", "dl.flathub.org", "flathub.org")
-USER_AGENT = "AIOS/1.0 (assistente locale)"
+USER_AGENT = "SoIA/1.0 (assistente locale)"
 SUFFIX = {"serie": ["(serie televisiva)", "(serie animata)"], "film": ["(film)"], "libro": ["(romanzo)"]}
 _cache: dict[str, dict[str, Any]] = {}
 

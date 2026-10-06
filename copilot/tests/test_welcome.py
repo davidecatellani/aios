@@ -71,7 +71,7 @@ def test_page_served_and_token_only_in_fragment(server):
     call, url, app, _ = server
     assert url.endswith(f"/#t={app.token}")  # il frammento non arriva mai al server
     status, page = call("GET", "/", token=None)
-    assert status == 200 and b"Benvenuto in AIOS" in page
+    assert status == 200 and b"Benvenuto in SoIA" in page
 
 
 def test_api_requires_token_and_local_host(server):

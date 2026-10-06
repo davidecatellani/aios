@@ -30,7 +30,7 @@ from typing import Any, Callable, Iterable
 from .privacy import private_dir
 from .subscriptions import SERVICES, Subscriptions
 
-USER_AGENT = "AIOS/0.1"
+USER_AGENT = "SoIA/0.1"
 REGION = "IT"
 LANGUAGE = "it-IT"
 

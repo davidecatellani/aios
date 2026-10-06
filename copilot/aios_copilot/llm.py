@@ -23,7 +23,7 @@ THINKING_PREFIXES = ("qwen3.5", "qwen3.6", "gemma4")
 
 def _keep_alive() -> int | str:
     """Il modello resta caricato (niente attese tra una richiesta e l'altra). Se la memoria serve ad altro lo
-    scarica AIOS stesso (giochi.GameMode: giochi e memoria quasi finita), non un timer."""
+    scarica SoIA stesso (giochi.GameMode: giochi e memoria quasi finita), non un timer."""
     return os.environ.get("AIOS_KEEP_ALIVE", -1)
 
 

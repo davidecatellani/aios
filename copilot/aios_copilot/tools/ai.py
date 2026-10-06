@@ -162,7 +162,7 @@ def make_capability_tools(ready: dict[str, str]) -> list[Tool]:
         sd = ready["immagini"]
 
         def create_image(prompt: str) -> str:
-            out = engines.generate_image(prompt, sd, resolve_folder("PICTURES") / "AIOS")
+            out = engines.generate_image(prompt, sd, resolve_folder("PICTURES") / "SoIA")
             return f"Immagine creata: {out}" if out else "Non sono riuscito a creare l'immagine."
 
         tools.append(Tool("create_image", "Crea un'immagine da una descrizione (meglio in inglese, dettagliata).",

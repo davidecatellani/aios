@@ -1,12 +1,12 @@
-"""Installare AIOS (base AOSP) su un telefono collegato via USB, guidati da Nova.
+"""Installare SoIA (base AOSP) su un telefono collegato via USB, guidati da Nova.
 
 Marche supportate e strada per ciascuna:
 
-- **Google Pixel**: immagine AIOS per il modello (codename). Sblocco con `fastboot
-  flashing unlock`, installazione, chiave di avvio di AIOS (`avb_custom_key`) e
+- **Google Pixel**: immagine SoIA per il modello (codename). Sblocco con `fastboot
+  flashing unlock`, installazione, chiave di avvio di SoIA (`avb_custom_key`) e
   **richiusura** del bootloader: l'avvio resta verificato, come con il sistema di Google.
 - **Motorola**: sblocco con il codice che Motorola invia per email (`fastboot oem
-  get_unlock_data` → sito Motorola → `fastboot oem unlock CODICE`), poi AIOS in
+  get_unlock_data` → sito Motorola → `fastboot oem unlock CODICE`), poi SoIA in
   versione **GSI** (immagine generica Treble) da fastbootd. Il bootloader resta aperto.
 - **Xiaomi / Redmi / POCO**: sblocco ufficiale di Xiaomi (account Mi associato da
   «Stato di Mi Unlock», su HyperOS richiesta dall'app Xiaomi Community, poi attesa
@@ -15,7 +15,7 @@ Marche supportate e strada per ciascuna:
   l'approvazione `fastboot flashing unlock` e GSI. Senza l'app non si può sbloccare.
 - **Samsung**: niente fastboot: «modalità download» e heimdall. Sblocco dal telefono
   (fa scattare per sempre il contatore Knox: Samsung Wallet, Cartella sicura… non
-  funzioneranno più), poi recovery di AIOS con fastbootd e sistema GSI. I modelli
+  funzioneranno più), poi recovery di SoIA con fastbootd e sistema GSI. I modelli
   nordamericani (Snapdragon, sigla che finisce per U/U1/W) non si possono sbloccare.
 
 Sicurezza: immagini solo dal catalogo firmato (Ed25519, come i modelli AI) con
@@ -185,7 +185,7 @@ def parse_catalog(data: bytes) -> list[Build]:
 
 
 def update_catalog(url: str, fetch: Callable[[str], bytes], keys: list[bytes] | None = None) -> int:
-    """Scarica il catalogo delle immagini: accettato solo se firmato dal progetto AIOS."""
+    """Scarica il catalogo delle immagini: accettato solo se firmato dal progetto SoIA."""
     from .modelcatalog import trusted_keys, verify
 
     keys = trusted_keys() if keys is None else keys
@@ -243,14 +243,14 @@ def common_start(phone: PhoneInfo) -> list[Step]:
     steps += [
         Step("batteria", "Controllo della batteria", "auto", f"Serve almeno il {MIN_BATTERY}% di carica."),
         Step("whatsapp", "Backup di WhatsApp", "utente",
-             "Se usi WhatsApp: apri WhatsApp › Impostazioni › Chat › Backup delle chat › «Esegui backup». Su AIOS non c'è "
+             "Se usi WhatsApp: apri WhatsApp › Impostazioni › Chat › Backup delle chat › «Esegui backup». Su SoIA non c'è "
              "Google Drive: il backup lo copio io sul PC e lo rimetto sul telefono nuovo. Se non usi WhatsApp, continua."),
         Step("backup", "Backup completo sul PC", "auto",
              "Copio sul PC foto e video, documenti, scaricati, musica, rubrica, WhatsApp e, se Android lo permette, "
              "SMS e calendario."),
-        Step("immagini", "Scarico e verifico AIOS", "auto", "Solo immagini firmate dal progetto AIOS, con impronta verificata."),
+        Step("immagini", "Scarico e verifico SoIA", "auto", "Solo immagini firmate dal progetto SoIA, con impronta verificata."),
         Step("conferma", "Conferma: il telefono verrà cancellato", "conferma",
-             "Lo sblocco cancella tutto ciò che c'è sul telefono. Il backup è fatto. Vuoi installare AIOS?"),
+             "Lo sblocco cancella tutto ciò che c'è sul telefono. Il backup è fatto. Vuoi installare SoIA?"),
     ]
     return steps
 
@@ -266,13 +266,13 @@ def plan_for(phone: PhoneInfo, system: Build, recovery: Build | None, files: dic
             Step("sblocco", "Sblocco del bootloader", "attesa",
                  "Sul telefono: con i tasti del volume scegli «Unlock the bootloader» e conferma con il tasto di accensione.",
                  commands=[["fastboot", "flashing", "unlock"]], wait_for="sbloccato"),
-            Step("chiave", "Chiave di avvio di AIOS", "auto",
+            Step("chiave", "Chiave di avvio di SoIA", "auto",
                  commands=[["fastboot", "erase", "avb_custom_key"], ["fastboot", "flash", "avb_custom_key", f(system.avb_key.get("nome", "avb_pkmd.bin"))]]),
-            Step("installa", "Installo AIOS", "auto", "Ci vogliono alcuni minuti: non scollegare il cavo.",
+            Step("installa", "Installo SoIA", "auto", "Ci vogliono alcuni minuti: non scollegare il cavo.",
                  commands=[["fastboot", "-w", "update", "--skip-reboot", image]]),
             Step("richiudi", "Richiudo il bootloader", "attesa",
                  "Sul telefono: con i tasti del volume scegli «Lock the bootloader» e conferma con il tasto di accensione. "
-                 "Da qui in poi l'avvio è verificato con la chiave di AIOS.",
+                 "Da qui in poi l'avvio è verificato con la chiave di SoIA.",
                  commands=[["fastboot", "reboot-bootloader"], ["fastboot", "flashing", "lock"]], wait_for="bloccato"),
         ]
     elif phone.brand == "motorola":
@@ -317,7 +317,7 @@ def plan_for(phone: PhoneInfo, system: Build, recovery: Build | None, files: dic
         ]
     elif phone.brand == "samsung":
         if recovery is None:
-            raise InstallError("per questo Samsung manca la recovery di AIOS nel catalogo")
+            raise InstallError("per questo Samsung manca la recovery di SoIA nel catalogo")
         steps.insert(len(steps) - 1, Step("knox", "Attenzione: Knox", "conferma",
                                           "Lo sblocco di un Samsung fa scattare per sempre il contatore Knox: Samsung Wallet, "
                                           "Cartella sicura e alcune funzioni di Samsung Health non funzioneranno più, "
@@ -328,22 +328,22 @@ def plan_for(phone: PhoneInfo, system: Build, recovery: Build | None, files: dic
                  "tieni premuto Volume su per sbloccare il bootloader: il telefono si cancella e si riavvia. Poi rifai i "
                  "passi delle Opzioni sviluppatore (attiva «Debug USB»), spegni e rientra in modalità download "
                  "(Volume su + Volume giù + cavo, poi Volume su una volta).", wait_for="download"),
-            Step("recovery", "Installo la recovery di AIOS", "auto",
+            Step("recovery", "Installo la recovery di SoIA", "auto",
                  commands=[["heimdall", "flash", "--VBMETA", f(by_partition(recovery, "vbmeta")),
                             "--RECOVERY", f(by_partition(recovery, "recovery")), "--no-reboot"]]),
             Step("avvia_recovery", "Avvio nella recovery", "utente",
                  "Tieni premuti Volume giù + Accensione finché lo schermo si spegne, poi subito Volume su + Accensione "
-                 "finché compare la recovery di AIOS. Scegli «Avanzate» › «Entra in fastboot».", wait_for="fastboot"),
+                 "finché compare la recovery di SoIA. Scegli «Avanzate» › «Entra in fastboot».", wait_for="fastboot"),
             *gsi_steps(system, f, from_recovery=True),
         ]
     else:
-        raise InstallError(f"{phone.label}: per ora AIOS si installa su Pixel, Samsung, Motorola, Xiaomi/Redmi e Oppo")
+        raise InstallError(f"{phone.label}: per ora SoIA si installa su Pixel, Samsung, Motorola, Xiaomi/Redmi e Oppo")
     steps += [
         *([] if phone.brand == "xiaomi" and system.kind == "dispositivo" and recovery else [
-            Step("avvio", "Primo avvio di AIOS", "auto", "Il primo avvio può richiedere qualche minuto.",
+            Step("avvio", "Primo avvio di SoIA", "auto", "Il primo avvio può richiedere qualche minuto.",
                  commands=[["fastboot", "reboot"]])]),
         Step("debug_nuovo", "Collega il telefono nuovo", "utente",
-             "Sul telefono, nella prima schermata di AIOS, scegli «Ripristina dal computer» (oppure attiva «Debug USB» "
+             "Sul telefono, nella prima schermata di SoIA, scegli «Ripristina dal computer» (oppure attiva «Debug USB» "
              "dalle Opzioni sviluppatore) e tocca «Consenti» quando chiede se fidarsi di questo computer.", wait_for="adb"),
         Step("ripristino", "Ripristino di foto, file e WhatsApp", "auto",
              "Rimetto sul telefono ciò che ho salvato. Il backup resta comunque sul PC."),
@@ -357,15 +357,15 @@ def plan_for(phone: PhoneInfo, system: Build, recovery: Build | None, files: dic
 
 
 def sideload_steps(system: Build, recovery: Build, f: Callable[[str], str]) -> list[Step]:
-    """Immagine dedicata su base LineageOS (es. Redmi Note 9 Pro «miatoll»): recovery di AIOS, poi il
+    """Immagine dedicata su base LineageOS (es. Redmi Note 9 Pro «miatoll»): recovery di SoIA, poi il
     sistema inviato via cavo dalla recovery («adb sideload»)."""
     return [
-        Step("recovery", "Installo la recovery di AIOS", "auto",
+        Step("recovery", "Installo la recovery di SoIA", "auto",
              commands=[["fastboot", "flash", "recovery", f(by_partition(recovery, "recovery"))]]),
         Step("avvia_recovery", "Avvio nella recovery", "utente",
-             "Tieni premuti Volume su + Accensione finché compare la recovery di AIOS. Poi scegli «Factory reset» › "
+             "Tieni premuti Volume su + Accensione finché compare la recovery di SoIA. Poi scegli «Factory reset» › "
              "«Format data», torna indietro e scegli «Apply update» › «Apply from ADB».", wait_for="adb"),
-        Step("installa", "Installo AIOS", "auto", "Ci vogliono alcuni minuti: non scollegare il cavo.",
+        Step("installa", "Installo SoIA", "auto", "Ci vogliono alcuni minuti: non scollegare il cavo.",
              commands=[["adb", "sideload", f(system.files[0]["nome"])]]),
         Step("riavvio_recovery", "Riavvio", "utente", "Nella recovery scegli «Reboot system now».", wait_for="adb"),
     ]
@@ -382,12 +382,12 @@ def gsi_steps(system: Build, f: Callable[[str], str], from_recovery: bool = Fals
     """GSI (immagine generica Treble): vbmeta senza verifica, poi system da fastbootd."""
     image = next((x["nome"] for x in system.files if x.get("partizione", "system") == "system"), system.files[0]["nome"])
     steps = []
-    if not from_recovery:  # dalla recovery di AIOS si è già in fastbootd e vbmeta è già a posto
+    if not from_recovery:  # dalla recovery di SoIA si è già in fastbootd e vbmeta è già a posto
         vbmeta = next((x["nome"] for x in system.files if x.get("partizione") == "vbmeta"), "")
         cmds = [["fastboot", "--disable-verity", "--disable-verification", "flash", "vbmeta", f(vbmeta)]] if vbmeta else []
         cmds.append(["fastboot", "reboot", "fastboot"])  # fastbootd: le partizioni dinamiche si scrivono da qui
         steps.append(Step("prepara_gsi", "Preparo il telefono", "auto", commands=cmds, wait_for="fastbootd"))
-    steps.append(Step("installa", "Installo AIOS", "auto", "Ci vogliono alcuni minuti: non scollegare il cavo.",
+    steps.append(Step("installa", "Installo SoIA", "auto", "Ci vogliono alcuni minuti: non scollegare il cavo.",
                       commands=[["fastboot", "erase", "system"], ["fastboot", "flash", "system", f(image)], ["fastboot", "-w"]]))
     return steps
 
@@ -400,7 +400,7 @@ def preflight(phone: PhoneInfo, builds: list[Build]) -> list[str]:
     if phone.mode == "non-autorizzato":
         problems.append("Il telefono chiede se fidarsi di questo computer: tocca «Consenti» sullo schermo del telefono.")
     if phone.brand and phone.brand not in BRANDS:
-        problems.append(f"{phone.label}: per ora AIOS si installa su Google Pixel, Samsung, Motorola, Xiaomi/Redmi e Oppo.")
+        problems.append(f"{phone.label}: per ora SoIA si installa su Google Pixel, Samsung, Motorola, Xiaomi/Redmi e Oppo.")
     if phone.brand == "samsung" and SAMSUNG_LOCKED_SUFFIX.match(phone.model.upper()):
         problems.append(f"{phone.model} è un modello nordamericano: Samsung non permette di sbloccarlo.")
     if phone.brand == "oppo" and phone.model.upper().startswith("CPH"):
@@ -412,7 +412,7 @@ def preflight(phone: PhoneInfo, builds: list[Build]) -> list[str]:
     if phone.mode == "adb" and phone.brand in BRANDS:
         system, _ = choose_build(phone, builds)
         if system is None:
-            problems.append(f"Nel catalogo non c'è ancora un'immagine di AIOS per {phone.label} ({phone.codename}).")
+            problems.append(f"Nel catalogo non c'è ancora un'immagine di SoIA per {phone.label} ({phone.codename}).")
     return problems
 
 
@@ -588,7 +588,7 @@ def restore_phone(runner: Runner, phone: PhoneInfo, backup: Path) -> str:
     try:
         manifest = json.loads((backup / "backup.json").read_text())
     except (OSError, ValueError):
-        raise InstallError(f"in {backup} non trovo un backup di AIOS")
+        raise InstallError(f"in {backup} non trovo un backup di SoIA")
     restored = []
     for folder in manifest.get("cartelle", []):
         source = backup / "file" / folder
@@ -675,7 +675,7 @@ def local_build(image: Path, vbmeta: Path | None = None) -> Build:
 def main(argv: list[str] | None = None) -> int:
     import argparse
 
-    parser = argparse.ArgumentParser(prog="aios-installa-telefono", description="Installa AIOS su un telefono collegato via USB")
+    parser = argparse.ArgumentParser(prog="aios-installa-telefono", description="Installa SoIA su un telefono collegato via USB")
     parser.add_argument("azione", nargs="?", default="stato", choices=["stato", "prova", "installa", "backup", "ripristina"])
     parser.add_argument("--immagine", type=Path, help="immagine GSI scaricata da te (system.img)")
     parser.add_argument("--vbmeta", type=Path, help="vbmeta.img da usare con la GSI")
@@ -700,13 +700,13 @@ def main(argv: list[str] | None = None) -> int:
     print(f"Telefono: {phone.label if phone.mode != 'nessuno' else 'nessuno'} ({phone.mode})")
     problems = [p for p in preflight(phone, builds) if not (local and "Nel catalogo non c'è" in p)]
     if args.azione == "stato" or problems and args.azione == "installa":
-        print("\n".join(problems) or "Si può installare AIOS.")
+        print("\n".join(problems) or "Si può installare SoIA.")
         return 1 if problems else 0
     if local:
         for item in local.files:
             print(f"Impronta di {item['nome']}: {item['sha256']} — confrontala con quella pubblicata da chi l'ha rilasciata.")
     system, recovery = choose_build(phone, builds)
-    system = local or system or Build("AIOS (prova)", "0", "gsi", files=[{"nome": "aios-system.img", "url": "", "sha256": ""}])
+    system = local or system or Build("SoIA (prova)", "0", "gsi", files=[{"nome": "aios-system.img", "url": "", "sha256": ""}])
     if local:
         files = {item["nome"]: Path(item["url"][7:]) for item in local.files}
     else:
@@ -724,7 +724,7 @@ def main(argv: list[str] | None = None) -> int:
 
     ok = Installer(runner, phone, steps, ask, lambda k, d: print(f"  [{d['status']}] {d['title']} {d.get('detail', '')}"),
                    dry_run=args.azione == "prova").run()
-    print("\nFatto: AIOS è installato." if ok and args.azione != "prova" else "\nModalità prova completata." if ok else "\nInterrotto.")
+    print("\nFatto: SoIA è installato." if ok and args.azione != "prova" else "\nModalità prova completata." if ok else "\nInterrotto.")
     return 0 if ok else 1
 
 

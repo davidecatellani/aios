@@ -61,7 +61,7 @@ def make_tools(sessions: Callable[[], sessione.Sessions] = sessione.Sessions,
         if dispositivo.strip():
             picked = _pick_remote(dispositivo)
             if picked is None:
-                return "Non ho ancora niente dagli altri dispositivi: serve l'identità di AIOS collegata su entrambi."
+                return "Non ho ancora niente dagli altri dispositivi: serve l'identità di SoIA collegata su entrambi."
             device, snap = picked
             done = sessione.restore(snap, _apps(), launch, _windows(), same_device=False)
             return (f"Riaperto da {device}: {', '.join(done)}." if done else
@@ -80,7 +80,7 @@ def make_tools(sessions: Callable[[], sessione.Sessions] = sessione.Sessions,
     def other_devices() -> str:
         others = sessions().remote()
         if not others:
-            return "Non ho sessioni degli altri dispositivi (serve l'identità di AIOS collegata e sincronizzata)."
+            return "Non ho sessioni degli altri dispositivi (serve l'identità di SoIA collegata e sincronizzata)."
         lines = [f"• {d}: {sessione.describe(s) or 'niente di aperto'}" for d, s in others.items()]
         return "Sugli altri dispositivi:\n" + "\n".join(lines) + "\nDimmi «riapri quello che avevo aperto su …»."
 

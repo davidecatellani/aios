@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# AIOS sul tuo Linux: Nova, i servizi in sottofondo, icone e scorciatoia.
+# SoIA sul tuo Linux: Nova, i servizi in sottofondo, icone e scorciatoia.
 #
 #   ./install.sh                 installa (chiede conferma prima di usare sudo o la rete)
 #   ./install.sh --si            installa senza domande
-#   ./install.sh --disinstalla   toglie AIOS (i tuoi dati restano; --cancella-dati per toglierli)
+#   ./install.sh --disinstalla   toglie SoIA (i tuoi dati restano; --cancella-dati per toglierli)
 #
 # Altre opzioni: --senza-pacchetti (non usa il gestore dei pacchetti), --senza-ollama,
 # --modello NOME (modello AI iniziale, predefinito qwen2.5:1.5b-instruct).
@@ -46,7 +46,7 @@ systemd_utente() { ha systemctl && systemctl --user show-environment >/dev/null 
 
 # --- disinstallare ------------------------------------------------------------------------------
 if [ "$AZIONE" = disinstalla ]; then
-  passo "Tolgo AIOS"
+  passo "Tolgo SoIA"
   if systemd_utente; then
     for s in "${SERVIZI[@]}"; do systemctl --user disable --now "$s.service" 2>/dev/null || true; done
   fi
@@ -62,7 +62,7 @@ if [ "$AZIONE" = disinstalla ]; then
   fi
   if [ "$CANCELLA_DATI" = 1 ]; then
     rm -rf "$DATI/aios" "$CONFIG/aios"
-    nota "Cancellati anche i dati di AIOS (indice, agenda, posta, impostazioni)."
+    nota "Cancellati anche i dati di SoIA (indice, agenda, posta, impostazioni)."
   else
     nota "I tuoi dati restano in $DATI/aios e $CONFIG/aios (per toglierli: --disinstalla --cancella-dati)."
   fi
@@ -71,8 +71,8 @@ if [ "$AZIONE" = disinstalla ]; then
 fi
 
 # --- installare ---------------------------------------------------------------------------------
-[ "$(uname -s)" = Linux ] || { echo "AIOS si installa su Linux." >&2; exit 1; }
-printf '\033[1mAIOS\033[0m — installo Nova, l'"'"'assistente AI locale, e i servizi di AIOS.\n'
+[ "$(uname -s)" = Linux ] || { echo "SoIA si installa su Linux." >&2; exit 1; }
+printf '\033[1mAIOS\033[0m — installo Nova, l'"'"'assistente AI locale, e i servizi di SoIA.\n'
 
 if [ "$PACCHETTI" = 1 ]; then
   passo "Programmi di sistema"
@@ -100,13 +100,13 @@ if [ "$PACCHETTI" = 1 ]; then
         # un nome non disponibile fa fallire tutto: si riprova uno per uno
         MANCANTI=()
         for p in "${PKG[@]}"; do "${GESTORE[@]}" "$p" >/dev/null 2>&1 || MANCANTI+=("$p"); done
-        [ ${#MANCANTI[@]} -eq 0 ] || nota "Non disponibili qui: ${MANCANTI[*]} (AIOS funziona lo stesso, con meno funzioni)."
+        [ ${#MANCANTI[@]} -eq 0 ] || nota "Non disponibili qui: ${MANCANTI[*]} (SoIA funziona lo stesso, con meno funzioni)."
       fi
     fi
   fi
 fi
 
-passo "Nova e i programmi di AIOS"
+passo "Nova e i programmi di SoIA"
 ha python3 || { echo "Serve Python 3." >&2; exit 1; }
 python3 -c 'import sys; sys.exit(0 if sys.version_info >= (3, 10) else 1)' || { echo "Serve Python 3.10 o più recente." >&2; exit 1; }
 mkdir -p "$DATI/aios" "$BIN"
@@ -194,5 +194,5 @@ cat <<FINE
     $BIN/aios-welcome      il benvenuto (si apre anche al prossimo accesso)
     $BIN/aios-copilot      Nova
   Per collegare il telefono: installa l'app KDE Connect sul telefono e di' «Nova, collega il telefono».
-  Per aggiornare AIOS: git pull && ./install.sh   ·   Per toglierlo: ./install.sh --disinstalla
+  Per aggiornare SoIA: git pull && ./install.sh   ·   Per toglierlo: ./install.sh --disinstalla
 FINE

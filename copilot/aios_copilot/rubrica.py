@@ -1,4 +1,4 @@
-"""La rubrica di AIOS: una sola, fatta da tre fonti senza che l'utente debba copiare niente.
+"""La rubrica di SoIA: una sola, fatta da tre fonti senza che l'utente debba copiare niente.
 
 - il telefono (la rubrica sincronizzata da KDE Connect, file .vcf);
 - la posta (le persone con cui si scambiano mail: almeno due mail, niente «noreply»);

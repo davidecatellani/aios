@@ -1,5 +1,5 @@
 [Unit]
-Description=Ollama: modelli AI locali di AIOS
+Description=Ollama: modelli AI locali di SoIA
 After=network-online.target
 
 [Service]

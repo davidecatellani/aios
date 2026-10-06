@@ -1,5 +1,5 @@
 "use strict";
-// Le app di AIOS dentro la shell (File, Foto, Musica, Video, Note, documenti, Impostazioni).
+// Le app di SoIA dentro la shell (File, Foto, Musica, Video, Note, documenti, Impostazioni).
 // Usa api(), el(), $(), TOKEN e chiedi() di home.html.
 
 const ICONA_PASSO = { internet: "wifi", posta: "posta", telefono: "telefono", aggiornamenti: "aggiornamenti" };
@@ -432,7 +432,7 @@ const VISTE = {
       };
       const prova = el("div", "azioni");
       prova.append(bottone("🔔 Prova l'uscita", () => azione({ azione: "prova" }), "bottone"));
-      elenco("Uscita", "Da dove esce il suono. Tocca per sceglierla: AIOS se la ricorda.", au.uscite,
+      elenco("Uscita", "Da dove esce il suono. Tocca per sceglierla: SoIA se la ricorda.", au.uscite,
              "Non trovo uscite audio.", prova);
       const provaMic = el("div", "azioni");
       provaMic.append(bottone("🎙️ Prova il microfono", (ev) => { ev.target.disabled = true; dici({ ok: true, messaggio: "Parla per 4 secondi… poi ti faccio riascoltare." });
@@ -540,7 +540,7 @@ const VISTE = {
             const r = await api("/api/scorciatoie", corpo).catch(e => ({ ok: false, messaggio: e.message }));
             dici(r); if (r.ok) apriVista("impostazioni", "tastiera");
           }, "bottone primo")));
-        const aios = carta(el("h3", "", "Scorciatoie di AIOS"));
+        const aios = carta(el("h3", "", "Scorciatoie di SoIA"));
         const griglia = el("div", "scorciatoie");
         for (const [t, cosa] of dv.di_aios) griglia.append(el("kbd", "", t), el("span", "", cosa));
         aios.append(griglia);
@@ -571,7 +571,7 @@ const VISTE = {
       c.lastChild.append(bottone("Cerca aggiornamenti", () => { chiudiVista(); chiedi("aggiorna il sistema"); }, "bottone primo"));
       const tok = el("input", "campo"); tok.type = "password"; tok.placeholder = "Token di GitHub (sola lettura)";
       carta(el("h3", "", "Aggiornamenti da GitHub"),
-            el("p", "nota", "Se il repository di AIOS è pubblico non serve nulla: le nuove versioni arrivano da sole. Solo per un repository privato: crea un token con il solo permesso «Contents: read» e incollalo qui. Resta nel portachiavi del computer."),
+            el("p", "nota", "Se il repository di SoIA è pubblico non serve nulla: le nuove versioni arrivano da sole. Solo per un repository privato: crea un token con il solo permesso «Contents: read» e incollalo qui. Resta nel portachiavi del computer."),
             riga("Token", null, tok, bottone("Collega", async () => {
               dici(await api("/api/impostazioni/github", { token: tok.value }).catch(e => ({ ok: false, messaggio: e.message }))); tok.value = "";
             }, "bottone primo")));
@@ -618,7 +618,7 @@ const VISTE = {
       pan.append(esito);
     } else if (sezione === "info") {
       const i = d.info || {};
-      carta(riga("Versione di AIOS", null, el("b", "", i.versione || "—")),
+      carta(riga("Versione di SoIA", null, el("b", "", i.versione || "—")),
             riga("Processore", null, el("span", "", i.processore || "—")),
             riga("Memoria", null, el("span", "", i.memoria_gb ? `${i.memoria_gb} GB` : "—")),
             riga("Scheda video", i.scheda_video_nota || null, el("span", i.scheda_video_nota ? "avviso-testo" : "", i.scheda_video || "integrata")),
@@ -636,7 +636,7 @@ const VISTE = {
       const valore = el("b", "", `${Math.round(ora.scala * 100)}%`);
       cursore.oninput = () => { valore.textContent = `${Math.round(cursore.value * 100)}%`; prova.style.fontSize = `${Math.round(18 * cursore.value)}px`; };
       cursore.onchange = () => salva({ scala: Number(cursore.value) });
-      carta(riga("Dimensione del testo", "Vale per tutto AIOS e per i programmi", cursore, valore),
+      carta(riga("Dimensione del testo", "Vale per tutto SoIA e per i programmi", cursore, valore),
             riga("", null, bottone("Normale", () => { cursore.value = 1; cursore.oninput(); salva({ scala: 1 }); }, "bottone")));
       const lista = el("div", "caratteri");
       for (const c of el_.caratteri) {
@@ -681,7 +681,7 @@ const VISTE = {
         .catch(e => dici({ ok: false, messaggio: e.message }));
       const sw = k => interruttore(a[k], () => salva({ [k]: !a[k] }));
       carta(el("h3", "", "Vista"),
-            riga("Contrasto alto", "Colori pieni e bordi netti, in AIOS e nelle app", sw("contrasto")),
+            riga("Contrasto alto", "Colori pieni e bordi netti, in SoIA e nelle app", sw("contrasto")),
             riga("Puntatore più grande", null, sw("cursore_grande")),
             riga("Meno animazioni", "Niente movimenti e dissolvenze", sw("meno_animazioni")),
             riga("Zoom", "Super e + per ingrandire attorno al puntatore, Super e - per tornare indietro, Super e 0 per normale", el("span", "nota", "")),
@@ -693,7 +693,7 @@ const VISTE = {
             riga("Per chi vede i colori in modo diverso", "Lo schermo corregge i colori che si confondono", filtro));
       carta(el("h3", "", "Udito e lettura"),
             riga("Sottotitoli in tempo reale", "Scrive in basso quello che il PC fa sentire (video, chiamate, giochi). Tutto sul computer, anche in inglese.", sw("sottotitoli")),
-            riga("Lettore dello schermo", a.orca ? "Legge ad alta voce quello che c'è sullo schermo (Orca). Super+Alt+S lo accende e lo spegne." : "Orca non è installato in questa versione di AIOS.", sw("lettore")),
+            riga("Lettore dello schermo", a.orca ? "Legge ad alta voce quello che c'è sullo schermo (Orca). Super+Alt+S lo accende e lo spegne." : "Orca non è installato in questa versione di SoIA.", sw("lettore")),
             riga("Nova guarda per te", "Chiedi «cosa c'è sullo schermo?» o «cosa dice questo errore?»", el("span", "nota", "")));
       pan.append(esito);
     } else if (sezione === "personalizzazioni") {
@@ -832,7 +832,7 @@ VISTE.attivita = async function (box) {
     r.append(testo, split, bottone("Togli dalla memoria", async () => { dici(await api("/api/attivita/modello", { nome: x.nome }).catch(e => ({ ok: false, messaggio: e.message }))); }));
     ai.append(r);
   }
-  ai.append(el("p", "nota", `Nova e i servizi di AIOS adesso: ${Math.round(d.ai.nova_cpu)}% del processore, ${mb(d.ai.nova_mb)} di memoria.`));
+  ai.append(el("p", "nota", `Nova e i servizi di SoIA adesso: ${Math.round(d.ai.nova_cpu)}% del processore, ${mb(d.ai.nova_mb)} di memoria.`));
   const azioniAi = el("div", "azioni");
   azioniAi.append(bottone("Modelli consigliati per questo PC", () => { chiudiVista(); chiedi("quali modelli AI mi consigli?"); }),
                   bottone("AI in cloud", () => apriVista("impostazioni", "cloud")));
@@ -878,7 +878,7 @@ VISTE.attivita = async function (box) {
   };
   cerca.oninput = () => { filtroAttivita = cerca.value; disegna(); };
   disegna();
-  prog.append(el("p", "nota", "I programmi di sistema e quelli di AIOS non si chiudono da qui. Puoi anche dire a Nova: «cosa rallenta il PC?» o «chiudi a forza Steam»."));
+  prog.append(el("p", "nota", "I programmi di sistema e quelli di SoIA non si chiudono da qui. Puoi anche dire a Nova: «cosa rallenta il PC?» o «chiudi a forza Steam»."));
   corpo.append(esito);
 };
 function durata(sec) {
@@ -983,7 +983,7 @@ function nuovoEvento(giorno) {
   setTimeout(() => titolo.focus(), 30);
 }
 
-// --- Rubrica: telefono, posta e contatti di AIOS insieme ------------------------------------------------------
+// --- Rubrica: telefono, posta e contatti di SoIA insieme ------------------------------------------------------
 let filtroRubrica = "", sceltoRubrica = "";
 VISTE.rubrica = async function (box) {
   const cerca = el("input", "campo"); cerca.placeholder = "Cerca nome, numero o email"; cerca.value = filtroRubrica; cerca.style.maxWidth = "320px";
@@ -1008,7 +1008,7 @@ VISTE.rubrica = async function (box) {
     const t = el("div", "carta");
     const testaC = el("div", "testa-contatto"); testaC.append(avatar(c.nome, "avatar grande"), el("h3", "", c.nome));
     t.append(testaC);
-    const fonti = { telefono: "dal telefono", posta: "dalla posta", aios: "aggiunto in AIOS" };
+    const fonti = { telefono: "dal telefono", posta: "dalla posta", aios: "aggiunto in SoIA" };
     t.append(el("p", "nota", c.fonti.map(f => fonti[f] || f).join(" · ") + (c.mail_scambiate ? ` · ${c.mail_scambiate} mail scambiate` : "")));
     const riga = (icona, valore, ...btn) => { const r = el("div", "riga-imp"); const v = el("div", "cosa"); v.append(conIcona(icona, valore)); r.append(v, ...btn); t.append(r); };
     for (const n of c.telefoni) riga("telefono", n, bottone("Chiama", () => { chiudiVista(); chiedi(`chiama ${c.nome}`); }), bottone("SMS", () => { chiudiVista(); chiedi(`scrivi un sms a ${c.nome}`); }));
@@ -1019,7 +1019,7 @@ VISTE.rubrica = async function (box) {
     if (c.email.length) az.append(bottone("Le ultime mail", () => { chiudiVista(); chiedi(`mostrami le ultime mail di ${c.nome}`); }));
     az.append(bottone("Modifica", () => modificaContatto(c)));
     if (c.fonti.includes("aios")) az.append(bottone("Togli", async () => {
-      if (!await chiediConferma(`Tolgo ${c.nome} dalla rubrica di AIOS?`)) return;
+      if (!await chiediConferma(`Tolgo ${c.nome} dalla rubrica di SoIA?`)) return;
       await api("/api/rubrica/togli", { nome: c.nome }); sceltoRubrica = ""; apriVista("rubrica");
     }, "bottone pericolo"));
     t.append(az); scheda.append(t);
@@ -1065,20 +1065,20 @@ function modificaContatto(c = { nome: "", telefoni: [], email: [], compleanno: "
   setTimeout(() => nome.focus(), 30);
 }
 
-// --- Personalizzazioni: AIOS che si riprogramma su richiesta (codice.py, programmatore.py) -------------------
+// --- Personalizzazioni: SoIA che si riprogramma su richiesta (codice.py, programmatore.py) -------------------
 let anteprimaAios = "";  // un file .aios aperto da File: si mostra subito l'anteprima
 async function disegnaPersonalizzazioni(carta, riga, dici, esito, pan) {
   const d = await api("/api/personalizzazioni").catch(e => ({ errore: e.message, modifiche: [], ricevute: [] }));
   const fai = (corpo, ricarica = true) => api("/api/personalizzazioni", corpo).then(r => { dici(r); if (ricarica) apriVista("impostazioni", "personalizzazioni"); return r; })
     .catch(e => dici({ ok: false, messaggio: e.message }));
-  if (!d.git) { carta(el("p", "nota", "Per le personalizzazioni serve git, che manca in questa versione di AIOS.")); return; }
+  if (!d.git) { carta(el("p", "nota", "Per le personalizzazioni serve git, che manca in questa versione di SoIA.")); return; }
   // stato straordinario: modalità sicura o conflitto con un aggiornamento
-  if (d.guasto) carta(riga(conIcona("avviso", "AIOS è ripartito originale"), "Una personalizzazione impediva alla schermata di partire. Puoi riprovare o togliere l'ultima.",
+  if (d.guasto) carta(riga(conIcona("avviso", "SoIA è ripartito originale"), "Una personalizzazione impediva alla schermata di partire. Puoi riprovare o togliere l'ultima.",
                            bottone("Riprova", () => fai({ azione: "riprova" })), bottone("Togli l'ultima", () => fai({ azione: "annulla", id: "ultima" }), "bottone pericolo")));
-  if (d.conflitto) carta(riga(conIcona("avviso", "Personalizzazioni da rifare"), "La nuova versione di AIOS cambia le stesse parti: per ora uso AIOS originale. Chiedi a Nova di rifarle."));
+  if (d.conflitto) carta(riga(conIcona("avviso", "Personalizzazioni da rifare"), "La nuova versione di SoIA cambia le stesse parti: per ora uso SoIA originale. Chiedi a Nova di rifarle."));
   // chiedere una modifica
   const testo = el("textarea", "campo richiesta-aios"); testo.rows = 3;
-  testo.placeholder = "Cosa vuoi cambiare di AIOS? Es. «voglio l'orologio rotondo», «la barra in basso», «nella Gestione attività mostrami anche i dischi»";
+  testo.placeholder = "Cosa vuoi cambiare di SoIA? Es. «voglio l'orologio rotondo», «la barra in basso», «nella Gestione attività mostrami anche i dischi»";
   const lav = d.lavoro || {};
   const chiedi = bottone(lav.in_corso ? "Nova sta lavorando…" : "Chiedi a Nova", async () => {
     if (!testo.value.trim()) return;
@@ -1091,11 +1091,11 @@ async function disegnaPersonalizzazioni(carta, riga, dici, esito, pan) {
     const b = el("button", "chip-aios", e); b.onclick = () => { testo.value = e; testo.focus(); }; esempi.append(b);
   }
   const az = el("div", "piede-modulo"); az.append(chiedi);
-  carta(el("h3", "", "AIOS come lo vuoi tu"),
-        el("p", "nota", "Chiedi qualsiasi cambiamento: Nova modifica il codice di AIOS, controlla che funzioni e lo applica. Ogni modifica si può togliere o dare a un altro utente; il sistema originale resta sempre intatto. Le modifiche complesse vanno meglio con l'AI in cloud accesa."),
+  carta(el("h3", "", "SoIA come lo vuoi tu"),
+        el("p", "nota", "Chiedi qualsiasi cambiamento: Nova modifica il codice di SoIA, controlla che funzioni e lo applica. Ogni modifica si può togliere o dare a un altro utente; il sistema originale resta sempre intatto. Le modifiche complesse vanno meglio con l'AI in cloud accesa."),
         testo, esempi, az);
   if (lav.in_corso || lav.esito) {
-    const c = carta(el("h3", "", lav.in_corso ? "Nova sta modificando AIOS…" : (lav.esito.ok ? "Fatto" : "Non è riuscito")));
+    const c = carta(el("h3", "", lav.in_corso ? "Nova sta modificando SoIA…" : (lav.esito.ok ? "Fatto" : "Non è riuscito")));
     if (lav.in_corso) c.append(el("div", "barra-lavoro"));
     const passi = el("ol", "passi-aios");
     for (const p of (lav.passi || []).slice(-8)) passi.append(el("li", "", p.replace(/^cerca/, "🔎 cerco").replace(/^leggi/, "📖 leggo").replace(/^modifica_file/, "✏️ modifico")
@@ -1107,7 +1107,7 @@ async function disegnaPersonalizzazioni(carta, riga, dici, esito, pan) {
                               bottone("Applica", () => fai({ azione: "applica" }), "bottone primo"), bottone("Scarta", () => fai({ azione: "scarta" }))));
   // le personalizzazioni fatte
   const lista = carta(el("h3", "", `Le tue personalizzazioni${d.modifiche.length ? ` (${d.modifiche.length})` : ""}`));
-  if (!d.modifiche.length) lista.append(el("p", "nota", "Nessuna: stai usando AIOS originale."));
+  if (!d.modifiche.length) lista.append(el("p", "nota", "Nessuna: stai usando SoIA originale."));
   for (const m of d.modifiche) {
     const quando = new Date(m.quando * 1000).toLocaleDateString("it-IT", { day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" });
     const matita = el("button", "matita-aios"); matita.append(svgIcona("matita")); matita.title = "Ritocca questa personalizzazione";
@@ -1131,30 +1131,30 @@ async function disegnaPersonalizzazioni(carta, riga, dici, esito, pan) {
   }
   // ricevute da altri
   const ric = carta(el("h3", "", "Ricevute da altri"),
-    el("p", "nota", "Un file .aios che ti hanno dato (da chiavetta, mail, Schermo AIOS…): mettilo in Scaricati o in Personalizzazioni, oppure aprilo da File."));
+    el("p", "nota", "Un file .aios che ti hanno dato (da chiavetta, mail, Schermo SoIA…): mettilo in Scaricati o in Personalizzazioni, oppure aprilo da File."));
   if (!d.ricevute.length) ric.append(el("p", "nota", "Nessun file .aios trovato."));
   const prev = el("div", "anteprima-aios");
   const mostra = async p => {
     const a = await api("/api/personalizzazioni", { azione: "anteprima", p }).catch(e => ({ ok: false, messaggio: e.message }));
     prev.replaceChildren();
     if (!a.ok) return prev.append(el("p", "esito no", a.messaggio));
-    prev.append(el("h3", "", a.richiesta), el("p", "nota", `${a.riassunto || ""} · cambia: ${a.file.join(", ")} · fatta su AIOS ${a.versione_aios || "?"}`));
+    prev.append(el("h3", "", a.richiesta), el("p", "nota", `${a.riassunto || ""} · cambia: ${a.file.join(", ")} · fatta su SoIA ${a.versione_aios || "?"}`));
     if (a.rischi.length) prev.append(el("p", "esito no", "Attenzione, usa internet, comandi o cancellazioni: " + a.rischi.slice(0, 3).join(" · ")));
     const pre = el("pre", "diff-aios");
     for (const l of a.righe.slice(0, 80)) pre.append(el("span", l[0] === "+" ? "piu" : "meno", l + "\n"));
     prev.append(pre);
     const b = el("div", "piede-modulo");
-    b.append(bottone("Applica alla mia AIOS", () => fai({ azione: "importa", p }), "bottone primo"));
+    b.append(bottone("Applica alla mia SoIA", () => fai({ azione: "importa", p }), "bottone primo"));
     prev.append(b);
   };
   for (const f of d.ricevute) ric.append(riga(f.nome, f.percorso, bottone("Guarda", () => mostra(f.percorso))));
   ric.append(prev);
   if (anteprimaAios) { const p = anteprimaAios; anteprimaAios = ""; mostra(p); }
   if (d.modifiche.length) carta(el("h3", "", "Tornare indietro"),
-    riga("Usa AIOS originale per ora", d.in_uso ? "Le personalizzazioni restano, le riattivi quando vuoi" : "Le personalizzazioni sono spente",
+    riga("Usa SoIA originale per ora", d.in_uso ? "Le personalizzazioni restano, le riattivi quando vuoi" : "Le personalizzazioni sono spente",
          d.in_uso ? bottone("Usa originale", () => fai({ azione: "originale" })) : bottone("Riattiva", () => fai({ azione: "riprova" }), "bottone primo")),
     riga("Torna allo stato iniziale", "Toglie tutte le personalizzazioni (restano recuperabili per sicurezza)",
-         bottone("Azzera", async () => { if (await chiediConferma("Tolgo tutte le personalizzazioni e torno ad AIOS originale?")) fai({ azione: "azzera" }); }, "bottone pericolo")));
+         bottone("Azzera", async () => { if (await chiediConferma("Tolgo tutte le personalizzazioni e torno ad SoIA originale?")) fai({ azione: "azzera" }); }, "bottone pericolo")));
   pan.append(esito);
 }
 

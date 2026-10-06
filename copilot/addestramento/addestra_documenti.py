@@ -2,7 +2,7 @@
 
     python addestramento/addestra_documenti.py --base base-hf --dati dati-documenti --uscita lora/documenti
 
-Lo stesso script addestra l'adattatore «schermate» (le pagine di AIOS da controllare per il programmatore):
+Lo stesso script addestra l'adattatore «schermate» (le pagine di SoIA da controllare per il programmatore):
 
     python addestramento/addestra_documenti.py --base base-hf --dati dati-schermate --uscita lora/schermate \
         --esempi schermate.jsonl --compito schermata

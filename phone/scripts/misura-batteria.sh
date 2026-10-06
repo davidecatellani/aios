@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Misura il consumo in standby di un telefono con AIOS (collegato via adb, schermo spento).
+# Misura il consumo in standby di un telefono con SoIA (collegato via adb, schermo spento).
 # Obiettivo: ro.aios.energia.standby_max_per_ora (1% all'ora). Da fare a ogni versione.
 #   scripts/misura-batteria.sh [ore=2]
 source "$(dirname "$0")/comune.sh"

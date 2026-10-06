@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Firma l'immagine con le chiavi di AIOS e prepara i file per il catalogo.
+# Firma l'immagine con le chiavi di SoIA e prepara i file per il catalogo.
 #   scripts/firma.sh miatoll | gsi | shiba
 source "$(dirname "$0")/comune.sh"
 B="${1:?uso: firma.sh BERSAGLIO}"

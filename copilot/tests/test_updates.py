@@ -152,7 +152,7 @@ def test_system_update_runs_in_background(tmp_path, monkeypatch):
             self.package = None
 
         def check(self, sources=("chiavetta", "github")):
-            return [up_mod.Update("sistema", "AIOS 2026.10.05.21 (da GitHub, 8.0 GB)", False, "2026.10.05.21")]
+            return [up_mod.Update("sistema", "SoIA 2026.10.05.21 (da GitHub, 8.0 GB)", False, "2026.10.05.21")]
 
         def prepare(self, found=None):
             gate.wait(5)

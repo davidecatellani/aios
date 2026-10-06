@@ -2,7 +2,7 @@
 
 I nomi dei server sono quelli pubblicati dai provider; se uno cambia, l'account si
 può sempre configurare a mano (host e porte). OAuth: Gmail e Outlook lo richiedono
-(Outlook.com non accetta più password); serve un "client id" registrato da AIOS
+(Outlook.com non accetta più password); serve un "client id" registrato da SoIA
 presso Google/Microsoft, letto da ~/.config/aios/oauth.json o dalle variabili
 AIOS_GOOGLE_CLIENT_ID / AIOS_GOOGLE_CLIENT_SECRET / AIOS_MICROSOFT_CLIENT_ID.
 """

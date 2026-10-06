@@ -1,7 +1,7 @@
 """La cronologia degli appunti (Super+V) e le emoji (Super+.), come su Windows e macOS.
 
 - Ogni cosa copiata (testo o immagine) entra in cronologia: le ultime 60, quelle fissate restano.
-  Mai le password: i gestori di password lo segnalano (x-kde-passwordManagerHint) e AIOS non le registra.
+  Mai le password: i gestori di password lo segnalano (x-kde-passwordManagerHint) e SoIA non le registra.
 - Tutto resta sul PC (~/.local/share/aios/appunti, leggibile solo dall'utente), e si cancella da Impostazioni
   o dal pannello.
 - Scegliere una voce la rimette negli appunti e la incolla nel programma che era davanti
