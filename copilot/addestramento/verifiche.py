@@ -209,13 +209,13 @@ def params(rng: random.Random, kind: str, now: datetime) -> dict:
     colore = rng.choice(list(COLORS))
     testo = rng.choice(WORDS)
     wrong_time = now + timedelta(minutes=rng.choice([-1, 1]) * rng.randrange(40, 330))
-    return {"seme": rng.randrange(2**31), "tipo": kind, "giusto": rng.random() < 0.45, "colori": COLORS,
+    return {"seme": rng.randrange(2**31), "tipo": kind, "giusto": rng.random() < 0.6, "colori": COLORS,
             "colore": colore, "colore_sbagliato": rng.choice([c for c in COLORS if c != colore]),
             "testo": testo, "testo_sbagliato": rng.choice([w for w in WORDS if w != testo]),
             "ora": {"h": now.hour, "m": now.minute}, "ora_sbagliata": {"h": wrong_time.hour, "m": wrong_time.minute},
             "orologio": {"misura": rng.choice([120, 150, 180]), "quadrante": rng.choice(["#ffffff", "#f6f1e7", "#1b2128"]),
                          "segni": rng.choice(["#1d2a33", "#0b6e78", "#5a3e2b"])},
-            "effetto": rng.choice(EFFECTS) if rng.random() < 0.3 else None}
+            "effetto": rng.choice(EFFECTS) if rng.random() < 0.2 else None}  # metà riuscite, metà no
 
 
 def main() -> int:

@@ -413,7 +413,7 @@ def look(image: Path, request: str, question: str = "", model: str | None = None
     return engines.describe_image(image, prompt, model)
 
 
-MAX_CROP = 640  # lato più lungo dei ritagli dati al modello
+MAX_CROP = 448  # lato più lungo dei ritagli dati al modello
 
 
 def change_crops(before: bytes, after: bytes, pad: int = 28, min_side: int = 160) -> tuple[bytes, bytes, tuple[int, int, int, int]] | None:

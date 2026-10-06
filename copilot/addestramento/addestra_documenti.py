@@ -46,6 +46,8 @@ def main() -> int:
     ap.add_argument("--max-minuti", type=float, default=None)
     ap.add_argument("--esempi", default="documenti.jsonl")
     ap.add_argument("--compito", choices=sorted(SYSTEMS), default="documento")
+    ap.add_argument("--peso-decisione", type=float, default=1.0,
+                    help="«verifica»: quanto pesa nella perdita la parola che decide (true/false) rispetto alle altre")
     args = ap.parse_args()
 
     import torch
@@ -92,7 +94,28 @@ def main() -> int:
             if v.dim() == 2 and v.shape == inputs["input_ids"].shape:  # es. mm_token_type_ids: la risposta è testo (0)
                 v = torch.cat([v, torch.zeros_like(answer)], dim=1)
             extra[k] = v
-        return {"input_ids": ids, "attention_mask": torch.ones_like(ids), "labels": labels, **extra}
+        # la decisione («fatto»: true/false) è una parola su una quindicina: con un peso più alto non si perde
+        weights = torch.ones(answer.shape[1])
+        if args.peso_decisione != 1.0 and row["risposta"].startswith('{"fatto":'):
+            ids_ = answer[0].tolist()
+            for i in range(len(ids_)):  # il primo pezzo in cui compare true/false (i token non seguono le parole)
+                seen = tok.decode(ids_[:i + 1])
+                if "true" in seen or "false" in seen:
+                    weights[max(0, i - 1):i + 1] = args.peso_decisione
+                    break
+        return {"input_ids": ids, "attention_mask": torch.ones_like(ids), "labels": labels, "pesi": weights, **extra}
+
+    def weighted_loss(batch: dict) -> "torch.Tensor":
+        weights = batch.pop("pesi")
+        labels = batch.pop("labels")
+        n = weights.shape[0]
+        try:  # i logit solo sulla risposta (il vocabolario è enorme: su tutta la sequenza servirebbero GB)
+            logits = model(**batch, logits_to_keep=n + 1).logits[:, :-1]
+        except TypeError:
+            logits = model(**batch).logits[:, -(n + 1):-1]
+        target = labels[:, -n:]
+        ce = torch.nn.functional.cross_entropy(logits.reshape(-1, logits.shape[-1]).float(), target.reshape(-1), reduction="none")
+        return (ce * weights.to(ce.device)).sum() / weights.sum()
 
     total = max(1, int(math.ceil(len(rows) / args.accumula) * args.epoche))
     opt = torch.optim.AdamW([p for p in model.parameters() if p.requires_grad], lr=args.lr, weight_decay=0.0)
@@ -105,7 +128,7 @@ def main() -> int:
         for _ in range(args.accumula):
             batch = {key: v.to(device) for key, v in encode(rows[k % len(rows)]).items()}
             k += 1
-            loss = model(**batch).loss / args.accumula
+            loss = weighted_loss(batch) / args.accumula
             loss.backward()
             loss_sum += loss.item()
         torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)

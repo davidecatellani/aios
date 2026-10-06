@@ -7,6 +7,8 @@ Su esempi mai visti (prova-verifica.jsonl):
   giudicate riuscite;
 - problemi: quanti dei problemi veri riconosce e quanti di quelli che segnala sono veri;
 - il giudizio per tipo di modifica (colore, posizione, testo, orologio…).
+Più il giudizio dell'adattatore su esempi già visti in addestramento (verifica.jsonl): se sbaglia anche quelli
+non ha imparato, se lì va bene e sui nuovi no ha imparato a memoria (o prova e addestramento non combaciano).
 Confronta il modello senza adattatore con l'adattatore «verifica»; esce una tabella in Markdown.
 Codice d'uscita 3 se l'adattatore non migliora abbastanza (allora non si pubblica).
 """
@@ -65,6 +67,7 @@ def main() -> int:
     ap.add_argument("--dati", default="dati-verifica")
     ap.add_argument("--url", default="http://127.0.0.1:11436")
     ap.add_argument("--solo-base", action="store_true")
+    ap.add_argument("--gia-visti", type=int, default=60, help="esempi dell'addestramento da riprovare (0 = nessuno)")
     args = ap.parse_args()
     base = Path(args.dati)
     rows = [json.loads(line) for line in (base / "prova-verifica.jsonl").read_text().splitlines() if line.strip()]
@@ -85,6 +88,12 @@ def main() -> int:
         print(f"| {k} | {before['per_tipo'].get(k, 0):.0%} | {after['per_tipo'][k]:.0%} |")
     if args.solo_base:
         return 0
+    seen_file = base / "verifica.jsonl"
+    if args.gia_visti and seen_file.exists():
+        seen = [json.loads(line) for line in seen_file.read_text().splitlines() if line.strip()][:args.gia_visti]
+        fit = run(n, base, seen, "verifica")
+        print(f"\nSu {len(seen)} esempi già visti in addestramento, con adattatore: giudizio giusto {fit['giudizio']:.0%}, "
+              f"falsi allarmi {fit['falsi_allarmi']:.0%}, sfuggite {fit['sfuggite']:.0%}.")
     good = after["giudizio"] >= max(before["giudizio"] + 0.15, 0.65)
     if not good:
         print("\nL'adattatore «verifica» non migliora abbastanza il giudizio: non si pubblica.")

@@ -12,7 +12,7 @@ on:
     inputs:
       minuti:
         description: "Tempo massimo di addestramento (minuti, senza scheda video)"
-        default: "200"
+        default: "220"
       esempi:
         description: "Quanti esempi di modifiche (giuste e sbagliate) preparare"
         default: "900"
@@ -68,7 +68,7 @@ jobs:
       - name: Adattatore verifica
         run: |
           python copilot/addestramento/addestra_documenti.py --base base-hf --dati dati-verifica \
-            --esempi verifica.jsonl --compito verifica --uscita lora/verifica --max-minuti "${{ inputs.minuti }}"
+            --esempi verifica.jsonl --compito verifica --uscita lora/verifica --max-minuti "${{ inputs.minuti }}" --epoche 2 --peso-decisione 5
       - name: Conversione in GGUF
         run: |
           python /tmp/llama.cpp/convert_lora_to_gguf.py --base base-hf --outtype f16 --outfile uscita/verifica.gguf lora/verifica
