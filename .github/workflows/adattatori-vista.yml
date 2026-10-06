@@ -52,7 +52,7 @@ jobs:
           echo "Parto da $tag"
           mkdir -p uscita
           gh release download "$tag" --repo "$GITHUB_REPOSITORY" --dir uscita --pattern 'base.gguf' \
-            --pattern 'smistamento.gguf' --pattern 'campi.gguf'
+            --pattern 'smistamento.gguf' --pattern 'campi.gguf' --pattern 'schermate.gguf'  # «schermate» si tiene
           ls -lh uscita
       - name: Modello base e proiettore delle immagini
         run: |
@@ -91,4 +91,4 @@ jobs:
           tag="adattatori-vista-${GITHUB_RUN_NUMBER}"
           { echo "Nucleo di Nova su $BASE (llama.cpp $LLAMA_CPP): smistamento, campi, documenti e proiettore delle immagini."; echo; cat misura.md; } > note.md
           gh release create "$tag" --repo "$GITHUB_REPOSITORY" --prerelease --title "Vista del nucleo ${GITHUB_RUN_NUMBER}" \
-            --notes-file note.md base.gguf mmproj.gguf smistamento.gguf campi.gguf documenti.gguf misura.md SHA256SUMS
+            --notes-file note.md *.gguf misura.md SHA256SUMS

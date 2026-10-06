@@ -3,9 +3,11 @@ di visione del PC che la guarda («le lancette segnano le 10:10?», «si legge t
 
 La foto si fa in un processo a parte che carica il codice della copia personale (anche la modifica non ancora
 salvata), avvia il server della schermata e la disegna con WebKitGTK, lo stesso motore della shell vera, in una
-finestra che su Hyprland sta in uno spazio nascosto (l'utente non vede niente). La foto resta sul PC: la guarda
-solo il modello di visione locale, mai uno in cloud (sulla schermata ci sono agenda, file, notifiche).
-Se manca lo schermo o il modello di visione il controllo visivo si salta: restano gli altri controlli.
+finestra che su Hyprland sta in uno spazio nascosto (l'utente non vede niente).
+La pagina di prova ha i dati di una persona inventata (cartelle a parte, internet bloccato): niente agenda, file o
+notifiche dell'utente. Per questo la foto può guardarla anche il modello in cloud, se l'utente l'ha acceso.
+Chi guarda: il modello in cloud (se acceso), altrimenti il nucleo con l'adattatore «schermate» (addestrato proprio
+per questo), altrimenti un modello di visione del PC. Senza nessuno restano i controlli senza modello.
 Questo file non si personalizza (è uno degli strumenti che controllano le modifiche).
 """
 
@@ -50,6 +52,90 @@ def page_url(base: str, page: str) -> tuple[str, str]:
         return base.replace("/#", "/static/pannello.html#", 1) + f"&apri={which}", ""
     args = ", ".join(repr(p) for p in parts)
     return base, f"typeof apriVista === 'function' && apriVista({args});"
+
+
+# --- la persona inventata della pagina di prova -----------------------------------------------------------
+BLOCKED = "http://127.0.0.1:9"  # internet chiuso: la pagina di prova non chiede niente fuori
+DEMO_PLACE = {"nome": "Bologna", "lat": 44.494, "lon": 11.343, "zona": "Emilia-Romagna"}
+DEMO_NOTE = "Comprare il pane e chiamare Marco per la cena di sabato."
+DEMO_EVENTS = (("Dentista", 17, 30), ("Riunione con il condominio", 21, 0))
+DEMO_FILES = ("Documenti/Bolletta luce ottobre.pdf", "Documenti/Contratto affitto.pdf", "Immagini/Vacanze/mare.jpg",
+              "Musica/Preferite/canzone.mp3", "Scaricati/orario-treni.pdf")
+
+
+def fake_env(folder: Path) -> dict[str, str]:
+    """Le cartelle della persona inventata e internet chiuso (vale per il processo della pagina di prova)."""
+    env = {"HOME": str(folder), "AIOS_CASA": str(folder), "XDG_CONFIG_HOME": str(folder / ".config"),
+           "XDG_DATA_HOME": str(folder / ".local/share"), "XDG_STATE_HOME": str(folder / ".local/state"),
+           "XDG_CACHE_HOME": str(folder / ".cache"), "no_proxy": "127.0.0.1,localhost", "NO_PROXY": "127.0.0.1,localhost"}
+    for k in ("http_proxy", "https_proxy", "HTTP_PROXY", "HTTPS_PROXY", "all_proxy", "ALL_PROXY"):
+        env[k] = BLOCKED
+    return env
+
+
+def local_zone() -> str:
+    if "/" in os.environ.get("TZ", ""):
+        return os.environ["TZ"].lstrip(":")
+    try:
+        link = os.readlink("/etc/localtime")
+        return link.split("zoneinfo/", 1)[1] if "zoneinfo/" in link else "Europe/Rome"
+    except OSError:
+        return "Europe/Rome"
+
+
+def _gray_png(size: int = 256) -> bytes:
+    import struct
+    import zlib
+
+    def chunk(kind: bytes, data: bytes) -> bytes:
+        return struct.pack(">I", len(data)) + kind + data + struct.pack(">I", zlib.crc32(kind + data) & 0xFFFFFFFF)
+
+    rows = b"".join(b"\x00" + bytes((228, 232, 226)) * size for _ in range(size))
+    return (b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", struct.pack(">IIBBBBB", size, size, 8, 2, 0, 0, 0))
+            + chunk(b"IDAT", zlib.compress(rows)) + chunk(b"IEND", b""))
+
+
+def _fake_weather(url: str) -> bytes:
+    today = datetime.now().date()
+    from datetime import timedelta
+
+    days = [(today + timedelta(days=i)).isoformat() for i in range(5)]
+    return json.dumps({"current": {"temperature_2m": 18.4, "apparent_temperature": 17.0, "weather_code": 2,
+                                   "wind_speed_10m": 9.0, "relative_humidity_2m": 64},
+                       "daily": {"time": days, "weather_code": [2, 61, 3, 0, 1], "temperature_2m_max": [21, 17, 18, 23, 22],
+                                 "temperature_2m_min": [11, 10, 9, 12, 13],
+                                 "precipitation_probability_max": [10, 80, 40, 0, 5]}}).encode()
+
+
+def seed_demo(folder: Path, clock_zone: str | None = None) -> None:
+    """Riempie le cartelle della persona inventata: nome, widget, agenda, qualche file."""
+    from . import widget
+    from .agenda import Agenda
+    from .welcome import save_profile
+
+    save_profile(name="Giulia", welcome_done=True)
+    widget.save([{"id": "orologio-1", "tipo": "orologio", "luogo": {**DEMO_PLACE, "fuso": clock_zone or local_zone()}},
+                 {"id": "meteo-1", "tipo": "meteo", "luogo": DEMO_PLACE},
+                 {"id": "nota-1", "tipo": "nota", "testo": DEMO_NOTE},
+                 {"id": "mappa-1", "tipo": "mappa", "luogo": DEMO_PLACE}])
+    agenda = Agenda()
+    today = datetime.now().replace(second=0, microsecond=0)
+    for title, h, m in DEMO_EVENTS:
+        agenda.add_event(title, today.replace(hour=h, minute=m))
+    for rel in DEMO_FILES:
+        f = folder / rel
+        f.parent.mkdir(parents=True, exist_ok=True)
+        f.write_bytes(b"")
+
+
+def fake_services() -> None:
+    """Il meteo e le mappe con dati inventati (internet è chiuso)."""
+    from . import widget
+
+    real = widget.TIPI["meteo"]["dati"]
+    widget.TIPI["meteo"]["dati"] = lambda w, fetch=None, now=time.time: real(w, _fake_weather, now)
+    tile = _gray_png()
+    widget.tile = lambda z, x, y, fetch=None: tile
 
 
 # --- dentro il processo a parte ---------------------------------------------------------------------------
@@ -202,6 +288,11 @@ def child_main(argv: list[str]) -> int:
     out, page = Path(argv[0]), argv[1]
     w, h = int(argv[2]), int(argv[3])
     title = argv[4] if len(argv) > 4 else "aios-prova"
+    if "--finti" in argv:
+        folder = out.parent / "casa"
+        os.environ.update(fake_env(folder))
+        seed_demo(folder)
+        fake_services()
     url, js = page_url(_serve(), page)
     ok = False
     if os.environ.get("WAYLAND_DISPLAY") or os.environ.get("DISPLAY"):
@@ -218,13 +309,14 @@ def child_main(argv: list[str]) -> int:
 
 
 # --- dal programmatore ------------------------------------------------------------------------------------
-def take(page: str, root: Path, size: tuple[int, int] = SIZE) -> tuple[Path | None, str]:
-    """La foto della pagina col codice in «root» (la copia personale) → (file png, problema)."""
+def take(page: str, root: Path, size: tuple[int, int] = SIZE, fake: bool = True) -> tuple[Path | None, str]:
+    """La foto della pagina col codice in «root» (la copia personale) → (file png, problema).
+    Con «fake» (sempre, per il programmatore) la pagina mostra i dati della persona inventata."""
     out = Path(tempfile.mkdtemp(prefix="aios-prova-")) / "pagina.png"
     title = f"aios-prova-{os.getpid()}"
     code = ("import sys; sys.path.insert(0, %r); from aios_copilot import anteprima; "
             "sys.exit(anteprima.child_main(sys.argv[1:]))") % str(root)
-    cmd = [sys.executable, "-c", code, str(out), page, str(size[0]), str(size[1]), title]
+    cmd = [sys.executable, "-c", code, str(out), page, str(size[0]), str(size[1]), title] + (["--finti"] if fake else [])
     env = {**os.environ, "AIOS_CODICE": "base", "PYTHONDONTWRITEBYTECODE": "1"}
     env.pop("LD_PRELOAD", None)
     log = out.parent / "errori.txt"
@@ -233,7 +325,7 @@ def take(page: str, root: Path, size: tuple[int, int] = SIZE) -> tuple[Path | No
         keep = " ".join(f"{k}={shlex.quote(env[k])}" for k in ("AIOS_CODICE", "PYTHONDONTWRITEBYTECODE", "XDG_DATA_HOME",
                                                                  "XDG_STATE_HOME", "XDG_CONFIG_HOME", "HOME") if k in env)
         line = f"env {keep} {shlex.join(cmd)} > {shlex.quote(str(log))} 2>&1"
-        subprocess.run(["hyprctl", "dispatch", "exec", f"[workspace {WORKSPACE} silent; noinitialfocus] sh -c {shlex.quote(line)}"],
+        subprocess.run(["hyprctl", "dispatch", "exec", f"[workspace {WORKSPACE} silent; noinitialfocus; float; size {size[0]} {size[1]}] sh -c {shlex.quote(line)}"],
                        capture_output=True, timeout=10)
         deadline = time.time() + TIMEOUT
         while time.time() < deadline and not out.exists():
@@ -261,19 +353,67 @@ def vision_model() -> str | None:
         return None
 
 
+def clock_verdict(shown: str, now: datetime) -> str:
+    """«10:10» letto dalle lancette contro l'ora vera (su 12 ore, con qualche minuto di margine)."""
+    try:
+        h, m = (int(x) for x in shown.strip().split(":")[:2])
+    except ValueError:
+        return f"Orologio con le lancette: non si legge bene l'ora ({shown})."
+    a, b = (h % 12) * 60 + m, (now.hour % 12) * 60 + now.minute
+    diff = min(abs(a - b), 720 - abs(a - b))
+    if diff <= 3:
+        return f"Orologio con le lancette: segna {shown}, giusto (sono le {now:%H:%M})."
+    return f"Orologio con le lancette: segna {shown} ma sono le {now:%H:%M}: le lancette sono sbagliate."
+
+
+def _cloud_look(image: Path, prompt: str) -> str:
+    try:
+        from .cloud import Escalation, see
+
+        if not Escalation().available():
+            return ""
+        return see(image.read_bytes(), prompt)
+    except Exception:
+        return ""
+
+
+def _nucleo_look(image: Path, now: datetime) -> str:
+    try:
+        from .nucleo import Nucleo
+
+        data = Nucleo(timeout=300).check_screen(image.read_bytes())
+    except Exception:
+        return ""
+    if data is None:
+        return ""
+    lines = []
+    shown = str(data.get("orologio") or "").strip()
+    if shown:
+        lines.append(clock_verdict(shown, now))
+    for p in data.get("problemi") or []:
+        if isinstance(p, dict):
+            lines.append(f"- {p.get('tipo', '')}: «{p.get('testo', '')}»")
+    return "\n".join(lines) or "Sembra tutto a posto."
+
+
 def look(image: Path, request: str, question: str = "", model: str | None = None,
-         see: Callable[[Path, str], str] | None = None, now: datetime | None = None) -> str:
+         see: Callable[[Path, str], str] | None = None, now: datetime | None = None, cloud: bool = True) -> str:
+    """Chi guarda la foto: il modello in cloud (solo pagine coi dati finti, se l'utente l'ha acceso), il nucleo con
+    l'adattatore «schermate», un modello di visione del PC. "" se non c'è nessuno."""
     now = now or datetime.now()
     prompt = LOOK_PROMPT.format(request=request.strip(), time=now.strftime("%H:%M"), day=GIORNI[now.weekday()],
                                 question=f"Controlla in particolare: {question.strip()}" if question.strip() else "")
-    if see is None:
-        from . import engines
+    if see is not None:
+        return see(image, prompt)
+    answer = (_cloud_look(image, prompt) if cloud else "") or _nucleo_look(image, now)
+    if answer:
+        return answer
+    model = model or vision_model()
+    if model is None:
+        return ""
+    from . import engines
 
-        model = model or vision_model()
-        if model is None:
-            return ""
-        return engines.describe_image(image, prompt, model)
-    return see(image, prompt)
+    return engines.describe_image(image, prompt, model)
 
 
 def page_report(image: Path) -> dict[str, list[str]]:
@@ -345,12 +485,11 @@ class Eyes:
                          + "\n".join(f"- {e}" for e in report["problemi"]))
         if not lines:
             lines.append("Nessun errore di JavaScript, niente testi tagliati, sovrapposti o poco leggibili.")
-        if self.see is not None or (self.model or vision_model()):
-            answer = look(image, self.request, question, model=self.model, see=self.see)
-            if answer:
-                lines.append("Il modello di visione guarda la foto e dice:\n" + answer)
+        answer = look(image, self.request, question, model=self.model, see=self.see)
+        if answer:
+            lines.append("Chi guarda la foto dice:\n" + answer)
         else:
-            lines.append("(Nessun modello di visione sul PC: rileggi bene la logica di quello che si vede.)")
+            lines.append("(Nessun modello che vede: rileggi bene la logica di quello che si vede.)")
         return f"Pagina «{page}»:\n" + "\n\n".join(lines)
 
 

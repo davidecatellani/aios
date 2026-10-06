@@ -2,6 +2,11 @@
 
     python addestramento/addestra_documenti.py --base base-hf --dati dati-documenti --uscita lora/documenti
 
+Lo stesso script addestra l'adattatore «schermate» (le pagine di AIOS da controllare per il programmatore):
+
+    python addestramento/addestra_documenti.py --base base-hf --dati dati-schermate --uscita lora/schermate \
+        --esempi schermate.jsonl --compito schermata
+
 Come addestra.py, ma ogni esempio ha un'immagine: il modello intero (con la parte che vede) resta com'è,
 impara solo il modello di testo (LoRA sugli strati della seconda metà). La richiesta è costruita con il
 modello di chat di Qwen, lo stesso che usa llama-server (/v1/chat/completions) quando Nova legge un documento.
@@ -19,7 +24,9 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from aios_copilot.nucleo import SYSTEM_DOCUMENTO  # noqa: E402
+from aios_copilot.nucleo import SYSTEM_DOCUMENTO, SYSTEM_SCHERMATA  # noqa: E402
+
+SYSTEMS = {"documento": SYSTEM_DOCUMENTO, "schermata": SYSTEM_SCHERMATA}
 
 END = "<|im_end|>"
 PROJ = "q_proj|k_proj|v_proj|o_proj|gate_proj|up_proj|down_proj"
@@ -36,6 +43,8 @@ def main() -> int:
     ap.add_argument("--accumula", type=int, default=8)
     ap.add_argument("--strati", type=float, default=0.5)
     ap.add_argument("--max-minuti", type=float, default=None)
+    ap.add_argument("--esempi", default="documenti.jsonl")
+    ap.add_argument("--compito", choices=sorted(SYSTEMS), default="documento")
     args = ap.parse_args()
 
     import torch
@@ -60,13 +69,13 @@ def main() -> int:
     print(f"strati che imparano: {first}–{n_layers - 1} di {n_layers}", flush=True)
 
     base = Path(args.dati)
-    rows = [json.loads(line) for line in (base / "documenti.jsonl").read_text().splitlines() if line.strip()]
+    rows = [json.loads(line) for line in (base / args.esempi).read_text().splitlines() if line.strip()]
     rng = random.Random(0)
     rng.shuffle(rows)
     tok = processor.tokenizer
 
     def encode(row: dict) -> dict:
-        messages = [{"role": "system", "content": SYSTEM_DOCUMENTO},
+        messages = [{"role": "system", "content": SYSTEMS[args.compito]},
                     {"role": "user", "content": [{"type": "image"}, {"type": "text", "text": row["prompt"]}]}]
         prompt = processor.apply_chat_template(messages, add_generation_prompt=True, enable_thinking=False)
         image = Image.open(base / row["immagine"]).convert("RGB")

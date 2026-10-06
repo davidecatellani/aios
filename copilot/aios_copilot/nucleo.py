@@ -6,7 +6,9 @@ Nova (copilot/addestramento). Il modello base è condiviso; per ogni richiesta s
 
 - smistamento: l'ambito della frase (agenda, posta, file…) e l'azione da fare;
 - campi: i valori dell'azione (cosa ricordare, quando…) in JSON;
-- documenti: legge bollette, scontrini, avvisi di pagamento (campi in JSON o tutto il testo).
+- documenti: legge bollette, scontrini, avvisi di pagamento (campi in JSON o tutto il testo);
+- schermate: controlla una pagina di AIOS dopo una personalizzazione (l'ora delle lancette di un orologio, testi
+  sovrapposti, tagliati, poco leggibili o fuori dallo schermo), per il programmatore (anteprima.py).
 
 Qwen3.5 vede anche le immagini (con il proiettore mmproj.gguf): il nucleo descrive le foto e legge i
 documenti al posto di MiniCPM-V e DeepSeek-OCR, senza un altro modello in memoria.
@@ -38,6 +40,16 @@ SYSTEM_DOCUMENTO = "AIOS · documento"
 PROMPT_DOCUMENTO = ("Leggi il documento e rispondi con un JSON: tipo, emittente, numero, data (AAAA-MM-GG), "
                     "scadenza (AAAA-MM-GG o vuota), totale (come scritto, es. 123,45).")
 PROMPT_TESTO = "Trascrivi tutto il testo del documento, riga per riga."
+SYSTEM_SCHERMATA = "AIOS · schermata"
+SCREEN_PROBLEMS = ("sovrapposti", "tagliato", "contrasto", "fuori")
+SCREEN_SCHEMA = {"type": "object", "properties": {
+    "orologio": {"type": "string"},
+    "problemi": {"type": "array", "items": {"type": "object", "properties": {
+        "tipo": {"type": "string", "enum": list(SCREEN_PROBLEMS)}, "testo": {"type": "string"}}, "required": ["tipo", "testo"]}}},
+    "required": ["orologio", "problemi"]}
+PROMPT_SCHERMATA = ("Controlla la schermata e rispondi con un JSON: orologio (l'ora segnata dalle lancette, H:MM da 1:00 a "
+                    "12:59; vuoto se non c'è un orologio con le lancette) e problemi (elenco con tipo e testo: tipo "
+                    "sovrapposti, tagliato, contrasto o fuori; testo: le prime parole dell'elemento).")
 GIORNI = ["lunedì", "martedì", "mercoledì", "giovedì", "venerdì", "sabato", "domenica"]
 
 
@@ -182,6 +194,16 @@ class Nucleo:
         if fields:
             return self.see(image, PROMPT_DOCUMENTO, adapter, SYSTEM_DOCUMENTO, DOCUMENT_SCHEMA, 200)
         return self.see(image, PROMPT_TESTO, adapter, SYSTEM_DOCUMENTO, None, 700)
+
+    def check_screen(self, image: bytes) -> dict[str, Any] | None:
+        """Controlla una schermata di AIOS con l'adattatore «schermate» (None se l'adattatore non c'è)."""
+        if "schermate" not in self.adapters():
+            return None
+        try:
+            data = json.loads(self.see(image, PROMPT_SCHERMATA, "schermate", SYSTEM_SCHERMATA, SCREEN_SCHEMA, 300))
+        except (OSError, ValueError, KeyError, urllib.error.URLError):
+            return None
+        return data if isinstance(data, dict) else None
 
     def fill(self, prompt: str, properties: dict[str, Any], required: list[str]) -> dict[str, Any] | None:
         schema = {"type": "object", "properties": properties, "required": required}

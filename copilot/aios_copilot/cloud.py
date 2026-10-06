@@ -26,7 +26,8 @@ from typing import Any, Callable
 URL = "https://openrouter.ai/api/v1"
 KEY = "openrouter-chiave"
 DEFAULT_MODEL = "deepseek/deepseek-chat"
-DEFAULTS = {"attivo": False, "modello": DEFAULT_MODEL, "limite_giorno": 1.0, "limite_mese": 10.0,
+VISION_MODEL = "google/gemini-2.5-flash"  # per guardare le immagini (il modello scelto spesso non vede)
+DEFAULTS = {"attivo": False, "modello": DEFAULT_MODEL, "modello_vista": VISION_MODEL, "limite_giorno": 1.0, "limite_mese": 10.0,
             "privacy": "chiedi",  # chiedi | mai (i dati privati non escono mai) | sempre
             "attesa_locale": 5.0}  # secondi dati al modello locale prima di passare al cloud (0 = mai)
 TIMEOUT = 180
@@ -68,7 +69,7 @@ def save_settings(changes: dict[str, Any]) -> dict[str, Any]:
             conf[k] = max(0.0, min(1000.0, float(v)))
         elif k == "attesa_locale":
             conf[k] = max(0.0, min(120.0, float(v)))
-        elif k == "modello" and isinstance(v, str) and 2 < len(v) < 120:
+        elif k in ("modello", "modello_vista") and isinstance(v, str) and 2 < len(v) < 120:
             conf[k] = v.strip()
         elif k == "privacy" and v in ("chiedi", "mai", "sempre"):
             conf[k] = v
@@ -187,6 +188,24 @@ class CloudModel:
 
     def warmup(self, messages: list[dict[str, Any]], tools: list[dict[str, Any]]) -> None:
         pass
+
+
+def see(image: bytes, prompt: str, mime: str = "image/png", post: Callable[..., dict[str, Any]] = _http,
+        usage: Usage | None = None, api_key: str | None = None) -> str:
+    """Un modello in cloud guarda un'immagine. Solo per immagini senza dati dell'utente (es. la pagina di prova
+    del programmatore, fatta con una persona inventata)."""
+    import base64
+
+    model = settings()["modello_vista"]
+    url = f"data:{mime};base64," + base64.b64encode(image).decode()
+    payload = {"model": model, "usage": {"include": True},
+               "messages": [{"role": "user", "content": [{"type": "text", "text": prompt},
+                                                         {"type": "image_url", "image_url": {"url": url}}]}]}
+    reply = post(f"{URL}/chat/completions", payload, key() if api_key is None else api_key)
+    if "error" in reply and not reply.get("choices"):
+        raise CloudError(str(reply["error"].get("message", reply["error"]))[:300])
+    (usage or Usage()).add(float((reply.get("usage") or {}).get("cost") or 0.0), model)
+    return str(((reply.get("choices") or [{}])[0].get("message") or {}).get("content") or "").strip()
 
 
 def models(post: Callable[..., dict[str, Any]] = _http) -> list[dict[str, Any]]:

@@ -1,0 +1,98 @@
+name: Schermate del nucleo
+
+# Gli occhi del programmatore: l'adattatore «schermate» del nucleo (Qwen3.5 0.8B) controlla una pagina di AIOS dopo
+# una personalizzazione (l'ora delle lancette di un orologio, testi sovrapposti, tagliati, poco leggibili o fuori
+# dallo schermo). Si addestra su pagine vere di AIOS con guasti messi apposta (copilot/addestramento/schermate.py),
+# quindi la risposta giusta si sa sempre. Parte dall'ultima Release «adattatori-…» (modello base, proiettore delle
+# immagini e gli altri adattatori), misura e pubblica una Release «adattatori-schermate-N» completa: la costruzione
+# dell'immagine prende la più recente. Si avvia solo a mano.
+on:
+  workflow_dispatch:
+    inputs:
+      minuti:
+        description: "Tempo massimo di addestramento (minuti, senza scheda video)"
+        default: "180"
+      schermate:
+        description: "Quante schermate disegnare"
+        default: "700"
+
+permissions:
+  contents: write
+
+env:
+  BASE: Qwen/Qwen3.5-0.8B
+  LLAMA_CPP: b11392  # stessa versione dell'immagine (image/Containerfile)
+
+jobs:
+  schermate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 350
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Strumenti
+        run: |
+          sudo apt-get install -y -q fonts-dejavu-core fonts-liberation fonts-noto-color-emoji
+          pip install --index-url https://download.pytorch.org/whl/cpu torch torchvision
+          pip install "transformers>=5" peft accelerate sentencepiece safetensors huggingface_hub pillow playwright
+          python -m playwright install --with-deps chromium
+          pip install -e copilot
+          git clone --depth 1 --branch "$LLAMA_CPP" https://github.com/ggml-org/llama.cpp /tmp/llama.cpp
+          pip install /tmp/llama.cpp/gguf-py
+          curl -fsSL -o /tmp/llama.tar.gz \
+            "https://github.com/ggml-org/llama.cpp/releases/download/$LLAMA_CPP/llama-$LLAMA_CPP-bin-ubuntu-x64.tar.gz"
+          mkdir -p /tmp/llama-bin && tar -xzf /tmp/llama.tar.gz -C /tmp/llama-bin
+          echo "SERVER=$(find /tmp/llama-bin -name llama-server -type f | head -n1)" >> "$GITHUB_ENV"
+      - name: Adattatori già pubblicati
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          tag=$(gh release list --repo "$GITHUB_REPOSITORY" --limit 100 --json tagName,createdAt \
+                --jq '[.[] | select(.tagName | startswith("adattatori-"))] | sort_by(.createdAt) | reverse | .[0].tagName')
+          echo "Parto da $tag"
+          mkdir -p uscita
+          gh release download "$tag" --repo "$GITHUB_REPOSITORY" --dir uscita --pattern '*.gguf'
+          rm -f uscita/schermate.gguf  # si rifà
+          ls -lh uscita
+      - name: Modello base (e proiettore delle immagini, se manca)
+        run: |
+          huggingface-cli download "$BASE" --local-dir base-hf || hf download "$BASE" --local-dir base-hf
+          if [ ! -f uscita/mmproj.gguf ]; then
+            python /tmp/llama.cpp/convert_hf_to_gguf.py base-hf --mmproj --outtype f16 --outfile uscita/mmproj.gguf
+          fi
+      - name: Schermate con i guasti
+        run: python copilot/addestramento/schermate.py --uscita dati-schermate --quante "${{ inputs.schermate }}"
+      - name: Adattatore schermate
+        run: |
+          python copilot/addestramento/addestra_documenti.py --base base-hf --dati dati-schermate \
+            --esempi schermate.jsonl --compito schermata --uscita lora/schermate --max-minuti "${{ inputs.minuti }}"
+      - name: Conversione in GGUF
+        run: |
+          python /tmp/llama.cpp/convert_lora_to_gguf.py --base base-hf --outtype f16 --outfile uscita/schermate.gguf lora/schermate
+          ls -lh uscita
+      - name: Misura
+        run: |
+          chmod +x "$SERVER"
+          loras=""
+          for a in uscita/*.gguf; do
+            case "${a##*/}" in base.gguf|mmproj.gguf) continue ;; esac
+            loras="$loras --lora $a"
+          done
+          LD_LIBRARY_PATH="$(dirname "$SERVER")" "$SERVER" -m uscita/base.gguf --mmproj uscita/mmproj.gguf $loras \
+            --lora-init-without-apply --port 11436 -c 4096 -np 1 > server.log 2>&1 &
+          for i in $(seq 90); do curl -sf http://127.0.0.1:11436/health && break; sleep 2; done
+          set -o pipefail
+          tail -n 5 server.log
+          { echo "### Schermate" && echo && python copilot/addestramento/valuta_schermate.py --dati dati-schermate \
+              --url http://127.0.0.1:11436; } | tee uscita/misura.md
+      - name: Pubblica
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          cd uscita && sha256sum *.gguf > SHA256SUMS
+          tag="adattatori-schermate-${GITHUB_RUN_NUMBER}"
+          { echo "Nucleo di Nova su $BASE (llama.cpp $LLAMA_CPP): tutti gli adattatori più «schermate»."; echo; cat misura.md; } > note.md
+          gh release create "$tag" --repo "$GITHUB_REPOSITORY" --prerelease --title "Schermate del nucleo ${GITHUB_RUN_NUMBER}" \
+            --notes-file note.md *.gguf misura.md SHA256SUMS
