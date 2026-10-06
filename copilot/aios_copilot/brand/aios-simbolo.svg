@@ -1,21 +1,64 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="34 26 432 308" width="432" height="308">
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="130 140 760 760">
   <title>SoIA</title>
   <defs>
-    <linearGradient id="g" x1="0%" y1="20%" x2="100%" y2="80%">
+    <linearGradient id="leafGradient" x1="15%" y1="20%" x2="90%" y2="80%">
       <stop offset="0%" stop-color="#0B6E99"/>
       <stop offset="100%" stop-color="#2EC4B6"/>
     </linearGradient>
+    <linearGradient id="orbitGradient" x1="5%" y1="85%" x2="95%" y2="15%">
+      <stop offset="0%" stop-color="#0B6E99"/>
+      <stop offset="100%" stop-color="#2EC4B6"/>
+    </linearGradient>
+    <radialGradient id="seedGlow">
+      <stop offset="0%" stop-color="#FFF3C4" stop-opacity="0.95"/>
+      <stop offset="45%" stop-color="#E9C46A" stop-opacity="1"/>
+      <stop offset="100%" stop-color="#E9C46A" stop-opacity="1"/>
+    </radialGradient>
+    <filter id="glow" x="-80%" y="-80%" width="260%" height="260%">
+      <feGaussianBlur stdDeviation="14" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
   </defs>
-  <!-- anello che collega i dispositivi (dal vettoriale originale, senza l'arco doppio) -->
-  <path d="M92 270 C45 205 92 130 178 102 C275 70 385 92 420 153 C451 207 414 264 343 288 C257 317 150 316 92 270"
-        fill="none" stroke="url(#g)" stroke-width="24" stroke-linecap="round"/>
-  <circle cx="92" cy="270" r="38" fill="#0B6E99"/>
-  <circle cx="270" cy="88" r="52" fill="#168AA5"/>
-  <circle cx="390" cy="225" r="42" fill="#2EC4B6"/>
-  <rect x="76" y="249" width="32" height="48" rx="5" fill="none" stroke="#fff" stroke-width="5"/>
-  <circle cx="92" cy="290" r="2.8" fill="#fff"/>
-  <rect x="246" y="66" width="48" height="32" rx="3" fill="none" stroke="#fff" stroke-width="5"/>
-  <path d="M239 104 H301" stroke="#fff" stroke-width="6" stroke-linecap="round"/>
-  <rect x="375" y="203" width="30" height="43" rx="3" fill="none" stroke="#fff" stroke-width="5"/>
-  <circle cx="390" cy="240" r="2.5" fill="#fff"/>
+
+
+  <!-- Seed / glowing amber sphere -->
+  <circle cx="500" cy="250" r="62" fill="#E9C46A" opacity="0.20" filter="url(#glow)"/>
+  <circle cx="500" cy="250" r="48" fill="url(#seedGlow)"/>
+
+  <!-- Left leaf -->
+  <path d="M475 650
+           C470 565 442 465 370 405
+           C310 355 235 335 185 345
+           C178 420 202 500 255 553
+           C310 608 380 635 475 650 Z"
+        fill="url(#leafGradient)"/>
+
+  <!-- Right leaf -->
+  <path d="M520 680
+           C520 580 548 485 620 425
+           C685 372 760 350 825 360
+           C830 425 805 505 750 560
+           C690 620 615 650 520 680 Z"
+        fill="#2EC4B6"/>
+
+  <!-- Central stem -->
+  <path d="M500 690 C500 590 505 505 535 430"
+        fill="none"
+        stroke="#0B6E99"
+        stroke-width="28"
+        stroke-linecap="round"/>
+
+  <!-- Orbit-like sweeping arc -->
+  <path d="M170 625
+           C205 750 365 825 535 785
+           C700 746 835 625 850 470
+           C858 385 830 325 785 300"
+        fill="none"
+        stroke="url(#orbitGradient)"
+        stroke-width="34"
+        stroke-linecap="round"
+        stroke-linejoin="round"/>
 </svg>

@@ -1,5 +1,5 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="130 140 760 760">
-  <title>SoIA</title>
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="1000" viewBox="0 0 1000 1000">
   <defs>
     <linearGradient id="leafGradient" x1="15%" y1="20%" x2="90%" y2="80%">
       <stop offset="0%" stop-color="#0B6E99"/>
@@ -23,6 +23,7 @@
     </filter>
   </defs>
 
+  <!-- Transparent background -->
 
   <!-- Seed / glowing amber sphere -->
   <circle cx="500" cy="250" r="62" fill="#E9C46A" opacity="0.20" filter="url(#glow)"/>

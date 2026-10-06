@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="700" viewBox="0 0 1600 700">
+  <defs>
+    <linearGradient id="leafGradient" x1="0%" y1="20%" x2="100%" y2="80%">
+      <stop offset="0%" stop-color="#0B6E99"/>
+      <stop offset="100%" stop-color="#2EC4B6"/>
+    </linearGradient>
+    <linearGradient id="orbitGradient" x1="0%" y1="70%" x2="100%" y2="20%">
+      <stop offset="0%" stop-color="#0B6E99"/>
+      <stop offset="100%" stop-color="#2EC4B6"/>
+    </linearGradient>
+    <linearGradient id="seedGradient" x1="20%" y1="10%" x2="80%" y2="90%">
+      <stop offset="0%" stop-color="#F4D58D"/>
+      <stop offset="100%" stop-color="#E9C46A"/>
+    </linearGradient>
+  </defs>
+
+  <!-- White background -->
+  <rect width="1600" height="700" fill="#FFFFFF"/>
+
+  <!-- SYMBOL -->
+  <g transform="translate(70 105)">
+    <!-- sweeping orbital stem -->
+    <path d="M55 425
+             C105 520, 250 545, 390 465
+             C505 400, 575 285, 565 170
+             C560 110, 530 75, 485 67"
+          fill="none"
+          stroke="url(#orbitGradient)"
+          stroke-width="34"
+          stroke-linecap="round"
+          stroke-linejoin="round"/>
+
+    <!-- left leaf -->
+    <path d="M278 395
+             C270 330, 244 257, 183 208
+             C137 171, 82 157, 48 163
+             C42 214, 60 274, 101 315
+             C145 359, 205 377, 278 395 Z"
+          fill="url(#leafGradient)"/>
+
+    <!-- right leaf -->
+    <path d="M286 420
+             C286 339, 307 263, 363 212
+             C414 165, 476 145, 529 148
+             C534 198, 516 253, 477 297
+             C436 343, 374 369, 286 420 Z"
+          fill="#2EC4B6"/>
+
+    <!-- central stem -->
+    <path d="M280 425 C281 350, 282 292, 306 245"
+          fill="none"
+          stroke="#0B6E99"
+          stroke-width="24"
+          stroke-linecap="round"/>
+
+    <!-- seed -->
+    <circle cx="235" cy="118" r="48" fill="url(#seedGradient)"/>
+  </g>
+
+  <!-- WORDMARK -->
+  <g font-family="Arial Rounded MT Bold, Nunito, Quicksand, Arial, sans-serif"
+     font-size="270"
+     font-weight="600"
+     letter-spacing="-10">
+    <text x="650" y="500" fill="#0B6E99">So</text>
+    <text x="1035" y="500" fill="#2EC4B6">IA</text>
+  </g>
+</svg>

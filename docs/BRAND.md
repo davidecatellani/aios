@@ -6,16 +6,16 @@ Il sistema si chiama **SoIA**; l'assistente AI si chiama **Nova** («Ehi Nova, �
 
 | | File | Uso |
 |---|---|---|
-| ![](brand/aios-logo.png) | `brand/aios-logo.png` | logo completo del sistema (documentazione, sito, schermata d'avvio) |
-| <img src="brand/aios-simbolo.svg" width="96"> | `brand/aios-simbolo.svg` (+ `.png`) | simbolo del sistema, vettoriale, da 64 px in su (icone grandi, app store, stampa) |
-| <img src="brand/aios-piccolo.svg" width="48"> | `brand/aios-piccolo.svg` | simbolo semplificato per 16–48 px: a quelle misure i disegni di telefono, tablet e PC si perderebbero |
+| ![](brand/aios-logo.png) | `brand/aios-logo.png` | logo completo: il germoglio di soia (seme ambra, foglie blu-turchese, arco come un'orbita) e la scritta «So» blu + «IA» turchese |
+| <img src="brand/aios-simbolo.svg" width="96"> | `brand/aios-simbolo.svg` (+ `.png`) | il germoglio da solo, vettoriale, da 64 px in su (icone grandi, app store, stampa) |
+| <img src="brand/aios-piccolo.svg" width="48"> | `brand/aios-piccolo.svg` | germoglio semplificato (seme e due foglie piene) per 16–48 px e favicon |
 | <img src="brand/copilota.png" width="96"> | `brand/copilota.png` (+ `copilota.svg` vettoriale) | **Nova**, l'assistente: si legge bene anche a 16 px; nelle pagine «respira», più veloce quando lavora |
 
-Note sui vettoriali: il simbolo SVG è ripulito (tolto un arco doppio); la sfera SVG
-ha l'ambra piena (semitrasparente virava al verde). La scritta «SoIA» del logo
-completo è ancora testo che dipende dai caratteri installati: per una versione
-definitiva serve la scritta **convertita in tracciati** («outline»), con il carattere
-arrotondato del PNG.
+Per la schermata d'avvio e l'accesso c'è la versione bianca per fondi scuri (`image/branding/aios-logo-chiaro.png`,
+solo il seme resta ambra). Gli originali fatti con ChatGPT (con la tavola d'identità SoIA + Nova e l'icona d'app)
+sono in `brand/soia/`.
+
+![Tavola d'identità SoIA e Nova](brand/soia/Tavola-identita-visiva-SoIA-e-Nova.png)
 
 Regole d'uso:
 - colori del marchio: blu profondo `#0B6E99`, turchese `#2EC4B6`, ambra `#E9C46A`
