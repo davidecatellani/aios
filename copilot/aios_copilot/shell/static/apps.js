@@ -347,7 +347,7 @@ const VISTE = {
     const wrap = el("div", "impostazioni"); const nav = el("div", "sezioni"); const pan = el("div", "pannello-imp");
     wrap.append(nav, pan); corpo.append(wrap);
     const SEZ = [["personalizzazioni", "Personalizzazioni"], ["wifi", "Wi-Fi"], ["bluetooth", "Bluetooth"], ["suono", "Suono"], ["schermo", "Schermo"], ["voce", "Voce di Nova"], ["mouse", "Mouse e touchpad"], ["tastiera", "Tastiera"],
-                 ["aspetto", "Testo e carattere"], ["accessibilita", "Accessibilità"], ["aggiornamenti", "Aggiornamenti"], ["posta", "Posta"], ["account", "Password"], ["privacy", "Privacy e memoria"],
+                 ["aspetto", "Testo e carattere"], ["accessibilita", "Accessibilità"], ["aggiornamenti", "Aggiornamenti"], ["posta", "Posta"], ["account", "Password"], ["privacy", "Privacy e memoria"], ["azioni", "Azioni di Nova"],
                  ["cloud", "AI in cloud"], ["info", "Questo computer"], ["energia", "Spegni"]];
     for (const [id, t] of SEZ) {
       const b = bottone("", () => apriVista("impostazioni", id), ""); b.classList.toggle("attiva", id === sezione);
@@ -698,6 +698,8 @@ const VISTE = {
       pan.append(esito);
     } else if (sezione === "personalizzazioni") {
       await disegnaPersonalizzazioni(carta, riga, dici, esito, pan);
+    } else if (sezione === "azioni") {
+      await disegnaAzioni(carta, riga, dici, esito, pan);
     } else if (sezione === "cloud") {
       const c = await api("/api/cloud").catch(() => null);
       if (!c) { pan.append(el("p", "esito no", "Non riesco a leggere le impostazioni.")); return; }
@@ -1065,6 +1067,31 @@ function modificaContatto(c = { nome: "", telefoni: [], email: [], compleanno: "
   setTimeout(() => nome.focus(), 30);
 }
 
+// --- Azioni di Nova: quello che Nova ha cambiato, da annullare (azioni.py) -------------------------------------
+async function disegnaAzioni(carta, riga, dici, esito, pan) {
+  const d = await api("/api/azioni").catch(e => ({ errore: e.message, azioni: [] }));
+  const annulla = corpo => api("/api/azioni/annulla", corpo).then(r => { dici(r); apriVista("impostazioni", "azioni"); })
+    .catch(e => dici({ ok: false, messaggio: e.message }));
+  carta(el("h3", "", "Azioni di Nova"),
+        el("p", "nota", "Quello che Nova ha cambiato per te (impegni, widget, impostazioni, temi, file riordinati, personalizzazioni). "
+          + "Puoi annullarlo da qui o dirle «annulla l'ultima cosa che hai fatto» o «rimetti tutto com'era stamattina». "
+          + "Se nel frattempo la stessa cosa è cambiata di nuovo, non la tocca."));
+  if (d.errore) { pan.append(el("p", "esito no", d.errore)); return; }
+  const vive = d.azioni.filter(a => !a.annullata);
+  if (vive.length) {
+    const oggi = new Date(); oggi.setHours(0, 0, 0, 0);
+    const daOggi = vive.filter(a => a.quando * 1000 >= oggi.getTime()).length;
+    if (daOggi) carta(riga("Rimetti tutto com'era stamattina", `${daOggi} ${daOggi === 1 ? "azione" : "azioni"} di oggi`,
+      bottone("Rimetti", async () => { if (await chiediConferma(`Annullo tutte le ${daOggi} azioni di oggi?`)) annulla({ da: "oggi" }); }, "bottone pericolo")));
+  }
+  const lista = carta(el("h3", "", d.azioni.length ? "Le ultime" : "Per ora Nova non ha cambiato niente"));
+  for (const a of d.azioni) {
+    const quando = new Date(a.quando * 1000).toLocaleString("it-IT", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+    lista.append(riga(a.descrizione, quando, a.annullata ? el("span", "nota", "annullata")
+      : bottone("Annulla", () => annulla({ id: a.id }), "bottone")));
+  }
+}
+
 // --- Personalizzazioni: SoIA che si riprogramma su richiesta (codice.py, programmatore.py) -------------------
 let anteprimaAios = "";  // un file .aios aperto da File: si mostra subito l'anteprima
 async function disegnaPersonalizzazioni(carta, riga, dici, esito, pan) {
@@ -1154,7 +1181,7 @@ async function disegnaPersonalizzazioni(carta, riga, dici, esito, pan) {
     riga("Usa SoIA originale per ora", d.in_uso ? "Le personalizzazioni restano, le riattivi quando vuoi" : "Le personalizzazioni sono spente",
          d.in_uso ? bottone("Usa originale", () => fai({ azione: "originale" })) : bottone("Riattiva", () => fai({ azione: "riprova" }), "bottone primo")),
     riga("Torna allo stato iniziale", "Toglie tutte le personalizzazioni (restano recuperabili per sicurezza)",
-         bottone("Azzera", async () => { if (await chiediConferma("Tolgo tutte le personalizzazioni e torno ad SoIA originale?")) fai({ azione: "azzera" }); }, "bottone pericolo")));
+         bottone("Azzera", async () => { if (await chiediConferma("Tolgo tutte le personalizzazioni e torno a SoIA originale?")) fai({ azione: "azzera" }); }, "bottone pericolo")));
   pan.append(esito);
 }
 

@@ -31,6 +31,7 @@ from .tools import foto as photo_tools
 from .tools import personalizza as customize_tools
 from .tools import rubrica as contacts_tools
 from .tools import memoria as memory_tools
+from .tools import azioni as actions_tools
 from .tools import sessione as session_tools
 from .tools import fuso as timezone_tools
 from .tools import mail as mail_tools
@@ -188,9 +189,13 @@ def make_agent(confirm: Confirm, model: str | None = None, allowed: frozenset[st
                *ai_tools.make_capability_tools(engines.available()), *cloud_tools.make_tools()],
         "aspetto": [*widget_tools.make_tools(), *customize_tools.make_tools(), *theme_tools.make_tools(ask_llm=lambda prompt: llm.chat([{"role": "user", "content": prompt}], []).get("content", ""),
                                           runner=runner)],
-        "memoria": memory_tools.make_tools(),
+        "memoria": [*memory_tools.make_tools(), *actions_tools.make_tools()],
         "telefono": [*phone_tools.make_tools(runner), *identity_tools.make_tools(user_name=user_name), *screen_tools.make_tools()],
     }
+    from . import azioni
+
+    # quello che Nova cambia finisce nel registro delle azioni, per poterlo annullare (azioni.py)
+    groups = {k: [azioni.wrap(t) for t in v] for k, v in groups.items()}
     tools = [t for group in groups.values() for t in group]
     if allowed is not None:
         tools = [t for t in tools if t.name in allowed]
@@ -213,6 +218,7 @@ def make_agent(confirm: Confirm, model: str | None = None, allowed: frozenset[st
         # l'AI in cloud (OpenRouter) per le richieste difficili, se l'utente l'ha accesa (cloud.py)
         escalation=Escalation(),
         routers=[
+            actions_tools.ActionsRouter(),  # livello 0: «annulla l'ultima cosa che hai fatto», «rimetti com'era stamattina»
             screen_tools.ScreensRouter(),  # livello 0: «fammi vedere il PC da gaming» (prima di «apri <app>»)
             audio_tools.AudioRouter(),  # livello 0: «fai uscire l'audio dal monitor»
             notification_tools.NotificationsRouter(),  # livello 0: «cosa mi sono perso?», «non disturbarmi per un'ora»

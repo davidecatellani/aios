@@ -23,7 +23,7 @@ from typing import Any, Callable
 
 from .providers import OAuthConfig
 
-PAGE_OK = "<html><body style='font-family:sans-serif;text-align:center;padding:60px'><h2>Fatto ✓</h2><p>Puoi chiudere questa pagina e tornare ad SoIA.</p></body></html>"
+PAGE_OK = "<html><body style='font-family:sans-serif;text-align:center;padding:60px'><h2>Fatto ✓</h2><p>Puoi chiudere questa pagina e tornare a SoIA.</p></body></html>"
 
 
 class OAuthError(RuntimeError):

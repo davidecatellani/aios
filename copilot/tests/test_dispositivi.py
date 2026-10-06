@@ -10,7 +10,7 @@ def test_keys_and_bind_lines():
         "bind = SUPER, M, exec, aios-shell --chiedi 'metti la musica '\"'\"'rilassante'\"'\"''"
     assert D.bind_line({"tasti": "SUPER+F", "app": "org.mozilla.firefox"}) == "bind = SUPER, F, exec, gtk-launch org.mozilla.firefox"
     assert D.bind_line({"tasti": "SUPER+F", "app": "x; rm -rf ~"}) is None
-    assert D.bind_line({"tasti": "SUPER+V", "app": "x"}) is None  # riservata ad SoIA
+    assert D.bind_line({"tasti": "SUPER+V", "app": "x"}) is None  # riservata a SoIA
 
 
 def test_apply_and_shortcuts(tmp_path, monkeypatch):

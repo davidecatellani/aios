@@ -71,7 +71,7 @@ def make_tools(restart: Any = _restart_shell) -> list[Tool]:
              apply_pending_customization, requires_confirmation=True),
         Tool("undo_customization", "Toglie una personalizzazione di SoIA (l'ultima o quella indicata).",
              params(quale="Quale: «ultima» o parole della richiesta (es. orologio)"), undo_customization),
-        Tool("list_customizations", "Elenca le personalizzazioni fatte ad SoIA.", params(), list_customizations),
+        Tool("list_customizations", "Elenca le personalizzazioni fatte a SoIA.", params(), list_customizations),
         Tool("reset_customizations", "Riporta SoIA allo stato originale togliendo tutte le personalizzazioni.", params(),
              reset_customizations, requires_confirmation=True),
         Tool("share_customization", "Prepara il file di una personalizzazione da dare a un altro utente.",

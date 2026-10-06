@@ -1,4 +1,4 @@
-"""L'accesso ad SoIA parla con greetd con il suo protocollo, senza GDM."""
+"""L'accesso a SoIA parla con greetd con il suo protocollo, senza GDM."""
 
 import json
 import socket

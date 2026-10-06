@@ -487,7 +487,7 @@ class Eyes:
         if report["errori"]:
             lines.append("Errori di JavaScript nella pagina (da correggere):\n" + "\n".join(f"- {e}" for e in report["errori"]))
         if report["problemi"]:
-            lines.append("Problemi nuovi rispetto ad SoIA originale (da correggere):\n"
+            lines.append("Problemi nuovi rispetto a SoIA originale (da correggere):\n"
                          + "\n".join(f"- {e}" for e in report["problemi"]))
         if not lines:
             lines.append("Nessun errore di JavaScript, niente testi tagliati, sovrapposti o poco leggibili.")

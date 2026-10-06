@@ -1565,3 +1565,25 @@ def register_first_steps(app: Any, run: Run = _run) -> None:
 
     app.route("GET", r"/api/primi-passi", state)
     app.route("POST", r"/api/profilo", profile)
+
+
+def register_actions(app: Any) -> None:
+    """Impostazioni › Azioni di Nova: quello che Nova ha cambiato, da annullare una per una o da un certo momento."""
+    from .. import azioni
+
+    def listing(m: Any, b: dict[str, Any], q: dict[str, str]) -> tuple[int, Any]:
+        items = [{"id": i["id"], "quando": i["quando"], "descrizione": i["descrizione"], "annullata": i.get("annullata", False)}
+                 for i in reversed(azioni.load())][:80]
+        return 200, {"azioni": items}
+
+    def undo(m: Any, b: dict[str, Any], q: dict[str, str]) -> tuple[int, Any]:
+        if b.get("id"):
+            ok, msg = azioni.undo(str(b["id"]))
+            return 200, {"ok": ok, "messaggio": msg}
+        start = azioni.since(str(b.get("da", "")))
+        if start is None:
+            return 400, {"error": "da quando?"}
+        return 200, {"ok": True, "messaggio": azioni.undo_since(start)}
+
+    app.route("GET", r"/api/azioni", listing)
+    app.route("POST", r"/api/azioni/annulla", undo)

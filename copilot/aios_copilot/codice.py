@@ -213,7 +213,7 @@ def undo(change: str) -> tuple[bool, str]:
 
 
 def reset_all() -> int:
-    """Torna ad SoIA originale: le modifiche si tolgono tutte (restano nella storia di git, recuperabili)."""
+    """Torna a SoIA originale: le modifiche si tolgono tutte (restano nella storia di git, recuperabili)."""
     n = len(history())
     if exists():
         git("tag", "-f", f"prima-di-azzerare-{int(time.time())}", "mio")

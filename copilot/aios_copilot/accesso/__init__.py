@@ -1,4 +1,4 @@
-"""L'accesso ad SoIA: la schermata per entrare, in HTML come il resto del sistema (niente GDM).
+"""L'accesso a SoIA: la schermata per entrare, in HTML come il resto del sistema (niente GDM).
 
 Gira come utente «greeter» sotto greetd, dentro cage (un compositore che mostra una sola app a
 schermo intero): una finestra WebKit con accesso.html servita da 127.0.0.1. La pagina chiede la

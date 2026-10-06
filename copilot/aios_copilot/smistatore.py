@@ -89,7 +89,8 @@ DOMAINS: list[tuple[str, str]] = [
                  "see and control the user's other PCs (remote screen), send files to another PC"),
     ("identita", "The user's SoIA identity and account, syncing between devices, recovery phrase, revoking a device"),
     ("memoria", "The user's own past: where they left off, what they worked on yesterday or another day, a website or "
-                "document they saw days ago, resuming a past conversation, the activity diary"),
+                "document they saw days ago, resuming a past conversation, the activity diary; what Nova itself changed and "
+                "undoing it (undo the last thing you did, put everything back as it was this morning)"),
     ("web", "Search the internet, websites, news, weather, facts that need online lookup"),
     ("ai", "AI models on this device, looking at images or the screen, dictation, reading aloud, creating images"),
     ("gusti", "Subscriptions, recommendations for music, films, series, books, games, what to watch, play or listen"),

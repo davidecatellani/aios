@@ -119,6 +119,9 @@ def galleria_has_data() -> bool:
     return (data_dir() / "galleria.db").exists()
 
 
+LAST_CUTOUT: dict[str, str] = {}  # l'ultima foto senza sfondo fatta da Nova (per «annulla»)
+
+
 def make_tools(roots: Callable[[], list[Path]] = picture_roots,
                recognized: Callable[[str], list[Path]] = gallery_matches) -> list[Tool]:
     def show_photos(query: str) -> str:
@@ -219,6 +222,7 @@ def make_tools(roots: Callable[[], list[Path]] = picture_roots,
             out = S.cut(S.shared(), target, background=sfondo, crop=bool(ritaglia))
         except (ValueError, OSError) as exc:
             return f"Non ci riesco: {exc}."
+        LAST_CUTOUT["percorso"] = str(out)  # per «annulla» (azioni.py)
         attach("foto", [{"titolo": out.name, "percorso": str(out), "sottotitolo": "senza sfondo"}], "Senza sfondo")
         bg = f"sfondo {sfondo}" if sfondo and sfondo != "trasparente" else "sfondo trasparente"
         return f"Fatto: «{out.name}» ({bg}), accanto all'originale «{target.name}», che resta com'era."
