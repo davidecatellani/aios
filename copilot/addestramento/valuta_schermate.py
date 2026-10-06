@@ -88,7 +88,9 @@ def main() -> int:
     print(f"| tempo medio per schermata | {before['tempo']:.1f} s | {after['tempo']:.1f} s |")
     if args.solo_base:
         return 0
-    good = after["orologio"] > before["orologio"] and after["giudizio"] >= before["giudizio"]
+    # si pubblica per leggere gli orologi (i guasti di impaginazione li trovano i controlli sulla pagina):
+    # deve leggere molto meglio e non vedere orologi che non ci sono
+    good = after["orologio"] >= before["orologio"] + 0.2 and after["inventati"] <= before["inventati"] + 0.05
     if not good:
         print("\nL'adattatore schermate non migliora abbastanza: non si pubblica.")
     return 0 if good else 3

@@ -19,4 +19,5 @@ Per migliorare Nova: aggiungere a `frasi.py` le frasi capite male e rilanciare i
 
 Per le schermate: `schermate.py` disegna pagine vere di SoIA (persona inventata di `aios_copilot/anteprima.py`)
 con orologi a lancette e guasti messi apposta, quindi le risposte giuste si sanno sempre; `valuta_schermate.py`
-misura con e senza adattatore. Per insegnare un guasto nuovo: aggiungerlo a `INJECT_JS` e rilanciare il flusso.
+misura con e senza adattatore (si pubblica se legge gli orologi molto meglio: i guasti di impaginazione li trovano i
+controlli sulla pagina, in anteprima.py). Per insegnare un guasto nuovo: aggiungerlo a `INJECT_JS` e rilanciare il flusso.

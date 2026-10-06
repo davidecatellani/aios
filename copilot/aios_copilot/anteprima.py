@@ -392,14 +392,10 @@ def _nucleo_look(image: Path, now: datetime) -> str:
         return ""
     if data is None:
         return ""
-    lines = []
+    # dell'adattatore si usa solo la lettura degli orologi (misura: 83% giusta, prima 0%); i testi sovrapposti,
+    # tagliati o poco leggibili li trovano meglio i controlli sulla pagina (page_report)
     shown = str(data.get("orologio") or "").strip()
-    if shown:
-        lines.append(clock_verdict(shown, now))
-    for p in data.get("problemi") or []:
-        if isinstance(p, dict):
-            lines.append(f"- {p.get('tipo', '')}: «{p.get('testo', '')}»")
-    return "\n".join(lines) or "Sembra tutto a posto."
+    return clock_verdict(shown, now) if shown else "Nessun orologio con le lancette nella pagina."
 
 
 def look(image: Path, request: str, question: str = "", model: str | None = None,

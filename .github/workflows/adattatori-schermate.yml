@@ -87,6 +87,16 @@ jobs:
           tail -n 5 server.log
           { echo "### Schermate" && echo && python copilot/addestramento/valuta_schermate.py --dati dati-schermate \
               --url http://127.0.0.1:11436; } | tee uscita/misura.md
+      - name: Conserva l'adattatore e la misura (anche se non si pubblica)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: schermate-${{ github.run_number }}
+          path: |
+            uscita/schermate.gguf
+            uscita/misura.md
+          if-no-files-found: ignore
+          retention-days: 14
       - name: Pubblica
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

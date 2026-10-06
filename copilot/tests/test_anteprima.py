@@ -50,7 +50,7 @@ def test_nucleo_answer_becomes_a_verdict(monkeypatch, tmp_path):
         {"tipo": "sovrapposti", "testo": "Buongiorno"}]})
     monkeypatch.setattr(anteprima, "_cloud_look", lambda image, prompt: "")
     text = anteprima.look(img, "orologio rotondo", now=datetime(2026, 10, 6, 10, 10))
-    assert "sbagliate" in text and "sovrapposti: «Buongiorno»" in text
+    assert "sbagliate" in text and "Buongiorno" not in text  # i guasti di impaginazione li trova page_report
 
 
 def test_cloud_sees_with_a_vision_model(tmp_path, monkeypatch):
