@@ -685,7 +685,10 @@ class Scheduler:
 
     def can_run(self) -> tuple[bool, str]:
         from .giochi import active as playing
+        from .precedenza import busy as talking_to_nova
 
+        if talking_to_nova():
+            return False, "stai usando Nova"
         if playing():
             return False, "gioco in corso"
         if self.clock() < self._paused_until:

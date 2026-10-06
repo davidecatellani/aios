@@ -228,6 +228,14 @@ class Agent:
         self.private_texts: list[str] = []
 
     def ask(self, text: str, on_event: OnEvent | None = None, context: str | None = None) -> str:
+        """Elabora una richiesta dell'utente e restituisce la risposta finale. Intanto i lavori in sottofondo che
+        usano l'AI si fanno da parte (precedenza.py)."""
+        from .precedenza import user_turn
+
+        with user_turn():
+            return self._ask(text, on_event, context)
+
+    def _ask(self, text: str, on_event: OnEvent | None = None, context: str | None = None) -> str:
         """Elabora una richiesta dell'utente e restituisce la risposta finale.
 
         `context` (es. «l'utente sta leggendo la mail [12]») arriva solo al modello:

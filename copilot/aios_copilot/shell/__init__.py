@@ -655,11 +655,14 @@ class ShellApp(LocalApp):
         cmd = capture_command()
         if cmd is None:
             return 503, {"error": "microfono non disponibile"}
+        from ..precedenza import user_turn
+
         try:
             chunks = audio_chunks(cmd)
             try:
                 # col pulsante non serve dire «Nova»: si trascrive quello che si dice
-                return 200, {"testo": Ears().transcribe(chunks, require_wake=False) or ""}
+                with user_turn():
+                    return 200, {"testo": Ears().transcribe(chunks, require_wake=False) or ""}
             finally:
                 chunks.close()
         except Exception as exc:

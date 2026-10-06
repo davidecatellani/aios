@@ -460,7 +460,23 @@ class Captioner:
 
 class NucleoCaptioner(Captioner):
     """La descrizione la fa il nucleo (Qwen3.5 0.8B che vede, nucleo.py): niente modello in più in memoria.
-    Una foto chiede pochi secondi, quindi non serve interromperla quando l'utente torna."""
+    Su un PC lento una foto chiede decine di secondi: se l'utente torna (o parla con Nova) la richiesta si ferma
+    e lascia libero il nucleo; quando il pianificatore riprende, riparte senza rileggere la foto (precedenza.py)."""
+
+    WAIT_LIMIT = 1800.0  # dopo mezz'ora di pausa si lascia perdere (la foto si riprova a un altro giro)
+
+    def _stop(self) -> bool:
+        from .precedenza import busy
+
+        return busy() or time.monotonic() - self.alive > self.patience
+
+    def _wait(self) -> bool:
+        start = time.monotonic()
+        while self._stop():
+            if time.monotonic() - start > self.WAIT_LIMIT:
+                raise TimeoutError("in pausa da troppo")
+            time.sleep(0.5)
+        return True
 
     def __init__(self) -> None:
         super().__init__("nucleo")
@@ -469,7 +485,8 @@ class NucleoCaptioner(Captioner):
         from .nucleo import Nucleo
 
         try:
-            data = json.loads(Nucleo().see(image, CAPTION_PROMPT, schema=CAPTION_SCHEMA, max_tokens=300, timeout=300))
+            data = json.loads(Nucleo().see(image, CAPTION_PROMPT, schema=CAPTION_SCHEMA, max_tokens=300, timeout=300,
+                                           background={"should_stop": self._stop, "wait": self._wait}))
             self.result = data if isinstance(data, dict) else None
         except (ConnectionRefusedError, socket.timeout, OSError) as exc:
             self.unreachable, self.error = True, str(exc) or exc.__class__.__name__

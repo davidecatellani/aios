@@ -208,6 +208,10 @@ class Programmer:
                                           {"role": "user", "content": f"Richiesta dell'utente: {request}"}]
         summary = ""
         for step in range(MAX_STEPS):
+            if not getattr(self.model, "is_cloud", False):  # col modello del PC: prima l'utente che parla con Nova
+                from .precedenza import wait_turn
+
+                wait_turn(limit=600)
             reply = self.model.chat(messages, TOOLS)
             calls = reply.get("tool_calls") or []
             messages.append({"role": "assistant", "content": reply.get("content") or "", "tool_calls": calls})

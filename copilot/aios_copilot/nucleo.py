@@ -171,8 +171,11 @@ class Nucleo:
             return False
 
     def see(self, image: bytes, question: str, adapter: str | None = None, system: str = "",
-            schema: dict[str, Any] | None = None, max_tokens: int = 400, timeout: float = 300.0) -> str:
-        """Guarda un'immagine (JPEG/PNG) e risponde. Con `adapter` si accende quell'adattatore (es. documenti)."""
+            schema: dict[str, Any] | None = None, max_tokens: int = 400, timeout: float = 300.0,
+            background: dict[str, Any] | None = None) -> str:
+        """Guarda un'immagine (JPEG/PNG) e risponde. Con `adapter` si accende quell'adattatore (es. documenti).
+        Con `background` (argomenti per precedenza.background_chat) è un lavoro di sottofondo che cede il passo
+        all'utente e poi riprende."""
         import base64
 
         mime = "image/png" if image[:4] == b"\x89PNG" else "image/jpeg"
@@ -185,6 +188,11 @@ class Nucleo:
                                    "lora": [{"id": i, "scale": 1.0 if name == adapter else 0.0} for name, i in ids.items()]}
         if schema:
             payload["response_format"] = {"type": "json_schema", "json_schema": {"schema": schema}}
+        if background is not None and self.post is _post:  # (con un client finto, nelle prove, si chiede e basta)
+            from .precedenza import background_chat
+
+            return background_chat(f"{self.url}/v1/chat/completions", payload, timeout,
+                                   resume=schema is None, **background).strip()
         reply = self.post(f"{self.url}/v1/chat/completions", payload, timeout)
         return str(reply["choices"][0]["message"].get("content") or "").strip()
 
