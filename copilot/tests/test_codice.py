@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from aios_copilot import codice, programmatore
+from aios_copilot import anteprima, codice, programmatore
 
 if subprocess.run(["git", "--version"], capture_output=True).returncode != 0:
     pytest.skip("git non c'è", allow_module_level=True)
@@ -15,6 +15,7 @@ def home(tmp_path, monkeypatch):
     monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path / "data"))
     monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path / "state"))
     monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.setattr(anteprima, "can_render", lambda: False)  # niente foto vere delle pagine nelle prove
     base = tmp_path / "base" / "aios_copilot"
     (base / "shell").mkdir(parents=True)
     (base / "__init__.py").write_text('"""base"""\n')
@@ -190,3 +191,52 @@ def test_retouch_with_the_pencil(home, monkeypatch):
                                                           call("controlla"), call("fatto", riassunto="Nuovo.")]))["ok"]
     assert programmatore.customize("più grande", model=edit("RAGGIO = 50", "RAGGIO = 80", "Più grande."), retouch="orologio")["ok"]
     assert codice.history()[0]["richiesta"] == "Ritocco a «orologio rotondo»: più grande"
+
+
+def test_visual_check_before_finishing(home, monkeypatch, tmp_path):
+    """Una pagina cambiata va guardata: gli errori nuovi si correggono, quelli che c'erano già non contano."""
+    monkeypatch.setattr(codice, "check", fake_check)
+    codice.ensure(home)
+    shots = iter([{"errori": ["ReferenceError: lancette (riga 9 di home.html)"], "problemi": []},
+                  {"errori": [], "problemi": ["testo tagliato: «vecchio» .barra"]}])
+
+    def shoot(page):
+        img = tmp_path / f"{page.replace('/', '-')}-{len(list(tmp_path.glob('*.png')))}.png"
+        img.write_bytes(b"png")
+        img.with_suffix(".json").write_text(json.dumps(next(shots)))
+        return img, ""
+
+    def shoot_base(page):
+        img = tmp_path / "base.png"
+        img.write_bytes(b"png")
+        img.with_suffix(".json").write_text(json.dumps({"errori": [], "problemi": ["testo tagliato: «vecchio» .barra"]}))
+        return img, ""
+
+    prompts = []
+    eyes = anteprima.Eyes(codice.root(), "orologio rotondo", shoot=shoot, shoot_base=shoot_base,
+                          see=lambda img, prompt: prompts.append(prompt) or "Le lancette segnano le 10:10.")
+    model = Script([
+        call("modifica_file", percorso="aios_copilot/shell/home.html", vecchio="border-radius: 0", nuovo="border-radius: 50%"),
+        call("controlla"),
+        call("fatto", riassunto="presto"),  # la pagina non è stata guardata
+        call("guarda", pagina="casa", domanda="le lancette sono giuste?"),
+        call("fatto", riassunto="presto"),  # c'è un errore di JavaScript
+        call("modifica_file", percorso="aios_copilot/shell/home.html", vecchio="let a = [1];", nuovo="let a = [2];"),
+        call("controlla"),
+        call("guarda", pagina="casa"),
+        call("fatto", riassunto="Orologio rotondo."),
+    ])
+    p = programmatore.Programmer(model, eyes=eyes)
+    ok, summary = p.run("orologio rotondo")
+    assert ok and summary == "Orologio rotondo." and p.looks == 2 and not model.steps
+    assert "le lancette sono giuste?" in prompts[0] and "orologio rotondo" in prompts[0]
+
+
+def test_page_address_and_report(tmp_path):
+    base = "http://127.0.0.1:5/#t=abc"
+    assert anteprima.page_url(base, "casa") == (base, "")
+    url, js = anteprima.page_url(base, "impostazioni/aspetto")
+    assert url == base and "apriVista('impostazioni', 'aspetto')" in js
+    assert anteprima.page_url(base, "pannello/emoji")[0] == "http://127.0.0.1:5/static/pannello.html#t=abc&apri=emoji"
+    assert anteprima.page_report(tmp_path / "manca.png") == {"errori": [], "problemi": []}
+    assert codice.js_balance(anteprima.CHECK_JS) == "" and codice.js_balance(anteprima.CATCH_ERRORS_JS) == ""

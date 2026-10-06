@@ -20,7 +20,9 @@ from typing import Any, Callable
 from . import codice
 
 MAX_STEPS = 40
-PROTECTED = {"aios_copilot/codice.py", "aios_copilot/__init__.py", "aios_copilot/programmatore.py"}
+PROTECTED = {"aios_copilot/codice.py", "aios_copilot/__init__.py", "aios_copilot/programmatore.py", "aios_copilot/anteprima.py"}
+MAX_LOOKS = 6
+PAGE_FILES = (".html", ".js", ".css")
 RISKY = re.compile(r"\b(?:urllib|requests\.|http\.client|socket\.|subprocess|os\.system|os\.remove|os\.unlink|shutil\.rmtree|"
                    r"\.unlink\(|rmtree|eval\(|exec\(|fetch\(\s*[\"']https?:|XMLHttpRequest|WebSocket\()")
 
@@ -47,7 +49,11 @@ Come lavori:
 3. Modifica con modifica_file (testo vecchio esatto e unico → testo nuovo); scrivi_file solo per file nuovi.
 4. Rileggi quello che hai scritto e verifica la logica a mente: calcoli, unità, angoli (un orologio: ore × 30°, minuti × 6°),
    centri e punti di rotazione, che cosa succede col tema scuro. Poi chiama controlla; se segnala errori, correggi e ricontrolla.
-5. Quando hai finito chiama fatto con un riassunto in italiano per l'utente (cosa hai cambiato, dove, come annullarlo).
+5. Se hai cambiato una pagina (HTML, JS, CSS) chiama guarda sulla pagina giusta («casa» per la schermata principale,
+   «impostazioni/aspetto» o «attivita» per le app) e chiedi di controllare proprio quello che hai cambiato (es. «le lancette
+   segnano l'ora giusta?»). Ti dice gli errori di JavaScript, i testi tagliati o sovrapposti e cosa vede: se qualcosa non va,
+   correggi e riguarda.
+6. Quando hai finito chiama fatto con un riassunto in italiano per l'utente (cosa hai cambiato, dove, come annullarlo).
 Non inventare file o funzioni: verifica sempre leggendo. Non puoi toccare codice.py, __init__.py e programmatore.py.
 Niente accessi a internet, comandi di sistema o cancellazioni di file dell'utente, a meno che la richiesta lo richieda davvero."""
 
@@ -70,6 +76,10 @@ TOOLS = [
                                       "parameters": _param(percorso="File nuovo", contenuto="Contenuto")}},
     {"type": "function", "function": {"name": "controlla", "description": "Controlla che il codice modificato regga (sintassi, parentesi, moduli).",
                                       "parameters": {"type": "object", "properties": {}}}},
+    {"type": "function", "function": {"name": "guarda", "description": "Disegna una pagina di AIOS col codice modificato e la "
+                                      "controlla: errori di JavaScript, testi tagliati o sovrapposti, e cosa si vede nella foto.",
+                                      "parameters": _param(pagina="casa, impostazioni/<sezione>, attivita, calendario, pannello/emoji…",
+                                                           domanda="Cosa controllare in particolare")}},
     {"type": "function", "function": {"name": "fatto", "description": "Fine del lavoro: riassunto per l'utente.",
                                       "parameters": _param(riassunto="Cosa hai cambiato, in italiano semplice")}},
 ]
@@ -168,12 +178,27 @@ def pick_model() -> tuple[Any, str]:
 
 class Programmer:
     def __init__(self, model: Any = None, workspace: Workspace | None = None,
-                 check: Callable[[], tuple[bool, str]] | None = None, on_step: Callable[[str], None] = lambda s: None):
+                 check: Callable[[], tuple[bool, str]] | None = None, on_step: Callable[[str], None] = lambda s: None,
+                 eyes: Any = None):
         self.model = model
         self.ws = workspace or Workspace()
         self.check = check or (lambda: codice.check())
         self.on_step = on_step
+        self.eyes = eyes  # anteprima.Eyes: il controllo visivo (None = niente)
         self.checked_ok = False
+        self.page_changed = False  # una pagina cambiata e non ancora guardata
+        self.page_broken = False  # l'ultima occhiata ha trovato errori di JavaScript o problemi nuovi
+        self.looks = 0
+
+    def _must_look(self) -> str:
+        """Prima di finire: la pagina cambiata va guardata (se si può), e senza errori."""
+        if self.eyes is None or self.looks >= MAX_LOOKS or not self.eyes.available():
+            return ""
+        if self.page_changed:
+            return "Hai cambiato una pagina: prima guardala con guarda e controlla che sia come chiede l'utente."
+        if self.page_broken:
+            return "L'ultima occhiata ha trovato errori o problemi nuovi nella pagina: correggili e riguarda."
+        return ""
 
     def run(self, request: str) -> tuple[bool, str]:
         """→ (riuscito, riassunto o motivo)."""
@@ -187,7 +212,7 @@ class Programmer:
             calls = reply.get("tool_calls") or []
             messages.append({"role": "assistant", "content": reply.get("content") or "", "tool_calls": calls})
             if not calls:
-                if self.checked_ok and (reply.get("content") or "").strip():
+                if self.checked_ok and not self._must_look() and (reply.get("content") or "").strip():
                     return True, reply["content"].strip()
                 messages.append({"role": "user", "content": "Usa gli strumenti: trova il codice, modificalo, chiama controlla e poi fatto."})
                 continue
@@ -200,10 +225,12 @@ class Programmer:
                     except ValueError:
                         args = {}
                 result = self._call(name, args)
-                self.on_step(f"{name} {args.get('percorso') or args.get('testo') or args.get('cartella') or ''}".strip())
+                self.on_step(f"{name} {args.get('percorso') or args.get('pagina') or args.get('testo') or args.get('cartella') or ''}".strip())
                 if name == "fatto":
                     if not self.checked_ok:
                         result = "Prima chiama controlla e assicurati che vada tutto bene."
+                    elif self._must_look():
+                        result = self._must_look()
                     else:
                         summary = str(args.get("riassunto", "")).strip() or "Modifica fatta."
                         return True, summary
@@ -218,6 +245,8 @@ class Programmer:
                 return self.ws.search(str(a.get("testo", "")), str(a.get("cartella", "aios_copilot")))
             if name == "leggi":
                 return self.ws.read(str(a.get("percorso", "")), str(a.get("da", "1")), str(a.get("a", "")))
+            if name in ("modifica_file", "scrivi_file") and str(a.get("percorso", "")).endswith(PAGE_FILES):
+                self.page_changed = True
             if name == "modifica_file":
                 self.checked_ok = False
                 return self.ws.edit(str(a.get("percorso", "")), str(a.get("vecchio", "")), str(a.get("nuovo", "")))
@@ -228,6 +257,14 @@ class Programmer:
                 ok, msg = self.check()
                 self.checked_ok = ok
                 return ("Tutto a posto. " if ok else "Problema: ") + msg
+            if name == "guarda":
+                if self.eyes is None or not self.eyes.available():
+                    return "Il controllo visivo qui non si può fare: rileggi bene la logica di quello che hai cambiato."
+                self.looks += 1
+                seen = self.eyes(str(a.get("pagina", "casa")) or "casa", str(a.get("domanda", "")))
+                self.page_changed = False
+                self.page_broken = bool(getattr(self.eyes, "broken", False))
+                return seen
             if name == "fatto":
                 return "ok"
         except ValueError as exc:
@@ -250,7 +287,14 @@ def customize(request: str, model: Any = None, on_step: Callable[[str], None] = 
     if target is not None:
         task = (f"Ritocca una personalizzazione già applicata: «{target['richiesta']}» ({target['dettagli'][:300]}).\n"
                 f"Ecco cosa cambiava nel codice:\n{codice.show(target)}\n\nCosa vuole adesso l'utente: {request}")
-    ok, summary = Programmer(model, on_step=on_step).run(task)
+    eyes = None
+    try:
+        from .anteprima import Eyes
+
+        eyes = Eyes(codice.root(), request)
+    except Exception:
+        pass
+    ok, summary = Programmer(model, on_step=on_step, eyes=eyes).run(task)
     if not ok:
         codice.discard()
         return {"ok": False, "messaggio": summary}
