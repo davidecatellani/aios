@@ -1,0 +1,14 @@
+Processore: 4 core,  AMD EPYC 7763 64-Core Processor
+piper-it_IT-paola-medium: 0.9 s
+piper-it_IT-riccardo-x_low: 0.6 s
+qwen3tts-0.6B-voce0: 49.6 s
+qwen3tts-0.6B-voce1: 58.4 s
+qwen3tts-0.6B-voce2: 44.7 s
+qwen3tts-1.7B-voce0: 70.3 s
+qwen3tts-1.7B-voce1: 78.6 s
+qwen3tts-1.7B-voce2: 63.0 s
+chatterbox: 64.0 s
+chatterbox-voce0: 71.6 s
+chatterbox-voce1: 86.5 s
+chatterbox-voce2: 62.5 s
+Frase (circa 7 secondi parlata): Buongiorno! Oggi hai due impegni: la riunione alle dieci e la palestra alle sei. Vuoi che ti ricordi qualcosa?
