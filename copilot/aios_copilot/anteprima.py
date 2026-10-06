@@ -73,6 +73,11 @@ def fake_env(folder: Path) -> dict[str, str]:
     return env
 
 
+def keep_browsers() -> None:
+    """Chromium di Playwright sta nella casa vera: la casa finta non deve nasconderlo."""
+    os.environ.setdefault("PLAYWRIGHT_BROWSERS_PATH", str(Path.home() / ".cache" / "ms-playwright"))
+
+
 def local_zone() -> str:
     if "/" in os.environ.get("TZ", ""):
         return os.environ["TZ"].lstrip(":")
@@ -290,6 +295,7 @@ def child_main(argv: list[str]) -> int:
     title = argv[4] if len(argv) > 4 else "aios-prova"
     if "--finti" in argv:
         folder = out.parent / "casa"
+        keep_browsers()
         os.environ.update(fake_env(folder))
         seed_demo(folder)
         fake_services()

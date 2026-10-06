@@ -160,6 +160,7 @@ def main() -> int:
     out = Path(args.uscita)
     (out / "img").mkdir(parents=True, exist_ok=True)
     home = Path(tempfile.mkdtemp(prefix="aios-persona-"))
+    anteprima.keep_browsers()
     os.environ.update(anteprima.fake_env(home))
     anteprima.seed_demo(home)
     anteprima.fake_services()
