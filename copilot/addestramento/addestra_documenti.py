@@ -2,10 +2,11 @@
 
     python addestramento/addestra_documenti.py --base base-hf --dati dati-documenti --uscita lora/documenti
 
-Lo stesso script addestra l'adattatore «schermate» (le pagine di SoIA da controllare per il programmatore):
+Lo stesso script addestra l'adattatore «verifica» (il controllo di qualità delle personalizzazioni: due immagini,
+prima e dopo, e la richiesta dell'utente):
 
-    python addestramento/addestra_documenti.py --base base-hf --dati dati-schermate --uscita lora/schermate \
-        --esempi schermate.jsonl --compito schermata
+    python addestramento/addestra_documenti.py --base base-hf --dati dati-verifica --uscita lora/verifica \
+        --esempi verifica.jsonl --compito verifica
 
 Come addestra.py, ma ogni esempio ha un'immagine: il modello intero (con la parte che vede) resta com'è,
 impara solo il modello di testo (LoRA sugli strati della seconda metà). La richiesta è costruita con il
@@ -24,9 +25,9 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from aios_copilot.nucleo import SYSTEM_DOCUMENTO, SYSTEM_SCHERMATA  # noqa: E402
+from aios_copilot.nucleo import SYSTEM_DOCUMENTO, SYSTEM_VERIFICA  # noqa: E402
 
-SYSTEMS = {"documento": SYSTEM_DOCUMENTO, "schermata": SYSTEM_SCHERMATA}
+SYSTEMS = {"documento": SYSTEM_DOCUMENTO, "verifica": SYSTEM_VERIFICA}
 
 END = "<|im_end|>"
 PROJ = "q_proj|k_proj|v_proj|o_proj|gate_proj|up_proj|down_proj"
@@ -75,11 +76,12 @@ def main() -> int:
     tok = processor.tokenizer
 
     def encode(row: dict) -> dict:
+        names = row.get("immagini") or [row["immagine"]]  # «verifica»: prima e dopo
         messages = [{"role": "system", "content": SYSTEMS[args.compito]},
-                    {"role": "user", "content": [{"type": "image"}, {"type": "text", "text": row["prompt"]}]}]
+                    {"role": "user", "content": [*({"type": "image"} for _ in names), {"type": "text", "text": row["prompt"]}]}]
         prompt = processor.apply_chat_template(messages, add_generation_prompt=True, enable_thinking=False)
-        image = Image.open(base / row["immagine"]).convert("RGB")
-        inputs = processor(text=[prompt], images=[image], return_tensors="pt")
+        images = [Image.open(base / n).convert("RGB") for n in names]
+        inputs = processor(text=[prompt], images=images, return_tensors="pt")
         answer = tok(row["risposta"] + END, add_special_tokens=False, return_tensors="pt")["input_ids"]
         ids = torch.cat([inputs["input_ids"], answer], dim=1)
         labels = torch.cat([torch.full_like(inputs["input_ids"], -100), answer], dim=1)

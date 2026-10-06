@@ -7,8 +7,8 @@ Nova (copilot/addestramento). Il modello base è condiviso; per ogni richiesta s
 - smistamento: l'ambito della frase (agenda, posta, file…) e l'azione da fare;
 - campi: i valori dell'azione (cosa ricordare, quando…) in JSON;
 - documenti: legge bollette, scontrini, avvisi di pagamento (campi in JSON o tutto il testo);
-- schermate: controlla una pagina di SoIA dopo una personalizzazione (l'ora delle lancette di un orologio, testi
-  sovrapposti, tagliati, poco leggibili o fuori dallo schermo), per il programmatore (anteprima.py).
+- verifica: il controllo di qualità di una personalizzazione (anteprima.py): dalla richiesta dell'utente e dalla parte
+  della pagina che è cambiata, prima e dopo, dice se la modifica è riuscita e cosa non torna.
 
 Qwen3.5 vede anche le immagini (con il proiettore mmproj.gguf): il nucleo descrive le foto e legge i
 documenti al posto di MiniCPM-V e DeepSeek-OCR, senza un altro modello in memoria.
@@ -40,16 +40,26 @@ SYSTEM_DOCUMENTO = "AIOS · documento"
 PROMPT_DOCUMENTO = ("Leggi il documento e rispondi con un JSON: tipo, emittente, numero, data (AAAA-MM-GG), "
                     "scadenza (AAAA-MM-GG o vuota), totale (come scritto, es. 123,45).")
 PROMPT_TESTO = "Trascrivi tutto il testo del documento, riga per riga."
-SYSTEM_SCHERMATA = "AIOS · schermata"
-SCREEN_PROBLEMS = ("sovrapposti", "tagliato", "contrasto", "fuori")
-SCREEN_SCHEMA = {"type": "object", "properties": {
-    "orologio": {"type": "string"},
-    "problemi": {"type": "array", "items": {"type": "object", "properties": {
-        "tipo": {"type": "string", "enum": list(SCREEN_PROBLEMS)}, "testo": {"type": "string"}}, "required": ["tipo", "testo"]}}},
-    "required": ["orologio", "problemi"]}
-PROMPT_SCHERMATA = ("Controlla la schermata e rispondi con un JSON: orologio (l'ora segnata dalle lancette, H:MM da 1:00 a "
-                    "12:59; vuoto se non c'è un orologio con le lancette) e problemi (elenco con tipo e testo: tipo "
-                    "sovrapposti, tagliato, contrasto o fuori; testo: le prime parole dell'elemento).")
+SYSTEM_VERIFICA = "AIOS · verifica"
+# i problemi che il controllo di qualità sa riconoscere (si sceglie tra questi: un modello piccolo li impara meglio)
+VERIFY_PROBLEMS = ("manca quello che è stato chiesto", "colore diverso da quello chiesto", "posizione sbagliata",
+                   "dimensione sbagliata", "testo diverso da quello chiesto", "è sparito un elemento che doveva restare",
+                   "elemento duplicato", "testi sovrapposti", "testo tagliato", "testo poco leggibile",
+                   "elemento fuori dallo schermo", "pagina vuota o rotta", "lancette che non segnano l'ora giusta")
+VERIFY_SCHEMA = {"type": "object", "properties": {
+    "fatto": {"type": "boolean"},
+    "problemi": {"type": "array", "items": {"type": "string", "enum": list(VERIFY_PROBLEMS)}}},
+    "required": ["fatto", "problemi"]}
+
+
+def prompt_verifica(request: str, now: datetime) -> str:
+    """Le due immagini (prima e dopo, la parte della pagina che è cambiata) e la richiesta: la modifica è riuscita?"""
+    return (f"Richiesta dell'utente: «{request.strip()[:300]}». Adesso sono le {now:%H:%M}.\n"
+            "La prima immagine è com'era la pagina, la seconda com'è dopo la modifica (solo la parte cambiata).\n"
+            "La modifica fa quello che l'utente ha chiesto, senza rompere niente? Rispondi con un JSON: fatto (vero o "
+            "falso) e problemi (quelli che vedi). Problemi possibili: " + "; ".join(VERIFY_PROBLEMS) + ".")
+
+
 GIORNI = ["lunedì", "martedì", "mercoledì", "giovedì", "venerdì", "sabato", "domenica"]
 
 
@@ -170,19 +180,22 @@ class Nucleo:
         except (OSError, ValueError, AttributeError, urllib.error.URLError):
             return False
 
-    def see(self, image: bytes, question: str, adapter: str | None = None, system: str = "",
+    def see(self, image: bytes | list[bytes], question: str, adapter: str | None = None, system: str = "",
             schema: dict[str, Any] | None = None, max_tokens: int = 400, timeout: float = 300.0,
             background: dict[str, Any] | None = None) -> str:
-        """Guarda un'immagine (JPEG/PNG) e risponde. Con `adapter` si accende quell'adattatore (es. documenti).
+        """Guarda un'immagine (JPEG/PNG; o più di una, in ordine) e risponde. Con `adapter` si accende quell'adattatore.
         Con `background` (argomenti per precedenza.background_chat) è un lavoro di sottofondo che cede il passo
         all'utente e poi riprende."""
         import base64
 
-        mime = "image/png" if image[:4] == b"\x89PNG" else "image/jpeg"
+        def part(img: bytes) -> dict[str, Any]:
+            mime = "image/png" if img[:4] == b"\x89PNG" else "image/jpeg"
+            return {"type": "image_url", "image_url": {"url": f"data:{mime};base64,{base64.b64encode(img).decode()}"}}
+
         ids = self.adapters()
+        images = image if isinstance(image, list) else [image]
         messages = ([{"role": "system", "content": system}] if system else []) + [{"role": "user", "content": [
-            {"type": "image_url", "image_url": {"url": f"data:{mime};base64,{base64.b64encode(image).decode()}"}},
-            {"type": "text", "text": question}]}]
+            *[part(i) for i in images], {"type": "text", "text": question}]}]
         payload: dict[str, Any] = {"messages": messages, "temperature": 0, "max_tokens": max_tokens,
                                    "chat_template_kwargs": {"enable_thinking": False},
                                    "lora": [{"id": i, "scale": 1.0 if name == adapter else 0.0} for name, i in ids.items()]}
@@ -203,12 +216,13 @@ class Nucleo:
             return self.see(image, PROMPT_DOCUMENTO, adapter, SYSTEM_DOCUMENTO, DOCUMENT_SCHEMA, 200)
         return self.see(image, PROMPT_TESTO, adapter, SYSTEM_DOCUMENTO, None, 700)
 
-    def check_screen(self, image: bytes) -> dict[str, Any] | None:
-        """Controlla una schermata di SoIA con l'adattatore «schermate» (None se l'adattatore non c'è)."""
-        if "schermate" not in self.adapters():
+    def check_change(self, before: bytes, after: bytes, request: str, now: datetime | None = None) -> dict[str, Any] | None:
+        """Il controllo di qualità di una modifica con l'adattatore «verifica» (None se l'adattatore non c'è)."""
+        if "verifica" not in self.adapters():
             return None
         try:
-            data = json.loads(self.see(image, PROMPT_SCHERMATA, "schermate", SYSTEM_SCHERMATA, SCREEN_SCHEMA, 300))
+            data = json.loads(self.see([before, after], prompt_verifica(request, now or datetime.now()), "verifica",
+                                       SYSTEM_VERIFICA, VERIFY_SCHEMA, 120))
         except (OSError, ValueError, KeyError, urllib.error.URLError):
             return None
         return data if isinstance(data, dict) else None

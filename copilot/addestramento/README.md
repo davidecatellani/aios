@@ -8,7 +8,7 @@ modelli separati (vedi `aios_copilot/nucleo.py`):
 | `smistamento` | l'ambito della frase (agenda, posta, file…) e l'azione da fare |
 | `campi` | i valori dell'azione (cosa, quando…) in JSON |
 | `documenti` | legge bollette, scontrini, avvisi (flusso **Vista del nucleo**, con il proiettore delle immagini) |
-| `schermate` | controlla una pagina di SoIA dopo una personalizzazione: l'ora delle lancette, testi sovrapposti, tagliati, poco leggibili o fuori schermo (flusso **Schermate del nucleo**) |
+| `verifica` | il controllo di qualità delle personalizzazioni: dalla richiesta e dalla parte della pagina cambiata, prima e dopo, dice se la modifica è riuscita e cosa non torna (flusso **Verifica del nucleo**) |
 
 Si preparano con il flusso **Adattatori del nucleo** su GitHub Actions (avvio a mano): prepara le frasi
 (`dati.py`, da `frasi.py` e dagli strumenti veri di Nova), addestra (`addestra.py`), converte in GGUF con
@@ -17,7 +17,8 @@ dell'immagine prende l'ultima pubblicazione: se non c'è, Nova usa Tev1 come pri
 
 Per migliorare Nova: aggiungere a `frasi.py` le frasi capite male e rilanciare il flusso.
 
-Per le schermate: `schermate.py` disegna pagine vere di SoIA (persona inventata di `aios_copilot/anteprima.py`)
-con orologi a lancette e guasti messi apposta, quindi le risposte giuste si sanno sempre; `valuta_schermate.py`
-misura con e senza adattatore (si pubblica se legge gli orologi molto meglio: i guasti di impaginazione li trovano i
-controlli sulla pagina, in anteprima.py). Per insegnare un guasto nuovo: aggiungerlo a `INJECT_JS` e rilanciare il flusso.
+Per la verifica: `verifiche.py` fa modifiche vere su pagine di SoIA (persona inventata di `aios_copilot/anteprima.py`),
+apposta bene o male (colore, posizione, dimensione, testo, elementi tolti o aggiunti, angoli, bordi, tema scuro,
+orologio, più a volte un danno: testi sovrapposti, tagliati, illeggibili, fuori schermo, duplicati, pagina rotta),
+quindi la risposta giusta si sa sempre; `valuta_verifiche.py` misura con e senza adattatore. Per insegnare una
+modifica nuova: aggiungerla a `APPLY_JS` e rilanciare il flusso.

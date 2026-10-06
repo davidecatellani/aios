@@ -6,8 +6,9 @@ salvata), avvia il server della schermata e la disegna con WebKitGTK, lo stesso 
 finestra che su Hyprland sta in uno spazio nascosto (l'utente non vede niente).
 La pagina di prova ha i dati di una persona inventata (cartelle a parte, internet bloccato): niente agenda, file o
 notifiche dell'utente. Per questo la foto può guardarla anche il modello in cloud, se l'utente l'ha acceso.
-Chi guarda: il modello in cloud (se acceso), altrimenti il nucleo con l'adattatore «schermate» (addestrato proprio
-per questo), altrimenti un modello di visione del PC. Senza nessuno restano i controlli senza modello.
+Chi guarda: il modello in cloud (se acceso), altrimenti il nucleo con l'adattatore «verifica» (addestrato proprio
+per questo: dalla richiesta e dalla parte della pagina cambiata, prima e dopo, dice se la modifica è riuscita),
+altrimenti un modello di visione del PC. Senza nessuno restano i controlli senza modello.
 Questo file non si personalizza (è uno degli strumenti che controllano le modifiche).
 """
 
@@ -160,7 +161,10 @@ def _serve() -> str:
 
 
 # Prima che la pagina parta: gli errori di JavaScript si annotano (sono il guasto più comune di una modifica).
-CATCH_ERRORS_JS = """window.__errori = [];
+CATCH_ERRORS_JS = """(() => { const s = document.createElement('style');  // ferma animazioni e cursore: prima e dopo uguali
+  s.textContent = '*,*::before,*::after{animation:none!important;transition:none!important;caret-color:transparent!important}';
+  document.documentElement.appendChild(s); })();
+window.__errori = [];
 addEventListener('error', e => __errori.push((e.message || 'errore') + (e.lineno ? ' (riga ' + e.lineno + ' di ' +
   (String(e.filename || '').split('#')[0].split('/').pop() || 'home.html') + ')' : '')));
 addEventListener('unhandledrejection', e => __errori.push('promessa rifiutata: ' + (e.reason && e.reason.message || e.reason)));"""
@@ -359,19 +363,6 @@ def vision_model() -> str | None:
         return None
 
 
-def clock_verdict(shown: str, now: datetime) -> str:
-    """«10:10» letto dalle lancette contro l'ora vera (su 12 ore, con qualche minuto di margine)."""
-    try:
-        h, m = (int(x) for x in shown.strip().split(":")[:2])
-    except ValueError:
-        return f"Orologio con le lancette: non si legge bene l'ora ({shown})."
-    a, b = (h % 12) * 60 + m, (now.hour % 12) * 60 + now.minute
-    diff = min(abs(a - b), 720 - abs(a - b))
-    if diff <= 3:
-        return f"Orologio con le lancette: segna {shown}, giusto (sono le {now:%H:%M})."
-    return f"Orologio con le lancette: segna {shown} ma sono le {now:%H:%M}: le lancette sono sbagliate."
-
-
 def _cloud_look(image: Path, prompt: str) -> str:
     try:
         from .cloud import Escalation, see
@@ -383,31 +374,35 @@ def _cloud_look(image: Path, prompt: str) -> str:
         return ""
 
 
-def _nucleo_look(image: Path, now: datetime) -> str:
+def _nucleo_look(crops: tuple[bytes, bytes, Any] | None, request: str, now: datetime) -> str:
+    """Il controllo di qualità del nucleo (adattatore «verifica»): la parte cambiata, prima e dopo, e la richiesta."""
+    if crops is None:
+        return ""
     try:
         from .nucleo import Nucleo
 
-        data = Nucleo(timeout=300).check_screen(image.read_bytes())
+        data = Nucleo(timeout=300).check_change(crops[0], crops[1], request, now)
     except Exception:
         return ""
     if data is None:
         return ""
-    # dell'adattatore si usa solo la lettura degli orologi (misura: 83% giusta, prima 0%); i testi sovrapposti,
-    # tagliati o poco leggibili li trovano meglio i controlli sulla pagina (page_report)
-    shown = str(data.get("orologio") or "").strip()
-    return clock_verdict(shown, now) if shown else "Nessun orologio con le lancette nella pagina."
+    problems = [str(p) for p in data.get("problemi") or []]
+    if data.get("fatto") and not problems:
+        return "La modifica sembra riuscita come chiesto."
+    return "La modifica non sembra riuscita: " + ("; ".join(problems) if problems else "non fa quello che è stato chiesto") + "."
 
 
 def look(image: Path, request: str, question: str = "", model: str | None = None,
-         see: Callable[[Path, str], str] | None = None, now: datetime | None = None, cloud: bool = True) -> str:
+         see: Callable[[Path, str], str] | None = None, now: datetime | None = None, cloud: bool = True,
+         crops: tuple[bytes, bytes, Any] | None = None) -> str:
     """Chi guarda la foto: il modello in cloud (solo pagine coi dati finti, se l'utente l'ha acceso), il nucleo con
-    l'adattatore «schermate», un modello di visione del PC. "" se non c'è nessuno."""
+    l'adattatore «verifica» (con i ritagli prima/dopo), un modello di visione del PC. "" se non c'è nessuno."""
     now = now or datetime.now()
     prompt = LOOK_PROMPT.format(request=request.strip(), time=now.strftime("%H:%M"), day=GIORNI[now.weekday()],
                                 question=f"Controlla in particolare: {question.strip()}" if question.strip() else "")
     if see is not None:
         return see(image, prompt)
-    answer = (_cloud_look(image, prompt) if cloud else "") or _nucleo_look(image, now)
+    answer = (_cloud_look(image, prompt) if cloud else "") or _nucleo_look(crops, request, now)
     if answer:
         return answer
     model = model or vision_model()
@@ -416,6 +411,46 @@ def look(image: Path, request: str, question: str = "", model: str | None = None
     from . import engines
 
     return engines.describe_image(image, prompt, model)
+
+
+MAX_CROP = 640  # lato più lungo dei ritagli dati al modello
+
+
+def change_crops(before: bytes, after: bytes, pad: int = 28, min_side: int = 160) -> tuple[bytes, bytes, tuple[int, int, int, int]] | None:
+    """La parte della pagina che è cambiata, prima e dopo (PNG), e il riquadro (x, y, w, h); None se non è cambiato niente.
+    Il modello di verifica guarda questi ritagli: la pagina intera rimpicciolita renderebbe i dettagli invisibili."""
+    import cv2
+    import numpy as np
+
+    a = cv2.imdecode(np.frombuffer(before, np.uint8), cv2.IMREAD_COLOR)
+    b = cv2.imdecode(np.frombuffer(after, np.uint8), cv2.IMREAD_COLOR)
+    if a is None or b is None:
+        return None
+    h, w = min(a.shape[0], b.shape[0]), min(a.shape[1], b.shape[1])
+    a, b = a[:h, :w], b[:h, :w]
+    diff = cv2.cvtColor(cv2.absdiff(a, b), cv2.COLOR_BGR2GRAY)
+    mask = cv2.dilate((diff > 24).astype(np.uint8), np.ones((5, 5), np.uint8))
+    pts = cv2.findNonZero(mask)
+    if pts is None or len(pts) < 12:  # qualche pixel sparso (bordi sfumati): non è una modifica
+        return None
+    x, y, bw, bh = cv2.boundingRect(pts)
+    x0, y0 = max(0, x - pad), max(0, y - pad)
+    x1, y1 = min(w, x + bw + pad), min(h, y + bh + pad)
+    if x1 - x0 < min_side:
+        c = (x0 + x1) // 2
+        x0, x1 = max(0, c - min_side // 2), min(w, c + min_side // 2)
+    if y1 - y0 < min_side:
+        c = (y0 + y1) // 2
+        y0, y1 = max(0, c - min_side // 2), min(h, c + min_side // 2)
+
+    def png(img: Any) -> bytes:
+        crop = img[y0:y1, x0:x1]
+        scale = MAX_CROP / max(crop.shape[:2])
+        if scale < 1:
+            crop = cv2.resize(crop, (int(crop.shape[1] * scale), int(crop.shape[0] * scale)), interpolation=cv2.INTER_AREA)
+        return cv2.imencode(".png", crop)[1].tobytes()
+
+    return png(a), png(b), (x0, y0, x1 - x0, y1 - y0)
 
 
 def page_report(image: Path) -> dict[str, list[str]]:
@@ -427,10 +462,22 @@ def page_report(image: Path) -> dict[str, list[str]]:
         return {"errori": [], "problemi": []}
 
 
-def base_root() -> Path:
-    """Il codice originale dell'immagine (quello senza personalizzazioni)."""
+def base_root(copy: Path | None = None) -> Path:
+    """Il codice com'era prima della modifica in corso: l'ultima versione salvata della copia personale (git HEAD,
+    estratta in una cartella a parte), oppure il codice dell'immagine."""
     from . import BASE_DIR
 
+    if copy is not None and (copy / ".git").is_dir():
+        out = Path(tempfile.mkdtemp(prefix="aios-prima-"))
+        try:
+            arch = subprocess.run(["git", "-C", str(copy), "archive", "HEAD", "aios_copilot"], capture_output=True, timeout=60)
+            if arch.returncode == 0:
+                subprocess.run(["tar", "-x", "-C", str(out)], input=arch.stdout, capture_output=True, timeout=60, check=True)
+                if (out / "aios_copilot" / "__init__.py").exists():
+                    return out
+        except (OSError, subprocess.SubprocessError):
+            pass
+        shutil.rmtree(out, ignore_errors=True)
     return BASE_DIR.parent
 
 
@@ -454,16 +501,24 @@ class Eyes:
                  shoot_base: Callable[[str], tuple[Path | None, str]] | None = None):
         self.root, self.request, self.see, self.model = root, request, see, model
         self.shoot = shoot or (lambda page: take(page, self.root))
-        self.shoot_base = shoot_base or (lambda page: take(page, base_root()))
+        self._base_root: Path | None = None
+        self.shoot_base = shoot_base or (lambda page: take(page, self._base()))
         self.last: Path | None = None
+        self._before_img: dict[str, Path | None] = {}
         self.failed = False  # la foto non si fa su questo PC: niente controllo visivo
         self.broken = False  # l'ultima occhiata ha trovato errori o problemi nuovi
         self._before: dict[str, dict[str, list[str]]] = {}
 
+    def _base(self) -> Path:
+        if self._base_root is None:
+            self._base_root = base_root(self.root)
+        return self._base_root
+
     def before(self, page: str) -> dict[str, list[str]]:
-        """I problemi che la pagina aveva già col codice originale: non sono colpa della modifica."""
+        """I problemi che la pagina aveva già prima della modifica: non sono colpa sua."""
         if page not in self._before:
             image, _ = self.shoot_base(page)
+            self._before_img[page] = image
             self._before[page] = page_report(image) if image else {"errori": [], "problemi": []}
         return self._before[page]
 
@@ -487,7 +542,16 @@ class Eyes:
                          + "\n".join(f"- {e}" for e in report["problemi"]))
         if not lines:
             lines.append("Nessun errore di JavaScript, niente testi tagliati, sovrapposti o poco leggibili.")
-        answer = look(image, self.request, question, model=self.model, see=self.see)
+        crops = None
+        old_img = self._before_img.get(page)
+        if old_img is not None and old_img.exists():
+            try:
+                crops = change_crops(old_img.read_bytes(), image.read_bytes())
+            except Exception:
+                crops = None
+            if crops is None:
+                lines.append("La pagina è uguale a prima della modifica: quello che hai cambiato qui non si vede.")
+        answer = look(image, self.request, question, model=self.model, see=self.see, crops=crops)
         if answer:
             lines.append("Chi guarda la foto dice:\n" + answer)
         else:

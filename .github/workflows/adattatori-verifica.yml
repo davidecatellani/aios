@@ -1,20 +1,21 @@
-name: Schermate del nucleo
+name: Verifica del nucleo
 
-# Gli occhi del programmatore: l'adattatore «schermate» del nucleo (Qwen3.5 0.8B) controlla una pagina di SoIA dopo
-# una personalizzazione (l'ora delle lancette di un orologio, testi sovrapposti, tagliati, poco leggibili o fuori
-# dallo schermo). Si addestra su pagine vere di SoIA con guasti messi apposta (copilot/addestramento/schermate.py),
-# quindi la risposta giusta si sa sempre. Parte dall'ultima Release «adattatori-…» (modello base, proiettore delle
-# immagini e gli altri adattatori), misura e pubblica una Release «adattatori-schermate-N» completa: la costruzione
-# dell'immagine prende la più recente. Si avvia solo a mano.
+# Il controllo di qualità delle personalizzazioni: l'adattatore «verifica» del nucleo (Qwen3.5 0.8B) guarda la
+# richiesta dell'utente e la parte della pagina che è cambiata, prima e dopo, e dice se la modifica è riuscita e cosa
+# non torna (colore, posizione, dimensione, testo, elementi spariti o duplicati, testi sovrapposti o illeggibili,
+# pagina rotta, lancette sbagliate…). Si addestra su modifiche vere fatte apposta bene e male su pagine di SoIA
+# (copilot/addestramento/verifiche.py), quindi la risposta giusta si sa sempre. Parte dall'ultima Release
+# «adattatori-…», misura e pubblica una Release «adattatori-verifica-N» completa: la costruzione dell'immagine
+# prende la più recente. Si avvia solo a mano.
 on:
   workflow_dispatch:
     inputs:
       minuti:
         description: "Tempo massimo di addestramento (minuti, senza scheda video)"
-        default: "180"
-      schermate:
-        description: "Quante schermate disegnare"
-        default: "700"
+        default: "200"
+      esempi:
+        description: "Quanti esempi di modifiche (giuste e sbagliate) preparare"
+        default: "900"
 
 permissions:
   contents: write
@@ -24,9 +25,9 @@ env:
   LLAMA_CPP: b11392  # stessa versione dell'immagine (image/Containerfile)
 
 jobs:
-  schermate:
+  verifica:
     runs-on: ubuntu-24.04
-    timeout-minutes: 350
+    timeout-minutes: 355
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -54,7 +55,7 @@ jobs:
           echo "Parto da $tag"
           mkdir -p uscita
           gh release download "$tag" --repo "$GITHUB_REPOSITORY" --dir uscita --pattern '*.gguf'
-          rm -f uscita/schermate.gguf  # si rifà
+          rm -f uscita/schermate.gguf uscita/verifica.gguf  # si rifà (schermate: la prima prova, superata)
           ls -lh uscita
       - name: Modello base (e proiettore delle immagini, se manca)
         run: |
@@ -62,15 +63,15 @@ jobs:
           if [ ! -f uscita/mmproj.gguf ]; then
             python /tmp/llama.cpp/convert_hf_to_gguf.py base-hf --mmproj --outtype f16 --outfile uscita/mmproj.gguf
           fi
-      - name: Schermate con i guasti
-        run: python copilot/addestramento/schermate.py --uscita dati-schermate --quante "${{ inputs.schermate }}"
-      - name: Adattatore schermate
+      - name: Modifiche giuste e sbagliate
+        run: python copilot/addestramento/verifiche.py --uscita dati-verifica --quante "${{ inputs.esempi }}"
+      - name: Adattatore verifica
         run: |
-          python copilot/addestramento/addestra_documenti.py --base base-hf --dati dati-schermate \
-            --esempi schermate.jsonl --compito schermata --uscita lora/schermate --max-minuti "${{ inputs.minuti }}"
+          python copilot/addestramento/addestra_documenti.py --base base-hf --dati dati-verifica \
+            --esempi verifica.jsonl --compito verifica --uscita lora/verifica --max-minuti "${{ inputs.minuti }}"
       - name: Conversione in GGUF
         run: |
-          python /tmp/llama.cpp/convert_lora_to_gguf.py --base base-hf --outtype f16 --outfile uscita/schermate.gguf lora/schermate
+          python /tmp/llama.cpp/convert_lora_to_gguf.py --base base-hf --outtype f16 --outfile uscita/verifica.gguf lora/verifica
           ls -lh uscita
       - name: Misura
         run: |
@@ -85,15 +86,15 @@ jobs:
           for i in $(seq 90); do curl -sf http://127.0.0.1:11436/health && break; sleep 2; done
           set -o pipefail
           tail -n 5 server.log
-          { echo "### Schermate" && echo && python copilot/addestramento/valuta_schermate.py --dati dati-schermate \
+          { echo "### Verifica delle personalizzazioni" && echo && python copilot/addestramento/valuta_verifiche.py --dati dati-verifica \
               --url http://127.0.0.1:11436; } | tee uscita/misura.md
       - name: Conserva l'adattatore e la misura (anche se non si pubblica)
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: schermate-${{ github.run_number }}
+          name: verifica-${{ github.run_number }}
           path: |
-            uscita/schermate.gguf
+            uscita/verifica.gguf
             uscita/misura.md
           if-no-files-found: ignore
           retention-days: 14
@@ -102,7 +103,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           cd uscita && sha256sum *.gguf > SHA256SUMS
-          tag="adattatori-schermate-${GITHUB_RUN_NUMBER}"
-          { echo "Nucleo di Nova su $BASE (llama.cpp $LLAMA_CPP): tutti gli adattatori più «schermate»."; echo; cat misura.md; } > note.md
-          gh release create "$tag" --repo "$GITHUB_REPOSITORY" --prerelease --title "Schermate del nucleo ${GITHUB_RUN_NUMBER}" \
+          tag="adattatori-verifica-${GITHUB_RUN_NUMBER}"
+          { echo "Nucleo di Nova su $BASE (llama.cpp $LLAMA_CPP): tutti gli adattatori più «verifica»."; echo; cat misura.md; } > note.md
+          gh release create "$tag" --repo "$GITHUB_REPOSITORY" --prerelease --title "Verifica del nucleo ${GITHUB_RUN_NUMBER}" \
             --notes-file note.md *.gguf misura.md SHA256SUMS

@@ -52,7 +52,7 @@ jobs:
           echo "Parto da $tag"
           mkdir -p uscita
           gh release download "$tag" --repo "$GITHUB_REPOSITORY" --dir uscita --pattern 'base.gguf' \
-            --pattern 'smistamento.gguf' --pattern 'campi.gguf' --pattern 'schermate.gguf'  # «schermate» si tiene
+            --pattern 'smistamento.gguf' --pattern 'campi.gguf' --pattern 'verifica.gguf'  # «verifica» si tiene
           ls -lh uscita
       - name: Modello base e proiettore delle immagini
         run: |

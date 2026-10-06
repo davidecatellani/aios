@@ -2,16 +2,7 @@ import json
 from datetime import datetime
 
 from aios_copilot import anteprima, cloud
-from aios_copilot.nucleo import PROMPT_SCHERMATA, SYSTEM_SCHERMATA, Nucleo
-
-
-def test_clock_verdict_on_twelve_hours():
-    now = datetime(2026, 10, 6, 22, 10)
-    assert "giusto" in anteprima.clock_verdict("10:10", now)
-    assert "giusto" in anteprima.clock_verdict("10:12", now)  # qualche minuto di margine
-    assert "sbagliate" in anteprima.clock_verdict("2:50", now)  # ore × 6 invece di × 30
-    assert "giusto" in anteprima.clock_verdict("12:01", datetime(2026, 10, 6, 23, 59))  # a cavallo delle 12
-    assert "non si legge" in anteprima.clock_verdict("dieci", now)
+from aios_copilot.nucleo import SYSTEM_VERIFICA, VERIFY_SCHEMA, Nucleo, prompt_verifica
 
 
 def test_fake_person_never_reaches_the_user_or_internet(tmp_path):
@@ -24,33 +15,53 @@ def test_fake_person_never_reaches_the_user_or_internet(tmp_path):
     assert len(weather["daily"]["time"]) == 5 and weather["current"]["weather_code"] == 2
 
 
-def test_nucleo_screen_check_needs_the_adapter():
+def test_nucleo_check_change_needs_the_adapter():
     calls = []
 
     def post(url, payload, timeout):
         calls.append(payload)
         return {"choices": [{"message": {"content": json.dumps(
-            {"orologio": "10:10", "problemi": [{"tipo": "tagliato", "testo": "Il tuo riep"}]})}}]}
+            {"fatto": False, "problemi": ["colore diverso da quello chiesto"]})}}]}
 
     without = Nucleo("http://x", post=post, get=lambda url, t: [{"id": 0, "path": "/n/documenti.gguf"}])
-    assert without.check_screen(b"\x89PNGxx") is None and not calls
+    assert without.check_change(b"\x89PNGa", b"\x89PNGb", "barra rossa") is None and not calls
     n = Nucleo("http://x", post=post, get=lambda url, t: [{"id": 0, "path": "/n/documenti.gguf"},
-                                                          {"id": 1, "path": "/n/schermate.gguf"}])
-    data = n.check_screen(b"\x89PNGxx")
-    assert data["orologio"] == "10:10" and data["problemi"][0]["tipo"] == "tagliato"
+                                                          {"id": 1, "path": "/n/verifica.gguf"}])
+    now = datetime(2026, 10, 6, 10, 10)
+    data = n.check_change(b"\x89PNGa", b"\x89PNGb", "colora la barra di rosso", now)
+    assert data["fatto"] is False and data["problemi"] == ["colore diverso da quello chiesto"]
     p = calls[0]
-    assert p["messages"][0]["content"] == SYSTEM_SCHERMATA and p["messages"][1]["content"][1]["text"] == PROMPT_SCHERMATA
+    content = p["messages"][1]["content"]
+    assert p["messages"][0]["content"] == SYSTEM_VERIFICA
+    assert [c["type"] for c in content] == ["image_url", "image_url", "text"]  # prima, dopo, richiesta
+    assert content[2]["text"] == prompt_verifica("colora la barra di rosso", now) and "10:10" in content[2]["text"]
     assert {x["id"]: x["scale"] for x in p["lora"]} == {0: 0.0, 1: 1.0}
+    assert p["response_format"]["json_schema"]["schema"] == VERIFY_SCHEMA
 
 
-def test_nucleo_answer_becomes_a_verdict(monkeypatch, tmp_path):
+def test_verdict_from_the_nucleo(monkeypatch, tmp_path):
     img = tmp_path / "p.png"
     img.write_bytes(b"\x89PNG")
-    monkeypatch.setattr(Nucleo, "check_screen", lambda self, image: {"orologio": "2:50", "problemi": [
-        {"tipo": "sovrapposti", "testo": "Buongiorno"}]})
     monkeypatch.setattr(anteprima, "_cloud_look", lambda image, prompt: "")
-    text = anteprima.look(img, "orologio rotondo", now=datetime(2026, 10, 6, 10, 10))
-    assert "sbagliate" in text and "Buongiorno" not in text  # i guasti di impaginazione li trova page_report
+    monkeypatch.setattr(Nucleo, "check_change", lambda self, a, b, r, now: {"fatto": False, "problemi": ["posizione sbagliata"]})
+    text = anteprima.look(img, "sposta il meteo in basso", crops=(b"a", b"b", (0, 0, 1, 1)))
+    assert text == "La modifica non sembra riuscita: posizione sbagliata."
+    monkeypatch.setattr(Nucleo, "check_change", lambda self, a, b, r, now: {"fatto": True, "problemi": []})
+    assert anteprima.look(img, "x", crops=(b"a", b"b", (0, 0, 1, 1))) == "La modifica sembra riuscita come chiesto."
+
+
+def test_change_crops(tmp_path):
+    import cv2
+    import numpy as np
+
+    a = np.full((400, 600, 3), 240, np.uint8)
+    b = a.copy()
+    cv2.rectangle(b, (300, 100), (360, 140), (20, 40, 200), -1)  # un riquadro diventato rosso
+    enc = lambda x: cv2.imencode(".png", x)[1].tobytes()
+    assert anteprima.change_crops(enc(a), enc(a)) is None  # niente di cambiato
+    before, after, (x, y, w, h) = anteprima.change_crops(enc(a), enc(b))
+    assert x <= 300 and y <= 100 and x + w >= 360 and y + h >= 140 and w < 300 and h < 300
+    assert cv2.imdecode(np.frombuffer(after, np.uint8), cv2.IMREAD_COLOR).shape[:2] == (h, w)
 
 
 def test_cloud_sees_with_a_vision_model(tmp_path, monkeypatch):
