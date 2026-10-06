@@ -77,7 +77,8 @@ DOMAINS: list[tuple[str, str]] = [
                "address book: contacts, phone numbers, email addresses, birthdays"),
     ("posta", "Email: read, search, summarize, write or reply to mail, inbox, mail accounts"),
     ("file", "Find, open or read files, documents and photos on this computer: bills, contracts, shopping list, diet, "
-             "photos of a person, place or period, remove the background from a photo"),
+             "photos of a person, place or period, remove the background from a photo; earlier versions of a document "
+             "(put it back as it was yesterday, what changed)"),
     ("riordino", "Tidy up and organize files and folders, clean up space, collections of files"),
     ("app", "Applications, games and windows: open, close, install (also games from Steam), play, remove or switch between programs"),
     ("impostazioni", "Volume, audio output device (monitor, headphones, speakers), microphone, volume of one app, brightness, screens and monitors (resolution, refresh rate Hz, scale, rotation), night light (blue light filter), mouse and touchpad, keyboard shortcuts, accessibility (live captions, screen reader, zoom, high contrast, color filters), notifications and do not disturb, keyboard layout, Wi-Fi, Bluetooth, dark or light theme, music playback control, screenshot, lock, shut down or restart"),

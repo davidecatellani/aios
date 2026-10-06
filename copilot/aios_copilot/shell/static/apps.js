@@ -204,6 +204,7 @@ const VISTE = {
             const nome = await chiediTesto("Nuovo nome", f.nome);
             if (nome && nome !== f.nome) { await api("/api/file/rinomina", { p: f.percorso, nome }).catch(e => avviso(e.message)); apriVista("file", data.cartella); }
           }],
+          ["Versioni precedenti", () => versioniFile(f)],
           ["Chiedi a Nova…", () => { chiudiVista(); $("testo").value = `Su «${f.nome}»: `; $("testo").focus(); }],
           ["Sposta nel cestino", async () => {
             await api("/api/file/cestino", { p: f.percorso }).catch(e => avviso(e.message)); apriVista("file", data.cartella);
@@ -668,6 +669,16 @@ const VISTE = {
                    dici(await api("/api/impostazioni/diario", { cancella: true }).catch(e => ({ ok: false, messaggio: e.message })));
                    apriVista("impostazioni", "privacy");
                  }, "bottone pericolo")));
+      const ve = await api("/api/versioni/stato").catch(() => null);
+      if (ve) carta(riga("Versioni dei documenti", (ve.attivo ? `${ve.versioni} versioni di ${ve.documenti} documenti` + (ve.reflink ? " (copie leggere: non occupano spazio finché non cambiano)." : ".")
+                         : "Spente.") + " Ogni pochi minuti SoIA tiene una copia dei documenti che cambiano: «rimetti il contratto com'era ieri».",
+                     interruttore(ve.attivo, () => api("/api/versioni", { attivo: !ve.attivo }).then(r => { dici(r); apriVista("impostazioni", "privacy"); }))),
+                riga("Cancella le versioni", "I documenti restano come sono adesso",
+                     bottone("Cancella", async () => {
+                       if (!await chiediConferma("Cancello tutte le versioni salvate dei documenti?")) return;
+                       dici(await api("/api/versioni", { cancella: true }).catch(e => ({ ok: false, messaggio: e.message })));
+                       apriVista("impostazioni", "privacy");
+                     }, "bottone pericolo")));
       const ap = await api("/api/appunti").catch(() => null);
       if (ap) carta(riga("Cronologia degli appunti", `Super+V mostra le ultime cose copiate (${ap.voci.length} adesso), Super+. le emoji. Le password dei gestori di password non entrano mai.`,
                          interruttore(ap.attivo, () => api("/api/appunti/attivo", { attivo: !ap.attivo }).then(() => apriVista("impostazioni", "privacy")))),
@@ -1065,6 +1076,33 @@ function modificaContatto(c = { nome: "", telefoni: [], email: [], compleanno: "
   k.append(esito, a); fondo.append(k); document.body.append(fondo);
   fondo.onkeydown = e => { e.stopPropagation(); if (e.key === "Escape") fondo.remove(); };
   setTimeout(() => nome.focus(), 30);
+}
+
+// --- Versioni di un documento (versioni.py): elenco, cosa è cambiato, ripristino ------------------------------
+async function versioniFile(f) {
+  const d = await api(`/api/versioni?p=${encodeURIComponent(f.percorso)}`).catch(e => ({ versioni: [], errore: e.message }));
+  const fondo = el("div"); fondo.style.cssText = "position:fixed;inset:0;z-index:50;background:rgba(3,12,18,.55);display:grid;place-items:center";
+  const c = el("div", "carta"); c.style.cssText = "width:min(560px,92vw);max-height:80vh;overflow:auto;display:flex;flex-direction:column;gap:10px";
+  const chiudi = () => fondo.remove();
+  const esito = el("pre", "nota"); esito.style.cssText = "white-space:pre-wrap;margin:0";
+  c.append(el("h3", "", `Versioni di «${f.nome}»`));
+  if (!d.versioni.length) c.append(el("p", "nota", d.errore || "Ancora nessuna versione: SoIA ne tiene una ogni volta che il documento cambia."));
+  d.versioni.forEach((v, i) => {
+    const r = el("div", "riga-imp"); const cosa = el("div", "cosa"); cosa.append(i === 0 ? "Adesso (o l'ultima salvata)" : v.quando);
+    if (i === 0) cosa.append(el("small", "", v.quando));
+    r.append(cosa);
+    if (i > 0) r.append(
+      bottone("Cosa è cambiato", async () => { esito.textContent = (await api("/api/versioni", { p: f.percorso, id: v.id, azione: "confronta" }).catch(e => ({ messaggio: e.message }))).messaggio; }),
+      bottone("Rimetti", async () => {
+        if (!await chiediConferma(`Rimetto «${f.nome}» com'era ${v.quando}? La versione di adesso resta salvata.`)) return;
+        const res = await api("/api/versioni", { p: f.percorso, id: v.id }).catch(e => ({ messaggio: e.message })); chiudi(); avviso(res.messaggio);
+      }, "bottone primo"));
+    c.append(r);
+  });
+  c.append(esito, bottone("Chiudi", chiudi));
+  fondo.append(c); document.body.append(fondo);
+  fondo.onclick = e => { if (e.target === fondo) chiudi(); };
+  fondo.tabIndex = -1; fondo.onkeydown = e => { e.stopPropagation(); if (e.key === "Escape") chiudi(); }; fondo.focus();
 }
 
 // --- Azioni di Nova: quello che Nova ha cambiato, da annullare (azioni.py) -------------------------------------

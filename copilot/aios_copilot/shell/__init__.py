@@ -36,7 +36,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 from ..localapp import LocalApp, serve
-from .apps import register_actions, register_activity, register_apps, register_calendar, register_clipboard, register_accessibility, register_customizations, register_devices, register_display, register_notifications, register_cloud, register_first_steps, register_screens, register_session, register_widgets
+from .apps import register_actions, register_versions, register_activity, register_apps, register_calendar, register_clipboard, register_accessibility, register_customizations, register_devices, register_display, register_notifications, register_cloud, register_first_steps, register_screens, register_session, register_widgets
 
 PAGE = Path(__file__).with_name("home.html")
 APP_ID = "org.aios.Shell"
@@ -565,6 +565,7 @@ class ShellApp(LocalApp):
         register_devices(self)
         register_customizations(self)
         register_actions(self)
+        register_versions(self)
         self.restart_shell: Callable[[], None] = lambda: None  # dopo una personalizzazione (run_gtk)
         self.open_panel: Callable[[str], None] = lambda which: None
         self.captions: Callable[[bool], None] = lambda on: None  # sottotitoli in tempo reale (run_gtk)
@@ -1086,6 +1087,9 @@ def main(argv: list[str] | None = None) -> int:
         from .. import luce_notturna
 
         threading.Thread(target=luce_notturna.run, daemon=True).start()  # meno luce blu la sera
+    from .. import versioni
+
+    threading.Thread(target=versioni.run, daemon=True).start()  # le versioni dei documenti, ogni pochi minuti
     from .. import kokoro
 
     threading.Thread(target=kokoro.warm_up, daemon=True).start()  # la voce pronta per la prima risposta

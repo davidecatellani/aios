@@ -1587,3 +1587,34 @@ def register_actions(app: Any) -> None:
 
     app.route("GET", r"/api/azioni", listing)
     app.route("POST", r"/api/azioni/annulla", undo)
+
+
+def register_versions(app: Any) -> None:
+    """Le versioni dei documenti (versioni.py): elenco per un file, ripristino, cosa è cambiato; on/off e spazio."""
+    from .. import versioni
+
+    def listing(m: Any, b: dict[str, Any], q: dict[str, str]) -> tuple[int, Any]:
+        path = safe_path(q.get("p", ""))
+        items = [{**v, "quando": versioni.describe_time(v["t"])} for v in versioni.shared().versions(path)]
+        return 200, {"versioni": items, "nome": path.name}
+
+    def act(m: Any, b: dict[str, Any], q: dict[str, str]) -> tuple[int, Any]:
+        s = versioni.shared()
+        if "attivo" in b:
+            versioni.set_enabled(bool(b["attivo"]))
+            return 200, {"ok": True, "messaggio": "Versioni dei documenti " + ("accese." if b["attivo"] else "spente.")}
+        if b.get("cancella"):
+            s.forget()
+            return 200, {"ok": True, "messaggio": "Ho cancellato tutte le versioni salvate (i documenti restano)."}
+        path = safe_path(str(b.get("p", "")))
+        vid = int(b.get("id", 0))
+        if b.get("azione") == "confronta":
+            return 200, {"ok": True, "messaggio": s.changes(path, vid)}
+        return 200, {"ok": True, "messaggio": s.restore(path, vid)}
+
+    def status(m: Any, b: dict[str, Any], q: dict[str, str]) -> tuple[int, Any]:
+        return 200, {"attivo": versioni.enabled(), **versioni.shared().usage()}
+
+    app.route("GET", r"/api/versioni", listing)
+    app.route("POST", r"/api/versioni", act)
+    app.route("GET", r"/api/versioni/stato", status)

@@ -32,6 +32,7 @@ from .tools import personalizza as customize_tools
 from .tools import rubrica as contacts_tools
 from .tools import memoria as memory_tools
 from .tools import azioni as actions_tools
+from .tools import versioni as versions_tools
 from .tools import sessione as session_tools
 from .tools import fuso as timezone_tools
 from .tools import mail as mail_tools
@@ -181,7 +182,7 @@ def make_agent(confirm: Confirm, model: str | None = None, allowed: frozenset[st
                     *update_tools.make_tools(runner), *energy_tools.make_tools(), *voice_tools.make_tools(runner),
                     *timezone_tools.make_tools(), *calc_tools.make_tools(), *audio_tools.make_tools(),
                     *activity_tools.make_tools(), *display_tools.make_tools(), *notification_tools.make_tools()],
-        "file": [*files.make_tools(get_index, meaning_query()), *photo_tools.make_tools(), *organize_tools.make_tools(library), *document_tools.make_tools(get_index, runner)],
+        "file": [*versions_tools.make_tools(), *files.make_tools(get_index, meaning_query()), *photo_tools.make_tools(), *organize_tools.make_tools(library), *document_tools.make_tools(get_index, runner)],
         "agenda": [*agenda_tools.make_tools(get_agenda, user_name, extras=lambda: [model_hint()]), *contacts_tools.make_tools()],
         "posta": mail_tools.make_tools(mail_store, send, has_accounts),
         "gusti": taste_tools.make_tools(subs, catalog, profile, web_search=web_group[0].func),
@@ -218,7 +219,8 @@ def make_agent(confirm: Confirm, model: str | None = None, allowed: frozenset[st
         # l'AI in cloud (OpenRouter) per le richieste difficili, se l'utente l'ha accesa (cloud.py)
         escalation=Escalation(),
         routers=[
-            actions_tools.ActionsRouter(),  # livello 0: «annulla l'ultima cosa che hai fatto», «rimetti com'era stamattina»
+            actions_tools.ActionsRouter(),
+            versions_tools.VersionsRouter(),  # livello 0: «rimetti il contratto com'era ieri», «le versioni della tesi»  # livello 0: «annulla l'ultima cosa che hai fatto», «rimetti com'era stamattina»
             screen_tools.ScreensRouter(),  # livello 0: «fammi vedere il PC da gaming» (prima di «apri <app>»)
             audio_tools.AudioRouter(),  # livello 0: «fai uscire l'audio dal monitor»
             notification_tools.NotificationsRouter(),  # livello 0: «cosa mi sono perso?», «non disturbarmi per un'ora»
