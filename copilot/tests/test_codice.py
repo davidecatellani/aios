@@ -238,5 +238,5 @@ def test_page_address_and_report(tmp_path):
     url, js = anteprima.page_url(base, "impostazioni/aspetto")
     assert url == base and "apriVista('impostazioni', 'aspetto')" in js
     assert anteprima.page_url(base, "pannello/emoji")[0] == "http://127.0.0.1:5/static/pannello.html#t=abc&apri=emoji"
-    assert anteprima.page_report(tmp_path / "manca.png") == {"errori": [], "problemi": []}
+    assert anteprima.page_report(tmp_path / "manca.png") == {"errori": [], "problemi": [], "inventario": None}
     assert codice.js_balance(anteprima.CHECK_JS) == "" and codice.js_balance(anteprima.CATCH_ERRORS_JS) == ""

@@ -6,9 +6,11 @@ salvata), avvia il server della schermata e la disegna con WebKitGTK, lo stesso 
 finestra che su Hyprland sta in uno spazio nascosto (l'utente non vede niente).
 La pagina di prova ha i dati di una persona inventata (cartelle a parte, internet bloccato): niente agenda, file o
 notifiche dell'utente. Per questo la foto può guardarla anche il modello in cloud, se l'utente l'ha acceso.
-Chi guarda: il modello in cloud (se acceso), altrimenti il nucleo con l'adattatore «verifica» (addestrato proprio
-per questo: dalla richiesta e dalla parte della pagina cambiata, prima e dopo, dice se la modifica è riuscita),
-altrimenti un modello di visione del PC. Senza nessuno restano i controlli senza modello.
+Prima e dopo la modifica si misura anche cosa c'è nella pagina (INVENTORY_JS): cambiamenti.py ne fa alcune righe
+(«il riquadro «Meteo»: sfondo da bianco a rosso», «sparito: il pulsante «Fallo»») che il programmatore legge sempre.
+Chi giudica: il modello in cloud che guarda la foto (se acceso), altrimenti il nucleo con l'adattatore «verifica»
+(addestrato proprio per questo: dalla richiesta e da quelle righe dice se la modifica è riuscita), altrimenti un
+modello di visione del PC. Senza nessuno restano i controlli senza modello e le righe misurate.
 Questo file non si personalizza (è uno degli strumenti che controllano le modifiche).
 """
 
@@ -25,6 +27,8 @@ import time
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Callable
+
+from . import cambiamenti
 
 SIZE = (1366, 768)
 TIMEOUT = 90
@@ -210,6 +214,64 @@ CHECK_JS = r"""(() => {
   return JSON.stringify(out);
 })()"""
 
+# Cosa c'è nella pagina e dove, per confrontare prima e dopo (cambiamenti.py): gli elementi visibili che contano
+# (scritte, riquadri, pulsanti, immagini, campi, cose colorate o bordate) con posizione, colori, misure e testo.
+INVENTORY_JS = r"""(() => {
+  const W = innerWidth, H = innerHeight;
+  const cv = document.createElement('canvas'); cv.width = cv.height = 1;
+  const cx = cv.getContext('2d', { willReadFrequently: true }), cache = {};
+  const hex = s => {  // qualunque colore CSS (rgb, oklch, color-mix…) → #rrggbb; '' se trasparente
+    if (!s || s === 'transparent') return ''; if (s in cache) return cache[s];
+    cx.clearRect(0, 0, 1, 1); cx.fillStyle = '#000'; cx.fillStyle = s; cx.fillRect(0, 0, 1, 1);
+    const d = cx.getImageData(0, 0, 1, 1).data;
+    return cache[s] = d[3] < 40 ? '' : '#' + [d[0], d[1], d[2]].map(x => x.toString(16).padStart(2, '0')).join(''); };
+  const words = el => (el.innerText || el.textContent || '').trim().replace(/\s+/g, ' ').split(' ').slice(0, 4).join(' ').slice(0, 30);
+  const own = el => [...el.childNodes].filter(n => n.nodeType === 3).map(n => n.textContent).join(' ').trim().replace(/\s+/g, ' ').slice(0, 60);
+  const isCard = (el, st, r) => { const bg = hex(st.backgroundColor);
+    return bg && parseFloat(st.borderTopLeftRadius) >= 6 && r.width >= 100 && r.height >= 36 && r.width <= W * 0.7 && r.height <= H * 0.8; };
+  const line = (w, s, c) => parseFloat(w) >= 1 && s !== 'none' && s !== 'hidden' && hex(c) ? Math.round(parseFloat(w)) + ' ' + hex(c) : '';
+  const index = new Map(), out = [];
+  const pathOf = el => { const p = []; for (let e = el; e && e !== document.body; e = e.parentElement) {
+      let i = 0; for (let s = e.previousElementSibling; s; s = s.previousElementSibling) if (s.tagName === e.tagName) i++;
+      p.push(e.tagName.toLowerCase() + i); } return p.reverse().join('/'); };
+  for (const el of document.querySelectorAll('body *')) {
+    if (out.length >= 2500) break;
+    const tag = el.tagName;
+    if (['SCRIPT', 'STYLE', 'TEMPLATE', 'BR', 'OPTION'].includes(tag) || (el.closest('svg') && tag !== 'svg')) continue;
+    const r = el.getBoundingClientRect();
+    if (r.width < 3 || r.height < 3 || r.bottom < 0 || r.top > H) continue;
+    if (el.checkVisibility && !el.checkVisibility({ opacityProperty: true, visibilityProperty: true })) continue;
+    const st = getComputedStyle(el);
+    if (st.visibility === 'hidden' || +st.opacity === 0) continue;
+    const text = own(el), bg = hex(st.backgroundColor), card = isCard(el, st, r);
+    const ol = line(st.outlineWidth, st.outlineStyle, st.outlineColor), bd = line(st.borderTopWidth, st.borderTopStyle, st.borderTopColor);
+    const special = ['BUTTON', 'IMG', 'svg', 'CANVAS', 'INPUT', 'TEXTAREA', 'SELECT', 'VIDEO'].includes(tag);
+    if (!text && !special && !bg && !ol && !bd) continue;
+    let kind = 'il blocco', name = text ? words(el) : '';
+    if (tag === 'BUTTON' || el.getAttribute('role') === 'button') { kind = 'il pulsante'; name = words(el); }
+    else if (/^H[1-6]$/.test(tag)) kind = 'il titolo';
+    else if (tag === 'IMG') { kind = "l'immagine"; name = (el.alt || '').slice(0, 30); }
+    else if (tag === 'svg' || tag === 'CANVAS') kind = 'il disegno';
+    else if (['INPUT', 'TEXTAREA', 'SELECT'].includes(tag)) { kind = 'il campo'; name = (el.placeholder || el.getAttribute('aria-label') || '').slice(0, 30); }
+    else if (card) { kind = 'il riquadro'; const first = [...el.querySelectorAll('*')].find(x => own(x)); name = first ? words(first) : words(el); }
+    else if (text) kind = 'la scritta';
+    else { const first = [...el.querySelectorAll('*')].find(x => own(x)); name = first ? words(first) : ''; }
+    let par = -1; for (let e = el.parentElement; e; e = e.parentElement) if (index.has(e)) { par = index.get(e); break; }
+    index.set(el, out.length);
+    const cls = [...el.classList].slice(0, 2).join('.');
+    out.push({ k: tag + (el.id ? '#' + el.id : '') + (cls ? '.' + cls : '') + '|' + kind + '|' + name + '|' + text,
+      p: pathOf(el), l: kind + (name ? ' «' + name + '»' : ''), t: text,
+      b: [r.left, r.top, r.width, r.height].map(Math.round), bg, c: text ? hex(st.color) : '',
+      fs: text ? Math.round(parseFloat(st.fontSize)) : 0, r: Math.round(parseFloat(st.borderTopLeftRadius) || 0),
+      ol, bd, op: Math.round(+st.opacity * 100) / 100, par });
+  }
+  const page = hex(getComputedStyle(document.body).backgroundColor) || hex(getComputedStyle(document.documentElement).backgroundColor) || '#ffffff';
+  return { fondo: page, scuro: matchMedia('(prefers-color-scheme: dark)').matches, elementi: out, larghezza: W, altezza: H };
+})()"""
+
+# Quello che si salva accanto alla foto: errori, problemi e l'inventario (un JSON in una stringa: WebKit lo passa così).
+REPORT_JS = "(() => { const o = JSON.parse(" + CHECK_JS + "); o.inventario = " + INVENTORY_JS + "; return JSON.stringify(o); })()"
+
 
 def _snapshot_webkit(url: str, js: str, out: Path, size: tuple[int, int], title: str) -> bool:
     import gi
@@ -250,7 +312,7 @@ def _snapshot_webkit(url: str, js: str, out: Path, size: tuple[int, int], title:
                     pass
                 v.get_snapshot(WebKit.SnapshotRegion.VISIBLE, WebKit.SnapshotOptions.NONE, None, saved)
 
-            view.evaluate_javascript(CHECK_JS, -1, None, None, None, checked)
+            view.evaluate_javascript(REPORT_JS, -1, None, None, None, checked)
             return False
 
         def loaded(v: Any, event: Any) -> None:
@@ -286,7 +348,7 @@ def _snapshot_chromium(url: str, js: str, out: Path, size: tuple[int, int]) -> b
             if js:
                 page.evaluate(js)
             time.sleep(2.0)
-            out.with_suffix(".json").write_text(page.evaluate(CHECK_JS))
+            out.with_suffix(".json").write_text(page.evaluate(REPORT_JS))
             page.screenshot(path=str(out))
         finally:
             browser.close()
@@ -374,14 +436,14 @@ def _cloud_look(image: Path, prompt: str) -> str:
         return ""
 
 
-def _nucleo_look(crops: tuple[bytes, bytes, Any] | None, request: str, now: datetime) -> str:
-    """Il controllo di qualità del nucleo (adattatore «verifica»): la parte cambiata, prima e dopo, e la richiesta."""
-    if crops is None:
+def _nucleo_look(changes: list[str] | None, request: str) -> str:
+    """Il controllo di qualità del nucleo (adattatore «verifica»): la richiesta e cosa è cambiato, misurato."""
+    if not changes:
         return ""
     try:
         from .nucleo import Nucleo
 
-        data = Nucleo(timeout=300).check_change(crops[0], crops[1], request, now)
+        data = Nucleo(timeout=300).check_change(changes, request)
     except Exception:
         return ""
     if data is None:
@@ -394,15 +456,15 @@ def _nucleo_look(crops: tuple[bytes, bytes, Any] | None, request: str, now: date
 
 def look(image: Path, request: str, question: str = "", model: str | None = None,
          see: Callable[[Path, str], str] | None = None, now: datetime | None = None, cloud: bool = True,
-         crops: tuple[bytes, bytes, Any] | None = None) -> str:
-    """Chi guarda la foto: il modello in cloud (solo pagine coi dati finti, se l'utente l'ha acceso), il nucleo con
-    l'adattatore «verifica» (con i ritagli prima/dopo), un modello di visione del PC. "" se non c'è nessuno."""
+         changes: list[str] | None = None) -> str:
+    """Chi giudica: il modello in cloud che guarda la foto (solo pagine coi dati finti, se l'utente l'ha acceso), il
+    nucleo con l'adattatore «verifica» (legge cosa è cambiato, misurato), un modello di visione del PC. "" se nessuno."""
     now = now or datetime.now()
     prompt = LOOK_PROMPT.format(request=request.strip(), time=now.strftime("%H:%M"), day=GIORNI[now.weekday()],
                                 question=f"Controlla in particolare: {question.strip()}" if question.strip() else "")
     if see is not None:
         return see(image, prompt)
-    answer = (_cloud_look(image, prompt) if cloud else "") or _nucleo_look(crops, request, now)
+    answer = (_cloud_look(image, prompt) if cloud else "") or _nucleo_look(changes, request)
     if answer:
         return answer
     model = model or vision_model()
@@ -453,13 +515,14 @@ def change_crops(before: bytes, after: bytes, pad: int = 28, min_side: int = 160
     return png(a), png(b), (x0, y0, x1 - x0, y1 - y0)
 
 
-def page_report(image: Path) -> dict[str, list[str]]:
-    """Gli errori di JavaScript e i problemi trovati nella pagina senza modello (accanto alla foto)."""
+def page_report(image: Path) -> dict[str, Any]:
+    """Gli errori di JavaScript, i problemi trovati nella pagina senza modello e l'inventario (accanto alla foto)."""
     try:
         data = json.loads(image.with_suffix(".json").read_text())
-        return {"errori": [str(x) for x in data.get("errori", [])], "problemi": [str(x) for x in data.get("problemi", [])]}
+        return {"errori": [str(x) for x in data.get("errori", [])], "problemi": [str(x) for x in data.get("problemi", [])],
+                "inventario": data.get("inventario")}
     except (OSError, ValueError, AttributeError):
-        return {"errori": [], "problemi": []}
+        return {"errori": [], "problemi": [], "inventario": None}
 
 
 def base_root(copy: Path | None = None) -> Path:
@@ -507,19 +570,19 @@ class Eyes:
         self._before_img: dict[str, Path | None] = {}
         self.failed = False  # la foto non si fa su questo PC: niente controllo visivo
         self.broken = False  # l'ultima occhiata ha trovato errori o problemi nuovi
-        self._before: dict[str, dict[str, list[str]]] = {}
+        self._before: dict[str, dict[str, Any]] = {}
 
     def _base(self) -> Path:
         if self._base_root is None:
             self._base_root = base_root(self.root)
         return self._base_root
 
-    def before(self, page: str) -> dict[str, list[str]]:
-        """I problemi che la pagina aveva già prima della modifica: non sono colpa sua."""
+    def before(self, page: str) -> dict[str, Any]:
+        """Com'era la pagina prima della modifica: i problemi che aveva già (non sono colpa sua) e l'inventario."""
         if page not in self._before:
             image, _ = self.shoot_base(page)
             self._before_img[page] = image
-            self._before[page] = page_report(image) if image else {"errori": [], "problemi": []}
+            self._before[page] = page_report(image) if image else {"errori": [], "problemi": [], "inventario": None}
         return self._before[page]
 
     def available(self) -> bool:
@@ -531,8 +594,9 @@ class Eyes:
             self.failed = True
             return f"La foto della pagina «{page}» qui non si riesce a fare ({problem[:120]}): rileggi bene la logica."
         self.last = image
-        report, old = page_report(image), self.before(page)
-        report = {k: [x for x in v if x not in old[k]] for k, v in report.items()}
+        full, old = page_report(image), self.before(page)
+        changes = cambiamenti.from_reports(old, full) if old.get("inventario") and full.get("inventario") else None
+        report = {k: [x for x in full[k] if x not in old[k]] for k in ("errori", "problemi")}
         self.broken = bool(report["errori"] or report["problemi"])
         lines = []
         if report["errori"]:
@@ -542,16 +606,20 @@ class Eyes:
                          + "\n".join(f"- {e}" for e in report["problemi"]))
         if not lines:
             lines.append("Nessun errore di JavaScript, niente testi tagliati, sovrapposti o poco leggibili.")
-        crops = None
-        old_img = self._before_img.get(page)
-        if old_img is not None and old_img.exists():
-            try:
-                crops = change_crops(old_img.read_bytes(), image.read_bytes())
-            except Exception:
-                crops = None
-            if crops is None:
+        if changes:
+            lines.append("Cosa è cambiato rispetto a prima (misurato nella pagina; controlla che sia quello chiesto):\n"
+                         + "\n".join(f"- {c}" for c in changes))
+        else:
+            old_img = self._before_img.get(page)
+            same = changes is not None
+            if changes is None and old_img is not None and old_img.exists():
+                try:
+                    same = change_crops(old_img.read_bytes(), image.read_bytes()) is None
+                except Exception:
+                    same = False
+            if same:
                 lines.append("La pagina è uguale a prima della modifica: quello che hai cambiato qui non si vede.")
-        answer = look(image, self.request, question, model=self.model, see=self.see, crops=crops)
+        answer = look(image, self.request, question, model=self.model, see=self.see, changes=changes)
         if answer:
             lines.append("Chi guarda la foto dice:\n" + answer)
         else:

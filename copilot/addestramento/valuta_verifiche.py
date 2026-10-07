@@ -6,7 +6,8 @@ Su esempi mai visti (prova-verifica.jsonl):
 - giudizio: «riuscita sì/no» giusto; falsi allarmi: modifiche riuscite giudicate sbagliate; sfuggite: sbagliate
   giudicate riuscite;
 - problemi: quanti dei problemi veri riconosce e quanti di quelli che segnala sono veri;
-- il giudizio per tipo di modifica (colore, posizione, testo, orologio…).
+- il giudizio per tipo di modifica (colore, posizione, testo, tema…).
+Il modello legge la richiesta e cosa è cambiato nella pagina, misurato (cambiamenti.py): solo testo.
 Più il giudizio dell'adattatore su esempi già visti in addestramento (verifica.jsonl): se sbaglia anche quelli
 non ha imparato, se lì va bene e sui nuovi no ha imparato a memoria (o prova e addestramento non combaciano).
 Confronta il modello senza adattatore con l'adattatore «verifica»; esce una tabella in Markdown.
@@ -35,7 +36,7 @@ def run(n: Nucleo, base: Path, rows: list[dict], adapter: str | None) -> dict:
         want = json.loads(r["risposta"])
         t = time.monotonic()
         try:
-            got = json.loads(n.see([(base / i).read_bytes() for i in r["immagini"]], r["prompt"], adapter,
+            got = json.loads(n.see([(base / i).read_bytes() for i in r.get("immagini", [])], r["prompt"], adapter,
                                    SYSTEM_VERIFICA, VERIFY_SCHEMA, 120))
         except (ValueError, OSError):
             got = {}

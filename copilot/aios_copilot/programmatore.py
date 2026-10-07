@@ -20,7 +20,8 @@ from typing import Any, Callable
 from . import codice
 
 MAX_STEPS = 40
-PROTECTED = {"aios_copilot/codice.py", "aios_copilot/__init__.py", "aios_copilot/programmatore.py", "aios_copilot/anteprima.py"}
+PROTECTED = {"aios_copilot/codice.py", "aios_copilot/__init__.py", "aios_copilot/programmatore.py", "aios_copilot/anteprima.py",
+             "aios_copilot/cambiamenti.py"}
 MAX_LOOKS = 6
 PAGE_FILES = (".html", ".js", ".css")
 RISKY = re.compile(r"\b(?:urllib|requests\.|http\.client|socket\.|subprocess|os\.system|os\.remove|os\.unlink|shutil\.rmtree|"

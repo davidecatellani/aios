@@ -264,7 +264,7 @@ class Store:
             os.utime(tmp, None)  # è una modifica di adesso: i programmi aperti se ne accorgono
             tmp.replace(path)
             self.snapshot(path)
-        return f"Ho rimesso «{path.name}» com'era {describe_time(row[0])}. La versione di prima resta tra le versioni."
+        return f"Ho rimesso «{path.name}» com'era {describe_time(row[0], datetime.fromtimestamp(self.clock()))}. La versione di prima resta tra le versioni."
 
     def changes(self, path: Path, vid: int, limit: int = 12) -> str:
         """Cosa è cambiato tra una versione e il documento di adesso, in breve."""

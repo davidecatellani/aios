@@ -78,12 +78,12 @@ def main() -> int:
     tok = processor.tokenizer
 
     def encode(row: dict) -> dict:
-        names = row.get("immagini") or [row["immagine"]]  # «verifica»: prima e dopo
+        names = row.get("immagini") or ([row["immagine"]] if row.get("immagine") else [])  # «verifica»: solo testo
         messages = [{"role": "system", "content": SYSTEMS[args.compito]},
                     {"role": "user", "content": [*({"type": "image"} for _ in names), {"type": "text", "text": row["prompt"]}]}]
         prompt = processor.apply_chat_template(messages, add_generation_prompt=True, enable_thinking=False)
         images = [Image.open(base / n).convert("RGB") for n in names]
-        inputs = processor(text=[prompt], images=images, return_tensors="pt")
+        inputs = processor(text=[prompt], images=images or None, return_tensors="pt")
         answer = tok(row["risposta"] + END, add_special_tokens=False, return_tensors="pt")["input_ids"]
         ids = torch.cat([inputs["input_ids"], answer], dim=1)
         labels = torch.cat([torch.full_like(inputs["input_ids"], -100), answer], dim=1)

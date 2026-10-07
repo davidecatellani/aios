@@ -1,9 +1,10 @@
 name: Verifica del nucleo
 
-# Il controllo di qualità delle personalizzazioni: l'adattatore «verifica» del nucleo (Qwen3.5 0.8B) guarda la
-# richiesta dell'utente e la parte della pagina che è cambiata, prima e dopo, e dice se la modifica è riuscita e cosa
-# non torna (colore, posizione, dimensione, testo, elementi spariti o duplicati, testi sovrapposti o illeggibili,
-# pagina rotta, lancette sbagliate…). Si addestra su modifiche vere fatte apposta bene e male su pagine di SoIA
+# Il controllo di qualità delle personalizzazioni: l'adattatore «verifica» del nucleo (Qwen3.5 0.8B) legge la
+# richiesta dell'utente e cosa è cambiato nella pagina, misurato prima e dopo (copilot/aios_copilot/cambiamenti.py),
+# e dice se la modifica è riuscita e cosa non torna (colore, posizione, dimensione, testo, elementi spariti o
+# duplicati, testi sovrapposti o illeggibili, pagina rotta…). Solo testo: guardare le immagini lo 0.8B non lo sa fare
+# abbastanza bene (prove 3 e 4). Si addestra su modifiche vere fatte apposta bene e male su pagine di SoIA
 # (copilot/addestramento/verifiche.py), quindi la risposta giusta si sa sempre. Parte dall'ultima Release
 # «adattatori-…», misura e pubblica una Release «adattatori-verifica-N» completa: la costruzione dell'immagine
 # prende la più recente. Si avvia solo a mano.
@@ -12,10 +13,10 @@ on:
     inputs:
       minuti:
         description: "Tempo massimo di addestramento (minuti, senza scheda video)"
-        default: "220"
+        default: "180"
       esempi:
         description: "Quanti esempi di modifiche (giuste e sbagliate) preparare"
-        default: "900"
+        default: "1500"
 
 permissions:
   contents: write
@@ -72,7 +73,7 @@ jobs:
       - name: Adattatore verifica
         run: |
           python copilot/addestramento/addestra_documenti.py --base base-hf --dati dati-verifica \
-            --esempi verifica.jsonl --compito verifica --uscita lora/verifica --max-minuti "${{ inputs.minuti }}" --epoche 2 --peso-decisione 5
+            --esempi verifica.jsonl --compito verifica --uscita lora/verifica --max-minuti "${{ inputs.minuti }}" --epoche 3 --peso-decisione 3
       - name: Conversione in GGUF
         run: |
           python /tmp/llama.cpp/convert_lora_to_gguf.py --base base-hf --outtype f16 --outfile uscita/verifica.gguf lora/verifica

@@ -7,8 +7,8 @@ Nova (copilot/addestramento). Il modello base è condiviso; per ogni richiesta s
 - smistamento: l'ambito della frase (agenda, posta, file…) e l'azione da fare;
 - campi: i valori dell'azione (cosa ricordare, quando…) in JSON;
 - documenti: legge bollette, scontrini, avvisi di pagamento (campi in JSON o tutto il testo);
-- verifica: il controllo di qualità di una personalizzazione (anteprima.py): dalla richiesta dell'utente e dalla parte
-  della pagina che è cambiata, prima e dopo, dice se la modifica è riuscita e cosa non torna.
+- verifica: il controllo di qualità di una personalizzazione (anteprima.py): dalla richiesta dell'utente e da cosa è
+  cambiato nella pagina, misurato (cambiamenti.py), dice se la modifica è riuscita e cosa non torna.
 
 Qwen3.5 vede anche le immagini (con il proiettore mmproj.gguf): il nucleo descrive le foto e legge i
 documenti al posto di MiniCPM-V e DeepSeek-OCR, senza un altro modello in memoria.
@@ -45,19 +45,20 @@ SYSTEM_VERIFICA = "AIOS · verifica"
 VERIFY_PROBLEMS = ("manca quello che è stato chiesto", "colore diverso da quello chiesto", "posizione sbagliata",
                    "dimensione sbagliata", "testo diverso da quello chiesto", "è sparito un elemento che doveva restare",
                    "elemento duplicato", "testi sovrapposti", "testo tagliato", "testo poco leggibile",
-                   "elemento fuori dallo schermo", "pagina vuota o rotta", "lancette che non segnano l'ora giusta")
+                   "elemento fuori dallo schermo", "pagina vuota o rotta")
 VERIFY_SCHEMA = {"type": "object", "properties": {
     "fatto": {"type": "boolean"},
     "problemi": {"type": "array", "items": {"type": "string", "enum": list(VERIFY_PROBLEMS)}}},
     "required": ["fatto", "problemi"]}
 
 
-def prompt_verifica(request: str, now: datetime) -> str:
-    """Le due immagini (prima e dopo, la parte della pagina che è cambiata) e la richiesta: la modifica è riuscita?"""
-    return (f"Richiesta dell'utente: «{request.strip()[:300]}». Adesso sono le {now:%H:%M}.\n"
-            "La prima immagine è com'era la pagina, la seconda com'è dopo la modifica (solo la parte cambiata).\n"
+def prompt_verifica(request: str, changes: list[str]) -> str:
+    """La richiesta e cosa è cambiato nella pagina (misurato, cambiamenti.py): la modifica è riuscita?"""
+    lines = "\n".join(f"- {c}" for c in changes) or "- niente: la pagina è uguale a prima"
+    return (f"Richiesta dell'utente: «{request.strip()[:300]}».\n"
+            f"Cosa è cambiato nella pagina (misurato prima e dopo la modifica):\n{lines}\n"
             "La modifica fa quello che l'utente ha chiesto, senza rompere niente? Rispondi con un JSON: fatto (vero o "
-            "falso) e problemi (quelli che vedi). Problemi possibili: " + "; ".join(VERIFY_PROBLEMS) + ".")
+            "falso) e problemi. Problemi possibili: " + "; ".join(VERIFY_PROBLEMS) + ".")
 
 
 GIORNI = ["lunedì", "martedì", "mercoledì", "giovedì", "venerdì", "sabato", "domenica"]
@@ -216,13 +217,13 @@ class Nucleo:
             return self.see(image, PROMPT_DOCUMENTO, adapter, SYSTEM_DOCUMENTO, DOCUMENT_SCHEMA, 200)
         return self.see(image, PROMPT_TESTO, adapter, SYSTEM_DOCUMENTO, None, 700)
 
-    def check_change(self, before: bytes, after: bytes, request: str, now: datetime | None = None) -> dict[str, Any] | None:
-        """Il controllo di qualità di una modifica con l'adattatore «verifica» (None se l'adattatore non c'è)."""
+    def check_change(self, changes: list[str], request: str) -> dict[str, Any] | None:
+        """Il controllo di qualità di una modifica con l'adattatore «verifica» (None se l'adattatore non c'è).
+        Solo testo: la richiesta e cosa è cambiato, misurato."""
         if "verifica" not in self.adapters():
             return None
         try:
-            data = json.loads(self.see([before, after], prompt_verifica(request, now or datetime.now()), "verifica",
-                                       SYSTEM_VERIFICA, VERIFY_SCHEMA, 120))
+            data = json.loads(self.see([], prompt_verifica(request, changes), "verifica", SYSTEM_VERIFICA, VERIFY_SCHEMA, 120))
         except (OSError, ValueError, KeyError, urllib.error.URLError):
             return None
         return data if isinstance(data, dict) else None

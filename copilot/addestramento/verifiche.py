@@ -7,8 +7,10 @@ in basso», «metti il tema scuro», «fai l'orologio rotondo con le lancette»�
 (persona inventata di anteprima.py, Chromium): a volte bene, a volte male (il colore sbagliato, la direzione
 sbagliata, un altro elemento sparito, il testo diverso…), a volte con un danno in più (testi sovrapposti, tagliati,
 poco leggibili, fuori schermo, un elemento duplicato, la pagina rotta). Siccome la modifica la facciamo noi, la
-risposta giusta si sa sempre. Il modello vede quello che vedrà in SoIA: la richiesta e la parte della pagina che è
-cambiata, prima e dopo (anteprima.change_crops). Escono verifica.jsonl e prova-verifica.jsonl con le immagini.
+risposta giusta si sa sempre. Il modello legge quello che leggerà in SoIA: la richiesta e cosa è cambiato nella
+pagina, misurato prima e dopo (anteprima.REPORT_JS → cambiamenti.from_reports). Solo testo: escono verifica.jsonl
+e prova-verifica.jsonl. (L'orologio con le lancette non c'è: l'ora segnata si vede solo guardando, ci pensa il
+modello che vede.)
 """
 
 from __future__ import annotations
@@ -25,7 +27,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from aios_copilot import anteprima  # noqa: E402
+from aios_copilot import anteprima, cambiamenti  # noqa: E402
 from aios_copilot.nucleo import VERIFY_PROBLEMS, prompt_verifica  # noqa: E402
 
 PAGES = [("casa", 8), ("impostazioni/personalizzazioni", 1), ("impostazioni/schermo", 1), ("impostazioni/aspetto", 1),
@@ -33,13 +35,16 @@ PAGES = [("casa", 8), ("impostazioni/personalizzazioni", 1), ("impostazioni/sche
          ("impostazioni/privacy", 1), ("impostazioni/azioni", 1), ("attivita", 2), ("calendario", 2), ("rubrica", 1),
          ("pannello/emoji", 1), ("pannello/appunti", 1), ("pannello/notifiche", 1)]
 CHANGES = [("colore", 4), ("dimensione", 3), ("posizione", 3), ("testo", 3), ("togli", 2), ("aggiungi", 3),
-           ("angoli", 1), ("bordo", 2), ("tema", 1), ("orologio", 2)]
+           ("angoli", 1), ("bordo", 2), ("tema", 1)]
 EFFECTS = ["sovrapposti", "tagliato", "contrasto", "fuori", "duplicato", "rotta"]
 COLORS = {"rosso": "#d62828", "verde": "#2a9d43", "blu": "#1d4ed8", "giallo": "#f4c430", "arancione": "#f77f00",
           "viola": "#7b2cbf", "rosa": "#ff5d8f", "nero": "#111111", "grigio": "#8a8f98", "azzurro": "#4cc9f0",
           "marrone": "#7f4f24", "bianco": "#ffffff"}
 WORDS = ["Benvenuta", "Le mie cose", "Lavoro", "Famiglia", "Da fare", "Musica preferita", "Ricette", "Viaggi",
          "Promemoria", "Scuola", "Casa nuova", "Spesa", "Palestra", "Bollette", "Ciao Giulia", "Buona giornata"]
+# controllo della pagina (anteprima.CHECK_JS) → il problema corrispondente
+DETECTED = {"poco contrasto": "testo poco leggibile", "testo tagliato": "testo tagliato",
+            "testi uno sopra l'altro": "testi sovrapposti", "esce dallo schermo": "elemento fuori dallo schermo"}
 SIZES = [(1366, 768), (1366, 768), (1280, 800), (1440, 900)]
 
 APPLY_JS = r"""(p) => {
@@ -209,7 +214,7 @@ def params(rng: random.Random, kind: str, now: datetime) -> dict:
     colore = rng.choice(list(COLORS))
     testo = rng.choice(WORDS)
     wrong_time = now + timedelta(minutes=rng.choice([-1, 1]) * rng.randrange(40, 330))
-    return {"seme": rng.randrange(2**31), "tipo": kind, "giusto": rng.random() < 0.6, "colori": COLORS,
+    return {"seme": rng.randrange(2**31), "tipo": kind, "giusto": rng.random() < 0.65, "colori": COLORS,
             "colore": colore, "colore_sbagliato": rng.choice([c for c in COLORS if c != colore]),
             "testo": testo, "testo_sbagliato": rng.choice([w for w in WORDS if w != testo]),
             "ora": {"h": now.hour, "m": now.minute}, "ora_sbagliata": {"h": wrong_time.hour, "m": wrong_time.minute},
@@ -221,13 +226,13 @@ def params(rng: random.Random, kind: str, now: datetime) -> dict:
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--uscita", default="dati-verifica")
-    ap.add_argument("--quante", type=int, default=900)
+    ap.add_argument("--quante", type=int, default=1500)
     ap.add_argument("--prova", type=float, default=0.1)
     ap.add_argument("--seme", type=int, default=11)
     args = ap.parse_args()
 
     out = Path(args.uscita)
-    (out / "img").mkdir(parents=True, exist_ok=True)
+    out.mkdir(parents=True, exist_ok=True)
     home = Path(tempfile.mkdtemp(prefix="aios-persona-"))
     anteprima.keep_browsers()
     os.environ.update(anteprima.fake_env(home))
@@ -248,7 +253,7 @@ def main() -> int:
         while len(rows) < args.quante and i < args.quante * 3:
             i += 1
             kind = rng.choices(kinds, kw)[0]
-            page_name = "casa" if kind == "orologio" else rng.choices(pages, pw_)[0]
+            page_name = rng.choices(pages, pw_)[0]
             w, h = rng.choice(SIZES)
             dark = kind != "tema" and rng.random() < 0.3
             now = datetime(2026, rng.randrange(1, 13), rng.randrange(1, 28), rng.randrange(24), rng.randrange(60))
@@ -263,30 +268,32 @@ def main() -> int:
                 if js:
                     page.evaluate(js)
                     page.wait_for_timeout(1200)
-                before = page.screenshot()
+                before = json.loads(page.evaluate(anteprima.REPORT_JS))
                 p = params(rng, kind, now)
                 if kind == "tema":
                     page.emulate_media(color_scheme="dark")
                     page.wait_for_timeout(300)
                 answer = page.evaluate(APPLY_JS, p)
                 page.wait_for_timeout(200)
-                after = page.screenshot()
+                after = json.loads(page.evaluate(anteprima.REPORT_JS))
             except Exception as exc:
                 print(f"{i}: {page_name}/{kind}: {exc}", flush=True)
                 ctx.close()
                 continue
             ctx.close()
-            crops = anteprima.change_crops(before, after) if answer else None
-            if crops is None:
+            changes = cambiamenti.from_reports(before, after) if answer else []
+            if not changes:  # niente di misurabile (es. un elemento già di quel colore): l'esempio non insegna
                 skipped += 1
                 continue
-            problems = [x for x in dict.fromkeys(answer["problemi"]) if x in VERIFY_PROBLEMS]
+            # i danni che si vedono nella pagina si danno per quelli che il controllo misura davvero (le righe
+            # «problema nella pagina»): così la risposta giusta corrisponde sempre a quello che il modello legge
+            new = [x for x in after.get("problemi") or [] if x not in (before.get("problemi") or [])]
+            seen = [v for k, v in DETECTED.items() if any(x.startswith(k) for x in new)]
+            problems = [x for x in dict.fromkeys(answer["problemi"]) if x in VERIFY_PROBLEMS and x not in DETECTED.values()]
+            problems += [x for x in seen if x not in problems]
             n = len(rows)
-            names = [f"img/v{n:05d}-prima.png", f"img/v{n:05d}-dopo.png"]
-            (out / names[0]).write_bytes(crops[0])
-            (out / names[1]).write_bytes(crops[1])
-            rows.append({"immagini": names, "pagina": page_name, "modifica": kind, "richiesta": answer["richiesta"],
-                         "prompt": prompt_verifica(answer["richiesta"], now),
+            rows.append({"pagina": page_name, "modifica": kind, "richiesta": answer["richiesta"], "cambiamenti": changes,
+                         "prompt": prompt_verifica(answer["richiesta"], changes),
                          "risposta": json.dumps({"fatto": not problems, "problemi": problems}, ensure_ascii=False)})
             if n % 25 == 0:
                 print(f"{n + 1}/{args.quante}  {(time.monotonic() - started) / 60:.1f} min  (saltati {skipped})", flush=True)

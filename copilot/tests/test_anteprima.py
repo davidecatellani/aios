@@ -1,6 +1,4 @@
 import json
-from datetime import datetime
-
 from aios_copilot import anteprima, cloud
 from aios_copilot.nucleo import SYSTEM_VERIFICA, VERIFY_SCHEMA, Nucleo, prompt_verifica
 
@@ -23,31 +21,32 @@ def test_nucleo_check_change_needs_the_adapter():
         return {"choices": [{"message": {"content": json.dumps(
             {"fatto": False, "problemi": ["colore diverso da quello chiesto"]})}}]}
 
+    changes = ["il riquadro «Meteo»: sfondo da bianco (#ffffff) a verde (#2a9d43)"]
     without = Nucleo("http://x", post=post, get=lambda url, t: [{"id": 0, "path": "/n/documenti.gguf"}])
-    assert without.check_change(b"\x89PNGa", b"\x89PNGb", "barra rossa") is None and not calls
+    assert without.check_change(changes, "barra rossa") is None and not calls
     n = Nucleo("http://x", post=post, get=lambda url, t: [{"id": 0, "path": "/n/documenti.gguf"},
                                                           {"id": 1, "path": "/n/verifica.gguf"}])
-    now = datetime(2026, 10, 6, 10, 10)
-    data = n.check_change(b"\x89PNGa", b"\x89PNGb", "colora la barra di rosso", now)
+    data = n.check_change(changes, "colora il meteo di rosso")
     assert data["fatto"] is False and data["problemi"] == ["colore diverso da quello chiesto"]
     p = calls[0]
     content = p["messages"][1]["content"]
     assert p["messages"][0]["content"] == SYSTEM_VERIFICA
-    assert [c["type"] for c in content] == ["image_url", "image_url", "text"]  # prima, dopo, richiesta
-    assert content[2]["text"] == prompt_verifica("colora la barra di rosso", now) and "10:10" in content[2]["text"]
+    assert [c["type"] for c in content] == ["text"]  # solo testo: la richiesta e cosa è cambiato, misurato
+    assert content[0]["text"] == prompt_verifica("colora il meteo di rosso", changes) and "- il riquadro «Meteo»" in content[0]["text"]
     assert {x["id"]: x["scale"] for x in p["lora"]} == {0: 0.0, 1: 1.0}
     assert p["response_format"]["json_schema"]["schema"] == VERIFY_SCHEMA
+    assert "niente: la pagina è uguale" in prompt_verifica("x", [])
 
 
 def test_verdict_from_the_nucleo(monkeypatch, tmp_path):
     img = tmp_path / "p.png"
     img.write_bytes(b"\x89PNG")
     monkeypatch.setattr(anteprima, "_cloud_look", lambda image, prompt: "")
-    monkeypatch.setattr(Nucleo, "check_change", lambda self, a, b, r, now: {"fatto": False, "problemi": ["posizione sbagliata"]})
-    text = anteprima.look(img, "sposta il meteo in basso", crops=(b"a", b"b", (0, 0, 1, 1)))
+    monkeypatch.setattr(Nucleo, "check_change", lambda self, c, r: {"fatto": False, "problemi": ["posizione sbagliata"]})
+    text = anteprima.look(img, "sposta il meteo in basso", changes=["il riquadro «Meteo»: spostato di 80 px in alto"])
     assert text == "La modifica non sembra riuscita: posizione sbagliata."
-    monkeypatch.setattr(Nucleo, "check_change", lambda self, a, b, r, now: {"fatto": True, "problemi": []})
-    assert anteprima.look(img, "x", crops=(b"a", b"b", (0, 0, 1, 1))) == "La modifica sembra riuscita come chiesto."
+    monkeypatch.setattr(Nucleo, "check_change", lambda self, c, r: {"fatto": True, "problemi": []})
+    assert anteprima.look(img, "x", changes=["qualcosa"]) == "La modifica sembra riuscita come chiesto."
 
 
 def test_change_crops(tmp_path):
