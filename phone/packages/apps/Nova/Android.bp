@@ -1,5 +1,5 @@
 // Nova, l'assistente di SoIA, come app di sistema. Solo Kotlin e SDK di sistema:
-// nessuna libreria esterna, niente servizi sempre attivi (la batteria prima di tutto).
+// nessuna libreria Kotlin esterna. L'ascolto continuo software richiede attivazione esplicita.
 android_app {
     name: "Nova",
     srcs: ["src/**/*.kt"],
@@ -9,16 +9,55 @@ android_app {
     privileged: true,
     certificate: "platform",
     system_ext_specific: true,
-    jni_libs: ["libaios_llama_server"],
-    required: ["privapp_whitelist_org.aios.nova"],
+    required: ["aios-llama-server", "aios-whisper", "aios-espeak", "nova-model", "nova-whisper-model", "nova-voice-data", "nova-bundle-manifest", "privapp_whitelist_org.aios.nova"],
+}
+
+cc_prebuilt_binary {
+    name: "aios-whisper",
+    srcs: ["native/arm64-v8a/aios-whisper"],
+    compile_multilib: "64",
+    stl: "none",
+    system_ext_specific: true,
+}
+cc_prebuilt_binary {
+    name: "aios-espeak",
+    srcs: ["native/arm64-v8a/aios-espeak"],
+    compile_multilib: "64",
+    stl: "none",
+    system_ext_specific: true,
+}
+prebuilt_etc {
+    name: "nova-model", src: "bundle/nova.gguf", filename: "nova.gguf",
+    sub_dir: "aios/models", system_ext_specific: true,
+}
+prebuilt_etc {
+    name: "nova-whisper-model", src: "bundle/whisper.bin", filename: "whisper.bin",
+    sub_dir: "aios/models", system_ext_specific: true,
+}
+prebuilt_etc {
+    name: "nova-voice-data", src: "bundle/voice-data.zip", filename: "voice-data.zip",
+    sub_dir: "aios/models", system_ext_specific: true,
+}
+prebuilt_etc {
+    name: "nova-bundle-manifest", src: "bundle/manifest.json", filename: "manifest.json",
+    sub_dir: "aios/models", system_ext_specific: true,
+}
+android_app_import {
+    name: "SoiaFDroid", apk: "bundle/FDroid.apk", presigned: true, preprocessed: true,
+    system_ext_specific: true,
+}
+android_app_import {
+    name: "SoiaKDEConnect", apk: "bundle/KDEConnect.apk", presigned: true, preprocessed: true,
+    system_ext_specific: true,
 }
 
 // llama.cpp compilato con l'NDK (scripts/llama-android.sh), avviato solo quando serve
-cc_prebuilt_library_shared {
-    name: "libaios_llama_server",
-    srcs: ["jni/arm64-v8a/libaios_llama_server.so"],
+cc_prebuilt_binary {
+    name: "aios-llama-server",
+    srcs: ["native/arm64-v8a/aios-llama-server"],
     compile_multilib: "64",
-    check_elf_files: false,
+    stl: "none",
+    shared_libs: ["liblog"],
     system_ext_specific: true,
 }
 
@@ -26,5 +65,6 @@ prebuilt_etc {
     name: "privapp_whitelist_org.aios.nova",
     sub_dir: "permissions",
     src: "privapp-permissions-nova.xml",
+    filename: "privapp-permissions-org.aios.nova.xml",
     system_ext_specific: true,
 }

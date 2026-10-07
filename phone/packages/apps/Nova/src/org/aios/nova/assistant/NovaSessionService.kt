@@ -11,7 +11,9 @@ class NovaSessionService : VoiceInteractionSessionService() {
     override fun onNewSession(args: Bundle?): VoiceInteractionSession = object : VoiceInteractionSession(this) {
         override fun onShow(args: Bundle?, showFlags: Int) {
             super.onShow(args, showFlags)
-            startAssistantActivity(Intent(context, NovaActivity::class.java))
+            startAssistantActivity(Intent(context, NovaActivity::class.java).apply {
+                args?.getString("wake_token")?.let { putExtra("wake_token",it) }
+            })
             hide()
         }
     }

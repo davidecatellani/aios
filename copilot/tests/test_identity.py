@@ -124,6 +124,39 @@ class Box:
             self.data[key] = value
 
 
+def test_sync_preserves_phone_data_without_a_local_adapter(tmp_path):
+    phone_box = Box()
+    phone_box.data["mobile"] = {"text": "nota sul telefono"}
+    phone = SyncEngine(b"k" * 32, "phone", [phone_box], tmp_path / "phone.db")
+    pc = SyncEngine(b"k" * 32, "pc", [], tmp_path / "pc.db")
+    phone.scan()
+    assert pc.merge(phone.ops_since(0)[0]) == 1
+    assert pc.scan() == 0
+    assert pc.scan() == 0
+    assert json.loads(pc.db.execute("SELECT value FROM snapshot WHERE key='note/mobile'").fetchone()[0]) == phone_box.data["mobile"]
+    assert phone.merge(pc.ops_since(0)[0]) == 0
+    assert phone_box.data["mobile"]["text"] == "nota sul telefono"
+
+
+def test_sync_preserves_profile_fields_unknown_to_the_pc(tmp_path):
+    from aios_copilot.sync import ProfileAdapter
+
+    class LocalProfile(ProfileAdapter):
+        def records(self):
+            return {}
+
+    phone_box = Box()
+    phone_box.prefix = "profilo"
+    phone_box.data["lingua"] = "italiano"
+    phone = SyncEngine(b"k" * 32, "phone", [phone_box], tmp_path / "phone.db")
+    pc = SyncEngine(b"k" * 32, "pc", [LocalProfile()], tmp_path / "pc.db")
+    phone.scan()
+    assert pc.merge(phone.ops_since(0)[0]) == 1
+    assert pc.scan() == 0
+    assert phone.merge(pc.ops_since(0)[0]) == 0
+    assert phone_box.data["lingua"] == "italiano"
+
+
 def pair(tmp_path, key=b"k" * 32):
     t = [1000.0]
     a_box, b_box = Box(), Box()

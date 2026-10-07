@@ -161,6 +161,7 @@ class Build:
     files: list[dict[str, str]] = field(default_factory=list)  # {nome, url, sha256, partizione}
     avb_key: dict[str, str] = field(default_factory=dict)
     aliases: list[str] = field(default_factory=list)  # altri codici dello stesso telefono (es. joyeuse → miatoll)
+    max_sdk: int = 0  # 0: catalogo precedente senza limite superiore dichiarato
 
     def fits(self, codename: str) -> bool:
         return bool(codename) and codename in (self.codename, *self.aliases)
@@ -180,7 +181,7 @@ def parse_catalog(data: bytes) -> list[Build]:
             raise InstallError(f"{raw.get('nome')}: ogni file va scaricato in https e con impronta SHA-256")
         builds.append(Build(raw["nome"], str(raw.get("versione", "")), raw.get("tipo", "gsi"), raw.get("marca", ""),
                             raw.get("codename", ""), raw.get("abi", "arm64-v8a"), int(raw.get("min_sdk", 0)), files,
-                            raw.get("chiave_avb", {}), [str(c) for c in raw.get("codici", [])]))
+                            raw.get("chiave_avb", {}), [str(c) for c in raw.get("codici", [])], int(raw.get("max_sdk", 0))))
     return builds
 
 
@@ -212,7 +213,8 @@ def choose_build(phone: PhoneInfo, builds: list[Build]) -> tuple[Build | None, B
         return exact, recovery
     if phone.brand == "google":
         return None, None  # sui Pixel solo immagini dedicate (con chiave di avvio e richiusura)
-    gsi = next((b for b in builds if b.kind == "gsi" and phone.treble and b.abi == phone.abi and phone.sdk >= b.min_sdk), None)
+    gsi = next((b for b in builds if b.kind == "gsi" and phone.treble and b.abi == phone.abi
+                and phone.sdk >= b.min_sdk and (not b.max_sdk or phone.sdk <= b.max_sdk)), None)
     return gsi, recovery
 
 

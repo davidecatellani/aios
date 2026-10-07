@@ -2,10 +2,10 @@
   "_nota": "Bersagli di compilazione di SoIA per telefono. «base»: aosp (Pixel, GSI) o lineage (gli altri telefoni, con i file hardware mantenuti da LineageOS). Rami e nomi di rilascio vanno ricontrollati prima di ogni compilazione: cambiano con le versioni di Android.",
   "bersagli": {
     "gsi": {
-      "nome": "SoIA GSI (arm64, telefoni Treble)",
+      "nome": "SoIA GSI Android 16 (arm64, telefoni Treble)",
       "base": "aosp",
       "manifest": "https://android.googlesource.com/platform/manifest",
-      "ramo": "android-latest-release",
+      "ramo": "android-16.0.0_r3",
       "prodotto": "aios_gsi_arm64",
       "rilascio": "trunk_staging",
       "tipo_catalogo": "gsi",
@@ -13,7 +13,12 @@
         "system.img",
         "vbmeta.img"
       ],
-      "marca": ""
+      "marca": "",
+      "android_sdk": 36,
+      "min_sdk": 36,
+      "max_sdk": 36,
+      "stato": "sperimentale, non ancora compilata o provata su hardware",
+      "nota": "Prima variante per firmware Android 16. Treble/arm64 e versione Android rendono il telefono candidato, non certificano la compatibilità hardware. Lo sblocco OEM non equivale a bootloader sbloccato."
     },
     "shiba": {
       "nome": "SoIA per Google Pixel 8",

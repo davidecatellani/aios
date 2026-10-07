@@ -17,7 +17,7 @@ object EnergyJobs {
     const val HEAVY = 2
 
     fun schedule(context: Context) {
-        val scheduler = context.getSystemService(JobScheduler::class.java)
+        val scheduler = context.getSystemService(JobScheduler::class.java) ?: return
         val service = ComponentName(context, EnergyJobService::class.java)
         if (scheduler.getPendingJob(LIGHT) == null) {
             scheduler.schedule(JobInfo.Builder(LIGHT, service)

@@ -29,10 +29,24 @@ class RestoreActivity : Activity() {
         if (fromPc.exists()) input.setText(fromPc.readText().trim())
         go.setOnClickListener {
             val qr = input.text.toString().trim()
+            if (qr.isEmpty()) return@setOnClickListener
+            go.isEnabled = false
             Thread {
-                val message = try { "Collegato a ${bridge.pair(qr)}." } catch (e: Exception) { "Non riuscito: ${e.message}" }
-                fromPc.delete()  // il codice vale una volta sola
-                runOnUiThread { status.text = message }
+                val message = try {
+                    val name = bridge.pair(qr)
+                    org.aios.nova.nearby.Nearby.start(applicationContext)
+                    fromPc.delete()  // solo dopo l'abbinamento riuscito: un errore di rete deve essere riprovabile
+                    val sync=runCatching { org.aios.nova.core.PrototypeStore(applicationContext).sync() }
+                        .getOrElse { "Sincronizzazione: ${it.message}" }
+                    org.aios.nova.core.Reminders.schedule(applicationContext)
+                    "Collegato a $name.\n$sync"
+                } catch (e: Exception) { "Non riuscito: ${e.message}" }
+                runOnUiThread {
+                    if (!isFinishing && !isDestroyed) {
+                        status.text = message
+                        go.isEnabled = true
+                    }
+                }
             }.start()
         }
     }

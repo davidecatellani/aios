@@ -3,6 +3,8 @@
 # Nova (app di sistema) e la sovrapposizione delle impostazioni di sistema
 PRODUCT_PACKAGES += \
     Nova \
+    SoiaFDroid \
+    SoiaKDEConnect \
     AiosFrameworkOverlay \
     aios-energia.sh
 

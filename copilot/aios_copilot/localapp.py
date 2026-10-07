@@ -61,24 +61,31 @@ class Job:
     _decision: bool = False
     _answered: threading.Event = field(default_factory=threading.Event)
     _lock: threading.Lock = field(default_factory=threading.Lock)
+    _confirmation_id: int = 0
 
     def add(self, **event: Any) -> None:
         with self._lock:
             self.events.append(event)
 
     def ask_confirmation(self, tool: Tool, args: dict[str, Any], warning: str | None = None) -> bool:
-        self._answered.clear()
-        self.pending = {"label": describe_call(tool, args), "warning": warning}
+        with self._lock:
+            self._answered.clear()
+            self._confirmation_id += 1
+            self.pending = {"id": self._confirmation_id, "label": describe_call(tool, args), "warning": warning}
         answered = self._answered.wait(CONFIRM_TIMEOUT)
-        self.pending = None
-        return answered and self._decision
+        with self._lock:
+            self.pending = None
+            return answered and self._decision
 
-    def confirm(self, ok: bool) -> bool:
-        if self.pending is None:
-            return False
-        self._decision = ok
-        self._answered.set()
-        return True
+    def confirm(self, ok: bool, confirmation_id: int | None = None) -> bool:
+        with self._lock:
+            if self.pending is None or self._answered.is_set():
+                return False
+            if confirmation_id is not None and confirmation_id != self.pending["id"]:
+                return False
+            self._decision = ok
+            self._answered.set()
+            return True
 
     def snapshot(self, after: int) -> dict[str, Any]:
         with self._lock:

@@ -1,7 +1,22 @@
 # SoIA per telefono: compilazione dell'immagine
 
+Il [prototipo integrato](PROTOTIPO.md) include Nova, AI e voce offline, dati cifrati,
+collegamento al PC, KDE Connect, **Play Store e servizi Google**. Si prepara e
+compila sul PC con un solo comando:
+
+```bash
+bash phone/scripts/pc-build.sh prototype
+```
+
 SoIA per telefono è **Android open source** con sopra Nova e le scelte di SoIA
 (energia, tema, collegamento al PC). Due basi:
+
+Per una versione comune a più marche stiamo sviluppando la **GSI Android 16 ARM64**:
+vedi [configurazione, requisiti e limiti](GSI.md). È sperimentale e non ancora compilata.
+
+Per il PC SoIA/Fedora con 32 GB di RAM e disco da 1 TB è disponibile la
+[procedura con Podman e workflow manuale GitHub](PC-BUILD.md), con controlli,
+download e compilazione separati.
 
 | Base | Per | Perché |
 |---|---|---|
@@ -45,7 +60,9 @@ Serve un PC Linux x86_64 con **almeno 300 GB liberi, 32–64 GB di RAM**, `repo`
 
 ```bash
 phone/scripts/prepara.sh miatoll          # sorgenti di LineageOS 22.2 + SoIA
+python3 phone/scripts/prepara-prototipo.py --cache ~/.cache/aios-prototype
 phone/scripts/llama-android.sh            # llama.cpp per Nova
+phone/scripts/voce-android.sh             # Whisper, eSpeak-ng e dati della voce
 phone/scripts/chiavi.sh ~/aios-android/lineage-lineage-22.2   # solo la prima volta
 phone/scripts/compila.sh miatoll
 phone/scripts/firma.sh miatoll
@@ -63,12 +80,44 @@ Per il miatoll serve prima il firmware MIUI minimo indicato dal wiki di LineageO
 
 ## Stato
 
+Il primo dispositivo scelto per il prossimo sviluppo è **Motorola Edge 50 Neo**:
+vedi [dati necessari, percorso e limiti](EDGE50NEO.md). La compatibilità della GSI
+su questo modello non è ancora verificata.
+
 - Struttura, configurazione, app Nova, script e catalogo sono scritti; catalogo e
   installatore sono provati con i test (`copilot/tests/test_phone_build.py`).
-- **Non ancora compilato**: qui non ci sono i sorgenti di Android (centinaia di GB).
-  La prima compilazione vera farà emergere correzioni (Kotlin, SELinux, nomi di
-  rilascio), normali per un primo giro.
-- Nova su Android oggi: assistente di sistema, conversazione, «Chiedi al PC», modello
-  locale su richiesta, lavori a basso consumo, collegamento al primo avvio. Da portare
-  dal PC: livelli veloci (riconoscimento immediato delle frasi), identità e
-  sincronizzazione firmata, decisioni di energia (energy.py), «Ehi Nova» sul DSP audio.
+- **Immagine Android completa non ancora compilata**: qui non ci sono i sorgenti
+  di Android (centinaia di GB). In cloud sono stati compilati i sorgenti Kotlin
+  e le risorse di Nova, oltre ai tre motori nativi ARM64 con NDK r28c (segmenti ELF
+  allineati a 16 KiB). La build Soong completa, SELinux e l'avvio sul telefono
+  restano da verificare.
+- Funzioni e condizioni del prototipo sono descritte in [PROTOTIPO.md](PROTOTIPO.md):
+  voce offline, comandi tipizzati, identità, sincronizzazione, dati, PC e app incluse.
+  «Ehi Nova» usa una modalità software facoltativa; DSP e OTA automatici restano
+  fuori da questa GSI generica.
+
+## Verificare Nova senza compilare tutta Android
+
+Conferme, allegati, crittografia, sincronizzazione e importazioni hanno test Kotlin
+eseguibili sul JVM e vettori prodotti dal vero protocollo Python del PC. Servono
+Java, Kotlin (verificato con 2.1.20) e `org.json:json:20240303`, fuori dal repository:
+
+```bash
+AIOS_KOTLINC=/percorso/kotlinc/bin/kotlinc \
+AIOS_JSON_JAR=/percorso/json-20240303.jar \
+bash phone/scripts/test-nova.sh
+```
+
+Con `AIOS_ANDROID_JAR` impostato al framework Android, lo stesso script compila
+anche tutti i sorgenti Kotlin dell'app (verificato con
+`org.robolectric:android-all:15-robolectric-12650502`). Questo controllo risolve gli
+identificativi `R` con un file temporaneo; non produce un APK, non verifica le
+risorse con AAPT né sostituisce la build Soong, l'emulatore o le prove hardware.
+
+Dal componente PC, i test delle conferme, del collegamento e del controllo USB:
+
+```bash
+cd copilot
+AIOS_OLLAMA_URL=http://127.0.0.1:9 NO_PROXY=127.0.0.1,localhost \
+  python -m pytest -q tests/test_phone_confirmation.py tests/test_delegate.py tests/test_phone_probe.py
+```

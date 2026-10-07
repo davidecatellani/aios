@@ -1,0 +1,18 @@
+FROM docker.io/library/ubuntu:24.04
+
+ENV LANG=C.UTF-8 LC_ALL=C.UTF-8
+RUN apt-get -o APT::Update::Error-Mode=any update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+    ca-certificates git git-lfs gnupg curl python3 python-is-python3 \
+    build-essential cmake ninja-build flex bison gperf zip unzip rsync bc \
+    zlib1g-dev lib32z1-dev libc6-dev-i386 libncurses-dev libx11-dev \
+    libgl1-mesa-dev libxml2-utils xsltproc fontconfig openssl libssl-dev \
+    lz4 file locales util-linux \
+    && rm -rf /var/lib/apt/lists/*
+
+# Launcher ufficiale repo, con revisione verificata nel repository upstream.
+RUN git clone --depth 1 --branch v2.54 https://github.com/GerritCodeReview/git-repo.git /opt/git-repo \
+    && test "$(git -C /opt/git-repo rev-parse HEAD)" = 97dc5c1bd9527c2abe2183b16a4b7ef037dc34a7 \
+    && ln -s /opt/git-repo/repo /usr/local/bin/repo
+
+WORKDIR /work/aios
+CMD ["bash"]

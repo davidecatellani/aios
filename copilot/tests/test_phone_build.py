@@ -65,7 +65,13 @@ def test_catalog_from_signed_build_output(tmp_path):
     system, recovery = pi.choose_build(redmi, pi.load_catalog())
     assert system.files[0]["nome"] == "aios-miatoll.zip" and recovery.files[0]["partizione"] == "recovery"
     moto = pi.PhoneInfo("adb", "y", "motorola", "moto g84", "bangkk", 34, "arm64-v8a", True)
-    assert pi.choose_build(moto, pi.load_catalog())[0].kind == "gsi"
+    assert pi.choose_build(moto, pi.load_catalog())[0] is None  # questa variante è Android 16
+    edge = pi.PhoneInfo("adb", "z", "motorola", "XT2409-1", "", 36, "arm64-v8a", True)
+    assert pi.choose_build(edge, pi.load_catalog())[0].kind == "gsi"
+    edge.sdk = 37
+    assert pi.choose_build(edge, pi.load_catalog())[0] is None  # nessun downgrade automatico
+    entry = doc["immagini"][-1]
+    assert entry["source_ref"] == "android-16.0.0_r3" and entry["android_sdk"] == 36
     with pytest.raises(SystemExit, match="https"):
         phonecatalog.main(["--bersaglio", "gsi", "--cartella", str(gsi), "--url", "http://insicuro", "--chiave", str(pem),
                            "--catalogo", str(catalog), "--dispositivi", str(PHONE / "dispositivi.json")])

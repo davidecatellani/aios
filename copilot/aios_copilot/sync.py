@@ -130,7 +130,14 @@ class SyncEngine:
     def scan(self) -> int:
         """Confronta i dati di ogni adattatore con l'ultima fotografia: le differenze diventano operazioni."""
         with self.lock:
-            known = dict(self.db.execute("SELECT key, value FROM snapshot"))
+            # I dati di altri dispositivi possono avere adattatori non installati sul PC
+            # (ad esempio le note di Nova). L'assenza di un adattatore non è una cancellazione.
+            known = {}
+            for key, value in self.db.execute("SELECT key, value FROM snapshot"):
+                prefix, _, sub = key.partition("/")
+                adapter = self.adapters.get(prefix)
+                if adapter is not None and getattr(adapter, "supports", lambda _: True)(sub):
+                    known[key] = value
             current: dict[str, Any] = {}
             for prefix, adapter in self.adapters.items():
                 try:
@@ -232,6 +239,9 @@ class AgendaAdapter:
 class ProfileAdapter:
     prefix = "profilo"
     FIELDS = ("name",)  # solo ciò che vale per la persona, non per il dispositivo
+
+    def supports(self, key: str) -> bool:
+        return key in self.FIELDS
 
     def records(self) -> dict[str, Any]:
         from .welcome import load_profile

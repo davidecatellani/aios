@@ -50,7 +50,14 @@ def entries_for(target: str, spec: dict, folder: Path, url: str, version: str) -
     if (folder / "avb_pkmd.bin").exists():
         entry["chiave_avb"] = item(folder / "avb_pkmd.bin")
     if spec["tipo_catalogo"] == "gsi":
-        entry["min_sdk"] = 30  # Treble con partizioni dinamiche
+        entry["min_sdk"] = int(spec.get("min_sdk", 30))
+        if spec.get("max_sdk"):
+            entry["max_sdk"] = int(spec["max_sdk"])
+            if entry["max_sdk"] < entry["min_sdk"]:
+                raise SystemExit("Intervallo SDK della GSI non valido")
+        if spec.get("android_sdk"):
+            entry["android_sdk"] = int(spec["android_sdk"])
+        entry["source_ref"] = spec.get("ramo", "")
     entries = [entry]
     recovery = [p for p in outputs if p.name in ("recovery.img", "boot.img")]
     if recovery:

@@ -147,7 +147,12 @@ def handle_api(server: Any, method: str, path: str, body: dict[str, Any], query:
             after = parse_qs(query).get("after", ["0"])[0]
             return 200, job.snapshot(int(after) if after.isdigit() else 0)
         if method == "POST" and parts[3:] == ["conferma"]:
-            return 200, {"ok": job.confirm(bool(body.get("ok")))}
+            if type(body.get("ok")) is not bool:
+                return 400, {"error": "conferma non valida"}
+            confirmation_id = body.get("id")
+            if "id" in body and (type(confirmation_id) is not int or confirmation_id <= 0):
+                return 400, {"error": "identificativo della conferma non valido"}
+            return 200, {"ok": job.confirm(body["ok"], confirmation_id)}
     return None
 
 

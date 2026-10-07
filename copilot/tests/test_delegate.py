@@ -129,7 +129,10 @@ def test_ask_the_pc_with_confirmation_on_the_phone(pc):
         time.sleep(0.02)
     assert "save_note" in state["pending"]["label"] or "nota" in state["pending"]["label"].lower()
     assert not saved  # aspetta la conferma sul telefono
-    assert req("POST", f"/api/job/{job}/conferma", {"ok": True})["ok"]
+    confirmation_id = state["pending"]["id"]
+    assert not req("POST", f"/api/job/{job}/conferma", {"ok": True, "id": confirmation_id + 1})["ok"]
+    assert not saved  # un identificativo errato non autorizza l'azione
+    assert req("POST", f"/api/job/{job}/conferma", {"ok": True, "id": confirmation_id})["ok"]
     for _ in range(100):
         state = req("GET", f"/api/job/{job}")
         if state["done"]:

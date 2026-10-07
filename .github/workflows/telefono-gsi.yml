@@ -1,0 +1,42 @@
+name: SoIA GSI sul PC
+
+on:
+  workflow_dispatch:
+    inputs:
+      fase:
+        description: 'prototype: prepara e compila tutto; oppure check, prepare, build separati'
+        type: choice
+        options: [prototype, check, prepare, build]
+        default: prototype
+
+permissions:
+  contents: read
+
+concurrency:
+  group: soia-android-pc
+  cancel-in-progress: false
+
+jobs:
+  gsi:
+    runs-on: [self-hosted, linux, x64, soia-android]
+    timeout-minutes: 1440
+    env:
+      FASE: ${{ inputs.fase }}
+      AIOS_BUILD_JOBS: '4'
+      AIOS_SYNC_JOBS: '4'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Ambiente e compilazione locale
+        shell: bash
+        run: bash phone/scripts/pc-build.sh "$FASE"
+      - name: Conserva i log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: soia-gsi-log-${{ github.run_id }}
+          path: |
+            ~/soia-phone-build/logs/${{ github.run_id }}-${{ github.run_attempt }}/*.log
+          if-no-files-found: ignore
+          retention-days: 7

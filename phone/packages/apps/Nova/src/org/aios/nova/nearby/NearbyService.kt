@@ -52,7 +52,7 @@ class NearbyService : Service() {
     override fun onCreate() {
         super.onCreate()
         tethering = -1
-        val nm = getSystemService(NotificationManager::class.java)
+        val nm = getSystemService(NotificationManager::class.java) ?: run { stopSelf(); return }
         nm.createNotificationChannel(NotificationChannel(CHANNEL, "Collegamento con il PC", NotificationManager.IMPORTANCE_MIN))
         startForeground(1, Notification.Builder(this, CHANNEL).setSmallIcon(android.R.drawable.stat_sys_data_bluetooth)
             .setContentTitle("Collegato al PC").setContentText("Nova tiene il collegamento finché il PC è vicino").build())
@@ -87,12 +87,12 @@ class NearbyService : Service() {
     private fun advertise() {
         val secret = PcBridge(this).nearbySecret() ?: return
         var flags = 0
-        val cm = getSystemService(ConnectivityManager::class.java)
+        val cm = getSystemService(ConnectivityManager::class.java) ?: return
         val caps = cm.getNetworkCapabilities(cm.activeNetwork)
         if (caps?.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) == true &&
             caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)) flags = flags or NearbyCode.F_INTERNET
         if (lowBattery()) flags = flags or NearbyCode.F_BATTERIA_BASSA
-        if (getSystemService(BatteryManager::class.java).isCharging) flags = flags or NearbyCode.F_IN_CARICA
+        if (getSystemService(BatteryManager::class.java)?.isCharging == true) flags = flags or NearbyCode.F_IN_CARICA
         val advertiser = getSystemService(BluetoothManager::class.java)?.adapter?.bluetoothLeAdvertiser ?: return
         advertising?.let { advertiser.stopAdvertising(it) }
         val payload = NearbyCode.make(secret, NearbyCode.ROLE_PHONE, flags, System.currentTimeMillis() / 1000)
@@ -127,7 +127,7 @@ class NearbyService : Service() {
             .setIsHiddenSsid(true).build()
         val request = NetworkRequest.Builder().addTransportType(NetworkCapabilities.TRANSPORT_WIFI)
             .removeCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET).setNetworkSpecifier(spec).build()
-        val cm = getSystemService(ConnectivityManager::class.java)
+        val cm = getSystemService(ConnectivityManager::class.java) ?: return
         val callback = object : ConnectivityManager.NetworkCallback() {
             override fun onAvailable(net: Network) {
                 val gateway = cm.getLinkProperties(net)?.routes?.firstOrNull { it.hasGateway() }?.gateway?.hostAddress
@@ -144,13 +144,13 @@ class NearbyService : Service() {
     /** Rete Bluetooth (leggera) o internet del telefono (hotspot con nome e password che conosce solo il PC). */
     private fun tether(type: Int, network: Pair<String, String>?) {
         closeAll()
-        val wifi = getSystemService(WifiManager::class.java)
+        val wifi = getSystemService(WifiManager::class.java) ?: return
         if (network != null) {
             savedAp = wifi.softApConfiguration
             wifi.setSoftApConfiguration(SoftApConfiguration.Builder().setSsid(network.first)
                 .setPassphrase(network.second, SoftApConfiguration.SECURITY_TYPE_WPA2_PSK).setHiddenSsid(true).build())
         }
-        val tm = getSystemService(TetheringManager::class.java)
+        val tm = getSystemService(TetheringManager::class.java) ?: return
         tm.startTethering(TetheringManager.TetheringRequest.Builder(type).build(), executor,
             object : TetheringManager.StartTetheringCallback {
                 override fun onTetheringStarted() {
@@ -203,17 +203,17 @@ class NearbyService : Service() {
     }
 
     private fun closeAll() {
-        joined?.let { getSystemService(ConnectivityManager::class.java).unregisterNetworkCallback(it) }
+        joined?.let { getSystemService(ConnectivityManager::class.java)?.unregisterNetworkCallback(it) }
         joined = null
         PcBridge.link(null, null)
-        if (tethering >= 0) getSystemService(TetheringManager::class.java).stopTethering(tethering)
+        if (tethering >= 0) getSystemService(TetheringManager::class.java)?.stopTethering(tethering)
         tethering = -1
-        savedAp?.let { getSystemService(WifiManager::class.java).setSoftApConfiguration(it) }
+        savedAp?.let { getSystemService(WifiManager::class.java)?.setSoftApConfiguration(it) }
         savedAp = null
     }
 
     private fun lowBattery(): Boolean {
-        val bm = getSystemService(BatteryManager::class.java)
+        val bm = getSystemService(BatteryManager::class.java) ?: return true
         return bm.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY) < 20 && !bm.isCharging
     }
 

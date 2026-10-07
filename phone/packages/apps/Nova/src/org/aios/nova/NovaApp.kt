@@ -4,12 +4,12 @@ import android.app.Application
 import org.aios.nova.energy.EnergyJobs
 import org.aios.nova.nearby.Nearby
 
-/** Nova sul telefono: niente servizi sempre attivi, solo lavori pianificati con i vincoli di energia
- *  (e il collegamento col PC, acceso solo mentre il PC è vicino). */
+/** Avvio dei lavori vincolati da Android e della ricerca del PC.
+ * Il servizio microfono software viene avviato soltanto dalle impostazioni dell'utente. */
 class NovaApp : Application() {
     override fun onCreate() {
         super.onCreate()
         EnergyJobs.schedule(this)
-        Nearby.start(this)  // ascolto BLE affidato al chip: costa quasi nulla
+        Nearby.start(this)  // scansione BLE filtrata quando il PC è abbinato
     }
 }
