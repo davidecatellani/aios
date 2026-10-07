@@ -54,7 +54,11 @@ jobs:
                 --jq '[.[] | select(.tagName | startswith("adattatori-"))] | sort_by(.createdAt) | reverse | .[0].tagName')
           echo "Parto da $tag"
           mkdir -p uscita
-          gh release download "$tag" --repo "$GITHUB_REPOSITORY" --dir uscita --pattern '*.gguf'
+          for i in 1 2 3 4 5; do  # GitHub a volte risponde 500 sui file delle release: si riprova
+            gh release download "$tag" --repo "$GITHUB_REPOSITORY" --dir uscita --pattern '*.gguf' --clobber && break
+            [ "$i" = 5 ] && exit 1
+            sleep $((i * 20))
+          done
           rm -f uscita/schermate.gguf uscita/verifica.gguf  # si rifà (schermate: la prima prova, superata)
           ls -lh uscita
       - name: Modello base (e proiettore delle immagini, se manca)
