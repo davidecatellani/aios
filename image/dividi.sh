@@ -3,6 +3,7 @@
 # Come «split -b 1900M -d -a 1», ma dalla fine e accorciando il file man mano: sul disco non serve mai lo
 # spazio per due copie intere (la ISO e il pacchetto di aggiornamento sono di 15 GB l'uno).
 set -euo pipefail
+trap 'echo "dividi.sh: fermo alla riga $LINENO: $BASH_COMMAND (codice $?)"' ERR
 file="$1"
 pezzo=$((${PEZZO_MB:-1900} * 1024 * 1024))
 dimensione=$(stat -c %s "$file")

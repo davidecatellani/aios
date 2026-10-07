@@ -159,6 +159,9 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          # se qualcosa si ferma, dice cosa (le build 32 e 33 si sono fermate qui senza nessun messaggio)
+          exec 2>&1
+          trap 'echo "Fermo alla riga $LINENO: $BASH_COMMAND (codice $?)"' ERR
           files=(/mnt/uscita/aggiornamento/aios-aggiornamento.*)
           if [ "$ISO" = true ]; then
             # GitHub accetta file fino a 2 GB: se la ISO è più grande si divide in pezzi.
