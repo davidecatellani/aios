@@ -135,6 +135,7 @@ jobs:
             quay.io/centos-bootc/bootc-image-builder:latest \
             --type anaconda-iso --rootfs btrfs "${IMMAGINE}:${TAG}"
           ls -lh /mnt/uscita/bootiso
+          df -h / /mnt
       - name: Pacchetto di aggiornamento
         # La stessa immagine come file: i PC già installati la scaricano da qui (con l'accesso dell'utente)
         # o la leggono da una chiavetta (copilot/aios_copilot/imageupdate.py). Mai formattare per aggiornare.
@@ -144,8 +145,7 @@ jobs:
           sudo chown -R "$(id -u)" /mnt/uscita
           cd /mnt/uscita/aggiornamento
           totale=$(sha256sum aios-aggiornamento.ociarchive | cut -d' ' -f1)
-          split -b 1900M -d -a 1 aios-aggiornamento.ociarchive aios-aggiornamento.ociarchive.parte
-          rm aios-aggiornamento.ociarchive
+          bash "$GITHUB_WORKSPACE/image/dividi.sh" aios-aggiornamento.ociarchive
           python3 - "$VERSIONE" "$FEDORA" "$totale" "$GPU" <<'PY'
           import hashlib, json, pathlib, sys
           parti = []
@@ -166,8 +166,7 @@ jobs:
             mv install.iso aios-installazione.iso
             sha256sum aios-installazione.iso > aios-installazione.iso.sha256
             if [ "$(stat -c %s aios-installazione.iso)" -gt 2000000000 ]; then
-              split -b 1900M -d -a 1 aios-installazione.iso aios-installazione.iso.parte
-              rm aios-installazione.iso
+              bash "$GITHUB_WORKSPACE/image/dividi.sh" aios-installazione.iso
             fi
             files+=(/mnt/uscita/bootiso/aios-installazione.iso*)
           fi
