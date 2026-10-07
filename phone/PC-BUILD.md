@@ -75,6 +75,36 @@ I log di `prepare` e `build` sono conservati sotto
 GitHub li conserva anche come artefatti per sette giorni. Se si personalizza
 `AIOS_PC_BUILD_DIR` sul runner, adeguare anche il percorso di upload nel workflow.
 
+## Sessioni di circa otto ore
+
+Il workflow e `pc-build.sh` interrompono download/compilazione dopo **8 ore**,
+salvando i log e lasciando sorgenti, strumenti e output sul disco. La prima
+creazione del contenitore precede il timer e può aggiungere alcuni minuti;
+l'arresto dei processi può aggiungere circa due minuti. Il limite non spegne il PC.
+
+In **Run workflow** scegliere `prototype` e lasciare `ore_sessione: 8`.
+Se il tempo termina prima della fine, il riepilogo mostra **Pausa programmata**:
+il job è verde, ma questo non significa che l'immagine sia pronta. Attendere
+che il job finisca, poi spegnere normalmente il PC. Alla prossima sessione,
+avviare il runner e rilanciare lo stesso ramo, fase e percorso di lavoro.
+
+`repo sync`, CMake/Ninja e la build AOSP riutilizzano i risultati completati.
+La preparazione viene ricontrollata a ogni avvio e i file necessari nel checkout
+vengono ripristinati dalla cache; un download o comando interrotto può essere
+ripetuto. Non eliminare `soia-phone-build`, `sources/…/out` o le cache tra le sessioni.
+Gli errori reali restano errori e non vengono interpretati come pause programmate.
+
+Dal terminale si può cambiare la durata, per esempio quattro ore:
+
+```bash
+AIOS_SESSION_HOURS=4 bash phone/scripts/pc-build.sh prototype
+```
+
+Sono ammessi interi da 0 a 24; `0` disattiva la pausa automatica (rimane il limite
+di sicurezza del workflow). Il file `session.json` nei log distingue fase
+completata, pausa programmata ed errore. Una sessione già partita con una versione
+precedente dello script non acquisisce il nuovo timer.
+
 ## Risultato e passo successivo
 
 I target-files non firmati restano sotto
@@ -109,3 +139,6 @@ usa il framework Android 15 e non produce un'app installabile.
 I test degli script simulano i comandi Podman e gli archivi AOSP. La compatibilità
 con Podman rootless e SELinux sul PC Fedora, il workflow GitHub e la build Android
 completa non sono ancora stati provati sulla macchina reale.
+Il timer è stato provato con processi reali e con Ninja dentro il contenitore
+Docker: dopo l'interruzione, una seconda sessione ha riutilizzato il target già
+completato. Questa prova non sostituisce la compilazione completa di AOSP.

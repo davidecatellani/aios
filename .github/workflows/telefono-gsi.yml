@@ -8,6 +8,10 @@ on:
         type: choice
         options: [prototype, check, prepare, build]
         default: prototype
+      ore_sessione:
+        description: 'Ore di lavoro prima della pausa: 1–24, oppure 0 senza pausa'
+        type: number
+        default: 8
 
 permissions:
   contents: read
@@ -19,11 +23,13 @@ concurrency:
 jobs:
   gsi:
     runs-on: [self-hosted, linux, x64, soia-android]
-    timeout-minutes: 1440
+    # Include contenitore iniziale, arresto e upload dei log dopo la sessione.
+    timeout-minutes: 1560
     env:
       FASE: ${{ inputs.fase }}
       AIOS_BUILD_JOBS: '4'
       AIOS_SYNC_JOBS: '4'
+      AIOS_SESSION_HOURS: ${{ inputs.ore_sessione }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -38,5 +44,6 @@ jobs:
           name: soia-gsi-log-${{ github.run_id }}
           path: |
             ~/soia-phone-build/logs/${{ github.run_id }}-${{ github.run_attempt }}/*.log
+            ~/soia-phone-build/logs/${{ github.run_id }}-${{ github.run_attempt }}/session.json
           if-no-files-found: ignore
           retention-days: 7

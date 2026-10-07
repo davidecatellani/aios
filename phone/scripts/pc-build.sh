@@ -24,6 +24,8 @@ flock -n 9 || { echo "Un'altra build usa già $STATE." >&2; exit 1; }
 JOBS="${AIOS_BUILD_JOBS:-4}"
 SYNC_JOBS="${AIOS_SYNC_JOBS:-4}"
 [[ "$JOBS" =~ ^[1-9][0-9]*$ && "$SYNC_JOBS" =~ ^[1-9][0-9]*$ ]] || { echo "Il parallelismo deve essere un intero positivo." >&2; exit 1; }
+SESSION_HOURS="${AIOS_SESSION_HOURS:-8}"
+[[ "$SESSION_HOURS" =~ ^([0-9]|1[0-9]|2[0-4])$ ]] || { echo "AIOS_SESSION_HOURS deve essere un intero da 0 a 24 (0: senza pausa)." >&2; exit 1; }
 
 # Report senza valori dell'ambiente, credenziali o identificativi del telefono.
 python3 - "$STATE" "$ACTION" <<'PY'
@@ -51,13 +53,40 @@ mkdir -p "$LOGS"
 IMAGE=localhost/soia-android-builder:ubuntu24.04
 set -o pipefail
 podman build -t "$IMAGE" -f "$REPO/phone/build/Containerfile" "$REPO/phone/build" 2>&1 | tee "$LOGS/container.log"
+CONTAINER="soia-gsi-$RUN_ID"
+# La cancellazione del job/terminale deve fermare anche il contenitore.
+stop_container() { podman stop --time 110 "$CONTAINER" >/dev/null 2>&1 || true; }
+trap 'stop_container; exit 130' INT
+trap 'stop_container; exit 143' TERM
+echo "Sessione di download/compilazione: $SESSION_HOURS ore (0: senza pausa); poi circa due minuti per chiudere i processi."
 # Solo directory della build; niente socket Docker, privilegi, USB o chiavi di firma.
-podman run --rm --userns=keep-id --user "$(id -u):$(id -g)" \
+if podman run --rm --name "$CONTAINER" --userns=keep-id --user "$(id -u):$(id -g)" \
   --ulimit nofile=65536:65536 \
   -v "$REPO:/work/aios:Z" -v "$STATE:/work/state:Z" \
   -e HOME=/work/state/home -e AIOS_SORGENTI=/work/state/sources \
   -e AIOS_NDK_ROOT=/work/state/tools -e LLAMA_CPP=/work/state/tools/llama.cpp \
   -e AIOS_TOOLS=/work/state/tools \
   -e "AIOS_BUILD_JOBS=$JOBS" -e "AIOS_SYNC_JOBS=$SYNC_JOBS" \
-  "$IMAGE" bash /work/aios/phone/scripts/container-build.sh "$ACTION" \
-  2>&1 | tee "$LOGS/build.log"
+  "$IMAGE" python3 /work/aios/phone/scripts/build-session.py \
+  --seconds "$((SESSION_HOURS * 3600))" --result "/work/state/logs/$RUN_ID/session.json" \
+  -- bash /work/aios/phone/scripts/container-build.sh "$ACTION" \
+  2>&1 | tee "$LOGS/build.log"; then
+  echo "Fase $ACTION completata."
+else
+  STATUS=$?
+  if [ "$STATUS" = 75 ] && python3 - "$LOGS/session.json" <<'PY'
+import json, sys
+try:
+    doc = json.load(open(sys.argv[1]))
+    sys.exit(0 if doc.get('state') == 'paused' and doc.get('reason') == 'time_limit' and doc.get('exit_code') == 75 else 1)
+except (OSError, ValueError):
+    sys.exit(1)
+PY
+  then
+    MESSAGE="Pausa programmata: la fase $ACTION non è ancora completata. Puoi spegnere normalmente il PC e rilanciare la stessa fase alla prossima sessione; sorgenti e compilazione restano sul disco."
+    echo "$MESSAGE"
+    if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then printf '%s\n' "$MESSAGE" >> "$GITHUB_STEP_SUMMARY"; fi
+    exit 0
+  fi
+  exit "$STATUS"
+fi

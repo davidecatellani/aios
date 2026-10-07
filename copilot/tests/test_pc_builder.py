@@ -28,8 +28,14 @@ def pc(tmp_path):
     tools.mkdir()
     calls = tmp_path / "calls.jsonl"
     executable(tools / "podman", """import os, sys, json
+from pathlib import Path
 with open(os.environ['FAKE_CALLS'], 'a') as f: f.write(json.dumps(sys.argv[1:])+'\\n')
 if sys.argv[1] == os.environ.get('FAKE_FAIL_COMMAND'): sys.exit(17)
+if sys.argv[1] == 'run' and os.environ.get('FAKE_SESSION_STATE'):
+    state = os.environ['FAKE_SESSION_STATE']
+    result = Path(os.environ['AIOS_PC_BUILD_DIR']) / 'logs/123-1/session.json'
+    result.write_text(json.dumps({'state': state, 'reason': 'time_limit' if state == 'paused' else 'command_exit', 'exit_code': 75}))
+    sys.exit(75)
 print('x86_64' if sys.argv[1] == 'info' else 'simulated container')
 """)
     executable(tools / "python3", """import sys, os, shutil
@@ -43,6 +49,7 @@ exec(sys.stdin.read())
            "AIOS_PC_BUILD_DIR": str(tmp_path / "state"), "GITHUB_RUN_ID": "123", "GITHUB_RUN_ATTEMPT": "1"}
     env.pop("AIOS_BUILD_JOBS", None)
     env.pop("AIOS_SYNC_JOBS", None)
+    env.pop("AIOS_SESSION_HOURS", None)
 
     def run(action, **extra):
         result = subprocess.run(["bash", str(scripts / "pc-build.sh"), action], env={**env, **extra},
@@ -69,6 +76,8 @@ def test_builder_uses_isolated_mounts_and_four_jobs(pc, action):
     args = calls[-1]
     assert "--userns=keep-id" in args and "AIOS_BUILD_JOBS=4" in args
     assert args[-1] == action and "/work/aios/phone/scripts/container-build.sh" in args
+    assert "/work/aios/phone/scripts/build-session.py" in args
+    assert args[args.index("--seconds") + 1] == "28800"
     assert not any(word in str(args) for word in ("--privileged", "docker.sock", "/dev/bus/usb", "aios-chiavi"))
     assert (Path(env["AIOS_PC_BUILD_DIR"]) / "logs/123-1/build.log").exists()
 
@@ -94,6 +103,37 @@ def test_real_command_failure_is_not_hidden_by_log_capture(pc, command):
     run, _ = pc
     result, _ = run("build", FAKE_FAIL_COMMAND=command)
     assert result.returncode == 17
+
+
+def test_scheduled_pause_is_successful_but_clearly_incomplete(pc, tmp_path):
+    run, _ = pc
+    summary = tmp_path / 'summary.md'
+    result, _ = run('prototype', FAKE_SESSION_STATE='paused', GITHUB_STEP_SUMMARY=str(summary))
+    assert result.returncode == 0, result.stderr
+    assert 'Pausa programmata' in result.stdout
+    assert 'non è ancora completata' in summary.read_text()
+
+
+def test_matching_exit_code_without_a_planned_pause_is_still_an_error(pc):
+    run, _ = pc
+    result, _ = run('prototype', FAKE_SESSION_STATE='failed')
+    assert result.returncode == 75
+    assert 'Pausa programmata' not in result.stdout
+
+
+@pytest.mark.parametrize('hours', ['-1', '25', '1.5', '8; echo unsafe'])
+def test_invalid_session_duration_is_rejected_before_downloads(pc, hours):
+    run, _ = pc
+    result, calls = run('prototype', AIOS_SESSION_HOURS=hours)
+    assert result.returncode != 0 and not calls
+
+
+def test_session_duration_can_be_changed(pc):
+    run, _ = pc
+    result, calls = run('prototype', AIOS_SESSION_HOURS='4')
+    assert result.returncode == 0, result.stderr
+    args = calls[-1]
+    assert args[args.index('--seconds') + 1] == '14400'
 
 
 @pytest.mark.parametrize("jobs", ["0", "-1", "abc", "4; echo unsafe"])
