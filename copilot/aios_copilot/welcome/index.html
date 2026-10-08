@@ -1,0 +1,686 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Benvenuto in SoIA</title>
+<link rel="icon" href="/brand/aios-piccolo.svg" type="image/svg+xml">
+<style>
+  :root {
+    --bg: #f4f8fa;
+    --bg-glow-1: #c8eef0;
+    --bg-glow-2: #fcefc9;
+    --surface: rgba(255, 255, 255, 0.78);
+    --surface-strong: #ffffff;
+    --text: #16202a;
+    --muted: #56636f;
+    --line: rgba(22, 32, 42, 0.10);
+    --accent: #0b6e99;
+    --accent-2: #0f8077;
+    --accent-text: #ffffff;
+    --user: #0b6e99;
+    --user-text: #ffffff;
+    --ok: #12805c;
+    --shadow: 0 10px 40px rgba(11, 60, 90, 0.10);
+    --radius: 20px;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0b1218;
+      --bg-glow-1: #0b3f55;
+      --bg-glow-2: #3a2f12;
+      --surface: rgba(22, 32, 42, 0.72);
+      --surface-strong: #16202a;
+      --text: #e9eef3;
+      --muted: #a3afbb;
+      --line: rgba(233, 238, 243, 0.10);
+      --accent: #4fb3e0;
+      --accent-2: #2ec4b6;
+      --accent-text: #061018;
+      --user: #4fb3e0;
+      --user-text: #061018;
+      --ok: #4bd6a2;
+      --shadow: 0 10px 40px rgba(0, 0, 0, 0.35);
+      color-scheme: dark;
+    }
+  }
+
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font: 16px/1.5 Inter, "Cantarell", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    overflow: hidden;
+  }
+  .backdrop {
+    position: fixed; inset: -20%;
+    background:
+      radial-gradient(40% 35% at 20% 15%, var(--bg-glow-1), transparent 70%),
+      radial-gradient(45% 40% at 85% 85%, var(--bg-glow-2), transparent 70%);
+    filter: blur(20px);
+    animation: drift 24s ease-in-out infinite alternate;
+    z-index: 0;
+  }
+  @keyframes drift { to { transform: translate(4%, -3%) rotate(4deg); } }
+
+  .app {
+    position: relative; z-index: 1;
+    height: 100%;
+    max-width: 760px; margin: 0 auto;
+    display: grid; grid-template-rows: auto 1fr auto;
+    grid-template-columns: minmax(0, 1fr);  /* i contenuti larghi scorrono, non allargano la pagina */
+    padding: max(12px, env(safe-area-inset-top)) 16px max(12px, env(safe-area-inset-bottom));
+  }
+
+  header { display: flex; align-items: center; gap: 12px; padding: 4px 0 8px; }
+  .brand { font-weight: 700; letter-spacing: 0.02em; display: flex; align-items: center; gap: 6px; }
+  .brand img { width: 26px; height: 26px; }
+  .brand b { color: var(--accent); font-weight: inherit; }
+  .progress { flex: 1; height: 4px; border-radius: 4px; background: var(--line); overflow: hidden; }
+  .progress i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, var(--accent), var(--accent-2)); transition: width .6s ease; }
+  .icon-btn {
+    border: 1px solid var(--line); background: var(--surface); color: var(--text);
+    height: 36px; min-width: 36px; padding: 0 12px; border-radius: 18px; cursor: pointer;
+    font: inherit; font-size: 14px; backdrop-filter: blur(10px);
+  }
+  .icon-btn:hover { border-color: var(--accent); }
+  .icon-btn[aria-pressed="true"] { background: var(--accent); color: var(--accent-text); border-color: transparent; }
+
+  main { overflow-y: auto; scroll-behavior: smooth; padding: 8px 2px 16px; scrollbar-width: thin; }
+
+  .hero { display: grid; justify-items: center; text-align: center; padding: 18px 0 8px; }
+  .orb {
+    width: 112px; height: 112px; border-radius: 50%; position: relative;
+    background: url("/brand/copilota.png") center / contain no-repeat;  /* il logo del copilota */
+    animation: breathe 5s ease-in-out infinite;
+    filter: drop-shadow(0 0 28px color-mix(in srgb, #2EC4B6 45%, transparent));
+  }
+  .orb.busy { animation: breathe 1.1s ease-in-out infinite; filter: drop-shadow(0 0 40px color-mix(in srgb, #E9C46A 60%, transparent)); }
+  .orb.small { width: 28px; height: 28px; flex: none; filter: none; animation: none; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @keyframes breathe { 50% { scale: 1.06; } }
+  .hero h1 { margin: 18px 0 4px; font-size: clamp(26px, 5vw, 36px); line-height: 1.15; letter-spacing: -0.01em; }
+  .hero p { margin: 0; color: var(--muted); }
+
+  .thread { display: flex; flex-direction: column; gap: 10px; margin-top: 18px; }
+  .msg { display: flex; gap: 10px; align-items: flex-end; animation: rise .35s ease both; }
+  .msg .bubble {
+    max-width: min(560px, 85%); padding: 11px 15px; border-radius: var(--radius);
+    background: var(--surface); border: 1px solid var(--line); box-shadow: var(--shadow);
+    backdrop-filter: blur(14px); white-space: pre-wrap; overflow-wrap: anywhere;
+  }
+  .msg.bot .bubble { border-bottom-left-radius: 6px; }
+  .msg.user { justify-content: flex-end; }
+  .msg.user .bubble { background: var(--user); color: var(--user-text); border-color: transparent; border-bottom-right-radius: 6px; }
+  .msg .orb.small { visibility: hidden; }
+  .msg.bot.first .orb.small { visibility: visible; }
+  @keyframes rise { from { opacity: 0; transform: translateY(8px); } }
+
+  .status { margin-left: 38px; font-size: 14px; color: var(--muted); display: flex; align-items: center; gap: 8px; animation: rise .3s ease both; }
+  .badge {
+    display: inline-flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 600;
+    padding: 2px 8px; border-radius: 10px; color: var(--ok);
+    background: color-mix(in srgb, var(--ok) 14%, transparent);
+  }
+  .typing { display: inline-flex; gap: 4px; padding: 14px 16px; }
+  .typing i { width: 7px; height: 7px; border-radius: 50%; background: var(--muted); animation: blink 1.2s infinite; }
+  .typing i:nth-child(2) { animation-delay: .2s; } .typing i:nth-child(3) { animation-delay: .4s; }
+  @keyframes blink { 0%, 80%, 100% { opacity: .25; } 40% { opacity: 1; } }
+
+  .confirm { margin-left: 38px; display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
+    padding: 12px 14px; border-radius: 16px; border: 1px solid var(--accent); background: var(--surface); animation: rise .3s ease both; }
+  .confirm span { flex: 1 1 200px; }
+
+  footer { padding-top: 8px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+  .chip {
+    border: 1px solid var(--line); background: var(--surface); color: var(--text);
+    padding: 8px 14px; border-radius: 18px; cursor: pointer; font: inherit; font-size: 15px;
+    backdrop-filter: blur(10px); transition: border-color .2s, transform .2s; animation: rise .3s ease both;
+  }
+  .chip:hover { border-color: var(--accent); transform: translateY(-1px); }
+  .chip.primary, .btn.primary { background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: #fff; border-color: transparent; font-weight: 600; }
+  .btn { border: 1px solid var(--line); background: var(--surface-strong); color: var(--text); padding: 8px 16px; border-radius: 14px; cursor: pointer; font: inherit; }
+
+  form.composer {
+    display: flex; gap: 8px; align-items: center; padding: 6px 6px 6px 16px;
+    background: var(--surface); border: 1px solid var(--line); border-radius: 26px;
+    box-shadow: var(--shadow); backdrop-filter: blur(14px);
+  }
+  form.composer:focus-within { border-color: var(--accent); }
+  form.composer input { flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; color: var(--text); font: inherit; font-size: 17px; padding: 8px 0; }
+  form.composer input::placeholder { color: var(--muted); }
+  form.composer button {
+    width: 42px; height: 42px; border-radius: 50%; border: 0; cursor: pointer; flex: none;
+    background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: #fff; font-size: 20px;
+  }
+  form.composer button:disabled { opacity: .4; cursor: default; }
+  .hint { text-align: center; color: var(--muted); font-size: 13px; margin-top: 8px; }
+  kbd { font: inherit; font-size: 12px; padding: 1px 6px; border-radius: 6px; border: 1px solid var(--line); background: var(--surface-strong); }
+
+  .done { position: fixed; inset: 0; z-index: 5; display: grid; place-content: center; justify-items: center; gap: 12px;
+    text-align: center; background: var(--bg); animation: rise .5s ease both; padding: 24px; }
+  .done h2 { margin: 12px 0 0; font-size: clamp(28px, 6vw, 40px); }
+  .done p { margin: 0; color: var(--muted); max-width: 420px; }
+
+  .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+
+  @media (max-width: 520px) {
+    .hero { padding-top: 6px; }
+    /* Sul telefono i suggerimenti stanno su una riga scorrevole: più spazio alla conversazione. */
+    .chips { flex-wrap: nowrap; overflow-x: auto; margin: 0 -16px 10px; padding: 2px 16px; scrollbar-width: none; }
+    .chips::-webkit-scrollbar { display: none; }
+    .chip { flex: none; }
+    .orb { width: 84px; height: 84px; }
+    .msg .bubble { max-width: 88%; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+  }
+</style>
+<link rel="stylesheet" href="/theme.css">
+</head>
+<body>
+<div class="backdrop" aria-hidden="true"></div>
+<div class="app">
+  <header>
+    <div class="brand"><img src="/brand/aios-piccolo.svg" alt=""><span>So<b>IA</b></span></div>
+    <div class="progress" role="progressbar" aria-label="Avanzamento" aria-valuemin="0" aria-valuemax="100"><i id="progress"></i></div>
+    <button class="icon-btn" id="voice" type="button" aria-pressed="false" title="Leggi ad alta voce">🔈</button>
+    <button class="icon-btn" id="skip" type="button"></button>
+  </header>
+
+  <main id="scroll">
+    <section class="hero">
+      <div class="orb" id="orb" aria-hidden="true"></div>
+      <h1 id="title"></h1>
+      <p id="subtitle"></p>
+    </section>
+    <div class="thread" id="thread" aria-live="polite"></div>
+  </main>
+
+  <footer>
+    <div class="chips" id="chips"></div>
+    <form class="composer" id="composer" autocomplete="off">
+      <label class="sr-only" for="input" id="input-label"></label>
+      <input id="input" maxlength="500" disabled>
+      <button id="send" type="submit" disabled aria-label="Invia">↑</button>
+    </form>
+    <div class="hint" id="hint"></div>
+  </footer>
+</div>
+
+<script>
+"use strict";
+
+// ---------------------------------------------------------------------------
+// Testi. Il copilota parla in modo semplice: niente gergo tecnico.
+// ---------------------------------------------------------------------------
+const TEXT = {
+  it: {
+    title: "Benvenuto in SoIA",
+    subtitle: "Il sistema che capisce quello che gli dici.",
+    skip: "Salta",
+    voiceOn: "Lettura ad alta voce attiva", voiceOff: "Leggi ad alta voce",
+    placeholder: "Scrivi qui, come parleresti a una persona…",
+    namePlaceholder: "Il tuo nome…",
+    hint: "Premi <kbd>Invio</kbd> per inviare",
+    hello: ["Ciao! 👋 Sono Nova.",
+            "In SoIA non devi cercare tra menu e impostazioni: mi dici cosa ti serve, con parole tue, e me ne occupo io."],
+    welcomeBack: n => [`Bentornato, ${n}! 😊`],
+    askName: "Prima di cominciare: come ti chiami?",
+    noName: "Preferisco non dirlo",
+    niceToMeet: n => `Piacere di conoscerti, ${n}!`,
+    noProblem: "Nessun problema!",
+    tourIntro: "Ti racconto in breve come funziono. Scegli tu da dove partire, oppure fammi una domanda.",
+    tourMore: "Vuoi sapere altro, o proviamo?",
+    topics: {
+      talk: { chip: "Come ti parlo?", say: [
+        "Come faresti con una persona. «Si sente troppo piano», «metti il tema scuro», «installa un programma per i PDF», «che tempo fa domani?».",
+        "Le cose che ti servono tutti i giorni le capisco all'istante. Per le richieste più complesse ragiono un attimo, poi agisco: apro app, cambio impostazioni, cerco su internet." ] },
+      offline: { chip: "Funzioni senza internet?", say: [
+        "Sì. La mia intelligenza artificiale gira qui, sul tuo dispositivo: non mando le tue richieste a nessun server.",
+        "E non mi serve una scheda grafica potente: i comandi comuni li riconosco in pochi millesimi di secondo anche su un computer modesto. Internet lo uso solo quando serve davvero, per esempio per una ricerca, e te lo mostro sempre." ] },
+      devices: { chip: "Su quali dispositivi?", say: [
+        "SoIA è lo stesso sistema sul telefono, sul tablet e sul computer: stessa interfaccia e sempre io, Nova, che mi adatto allo schermo.",
+        "I tuoi dispositivi si riconoscono tra loro: potrai copiare sul telefono e incollare sul PC, mandarti file al volo, e lasciare che il telefono chieda aiuto al computer per i compiti più pesanti. Questa parte è in arrivo." ] },
+      apps: { chip: "E le mie app?", say: [
+        "SoIA è basato su Linux, quindi le applicazioni Linux funzionano direttamente. Molti programmi Windows girano tramite Bottles, e sul telefono puoi usare anche app Android.",
+        "Non devi sapere da dove arriva un programma: chiedimelo, e ti propongo la soluzione migliore." ] },
+      privacy: { chip: "E la privacy?", say: [
+        "I tuoi dati restano tuoi: ragiono in locale e non tengo profili su server esterni.",
+        "Prima di fare qualcosa di importante, come installare o rimuovere un programma o spegnere il computer, ti chiedo sempre conferma. E il sistema è progettato per poter tornare indietro, se qualcosa va storto." ] },
+    },
+    tryChip: "Fammi provare!",
+    tryIntro: "Perfetto! Chiedimi qualcosa: queste cose le faccio davvero, sul tuo dispositivo.",
+    trySuggestions: ["Quanta memoria ho?", "Ricordami tra 10 minuti di fare una pausa", "Attiva il tema scuro", "Alza il volume", "Cerca le notizie di oggi"],
+    afterTry: "Visto? 🙂 Puoi continuare a provare quanto vuoi.",
+    finishChip: "Ho capito, iniziamo",
+    outro: n => [`Ultima cosa${n ? ", " + n : ""}: quando ti servo, premi Super + Spazio, o il pulsante di Nova sul telefono. E puoi sempre cominciare con «Ehi Nova».`,
+                 "Io sono sempre qui. Buon divertimento! ✨"],
+    start: "Inizia a usare SoIA",
+    doneTitle: "Tutto pronto",
+    doneText: "Premi Super + Spazio quando vuoi parlarmi.",
+    instant: "⚡ capito all'istante, senza AI",
+    confirmYes: "Procedi", confirmNo: "Annulla", confirmAsk: "Posso procedere?",
+    offlineApi: "Non riesco a raggiungere Nova in questo momento. Il benvenuto continua, ma i comandi non verranno eseguiti.",
+    namePatterns: /^(?:mi chiamo|sono|il mio nome è|chiamami|io sono)\s+/i,
+    // Fuori dalla domanda sul nome valgono solo le formule esplicite («sono stanco» non è un nome).
+    renamePatterns: /^(?:mi chiamo|il mio nome è|chiamami)\s+\S/i,
+  },
+  en: {
+    title: "Welcome to SoIA",
+    subtitle: "The system that understands what you say.",
+    skip: "Skip",
+    voiceOn: "Reading aloud", voiceOff: "Read aloud",
+    placeholder: "Type here, the way you'd talk to a person…",
+    namePlaceholder: "Your name…",
+    hint: "Press <kbd>Enter</kbd> to send",
+    hello: ["Hi! 👋 I'm Nova.",
+            "In SoIA you don't hunt through menus and settings: tell me what you need, in your own words, and I'll take care of it."],
+    welcomeBack: n => [`Welcome back, ${n}! 😊`],
+    askName: "Before we start: what's your name?",
+    noName: "I'd rather not say",
+    niceToMeet: n => `Nice to meet you, ${n}!`,
+    noProblem: "No problem!",
+    tourIntro: "Let me tell you briefly how I work. Pick where to start, or ask me anything.",
+    tourMore: "Want to know more, or shall we try?",
+    topics: {
+      talk: { chip: "How do I talk to you?", say: [
+        "Like you would with a person. \"It's too quiet\", \"switch to dark mode\", \"install a PDF app\", \"what's the weather tomorrow?\".",
+        "Everyday things I understand instantly. For more complex requests I think for a moment, then act: I open apps, change settings, search the web." ] },
+      offline: { chip: "Do you work offline?", say: [
+        "Yes. My AI runs right here, on your device: I don't send your requests to any server.",
+        "And I don't need a powerful graphics card: common commands are recognised in milliseconds even on a modest computer. I only use the internet when it's really needed, like for a search, and I always show you." ] },
+      devices: { chip: "Which devices?", say: [
+        "SoIA is the same system on your phone, tablet and computer: same interface and always me, Nova, adapting to the screen.",
+        "Your devices recognise each other: copy on the phone and paste on the PC, send files instantly, and let the phone ask the computer for help with heavy tasks. This part is coming soon." ] },
+      apps: { chip: "What about my apps?", say: [
+        "SoIA is built on Linux, so Linux apps run natively. Many Windows programs run through Bottles, and on phones you can use Android apps too.",
+        "You don't need to know where an app comes from: just ask me and I'll suggest the best option." ] },
+      privacy: { chip: "What about privacy?", say: [
+        "Your data stays yours: I think locally and keep no profiles on outside servers.",
+        "Before doing anything important, like installing or removing a program or shutting down, I always ask first. And the system is designed so changes can be rolled back if something goes wrong." ] },
+    },
+    tryChip: "Let me try!",
+    tryIntro: "Great! Ask me something: I really do these things, on your device.",
+    trySuggestions: ["How much memory do I have?", "Remind me in 10 minutes to take a break", "Switch to dark mode", "Turn the volume up", "Search today's news"],
+    afterTry: "See? 🙂 Keep trying as much as you like.",
+    finishChip: "Got it, let's start",
+    outro: n => [`One last thing${n ? ", " + n : ""}: whenever you need me, press Super + Space, or the Nova button on your phone. You can always start with “Hey Nova”.`,
+                 "I'm always here. Have fun! ✨"],
+    start: "Start using SoIA",
+    doneTitle: "All set",
+    doneText: "Press Super + Space whenever you want to talk to me.",
+    instant: "⚡ understood instantly, no AI needed",
+    confirmYes: "Go ahead", confirmNo: "Cancel", confirmAsk: "Shall I go ahead?",
+    offlineApi: "I can't reach Nova right now. The welcome continues, but commands won't be executed.",
+    namePatterns: /^(?:my name is|i am|i'm|call me|it's)\s+/i,
+    renamePatterns: /^(?:my name is|call me)\s+\S/i,
+  },
+};
+
+// Parole chiave per riconoscere domande sul sistema durante il tour.
+const TOPIC_KEYWORDS = {
+  offline: /internet|offline|rete|connessione|gpu|scheda grafica|veloc|lent|fast|slow/i,
+  privacy: /privacy|dati|data|sicur|safe|spia|track/i,
+  devices: /telefon|tablet|dispositiv|cellular|phone|device|smartphone/i,
+  apps: /\bapp|programm|windows|android|softwar/i,
+  talk: /come (ti )?(parl|funzion|uso|si usa)|how (do|does)|cosa (sai|puoi) fare|what can you/i,
+};
+
+// ---------------------------------------------------------------------------
+// Stato e collegamento al copilota locale
+// ---------------------------------------------------------------------------
+const params = new URLSearchParams(location.hash.slice(1));
+const token = params.get("t") || "";
+if (location.hash) history.replaceState(null, "", location.pathname);  // la chiave non resta nella barra
+
+let lang = (navigator.language || "it").toLowerCase().startsWith("it") ? "it" : "en";
+let T = TEXT[lang];
+let profile = {};
+let mode = "intro";            // intro → name → tour → try → outro
+const visited = new Set();
+let tried = 0;
+let voice = false;
+let apiOk = true;
+
+const $ = id => document.getElementById(id);
+const thread = $("thread"), chips = $("chips"), input = $("input"), send = $("send"), orb = $("orb");
+const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
+const sleep = ms => new Promise(r => setTimeout(r, reduceMotion ? 0 : ms));
+
+async function api(path, body) {
+  const res = await fetch(path, {
+    method: body === undefined ? "GET" : "POST",
+    headers: { "Content-Type": "application/json", "X-AIOS-Token": token },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.json();
+}
+
+// ---------------------------------------------------------------------------
+// Conversazione
+// ---------------------------------------------------------------------------
+let lastWasBot = false;
+
+function scrollDown() { const s = $("scroll"); s.scrollTop = s.scrollHeight; }
+
+function bubble(who) {
+  const row = document.createElement("div");
+  row.className = `msg ${who}` + (who === "bot" && !lastWasBot ? " first" : "");
+  if (who === "bot") {
+    const o = document.createElement("div");
+    o.className = "orb small";
+    row.append(o);
+  }
+  const b = document.createElement("div");
+  b.className = "bubble";
+  row.append(b);
+  thread.append(row);
+  lastWasBot = who === "bot";
+  return { row, b };
+}
+
+async function typeInto(el, text) {
+  if (reduceMotion) { el.textContent = text; return; }
+  const chars = Array.from(text);
+  const step = Math.max(1, Math.round(chars.length / 90));  // i messaggi lunghi non devono far aspettare troppo
+  for (let i = 0; i < chars.length; i += step) {
+    el.textContent = chars.slice(0, i + step).join("");
+    if (i % 12 === 0) scrollDown();
+    await sleep(14);
+  }
+}
+
+async function say(text, { typing = true } = {}) {
+  orb.classList.add("busy");
+  const { row, b } = bubble("bot");
+  if (typing) {
+    b.innerHTML = '<span class="typing" aria-label="sta scrivendo"><i></i><i></i><i></i></span>';
+    b.style.padding = "0";
+    scrollDown();
+    await sleep(380 + Math.min(text.length * 6, 700));
+    b.style.padding = "";
+  }
+  speak(text);
+  await typeInto(b, text);
+  orb.classList.remove("busy");
+  scrollDown();
+  return row;
+}
+
+async function sayAll(lines) { for (const l of lines) await say(l); }
+
+function userSays(text) {
+  const { b } = bubble("user");
+  b.textContent = text;
+  scrollDown();
+}
+
+function status(html, isBadge = false) {
+  const el = document.createElement("div");
+  el.className = "status";
+  if (isBadge) {
+    const s = document.createElement("span");
+    s.className = "badge";
+    s.textContent = html;
+    el.append(s);
+  } else {
+    el.textContent = html;
+  }
+  thread.append(el);
+  lastWasBot = false;
+  scrollDown();
+  return el;
+}
+
+function setChips(list) {
+  chips.replaceChildren();
+  for (const c of list) {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "chip" + (c.primary ? " primary" : "");
+    b.textContent = c.label;
+    b.addEventListener("click", () => { setChips([]); c.action(); });
+    chips.append(b);
+  }
+}
+
+function enableInput(placeholder) {
+  input.disabled = false;
+  send.disabled = false;
+  input.placeholder = placeholder || T.placeholder;
+  $("input-label").textContent = input.placeholder;
+  if (matchMedia("(pointer: fine)").matches) input.focus();
+}
+
+function progress(p) {
+  $("progress").style.width = p + "%";
+  document.querySelector(".progress").setAttribute("aria-valuenow", String(p));
+}
+
+// ---------------------------------------------------------------------------
+// Voce (facoltativa): sintesi vocale del sistema, offline dove disponibile
+// ---------------------------------------------------------------------------
+function speak(text) {
+  if (!voice || !("speechSynthesis" in window)) return;
+  const u = new SpeechSynthesisUtterance(text.replace(/[\u{1F300}-\u{1FAFF}☀-➿]/gu, ""));
+  u.lang = lang === "it" ? "it-IT" : "en-US";
+  const v = speechSynthesis.getVoices().find(v => v.lang && v.lang.toLowerCase().startsWith(lang));
+  if (v) u.voice = v;
+  speechSynthesis.speak(u);
+}
+
+$("voice").addEventListener("click", e => {
+  voice = !voice;
+  e.currentTarget.setAttribute("aria-pressed", String(voice));
+  e.currentTarget.textContent = voice ? "🔊" : "🔈";
+  e.currentTarget.title = voice ? T.voiceOn : T.voiceOff;
+  if (!voice && "speechSynthesis" in window) speechSynthesis.cancel();
+});
+
+// ---------------------------------------------------------------------------
+// Percorso del benvenuto
+// ---------------------------------------------------------------------------
+async function start() {
+  try {
+    profile = (await api("/api/state")).profile || {};
+    if (profile.lang && TEXT[profile.lang]) { lang = profile.lang; T = TEXT[lang]; }
+  } catch { apiOk = false; }
+
+  document.documentElement.lang = lang;
+  $("title").textContent = T.title;
+  $("subtitle").textContent = T.subtitle;
+  $("skip").textContent = T.skip;
+  $("voice").title = T.voiceOff;
+  $("hint").innerHTML = T.hint;
+  input.placeholder = T.placeholder;
+
+  progress(8);
+  await sleep(500);
+  await sayAll(T.hello);
+  if (profile.name) {
+    await sayAll(T.welcomeBack(profile.name));
+    return tour(true);
+  }
+  mode = "name";
+  progress(20);
+  await say(T.askName);
+  setChips([{ label: T.noName, action: () => { userSays(T.noName); gotName(""); } }]);
+  enableInput(T.namePlaceholder);
+}
+
+function extractName(text) {
+  let n = text.trim().replace(T.namePatterns, "").replace(/[.!?,;:]+$/, "").trim();
+  n = n.split(/\s+/).slice(0, 3).join(" ");
+  return n.replace(/(^|[\s'-])(\p{L})/gu, (_, a, b) => a + b.toUpperCase()).slice(0, 40);
+}
+
+async function gotName(name) {
+  mode = "tour";
+  if (name) {
+    profile.name = name;
+    api("/api/profile", { name, lang }).catch(() => {});
+    await say(T.niceToMeet(name));
+  } else {
+    api("/api/profile", { lang }).catch(() => {});
+    await say(T.noProblem);
+  }
+  tour(false);
+}
+
+async function tour(returning) {
+  mode = "tour";
+  progress(40);
+  await say(returning ? T.tourMore : T.tourIntro);
+  showTourChips();
+  enableInput();
+}
+
+function showTourChips() {
+  const list = Object.entries(T.topics)
+    .filter(([k]) => !visited.has(k))
+    .map(([k, t]) => ({ label: t.chip, action: () => { userSays(t.chip); topic(k); } }));
+  list.push({ label: T.tryChip, primary: true, action: () => { userSays(T.tryChip); tryMode(); } });
+  setChips(list);
+}
+
+async function topic(key) {
+  visited.add(key);
+  progress(40 + visited.size * 6);
+  await sayAll(T.topics[key].say);
+  await say(T.tourMore);
+  showTourChips();
+}
+
+async function tryMode() {
+  mode = "try";
+  progress(75);
+  await say(T.tryIntro);
+  if (!apiOk) await say(T.offlineApi);
+  showTryChips();
+  enableInput();
+}
+
+function showTryChips() {
+  const list = T.trySuggestions.map(s => ({ label: s, action: () => ask(s) }));
+  if (tried) list.push({ label: T.finishChip, primary: true, action: () => { userSays(T.finishChip); outro(); } });
+  setChips(list);
+}
+
+async function outro() {
+  mode = "outro";
+  progress(95);
+  input.disabled = true; send.disabled = true;
+  await sayAll(T.outro(profile.name));
+  setChips([{ label: T.start, primary: true, action: finish }]);
+}
+
+async function finish() {
+  progress(100);
+  try { await api("/api/finish", {}); } catch {}
+  const d = document.createElement("div");
+  d.className = "done";
+  d.innerHTML = '<div class="orb"></div><h2></h2><p></p>';
+  d.querySelector("h2").textContent = T.doneTitle + (profile.name ? `, ${profile.name}` : "") + " ✨";
+  d.querySelector("p").textContent = T.doneText;
+  document.body.append(d);
+}
+
+$("skip").addEventListener("click", () => { setChips([]); outro(); });
+
+// ---------------------------------------------------------------------------
+// Richieste vere al copilota
+// ---------------------------------------------------------------------------
+async function ask(text) {
+  userSays(text);
+  setChips([]);
+  input.disabled = true; send.disabled = true;
+  orb.classList.add("busy");
+  const started = performance.now();
+  let answer;
+  try {
+    const { job } = await api("/api/ask", { text });
+    let next = 0, shownConfirm = false, fast = false;
+    for (;;) {
+      const s = await api(`/api/job/${job}?after=${next}`);
+      next = s.next;
+      for (const ev of s.events) {
+        if (ev.kind === "fast") fast = true;
+        if (ev.kind === "status") status(ev.text);
+      }
+      if (s.pending && !shownConfirm) { shownConfirm = true; askConfirmation(job, s.pending.label, s.pending.warning); }
+      if (!s.pending) shownConfirm = false;
+      if (s.done) { answer = s.answer; break; }
+      await new Promise(r => setTimeout(r, 200));
+    }
+    if (fast) status(`${T.instant} · ${Math.max(1, Math.round(performance.now() - started))} ms`, true);
+  } catch {
+    apiOk = false;
+    answer = T.offlineApi;
+  }
+  orb.classList.remove("busy");
+  await say(answer, { typing: false });
+  tried += 1;
+  if (mode === "try" && tried === 1) await say(T.afterTry);
+  if (mode === "try") showTryChips(); else if (mode === "tour") showTourChips();
+  enableInput();
+}
+
+function askConfirmation(job, label, warning) {
+  const box = document.createElement("div");
+  box.className = "confirm";
+  const span = document.createElement("span");
+  span.textContent = (warning ? `🔒 ${warning}\n` : "") + `${T.confirmAsk} ${label}`;
+  span.style.whiteSpace = "pre-wrap";
+  const no = Object.assign(document.createElement("button"), { className: "btn", type: "button", textContent: T.confirmNo });
+  const yes = Object.assign(document.createElement("button"), { className: "btn primary", type: "button", textContent: T.confirmYes });
+  const decide = ok => {
+    yes.disabled = no.disabled = true;
+    span.textContent += ok ? "  ✓" : "  ✕";
+    api(`/api/job/${job}/confirm`, { ok }).catch(() => {});
+  };
+  yes.addEventListener("click", () => decide(true));
+  no.addEventListener("click", () => decide(false));
+  box.append(span, no, yes);
+  thread.append(box);
+  lastWasBot = false;
+  scrollDown();
+  yes.focus();
+}
+
+$("composer").addEventListener("submit", async e => {
+  e.preventDefault();
+  const text = input.value.trim();
+  if (!text || input.disabled) return;
+  input.value = "";
+  if (mode === "name") {
+    userSays(text);
+    setChips([]);
+    input.disabled = true; send.disabled = true;
+    return gotName(extractName(text));
+  }
+  // Ci si può presentare in qualsiasi momento: «mi chiamo Davide».
+  if (mode !== "name" && T.renamePatterns.test(text)) {
+    userSays(text);
+    const name = extractName(text);
+    profile.name = name;
+    api("/api/profile", { name, lang }).catch(() => {});
+    return say(T.niceToMeet(name));
+  }
+  if (mode === "tour") {
+    const key = Object.keys(TOPIC_KEYWORDS).find(k => TOPIC_KEYWORDS[k].test(text) && !visited.has(k));
+    if (key) { userSays(text); setChips([]); return topic(key); }
+  }
+  ask(text);
+});
+
+start();
+</script>
+</body>
+</html>

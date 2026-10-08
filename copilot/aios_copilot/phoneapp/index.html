@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Installa SoIA sul telefono</title>
+<link rel="icon" href="/brand/aios-piccolo.svg" type="image/svg+xml">
+<style>
+  :root { --bg:#f4f8fa; --surface:#fff; --text:#16202a; --muted:#56636f; --line:#e1e7ec; --accent:#0b6e99; --accent-2:#0f8077;
+          --warn:#a15c00; --warn-bg:#fff4e0; --ok:#12805c; --err:#b42318; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#0b1218; --surface:#16202a; --text:#e9eef3; --muted:#a3afbb; --line:#26313c; --accent:#4fb3e0; --accent-2:#2ec4b6;
+            --warn:#f5b454; --warn-bg:#2d2412; --ok:#4bd6a2; --err:#ff8a80; }
+  }
+  [hidden] { display:none !important; }
+  * { box-sizing:border-box; }
+  body { margin:0; font:16px/1.5 Inter, system-ui, sans-serif; background:var(--bg); color:var(--text); }
+  main { max-width:720px; margin:0 auto; padding:24px 16px 48px; }
+  header { display:flex; align-items:center; gap:12px; margin-bottom:20px; }
+  header img { width:44px; height:44px; }
+  h1 { font-size:22px; margin:0; }
+  .sub { color:var(--muted); margin:2px 0 0; font-size:14px; }
+  .card { background:var(--surface); border:1px solid var(--line); border-radius:18px; padding:18px; margin:14px 0; }
+  .phone { display:flex; align-items:center; gap:14px; }
+  .phone .icon { font-size:34px; }
+  .phone b { font-size:18px; }
+  .problems li { color:var(--warn); margin:6px 0; }
+  .warn { background:var(--warn-bg); color:var(--warn); border-radius:12px; padding:10px 12px; font-size:14px; }
+  button { font:600 15px system-ui; border-radius:12px; padding:11px 16px; border:1px solid var(--line); background:var(--surface);
+           color:var(--text); cursor:pointer; }
+  button.primary { background:linear-gradient(135deg, var(--accent), var(--accent-2)); color:#fff; border-color:transparent; }
+  button:disabled { opacity:.5; cursor:default; }
+  .row { display:flex; gap:10px; flex-wrap:wrap; margin-top:12px; }
+  ol.steps { list-style:none; margin:0; padding:0; }
+  ol.steps li { display:flex; gap:10px; padding:8px 4px; border-bottom:1px solid var(--line); align-items:flex-start; }
+  ol.steps li:last-child { border-bottom:0; }
+  .st { width:22px; flex:none; text-align:center; }
+  .st.fatto { color:var(--ok); } .st.errore, .st.annullato { color:var(--err); }
+  li.in-corso { font-weight:600; }
+  .detail { display:block; font-size:13px; color:var(--muted); font-weight:400; overflow-wrap:anywhere; }
+  .question { border:2px solid var(--accent); }
+  .question h2 { margin:0 0 6px; font-size:18px; }
+  .question pre { white-space:pre-wrap; word-break:break-all; background:var(--bg); padding:10px; border-radius:10px; font-size:13px; }
+  input[type=text] { width:100%; font:inherit; padding:11px 12px; border-radius:12px; border:1px solid var(--line); background:var(--bg); color:var(--text); }
+  .result { font-weight:600; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <img src="/brand/copilota.png" alt="">
+    <div><h1>Installa SoIA sul telefono</h1><p class="sub">Ti guido io, Nova: tu fai solo ciò che serve sul telefono.</p></div>
+  </header>
+
+  <section class="card" id="phone-card">
+    <div class="phone"><span class="icon">📱</span><div><b id="phone-name">Cerco il telefono…</b><div class="sub" id="phone-mode"></div></div></div>
+    <ul class="problems" id="problems"></ul>
+    <p class="warn">Prima di cancellare qualsiasi cosa faccio il backup completo sul PC (foto, video, rubrica, WhatsApp, documenti)
+      e alla fine lo rimetto sul telefono nuovo. Il backup resta comunque sul PC.</p>
+    <div class="row">
+      <button class="primary" id="start">Installa SoIA</button>
+      <button id="dry">Mostrami i passi senza toccare il telefono</button>
+      <button id="refresh">Ricontrolla</button>
+    </div>
+  </section>
+
+  <section class="card question" id="question" hidden>
+    <h2 id="q-title"></h2>
+    <p id="q-text"></p>
+    <pre id="q-detail" hidden></pre>
+    <input type="text" id="q-code" placeholder="Codice di sblocco" autocomplete="off" hidden>
+    <div class="row">
+      <button class="primary" id="q-ok">Fatto, continua</button>
+      <button id="q-no">Annulla</button>
+    </div>
+  </section>
+
+  <section class="card" id="steps-card" hidden>
+    <ol class="steps" id="steps"></ol>
+    <p class="result" id="result"></p>
+  </section>
+</main>
+<script>
+const $ = (id) => document.getElementById(id);
+const params = new URLSearchParams(location.hash.slice(1));
+const token = params.get("t") || "";
+if (location.hash) history.replaceState(null, "", location.pathname);
+async function api(path, body) {
+  const r = await fetch(path, { method: body ? "POST" : "GET", headers: { "Content-Type": "application/json", "X-AIOS-Token": token },
+                                body: body ? JSON.stringify(body) : undefined });
+  return { ok: r.ok, data: await r.json() };
+}
+const ICONS = { "da fare": "○", "in corso": "◐", "fatto": "✓", "errore": "✕", "annullato": "✕", "saltato": "–" };
+
+async function check() {
+  const { data } = await api("/api/telefono");
+  const t = data.telefono;
+  $("phone-name").textContent = t.mode === "nessuno" ? "Nessun telefono collegato" : data.nome || "Telefono";
+  $("phone-mode").textContent = t.mode === "nessuno" ? "Collegalo con un cavo USB dati" :
+    (t.battery != null ? `Batteria ${t.battery}% · ` : "") + ({ adb: "pronto", fastboot: "in modalità fastboot", download: "in modalità download",
+      "non-autorizzato": "aspetta il tuo «Consenti» sul telefono" }[t.mode] || t.mode);
+  $("problems").replaceChildren(...data.problemi.map((p) => Object.assign(document.createElement("li"), { textContent: p })));
+  $("start").disabled = data.problemi.length > 0;
+}
+
+async function start(prova) {
+  const { ok, data } = await api("/api/avvia", { prova });
+  if (!ok) { $("problems").replaceChildren(Object.assign(document.createElement("li"), { textContent: data.error })); return; }
+  $("steps-card").hidden = false;
+  $("start").disabled = $("dry").disabled = true;
+  poll();
+}
+
+let answered = "";
+async function poll() {
+  const { data } = await api("/api/stato");
+  $("steps").replaceChildren(...data.passi.map((s) => {
+    const li = document.createElement("li");
+    li.className = s.status === "in corso" ? "in-corso" : "";
+    const st = Object.assign(document.createElement("span"), { className: "st " + s.status, textContent: ICONS[s.status] || "○" });
+    const txt = document.createElement("span");
+    txt.append(s.title);
+    if (s.detail) txt.append(Object.assign(document.createElement("span"), { className: "detail", textContent: s.detail }));
+    li.append(st, txt);
+    return li;
+  }));
+  const q = data.domanda;
+  $("question").hidden = !q;
+  if (q && q.id !== answered) {
+    $("q-title").textContent = q.titolo;
+    $("q-text").textContent = q.testo;
+    const prev = data.passi.find((s) => s.id === "dati_sblocco");
+    $("q-detail").hidden = !(q.tipo === "codice" && prev && prev.detail);
+    if (prev) $("q-detail").textContent = prev.detail;
+    $("q-code").hidden = q.tipo !== "codice";
+    $("q-ok").textContent = q.tipo === "conferma" ? "Sì, continua" : q.tipo === "codice" ? "Usa questo codice" : "Fatto, continua";
+    $("q-ok").onclick = async () => { answered = q.id; await api("/api/risposta", { valore: q.tipo === "codice" ? $("q-code").value : "ok" }); };
+    $("q-no").onclick = async () => { answered = q.id; await api("/api/risposta", { valore: "annulla" }); };
+  }
+  if (data.esito) { $("result").textContent = data.esito; $("start").disabled = $("dry").disabled = false; return; }
+  setTimeout(poll, 800);
+}
+
+$("start").onclick = () => start(false);
+$("dry").onclick = () => start(true);
+$("refresh").onclick = check;
+check();
+</script>
+</body>
+</html>

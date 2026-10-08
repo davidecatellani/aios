@@ -1,0 +1,329 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Posta</title>
+<link rel="icon" href="/brand/copilota.png" type="image/png">
+<style>
+  :root {
+    --bg: #f5f4fa; --side: #eceaf6; --surface: #ffffff; --soft: #f1f0f8; --text: #1b1a24; --muted: #66637a;
+    --line: rgba(27,26,36,.10); --accent: #0b6e99; --accent-2: #0f8077; --ok: #12805c; --warn: #b45309; --star: #d97706;
+    --shadow: 0 8px 30px rgba(40,30,120,.10); color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f0e16; --side: #15141f; --surface: #1c1a2a; --soft: #23212f; --text: #f1effa; --muted: #a6a2bd;
+      --line: rgba(241,239,250,.10); --accent: #4fb3e0; --accent-2: #2ec4b6; --ok: #4bd6a2; --warn: #f5b454; --star: #fbbf24;
+      --shadow: 0 8px 30px rgba(0,0,0,.4); color-scheme: dark;
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body { background: var(--bg); color: var(--text); font: 15px/1.45 Inter, Cantarell, system-ui, sans-serif; overflow: hidden; }
+  button, input, select, textarea { font: inherit; color: inherit; }
+  .app { height: 100%; display: grid; grid-template-columns: 230px minmax(300px, 400px) minmax(0, 1fr); grid-template-rows: 56px minmax(0, 1fr); }
+  .app > *, .reader > * { min-width: 0; min-height: 0; }  /* le colonne scorrono, non si allargano */
+  header { grid-column: 1 / -1; display: flex; align-items: center; gap: 12px; padding: 0 16px; border-bottom: 1px solid var(--line); background: var(--surface); }
+  .brand { font-weight: 750; font-size: 17px; width: 198px; display: flex; gap: 8px; align-items: center; }
+  .orb { width: 26px; height: 26px; border-radius: 50%; flex: none; position: relative; background: url("/brand/copilota.png") center / contain no-repeat; }
+  .orb.busy { animation: breathe 1.1s ease-in-out infinite; } @keyframes breathe { 50% { scale: 1.12; } }
+  .search { flex: 1; min-width: 0; max-width: 560px; display: flex; align-items: center; gap: 8px; background: var(--soft); border: 1px solid var(--line); border-radius: 12px; padding: 0 12px; }
+  .search input { flex: 1; border: 0; outline: 0; background: transparent; padding: 9px 0; }
+  .btn { border: 1px solid var(--line); background: var(--surface); padding: 7px 12px; border-radius: 10px; cursor: pointer; white-space: nowrap; }
+  .btn:hover { border-color: var(--accent); }
+  .btn.primary { background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: #fff; border-color: transparent; font-weight: 600; }
+  .grow { flex: 1; }
+
+  nav { background: var(--side); padding: 12px 10px; overflow-y: auto; border-right: 1px solid var(--line); }
+  nav .compose { width: 100%; margin-bottom: 12px; padding: 10px; }
+  .folder { display: flex; align-items: center; gap: 8px; width: 100%; padding: 8px 10px; border-radius: 10px; border: 0; background: transparent; cursor: pointer; text-align: left; }
+  .folder:hover { background: var(--soft); }
+  .folder[aria-current="true"] { background: var(--surface); box-shadow: var(--shadow); font-weight: 650; }
+  .folder .n { margin-left: auto; font-size: 12px; font-weight: 700; color: var(--accent); }
+  .accounts { margin-top: 18px; font-size: 12px; color: var(--muted); padding: 0 10px; overflow-wrap: anywhere; }
+
+  .list { overflow-y: auto; border-right: 1px solid var(--line); background: var(--surface); }
+  .digest { margin: 12px; padding: 12px 14px; border-radius: 14px; background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 12%, var(--surface)), color-mix(in srgb, var(--accent-2) 10%, var(--surface))); border: 1px solid var(--line); }
+  .digest .t { display: flex; gap: 8px; align-items: center; font-weight: 650; margin-bottom: 6px; }
+  .digest ul { margin: 0; padding-left: 18px; font-size: 14px; }
+  .row { display: grid; grid-template-columns: 36px 1fr auto; gap: 10px; padding: 11px 14px; border-bottom: 1px solid var(--line); cursor: pointer; }
+  .row:hover { background: var(--soft); }
+  .row[aria-selected="true"] { background: color-mix(in srgb, var(--accent) 10%, var(--surface)); }
+  .avatar { width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; font-weight: 700; color: #fff; }
+  .row .who { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .row.unread .who, .row.unread .subj { font-weight: 800; }
+  .row .subj { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .row .snip { color: var(--muted); font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .row .time { font-size: 12px; color: var(--muted); text-align: right; }
+  .row .star { color: var(--star); font-size: 13px; }
+  .empty { padding: 40px 20px; text-align: center; color: var(--muted); }
+
+  .reader { display: flex; flex-direction: column; overflow: hidden; }
+  .message { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 22px 28px; }
+  .message h1 { font-size: 22px; margin: 0 0 10px; }
+  .meta { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; color: var(--muted); font-size: 14px; }
+  .badge { display: inline-flex; white-space: normal; gap: 4px; align-items: center; font-size: 12px; font-weight: 650; padding: 3px 9px; border-radius: 10px; background: var(--soft); color: var(--text); }
+  .badge.imp { color: var(--star); background: color-mix(in srgb, var(--star) 14%, transparent); }
+  .toolbar { display: flex; gap: 8px; flex-wrap: wrap; margin: 14px 0; align-items: center; }
+  .toolbar select { border: 1px solid var(--line); background: var(--surface); border-radius: 10px; padding: 7px 8px; }
+  .dates { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+  .datechip { border: 1px dashed var(--accent); color: var(--accent); background: transparent; border-radius: 12px; padding: 6px 10px; cursor: pointer; font-size: 13px; }
+  .body { white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.6; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 18px 20px; }
+  .attach { margin-top: 10px; font-size: 13px; color: var(--muted); }
+  .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #111827; color: #fff; padding: 10px 16px; border-radius: 12px; box-shadow: var(--shadow); z-index: 20; }
+
+  .copilot { flex: 0 0 auto; border-top: 1px solid var(--line); background: var(--surface); padding: 10px 16px 14px;
+    max-height: 45vh; display: flex; flex-direction: column; gap: 8px; }
+  .copilot .out { overflow-y: auto; min-height: 0; flex: 0 1 auto; }
+  .copilot .chips { display: flex; gap: 6px; flex-wrap: wrap; }
+  .chip { border: 1px solid var(--line); background: var(--soft); border-radius: 14px; padding: 5px 11px; cursor: pointer; font-size: 13px; }
+  .chip:hover { border-color: var(--accent); }
+  .ask { display: flex; gap: 8px; align-items: center; background: var(--soft); border: 1px solid var(--line); border-radius: 22px; padding: 4px 4px 4px 12px; }
+  .ask:focus-within { border-color: var(--accent); }
+  .ask input { flex: 1; border: 0; outline: 0; background: transparent; padding: 7px 0; }
+  .ask button { width: 34px; height: 34px; border-radius: 50%; border: 0; color: #fff; background: linear-gradient(135deg, var(--accent), var(--accent-2)); cursor: pointer; }
+  .out { display: grid; gap: 6px; font-size: 14px; }
+  .out .a { white-space: pre-wrap; background: var(--soft); border-radius: 12px; padding: 8px 12px; }
+  .out .s { color: var(--muted); font-size: 13px; }
+  .confirm { border: 1.5px solid var(--warn); border-radius: 12px; padding: 10px 12px; display: grid; gap: 8px; white-space: pre-wrap; }
+  .confirm .row2 { display: flex; gap: 8px; justify-content: flex-end; }
+
+  dialog { border: 0; border-radius: 18px; padding: 0; width: min(640px, 94vw); background: var(--surface); color: var(--text); box-shadow: var(--shadow); }
+  dialog::backdrop { background: rgba(10,8,30,.35); }
+  .compose-form { display: grid; gap: 10px; padding: 18px; }
+  .compose-form input, .compose-form textarea { width: 100%; border: 1px solid var(--line); border-radius: 10px; padding: 9px 11px; background: var(--soft); }
+  .compose-form textarea { min-height: 220px; resize: vertical; }
+  .back { display: none; }
+
+  @media (max-width: 900px) {
+    .app { grid-template-columns: minmax(0, 1fr); grid-template-rows: 56px auto minmax(0, 1fr); }
+    header { gap: 8px; padding: 0 10px; }
+    #sync { font-size: 0; } #sync::before { content: "↻"; font-size: 17px; }
+    /* Sul telefono le categorie diventano una riga scorrevole sopra l'elenco. */
+    nav { display: flex; gap: 6px; padding: 8px 10px; overflow-x: auto; border-right: 0; border-bottom: 1px solid var(--line); scrollbar-width: none; }
+    nav .compose { width: auto; margin: 0; padding: 6px 12px; flex: none; }
+    #folders { display: flex; gap: 6px; }
+    .folder { flex: none; width: auto; white-space: nowrap; padding: 6px 12px; border: 1px solid var(--line); }
+    .accounts { display: none; }
+    .list, .reader { grid-row: 3; }
+    body.reading nav { display: none; }
+    body.reading .reader { grid-row: 2 / 4; }
+    #sync { padding: 6px 10px; }
+    .brand { width: auto; }
+    .reader { display: none; }
+    body.reading .list { display: none; }
+    body.reading .reader { display: flex; }
+    .back { display: inline-block; }
+    .message { padding: 16px; }
+  }
+</style>
+<link rel="stylesheet" href="/theme.css">
+</head>
+<body>
+<div class="app">
+  <header>
+    <div class="brand"><div class="orb" id="orb"></div>Posta</div>
+    <label class="search"><span aria-hidden="true">🔎</span><input id="q" placeholder="Cerca nelle mail…" aria-label="Cerca nelle mail"></label>
+    <div class="grow"></div>
+    <button class="btn" id="sync" type="button" title="Controlla nuova posta">↻ Aggiorna</button>
+  </header>
+
+  <nav>
+    <button class="btn primary compose" id="compose" type="button">✏️ Scrivi</button>
+    <div id="folders"></div>
+    <div class="accounts" id="accounts"></div>
+  </nav>
+
+  <section class="list" id="list" aria-label="Elenco mail"></section>
+
+  <section class="reader">
+    <article class="message" id="message"><div class="empty">Seleziona una mail per leggerla.</div></article>
+    <div class="copilot">
+      <div class="out" id="out" aria-live="polite"></div>
+      <div class="chips" id="chips"></div>
+      <form class="ask" id="askform" autocomplete="off">
+        <div class="orb" aria-hidden="true"></div>
+        <input id="ask" placeholder="Chiedi a Nova…" aria-label="Chiedi a Nova" maxlength="500">
+        <button type="submit" aria-label="Invia">↑</button>
+      </form>
+    </div>
+  </section>
+</div>
+
+<dialog id="dlg">
+  <form class="compose-form" id="composeform" method="dialog">
+    <b id="dlgtitle">Nuova mail</b>
+    <input id="cto" placeholder="A (indirizzi separati da virgola)" aria-label="Destinatari">
+    <input id="csubj" placeholder="Oggetto" aria-label="Oggetto">
+    <textarea id="cbody" placeholder="Scrivi qui…" aria-label="Testo"></textarea>
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button class="btn" value="cancel" type="button" id="cclose">Annulla</button>
+      <button class="btn primary" id="csend" type="button">Invia</button>
+    </div>
+  </form>
+</dialog>
+
+<script>
+"use strict";
+const token = new URLSearchParams(location.hash.slice(1)).get("t") || "";
+if (location.hash) history.replaceState(null, "", location.pathname);
+const $ = id => document.getElementById(id);
+const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+let current = { category: "tutte", q: "", mail: null, replyTo: null };
+
+async function api(path, body) {
+  const res = await fetch(path, { method: body === undefined ? "GET" : "POST",
+    headers: { "Content-Type": "application/json", "X-AIOS-Token": token },
+    body: body === undefined ? undefined : JSON.stringify(body) });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+  return data;
+}
+function toast(text) { const t = el("div", "toast", text); document.body.append(t); setTimeout(() => t.remove(), 3500); }
+const COLORS = ["#5b4cf0", "#0f766e", "#b45309", "#be185d", "#1d4ed8", "#7c3aed", "#047857"];
+function avatar(name) { const a = el("div", "avatar", (name || "?").trim()[0].toUpperCase());
+  a.style.background = COLORS[[...(name || "?")].reduce((s, c) => s + c.charCodeAt(0), 0) % COLORS.length]; return a; }
+function when(iso) { const d = new Date(iso), now = new Date();
+  return d.toDateString() === now.toDateString() ? d.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })
+    : d.toLocaleDateString("it-IT", { day: "numeric", month: "short" }); }
+
+// --- cartelle e riepilogo ------------------------------------------------------------
+async function loadFolders() {
+  const data = await api("/api/folders");
+  const box = $("folders"); box.replaceChildren();
+  for (const f of data.folders) {
+    const b = el("button", "folder"); b.type = "button";
+    b.append(el("span", "", f.label));
+    if (f.unread) b.append(el("span", "n", String(f.unread)));
+    b.setAttribute("aria-current", String(f.key === current.category && !current.q));
+    b.addEventListener("click", () => { current.category = f.key; current.q = ""; $("q").value = ""; loadFolders(); loadList(); });
+    box.append(b);
+  }
+  $("accounts").textContent = data.accounts.length ? data.accounts.join(" · ") : "Nessun account: collegalo da Impostazioni › Posta";
+  return data;
+}
+
+async function loadList() {
+  const data = await api(current.q ? `/api/list?q=${encodeURIComponent(current.q)}` : `/api/list?category=${current.category}`);
+  const list = $("list"); list.replaceChildren();
+  const overview = await api("/api/folders");
+  if (!current.q && overview.important.length) {
+    const d = el("div", "digest"); const t = el("div", "t"); t.append(el("div", "orb"), el("span", "", `Nova: ${overview.unread} non lette, da guardare`));
+    const ul = el("ul"); for (const m of overview.important) ul.append(el("li", "", `${m.sender_name || m.sender} — ${m.subject}`));
+    d.append(t, ul); list.append(d);
+  }
+  if (!data.mails.length) { list.append(el("div", "empty", current.q ? "Nessun risultato." : "Niente qui. 📭")); return; }
+  for (const m of data.mails) {
+    const r = el("div", "row" + (m.seen ? "" : " unread")); r.tabIndex = 0; r.setAttribute("role", "button");
+    r.setAttribute("aria-selected", String(current.mail && current.mail.id === m.id));
+    const mid = el("div"); mid.style.minWidth = "0";
+    const who = el("div", "who", m.sender_name || m.sender);
+    mid.append(who, el("div", "subj", m.subject), el("div", "snip", m.snippet));
+    const right = el("div", "time", when(m.date));
+    if (m.importance >= 60) right.append(el("div", "star", "★"));
+    r.append(avatar(m.sender_name || m.sender), mid, right);
+    const open = () => openMail(m.id);
+    r.addEventListener("click", open); r.addEventListener("keydown", e => { if (e.key === "Enter") open(); });
+    list.append(r);
+  }
+}
+
+// --- lettura -----------------------------------------------------------------------
+async function openMail(id) {
+  const data = await api(`/api/mail/${id}`);
+  const m = data.mail; current.mail = m;
+  document.body.classList.add("reading");
+  const box = $("message"); box.replaceChildren();
+  const back = el("button", "btn back", "← Indietro"); back.type = "button"; back.addEventListener("click", () => document.body.classList.remove("reading"));
+  const h = el("h1", "", m.subject);
+  const meta = el("div", "meta");
+  meta.append(el("span", "", `${m.sender_name ? m.sender_name + " · " : ""}${m.sender}`), el("span", "", new Date(m.date).toLocaleString("it-IT")));
+  const cat = data.categories.find(c => c.key === m.category);
+  meta.append(el("span", "badge" + (m.importance >= 60 ? " imp" : ""), `${cat ? cat.label : m.category} · ${m.reason}`));
+  const bar = el("div", "toolbar");
+  const reply = el("button", "btn primary", "↩ Rispondi"); reply.type = "button"; reply.addEventListener("click", () => compose(m));
+  const arch = el("button", "btn", "🗄️ Archivia"); arch.type = "button";
+  arch.addEventListener("click", async () => { const r = await api(`/api/mail/${m.id}/archive`, {}); toast(r.message); loadList(); });
+  const sel = el("select"); sel.setAttribute("aria-label", "Sposta in categoria");
+  sel.append(el("option", "", "Sposta in…"));
+  for (const c of data.categories) { const o = el("option", "", c.label); o.value = c.key; sel.append(o); }
+  sel.addEventListener("change", async () => { if (!sel.value) return;
+    const r = await api(`/api/mail/${m.id}/category`, { category: sel.value }); toast(r.message); loadFolders(); loadList(); });
+  bar.append(back, reply, arch, sel);
+  const dates = el("div", "dates");
+  for (const d of data.dates) {
+    const c = el("button", "datechip", `📅 Aggiungi in agenda: ${d.label}`); c.type = "button";
+    c.addEventListener("click", async () => { const r = await api("/api/agenda", { title: m.subject, when: d.when }); toast(r.message); c.disabled = true; });
+    dates.append(c);
+  }
+  const body = el("div", "body", m.body || m.snippet);  // sempre testo, mai HTML
+  box.append(h, meta, bar, dates, body);
+  if (m.attachments.length) box.append(el("div", "attach", "📎 " + m.attachments.join(", ")));
+  setChips(["Riassumi questa mail", "Scrivi una risposta", "Ricordamelo domani alle 9"]);
+  if (!m.seen) api(`/api/mail/${m.id}/seen`, {}).then(() => { loadFolders(); }).catch(() => {});
+  loadList();
+}
+
+// --- scrivere ------------------------------------------------------------------------
+function compose(original) {
+  current.replyTo = original ? original.id : null;
+  $("dlgtitle").textContent = original ? "Rispondi" : "Nuova mail";
+  $("cto").value = original ? original.sender : "";
+  $("csubj").value = original ? (original.subject.toLowerCase().startsWith("re:") ? original.subject : "Re: " + original.subject) : "";
+  $("cbody").value = "";
+  $("dlg").showModal(); (original ? $("cbody") : $("cto")).focus();
+}
+$("compose").addEventListener("click", () => compose(null));
+$("cclose").addEventListener("click", () => $("dlg").close());
+$("csend").addEventListener("click", async () => {
+  try {
+    const r = await api("/api/send", { to: $("cto").value, subject: $("csubj").value, body: $("cbody").value, reply_to: current.replyTo });
+    $("dlg").close(); toast(r.message);
+  } catch (e) { toast(e.message); }
+});
+
+// --- copilota --------------------------------------------------------------------------
+function setChips(list) {
+  const box = $("chips"); box.replaceChildren();
+  for (const label of list) { const c = el("button", "chip", label); c.type = "button"; c.addEventListener("click", () => ask(label)); box.append(c); }
+}
+async function ask(text) {
+  const out = $("out"); out.replaceChildren(el("div", "s", "› " + text));
+  $("orb").classList.add("busy");
+  try {
+    const { job } = await api("/api/ask", { text, mail_id: current.mail ? current.mail.id : null });
+    let next = 0, shown = false;
+    for (;;) {
+      const s = await api(`/api/job/${job}?after=${next}`); next = s.next;
+      for (const ev of s.events) out.append(el("div", "s", ev.kind === "fast" ? "⚡ capito all'istante" : ev.text));
+      if (s.pending && !shown) { shown = true; confirmBox(job, s.pending); }
+      if (!s.pending) shown = false;
+      if (s.done) { out.append(el("div", "a", s.answer)); break; }
+      await new Promise(r => setTimeout(r, 200));
+    }
+  } catch (e) { out.append(el("div", "a", "Non riesco a raggiungere Nova.")); }
+  $("orb").classList.remove("busy");
+}
+function confirmBox(job, pending) {
+  const box = el("div", "confirm", (pending.warning ? "🔒 " + pending.warning + "\n" : "") + "Posso procedere? " + pending.label);
+  const row = el("div", "row2");
+  const no = el("button", "btn", "Annulla"), yes = el("button", "btn primary", "Procedi");
+  const decide = ok => { yes.disabled = no.disabled = true; api(`/api/job/${job}/confirm`, { ok }); };
+  no.addEventListener("click", () => decide(false)); yes.addEventListener("click", () => decide(true));
+  row.append(no, yes); box.append(row); $("out").append(box);
+}
+$("askform").addEventListener("submit", e => { e.preventDefault(); const t = $("ask").value.trim(); if (t) { $("ask").value = ""; ask(t); } });
+
+// --- ricerca e aggiornamento ------------------------------------------------------------
+let timer; $("q").addEventListener("input", () => { clearTimeout(timer); timer = setTimeout(() => { current.q = $("q").value.trim(); loadFolders(); loadList(); }, 250); });
+$("sync").addEventListener("click", async () => {
+  $("orb").classList.add("busy");
+  try { const r = await api("/api/sync", {}); toast(r.errors.length ? "⚠ " + r.errors[0] : `${r.new} mail nuove`); }
+  finally { $("orb").classList.remove("busy"); loadFolders(); loadList(); }
+});
+setChips(["Ho nuove mail importanti?", "I miei abbonamenti", "Cerca nelle mail la fattura"]);
+loadFolders().then(loadList).catch(() => { $("list").replaceChildren(el("div", "empty", "Non riesco a raggiungere la posta.")); });
+</script>
+</body>
+</html>

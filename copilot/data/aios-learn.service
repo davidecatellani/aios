@@ -1,0 +1,15 @@
+# Servizio utente: copiare in ~/.config/systemd/user/ e attivare con
+#   systemctl --user enable --now aios-learn
+[Unit]
+Description=AIOS: apprendimento nei momenti di riposo
+
+[Service]
+ExecStart=aios-learn
+# La CPU e il disco vanno all'apprendimento solo quando nessun altro li usa.
+CPUSchedulingPolicy=idle
+IOSchedulingClass=idle
+Nice=19
+Restart=on-failure
+
+[Install]
+WantedBy=default.target

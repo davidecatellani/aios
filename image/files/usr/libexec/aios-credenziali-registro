@@ -1,0 +1,35 @@
+#!/usr/bin/python3
+"""Sposta l'accesso al registro (lasciato da SoIA per l'utente) dove rpm-ostree e bootc lo leggono.
+
+Si accetta solo un accesso a ghcr.io: il file non può cambiare altro. /etc/ostree/auth.json è leggibile
+solo da root; il file lasciato dall'utente si cancella in ogni caso.
+"""
+import json
+import os
+import sys
+from pathlib import Path
+
+drop = Path("/var/lib/aios-registro/auth.json")
+dest = Path("/etc/ostree/auth.json")
+try:
+    data = json.loads(drop.read_text())
+    auth = data["auths"]["ghcr.io"]["auth"]
+    if not isinstance(auth, str) or not auth or len(data["auths"]) != 1:
+        raise ValueError("solo ghcr.io")
+    current = {}
+    try:
+        current = json.loads(dest.read_text())
+    except (OSError, ValueError):
+        pass
+    current.setdefault("auths", {})["ghcr.io"] = {"auth": auth}
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    tmp = dest.with_suffix(".nuovo")
+    fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(fd, "w") as f:
+        json.dump(current, f)
+    os.replace(tmp, dest)
+    print("accesso a ghcr.io installato")
+except (OSError, ValueError, KeyError, TypeError) as exc:
+    print(f"accesso non valido: {exc}", file=sys.stderr)
+finally:
+    drop.unlink(missing_ok=True)

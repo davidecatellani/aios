@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="40 18 432 432">
+  <title>SoIA</title>
+  <!-- Seme -->
+  <circle cx="256" cy="132" r="58" fill="#bebebe"/>
+
+  <!-- Foglia sinistra -->
+  <path fill="#bebebe" d="
+    M250 394
+    C218 326 177 310 132 292
+    C82 272 55 222 56 162
+    C116 158 174 181 211 220
+    C247 258 258 316 250 394
+    Z"/>
+
+  <!-- Foglia destra -->
+  <path fill="#bebebe" d="
+    M262 394
+    C294 326 335 310 380 292
+    C430 272 457 222 456 162
+    C396 158 338 181 301 220
+    C265 258 254 316 262 394
+    Z"/>
+</svg>

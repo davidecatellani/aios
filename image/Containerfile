@@ -1,0 +1,380 @@
+# SoIA per PC (anteprima): basato su Fedora Silverblue immutabile, con l'aspetto di SoIA, Nova (anche a voce)
+# e i servizi di SoIA.
+#
+#   podman build -t aios:44 -f image/Containerfile .          (dalla radice del repository)
+#   rpm-ostree rebase ostree-unverified-registry:ghcr.io/<utente>/aios:44   (da un Fedora Atomic già installato)
+#
+# Per la chiavetta d'installazione: vedi image/README.md (bootc-image-builder, tipo anaconda-iso).
+# Gli aggiornamenti arrivano come nuove versioni dell'immagine: aios-aggiornamenti (rpm-ostree) le
+# prepara a riposo e si applicano al riavvio; greenboot torna indietro se qualcosa non va.
+ARG FEDORA=44
+FROM quay.io/fedora-ostree-desktops/silverblue:${FEDORA}
+
+# Programmi di sistema usati da SoIA
+RUN dnf install -y --skip-unavailable \
+        python3-pip python3-setuptools python3-gobject webkitgtk6.0 \
+        ffmpeg-free poppler-utils libnotify wl-clipboard libsecret \
+        kde-connect android-tools ydotool bluez dnsmasq \
+        greenboot \
+        espeak-ng pipewire-utils pulseaudio-utils python3-cffi pciutils usbutils zenity \
+        labwc gtk4-layer-shell wlrctl mako swayidle swaylock wlopm grim slurp brightnessctl \
+        greetd greetd-selinux cage python3-openpyxl tuned-ppd gtklock powertop wayvnc wf-recorder python3-cryptography orca git-core vulkan-loader mesa-vulkan-drivers \
+        python3-opencv \
+        rsms-inter-fonts atkinson-hyperlegible-fonts google-noto-serif-fonts mozilla-fira-sans-fonts \
+        opendyslexic-fonts lexend-fonts jetbrains-mono-fonts \
+        gstreamer1-plugins-good gstreamer1-plugins-bad-free gstreamer1-plugin-libav \
+        xdg-desktop-portal-wlr xdg-desktop-portal-gtk polkit-gnome \
+        linux-firmware realtek-firmware atheros-firmware iwlwifi-mvm-firmware mt7xxx-firmware brcmfmac-firmware \
+    && dnf clean all
+
+# Kernel: quello di Fedora (predefinito) o il ramo a lungo termine 6.18 LTS (KERNEL=lts), più vicino a
+# quello di Ubuntu: alcuni PC (es. ASUS X540UA) col kernel più recente non vedono la scheda Wi-Fi.
+# Il kernel LTS non è firmato da Fedora: con il Secure Boot attivo non si avvia (va disattivato nel BIOS).
+ARG FEDORA=44
+ARG KERNEL=fedora
+RUN if [ "$KERNEL" = lts ]; then \
+      set -e; \
+      curl -fsSL -o /etc/yum.repos.d/kernel-longterm-6.18.repo \
+        "https://copr.fedorainfracloud.org/coprs/kwizart/kernel-longterm-6.18/repo/fedora-${FEDORA}/kwizart-kernel-longterm-6.18-fedora-${FEDORA}.repo"; \
+      old="$(ls /usr/lib/modules)"; \
+      rpm -e --nodeps $(rpm -qa 'kernel' 'kernel-core' 'kernel-modules*' 'kernel-uki-virt' | tr '\n' ' '); \
+      for k in $old; do rm -rf "/usr/lib/modules/$k"; done; \
+      for i in 1 2 3 4; do \
+        dnf install -y --setopt=retries=10 kernel-longterm kernel-longterm-core kernel-longterm-modules \
+            kernel-longterm-modules-extra && break; \
+        [ "$i" = 4 ] && exit 1; echo "copr non risponde: riprovo"; sleep 60; \
+      done; \
+      dnf clean all; \
+      ls /usr/lib/modules; test "$(ls /usr/lib/modules | wc -l)" = 1; \
+      test -f "/usr/lib/modules/$(ls /usr/lib/modules)/vmlinuz"; \
+    fi
+
+# Hyprland, il compositore di SoIA: da Fedora se c'è, altrimenti dal primo COPR che lo offre per questa
+# versione di Fedora (sdegler/hyprland è quello mantenuto oggi; solopasha/hyprland quello storico). Deve
+# esserci: senza, la sessione ripiegherebbe su labwc senza dirlo (è successo nell'anteprima 20).
+ARG FEDORA=44
+RUN set -e; \
+    if ! dnf install -y --setopt=retries=10 hyprland; then \
+      found=""; \
+      for c in sdegler/hyprland solopasha/hyprland lionheartp/Hyprland; do \
+        url="https://copr.fedorainfracloud.org/coprs/$c/repo/fedora-${FEDORA}/$(echo "$c" | tr / -)-fedora-${FEDORA}.repo"; \
+        if curl -fsSL --retry 3 -o /etc/yum.repos.d/hyprland.repo "$url"; then found="$c"; break; fi; \
+        echo "COPR $c: niente per Fedora ${FEDORA}"; \
+      done; \
+      [ -n "$found" ] || { echo "ERRORE: Hyprland non disponibile per Fedora ${FEDORA}" >&2; exit 1; }; \
+      echo "Hyprland da COPR $found"; \
+      for i in 1 2 3 4; do \
+        dnf install -y --setopt=retries=10 hyprland && break; \
+        [ "$i" = 4 ] && exit 1; echo "copr non risponde: riprovo"; sleep 60; \
+      done; \
+    fi; \
+    # luce notturna (hyprsunset, dallo stesso repository di Hyprland; gammastep di riserva)
+    dnf install -y --setopt=retries=10 --skip-unavailable hyprsunset gammastep || echo "avviso: niente luce notturna"; \
+    dnf clean all; \
+    test -x /usr/bin/Hyprland; test -x /usr/bin/hyprctl; rpm -q hyprland
+
+# Codec completi (per Schermo SoIA: H.264/H.265 codificati e decodificati dalla scheda video, anche Intel e
+# AMD) da RPM Fusion, come fanno Bazzite e Universal Blue: ffmpeg al posto di ffmpeg-free, i driver VA-API
+# «freeworld» e il driver Intel completo. Senza, Fedora non codifica H.264 con la scheda video.
+ARG FEDORA=44
+RUN set -e; \
+    rpm -q rpmfusion-nonfree-release >/dev/null 2>&1 || dnf install -y --setopt=retries=10 \
+      "https://mirrors.rpmfusion.org/free/fedora/rpmfusion-free-release-${FEDORA}.noarch.rpm" \
+      "https://mirrors.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-${FEDORA}.noarch.rpm"; \
+    dnf install -y --setopt=retries=10 --allowerasing ffmpeg; \
+    dnf install -y --setopt=retries=10 --allowerasing --skip-unavailable mesa-va-drivers-freeworld intel-media-driver \
+      gstreamer1-plugins-bad-freeworld gstreamer1-plugins-ugly gstreamer1-plugin-gtk4 \
+      || echo "avviso: driver VA-API completi non installati (resta la codifica col processore)"; \
+    dnf clean all; \
+    ffmpeg -hide_banner -encoders | grep -q libx264; ffmpeg -hide_banner -encoders | grep -q h264_vaapi
+
+# Variante NVIDIA (GPU=nvidia): il driver proprietario da RPM Fusion, compilato qui per il kernel dell'immagine.
+# Il ramo «580xx» è l'ultimo che regge anche le GTX 900/10xx (Maxwell, Pascal) e va bene per le schede più nuove.
+# Il modulo non è firmato: con il Secure Boot attivo non si carica (va disattivato nel BIOS). nouveau è escluso
+# all'avvio (kargs) e Hyprland riceve le variabili giuste da aios-sessione (se il driver è caricato).
+# Nell'immagine universale (VARIANTE=universale) c'è sempre: si carica solo dove c'è una scheda NVIDIA (regola udev).
+ARG FEDORA=44
+ARG GPU=
+ARG NVIDIA_RAMO=580xx
+RUN if [ "$GPU" = nvidia ]; then \
+      set -e; \
+      rpm -q rpmfusion-nonfree-release >/dev/null 2>&1 || dnf install -y --setopt=retries=10 \
+        "https://mirrors.rpmfusion.org/free/fedora/rpmfusion-free-release-${FEDORA}.noarch.rpm" \
+        "https://mirrors.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-${FEDORA}.noarch.rpm"; \
+      KVER="$(ls /usr/lib/modules | sort -V | tail -n1)"; \
+      kpkg="$(rpm -qf "/usr/lib/modules/$KVER/vmlinuz" --qf '%{NAME}' | sed 's/-core$//')"; \
+      kv="${KVER%.*}"; ver="${kv%%-*}"; rel="${kv#*-}"; \
+      dnf install -y --setopt=retries=10 "${kpkg}-devel-${kv}" \
+        || dnf install -y "https://kojipkgs.fedoraproject.org/packages/kernel/${ver}/${rel}/x86_64/kernel-devel-${kv}.x86_64.rpm"; \
+      # il %post di akmod-nvidia prova a compilare come root e fallisce (nel container è atteso): dnf esce con
+      # errore ma i pacchetti restano installati, lo verifica rpm -q; il modulo si compila subito dopo
+      dnf install -y --setopt=retries=10 --skip-unavailable "akmod-nvidia-${NVIDIA_RAMO}" \
+        "xorg-x11-drv-nvidia-${NVIDIA_RAMO}-cuda" "xorg-x11-drv-nvidia-${NVIDIA_RAMO}-power" libva-nvidia-driver \
+        || echo "dnf: scriptlet di akmod fallito, si compila a mano"; \
+      rpm -q "akmod-nvidia-${NVIDIA_RAMO}" "xorg-x11-drv-nvidia-${NVIDIA_RAMO}-cuda"; \
+      # il modulo «classico» (chiuso): quello «open» non regge le GTX 900/10xx (Maxwell, Pascal). Il pacchetto di
+      # RPM Fusion lo sceglie guardando la scheda presente (lspci): qui, senza scheda, sceglierebbe «open»; con
+      # questa macro non indovina e resta sul classico
+      echo '%_without_kmod_nvidia_detect 1' > /etc/rpm/macros.aios-nvidia; \
+      id akmods >/dev/null 2>&1 || useradd -r -M -d /var/cache/akmods -s /sbin/nologin akmods; \
+      mkdir -p /var/cache/akmods /tmp/akb; chown akmods: /var/cache/akmods /tmp/akb; \
+      akmods --force --kernels "$KVER" || true; \
+      if ! find "/usr/lib/modules/$KVER" -name 'nvidia.ko*' | grep -q .; then \
+        cat /var/cache/akmods/*/*.log 2>/dev/null | tail -n 40; \
+        runuser -u akmods -- env HOME=/tmp/akb akmodsbuild --kernels "$KVER" --outputdir /tmp/akb \
+          /usr/src/akmods/nvidia-${NVIDIA_RAMO}-kmod-*.src.rpm; \
+        dnf install -y /tmp/akb/kmod-nvidia-*.rpm; \
+      fi; \
+      rm -rf /tmp/akb; \
+      find "/usr/lib/modules/$KVER" -name 'nvidia.ko*' | grep -q . || { echo "ERRORE: modulo nvidia non compilato" >&2; \
+        cat /var/cache/akmods/*/*.log 2>/dev/null | tail -n 80; exit 1; }; \
+      mkdir -p /usr/lib/bootc/kargs.d /usr/lib/modprobe.d /usr/lib/dracut/dracut.conf.d; \
+      printf 'kargs = ["rd.driver.blacklist=nouveau", "modprobe.blacklist=nouveau", "nvidia-drm.modeset=1", "nvidia-drm.fbdev=1"]\n' \
+        > /usr/lib/bootc/kargs.d/10-nvidia.toml; \
+      printf 'blacklist nouveau\noptions nouveau modeset=0\n' > /usr/lib/modprobe.d/aios-nouveau.conf; \
+      printf 'omit_drivers+=" nouveau "\n' > /usr/lib/dracut/dracut.conf.d/90-aios-nvidia.conf; \
+      systemctl disable akmods.service 2>/dev/null || true; \
+      dnf clean all; \
+      depmod -a "$KVER"; \
+      # il driver si carica solo se c'è una scheda NVIDIA (immagine universale: sugli altri PC non si tocca)
+      mkdir -p /usr/lib/udev/rules.d; \
+      printf '%s\n' '# SoIA: con una scheda video NVIDIA si caricano il driver e i moduli che servono a Wayland e a CUDA' \
+        'ACTION=="add", SUBSYSTEM=="pci", ATTR{vendor}=="0x10de", ATTR{class}=="0x03[0-9]*", RUN+="/usr/sbin/modprobe -a nvidia nvidia_modeset nvidia_uvm nvidia_drm"' \
+        > /usr/lib/udev/rules.d/70-aios-nvidia.rules; \
+      modinfo -k "$KVER" nvidia | head -n 4; \
+      if modinfo -k "$KVER" -F license nvidia | grep -qi "MIT"; then \
+        echo "ERRORE: compilato il modulo open, che non regge le schede Maxwell/Pascal" >&2; exit 1; fi; \
+    fi
+
+# Aspetto SoIA: niente loghi di Fedora (come chiedono le regole dei marchi Fedora per i sistemi derivati)
+# e niente giro di benvenuto di GNOME: il benvenuto è quello di Nova.
+RUN dnf swap -y fedora-logos generic-logos || echo "avviso: loghi Fedora non sostituiti"; \
+    dnf remove -y gnome-tour gnome-initial-setup || echo "avviso: benvenuto di GNOME non rimosso"; \
+    dnf clean all
+
+# Voce di Nova, tutta sul computer: Vosk (ascolto in italiano) e Piper (voce italiana naturale)
+RUN set -e; pip install --no-cache-dir --prefix=/usr vosk==0.3.45 mammoth; \
+    mkdir -p /usr/share/aios/voce /usr/lib/aios; \
+    curl -fsSL -o /tmp/vosk.zip https://alphacephei.com/vosk/models/vosk-model-small-it-0.22.zip; \
+    python3 -m zipfile -e /tmp/vosk.zip /usr/share/aios/voce/; rm -f /tmp/vosk.zip; \
+    curl -fsSL -o /tmp/spk.zip https://alphacephei.com/vosk/models/vosk-model-spk-0.4.zip; \
+    python3 -m zipfile -e /tmp/spk.zip /usr/share/aios/voce/; rm -f /tmp/spk.zip; \
+    curl -fsSL https://github.com/rhasspy/piper/releases/download/2023.11.14-2/piper_linux_x86_64.tar.gz | tar -xz -C /usr/lib/aios; \
+    voce=https://huggingface.co/rhasspy/piper-voices/resolve/main/it/it_IT/paola/medium/it_IT-paola-medium.onnx; \
+    curl -fsSL -o /usr/share/aios/voce/it_IT-paola-medium.onnx "$voce"; \
+    curl -fsSL -o /usr/share/aios/voce/it_IT-paola-medium.onnx.json "$voce.json"; \
+    voce=https://huggingface.co/rhasspy/piper-voices/resolve/main/it/it_IT/riccardo/x_low/it_IT-riccardo-x_low.onnx; \
+    curl -fsSL -o /usr/share/aios/voce/it_IT-riccardo-x_low.onnx "$voce"; \
+    curl -fsSL -o /usr/share/aios/voce/it_IT-riccardo-x_low.onnx.json "$voce.json"; \
+    test -x /usr/lib/aios/piper/piper; ls /usr/share/aios/voce
+
+# Volti nelle foto (galleria.py): due modellini ONNX di OpenCV, trovare i volti (YuNet, 230 KB) e
+# riconoscerli (SFace, 37 MB). Se lo scaricamento non riesce, il resto del riconoscimento funziona lo stesso.
+RUN mkdir -p /usr/share/aios/volti; zoo=https://github.com/opencv/opencv_zoo/raw/main/models; \
+    curl -fsSL -o /usr/share/aios/volti/face_detection_yunet_2023mar.onnx "$zoo/face_detection_yunet/face_detection_yunet_2023mar.onnx" \
+      && curl -fsSL -o /usr/share/aios/volti/face_recognition_sface_2021dec.onnx "$zoo/face_recognition_sface/face_recognition_sface_2021dec.onnx" \
+      && [ "$(stat -c%s /usr/share/aios/volti/face_detection_yunet_2023mar.onnx)" -gt 100000 ] \
+      && [ "$(stat -c%s /usr/share/aios/volti/face_recognition_sface_2021dec.onnx)" -gt 1000000 ] \
+      || { echo "avviso: modelli dei volti non scaricati"; rm -f /usr/share/aios/volti/*.onnx; }; \
+    ls -l /usr/share/aios/volti
+
+# Impronte delle foto (impronte.py): SigLIP2 di Google (Apache 2.0) in ONNX int8, per cercare le foto a parole
+# in italiano e trovare i doppioni. Foto 95 MB, frasi 283 MB; gira con onnxruntime (installato con Nova).
+ARG SIGLIP=https://huggingface.co/onnx-community/siglip2-base-patch16-256-ONNX/resolve/main
+RUN mkdir -p /usr/share/aios/siglip2 && cd /usr/share/aios/siglip2 \
+    && curl -fsSL -o vision_model_int8.onnx "$SIGLIP/onnx/vision_model_int8.onnx" \
+    && curl -fsSL -o text_model_int8.onnx "$SIGLIP/onnx/text_model_int8.onnx" \
+    && curl -fsSL -o tokenizer.json "$SIGLIP/tokenizer.json" \
+    && [ "$(stat -c%s vision_model_int8.onnx)" -gt 50000000 ] && [ "$(stat -c%s text_model_int8.onnx)" -gt 200000000 ] \
+    || { echo "avviso: impronte delle foto non scaricate"; rm -f /usr/share/aios/siglip2/*; }; \
+    chmod -R a+rX /usr/share/aios/siglip2; ls -l /usr/share/aios/siglip2
+
+# Ascolto (parakeet.py): Parakeet TDT 0.6B v3 di NVIDIA (CC-BY 4.0) in ONNX int8 per sherpa-onnx; trascrive
+# in italiano le frasi che Vosk ha sentito, con molti meno errori. 670 MB, caricato solo quando si parla.
+ARG PARAKEET=https://huggingface.co/csukuangfj/sherpa-onnx-nemo-parakeet-tdt-0.6b-v3-int8/resolve/main
+RUN mkdir -p /usr/share/aios/parakeet && cd /usr/share/aios/parakeet \
+    && for f in encoder.int8.onnx decoder.int8.onnx joiner.int8.onnx tokens.txt; do curl -fsSL -o "$f" "$PARAKEET/$f"; done \
+    && [ "$(stat -c%s encoder.int8.onnx)" -gt 500000000 ] \
+    || { echo "avviso: Parakeet non scaricato (resta Vosk)"; rm -f /usr/share/aios/parakeet/*; }; \
+    chmod -R a+rX /usr/share/aios/parakeet; ls -l /usr/share/aios/parakeet
+
+# Togliere lo sfondo dalle foto (sfondo.py): BiRefNet lite (licenza MIT) in ONNX, 224 MB, caricato solo quando serve.
+ARG BIREFNET=https://huggingface.co/onnx-community/BiRefNet_lite-ONNX/resolve/main/onnx/model.onnx
+RUN mkdir -p /usr/share/aios/birefnet && curl -fsSL --retry 3 -o /usr/share/aios/birefnet/model.onnx "$BIREFNET" \
+    && [ "$(stat -c%s /usr/share/aios/birefnet/model.onnx)" -gt 200000000 ] \
+    || { echo "avviso: BiRefNet non scaricato (niente «togli lo sfondo»)"; rm -f /usr/share/aios/birefnet/*; }; \
+    chmod -R a+rX /usr/share/aios/birefnet; ls -l /usr/share/aios/birefnet
+
+# Voce di Nova (kokoro.py): Kokoro 82M (Apache 2.0) int8, voci italiane naturali Sara e Nicola, 120 MB.
+ARG KOKORO=https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.0
+RUN mkdir -p /usr/share/aios/kokoro && cd /usr/share/aios/kokoro \
+    && curl -fsSL -o kokoro-v1.0.int8.onnx "$KOKORO/kokoro-v1.0.int8.onnx" \
+    && curl -fsSL -o voices-v1.0.bin "$KOKORO/voices-v1.0.bin" \
+    && [ "$(stat -c%s kokoro-v1.0.int8.onnx)" -gt 50000000 ] \
+    || { echo "avviso: voce Kokoro non scaricata (resta Piper)"; rm -f /usr/share/aios/kokoro/*; }; \
+    chmod -R a+rX /usr/share/aios/kokoro; ls -l /usr/share/aios/kokoro
+
+# Chi parla e quando (parlanti.py): Nemotron 3 Diarization di NVIDIA (OpenMDW 1.1) in ONNX int8, 120 MB. Nell'ascolto
+# tiene solo la voce principale (TV, ospiti); trascrive riunioni e vocali divisi per persona (con Parakeet).
+ARG PARLANTI=https://huggingface.co/onnx-community/Nemotron-3-Diarization-ONNX/resolve/main/onnx
+RUN mkdir -p /usr/share/aios/parlanti && cd /usr/share/aios/parlanti \
+    && curl -fsSL -o model_quantized.onnx "$PARLANTI/model_quantized.onnx" \
+    && curl -fsSL -o model_quantized.onnx_data "$PARLANTI/model_quantized.onnx_data" \
+    && [ "$(stat -c%s model_quantized.onnx_data)" -gt 100000000 ] \
+    || { echo "avviso: modello di chi parla non scaricato"; rm -f /usr/share/aios/parlanti/*; }; \
+    chmod -R a+rX /usr/share/aios/parlanti; ls -l /usr/share/aios/parlanti
+
+# Ollama (modelli AI locali), dal pacchetto ufficiale per Linux. Le librerie CUDA si tolgono: senza il driver
+# NVIDIA non servono e raddoppiano la chiavetta. Nella variante NVIDIA resta CUDA 12 (regge anche le GTX 10xx,
+# che CUDA 13 non supporta più).
+ARG OLLAMA_ARCH=amd64
+ARG GPU=
+RUN set -e; base="https://ollama.com/download/ollama-linux-${OLLAMA_ARCH}"; \
+    if curl -fsSLo /tmp/ollama.tar.zst "$base.tar.zst"; then tar --zstd -xf /tmp/ollama.tar.zst -C /usr; \
+    else curl -fsSL "$base.tgz" | tar -xz -C /usr; fi; \
+    rm -rf /tmp/ollama.tar.zst; \
+    if [ "$GPU" = nvidia ]; then find /usr/lib/ollama -maxdepth 1 -name 'cuda_*' ! -name 'cuda_v12' -exec rm -rf {} +; \
+      ls -d /usr/lib/ollama/cuda_v12; \
+    else rm -rf /usr/lib/ollama/cuda_*; fi; \
+    rm -rf /usr/lib/ollama/rocm*; ollama --version || true
+COPY image/files/ /
+
+# I modelli di base di Nova sono già dentro: risponde anche senza internet dal primo avvio.
+# qwen3.5:4b parla e scrive; tev1:0.8b (decisionale) decide quando non c'è il nucleo o Laya; ambito, azione
+# e campi li fa il nucleo (sotto), il 2B e lo 0.8B si scaricano solo se servono; embeddinggemma dà il significato
+# (ricerca nei documenti, frasi in tutte le lingue), 300M.
+# Stanno in /usr (sola lettura); all'avvio di Ollama i file vengono collegati in /var/lib/ollama/models
+# (aios-modelli-inclusi). Con MODELLI_INCLUSI="" si costruisce senza.
+ARG MODELLI_INCLUSI="qwen3.5:4b tev1:0.8b embeddinggemma"
+RUN set -e; if [ -n "$MODELLI_INCLUSI" ]; then \
+      export OLLAMA_MODELS=/usr/share/aios/modelli HOME=/tmp; mkdir -p "$OLLAMA_MODELS"; \
+      (ollama serve >/tmp/ollama.log 2>&1 &); \
+      for i in $(seq 30); do ollama list >/dev/null 2>&1 && break; sleep 1; done; \
+      for m in $MODELLI_INCLUSI; do \
+        for i in 1 2 3; do ollama pull "$m" && break; [ "$i" = 3 ] && exit 1; sleep 20; done; \
+      done; \
+      ollama list; pkill ollama || true; chmod -R a+rX "$OLLAMA_MODELS"; \
+    fi; rm -f /tmp/ollama.log
+
+# llama.cpp (quello di Fedora è troppo vecchio per Qwen3.5): llama-server per il nucleo, llama-mtmd-cli per leggere
+# foto e scansioni con OvisOCR2 (lettore.py). Versione Vulkan: usa la scheda video di qualsiasi marca (NVIDIA, AMD,
+# Intel) senza CUDA, o il processore se non c'è; se manca, quella per processore.
+ARG LLAMA_CPP=b11392
+RUN set -e; rel="https://github.com/ggml-org/llama.cpp/releases/download/${LLAMA_CPP}"; \
+    curl -fsSL -o /tmp/llama.tar.gz "$rel/llama-${LLAMA_CPP}-bin-ubuntu-vulkan-x64.tar.gz" \
+      || curl -fsSL -o /tmp/llama.tar.gz "$rel/llama-${LLAMA_CPP}-bin-ubuntu-x64.tar.gz"; \
+    mkdir -p /usr/lib/aios/llama /tmp/llama && tar -xzf /tmp/llama.tar.gz -C /tmp/llama; \
+    d=$(dirname "$(find /tmp/llama -name llama-server -type f | head -n1)"); \
+    cp -a "$d"/llama-server "$d"/llama-mtmd-cli /usr/lib/aios/llama/; cp -a "$d"/*.so* /usr/lib/aios/llama/ 2>/dev/null || true; \
+    rm -rf /tmp/llama /tmp/llama.tar.gz; chmod -R a+rX /usr/lib/aios/llama; \
+    LD_LIBRARY_PATH=/usr/lib/aios/llama /usr/lib/aios/llama/llama-server --version; \
+    LD_LIBRARY_PATH=/usr/lib/aios/llama /usr/lib/aios/llama/llama-mtmd-cli --help >/dev/null 2>&1 || echo "avviso: llama-mtmd-cli non parte"
+
+# Il nucleo: un solo modello 0.8B con gli adattatori LoRA di Nova (smistamento, campi), al posto di Tev1 e
+# del 0.8B separati (copilot/aios_copilot/nucleo.py). I file li mette in image/nucleo il flusso di
+# costruzione (ultima Release «adattatori-N»); se mancano si costruisce senza e Nova usa Tev1.
+COPY image/nucleo/ /usr/share/aios/nucleo/
+RUN set -e; rm -f /usr/share/aios/nucleo/.gitkeep /usr/share/aios/nucleo/.gitignore; \
+    if [ -f /usr/share/aios/nucleo/base.gguf ] && [ -f /usr/share/aios/nucleo/smistamento.gguf ]; then \
+      chmod -R a+rX /usr/share/aios/nucleo; systemctl enable aios-nucleo.service; \
+    else echo "Nucleo senza adattatori: Nova userà Tev1"; fi
+
+# Il decisore: Laya, il System One di Nova (copilot/aios_copilot/decisore.py), addestrato per SoIA
+# (flusso «Laya», Release «laya-N»: la mette in image/laya il flusso di costruzione). Ambito, azione, percorso,
+# posta, «è per Nova?», giochi: tutte le decisioni rapide in ~0,2 s. Gira con torch per CPU in un ambiente a
+# parte (/usr/lib/aios/laya); se manca, decide Tev1.
+ARG LAYA_COMMIT=8a6e1328cce2460a0e5aa348ad465bb1b5821cd2
+COPY image/laya/ /usr/share/aios/laya/
+RUN set -e; rm -f /usr/share/aios/laya/.gitkeep /usr/share/aios/laya/.gitignore; \
+    if [ -f /usr/share/aios/laya/rl_agent_config.json ]; then \
+      python3 -m venv /usr/lib/aios/laya; \
+      /usr/lib/aios/laya/bin/pip install --no-cache-dir --index-url https://download.pytorch.org/whl/cpu torch; \
+      /usr/lib/aios/laya/bin/pip install --no-cache-dir "laya @ https://github.com/NandhaKishorM/laya/archive/${LAYA_COMMIT}.tar.gz"; \
+      /usr/lib/aios/laya/bin/python -c "import laya, torch; print('Laya', torch.__version__)"; \
+      chmod -R a+rX /usr/share/aios/laya /usr/lib/aios/laya; systemctl enable aios-decisore.service; \
+    else echo "Senza Laya: le decisioni le prende Tev1"; fi
+
+# Flathub: le app che l'utente chiede a Nova («installa VLC») arrivano da qui
+RUN mkdir -p /etc/flatpak/remotes.d \
+    && curl -fsSL -o /etc/flatpak/remotes.d/flathub.flatpakrepo https://dl.flathub.org/repo/flathub.flatpakrepo
+
+# Nova e i programmi di SoIA
+COPY copilot /tmp/aios-copilot
+# onnxruntime e tokenizers: le impronte delle foto (SigLIP2) senza torch; sherpa-onnx: Parakeet per l'ascolto
+# (se per questa versione di Python non ci sono ancora, Nova funziona lo stesso, senza impronte)
+RUN { pip install --no-cache-dir --prefix=/usr onnxruntime tokenizers \
+      && python3 -c "import onnxruntime, tokenizers, numpy, cv2"; } || echo "avviso: onnxruntime non installato"; \
+    { pip install --no-cache-dir --prefix=/usr sherpa-onnx && python3 -c "import sherpa_onnx"; } \
+      || echo "avviso: sherpa-onnx non installato (l'ascolto resta con Vosk)"; \
+    { pip install --no-cache-dir --prefix=/usr kokoro-onnx && python3 -c "import kokoro_onnx"; } \
+      || echo "avviso: kokoro-onnx non installato (la voce resta Piper)"
+RUN pip install --no-cache-dir --prefix=/usr --no-build-isolation /tmp/aios-copilot \
+    && install -Dm644 -t /usr/share/applications /tmp/aios-copilot/data/org.aios.Copilot.desktop /tmp/aios-copilot/data/org.aios.Welcome.desktop \
+    && install -Dm644 /tmp/aios-copilot/data/org.aios.Welcome-autostart.desktop /etc/xdg/autostart/org.aios.Welcome-autostart.desktop \
+    && cp -r /tmp/aios-copilot/data/icons/hicolor /usr/share/icons/ \
+    && install -Dm644 /tmp/aios-copilot/aios_copilot/brand/aios-simbolo.svg /usr/share/icons/hicolor/scalable/apps/aios.svg \
+    && install -Dm644 -t /usr/lib/systemd/user /tmp/aios-copilot/data/aios-chiavetta.path /tmp/aios-copilot/data/aios-chiavetta.service \
+    && sed -i 's#^ExecStart=aios-#ExecStart=/usr/bin/aios-#' /usr/lib/systemd/user/aios-chiavetta.service \
+    && for s in aios-learn aios-agenda aios-mail aios-telefono aios-voce aios-schermo; do \
+         sed 's#^ExecStart=aios-#ExecStart=/usr/bin/aios-#' "/tmp/aios-copilot/data/$s.service" > "/usr/lib/systemd/user/$s.service"; \
+       done \
+    && install -Dm755 /tmp/aios-copilot/data/greenboot/50-aios.sh /etc/greenboot/check/required.d/50-aios.sh \
+    && rm -rf /tmp/aios-copilot
+
+# Servizi: Ollama per il sistema, quelli di SoIA per ogni utente; Super+Spazio apre Nova
+RUN systemctl enable ollama.service aios-modello-base.service aios-risparmio.service aios-credenziali-registro.path greenboot-healthcheck.service \
+    && systemctl --global enable aios-learn.service aios-agenda.service aios-mail.service aios-telefono.service \
+       aios-voce.service aios-schermo.service aios-chiavetta.path \
+    && dconf update
+
+# La sessione di SoIA: la shell (giornata, barra, Nova) al posto del desktop. All'accensione la
+# schermata d'accesso di SoIA (greetd + aios-accesso, in HTML) al posto di GDM; GDM resta installato
+# e riparte da solo solo se l'accesso di SoIA non riesce ad avviarsi (greetd.service.d/aios.conf).
+# controlli: se manca un pezzo della sessione, la costruzione si ferma (non un'anteprima a metà)
+RUN test -x /usr/bin/Hyprland && test -x /usr/bin/hyprctl && test -x /usr/bin/labwc && test -x /usr/bin/greetd \
+    && test -x /usr/bin/cage
+RUN chmod 755 /usr/libexec/aios-nucleo /usr/libexec/aios-decisore /usr/bin/aios-sessione /usr/bin/aios-blocca /usr/bin/aios-schermata /usr/libexec/aios-accesso-avvio /usr/libexec/aios-avvio-sessione /usr/share/aios/labwc/autostart /usr/libexec/aios-risparmio /usr/lib/systemd/system-sleep/aios-risparmio /usr/libexec/aios-credenziali-registro \
+    && rm -f /etc/systemd/system/display-manager.service \
+    && (systemctl disable gdm.service || true) \
+    && (systemctl enable greetd.service || true) \
+    && ln -sf /usr/lib/systemd/system/greetd.service /etc/systemd/system/display-manager.service \
+    && if grep -q '^\[daemon\]' /etc/gdm/custom.conf 2>/dev/null; then \
+         sed -i 's/^\[daemon\]$/[daemon]\nDefaultSession=aios.desktop/' /etc/gdm/custom.conf; \
+       else printf '[daemon]\nDefaultSession=aios.desktop\n' >> /etc/gdm/custom.conf; fi \
+    && for f in /usr/share/wayland-sessions/gnome*.desktop /usr/share/xsessions/gnome*.desktop; do \
+         if [ -f "$f" ]; then sed -i -e 's/^Name=.*/Name=GNOME (riserva)/' -e '/^Name\[/d' "$f"; fi; \
+       done
+
+# Il marchio di SoIA: logo all'avvio e all'accesso, nome del sistema, app tecniche nascoste dal menu
+COPY image/branding/ /tmp/aios-branding/
+RUN install -Dm644 /tmp/aios-branding/aios-logo-chiaro.png /usr/share/pixmaps/aios-logo-chiaro.png \
+    && install -Dm644 /tmp/aios-branding/aios-logo-chiaro.png /usr/share/plymouth/themes/spinner/watermark.png \
+    && rm -rf /tmp/aios-branding \
+    && for app in org.gnome.Yelp nm-connection-editor system-config-printer ibus-setup org.gnome.Tour \
+                  org.freedesktop.MalcontentControl; do \
+         f="/usr/share/applications/$app.desktop"; [ -f "$f" ] || continue; \
+         if grep -q '^NoDisplay=' "$f"; then sed -i 's/^NoDisplay=.*/NoDisplay=true/' "$f"; \
+         else sed -i '0,/^\[Desktop Entry\]/s//[Desktop Entry]\nNoDisplay=true/' "$f"; fi; \
+       done \
+    && dconf update \
+    && KVER="$(ls /usr/lib/modules | sort -V | tail -n1)" \
+    && dracut --no-hostonly --kver "$KVER" --reproducible --zstd -v --add ostree -f "/usr/lib/modules/$KVER/initramfs.img"
+
+# Versione e provenienza degli aggiornamenti (imageupdate.py): GitHub con l'accesso dell'utente, o chiavetta
+ARG VERSIONE=sviluppo
+ARG REPO=davidecatellani/aios
+ARG GPU=
+# «universale»: un'immagine per tutti i PC, col driver NVIDIA che si attiva solo dove c'è una scheda NVIDIA
+ARG VARIANTE=
+LABEL org.opencontainers.image.version="${VERSIONE}" version="${VERSIONE}"
+RUN mkdir -p /usr/share/aios \
+    && echo "${VERSIONE}" > /usr/share/aios/versione \
+    && echo "${VARIANTE:-${GPU:-standard}}" > /usr/share/aios/variante \
+    && printf '{"repo": "%s"}\n' "${REPO}" > /usr/share/aios/aggiornamenti.json \
+    && sed -i -e 's/^NAME=.*/NAME="SoIA"/' -e "s/^PRETTY_NAME=.*/PRETTY_NAME=\"SoIA ${VERSIONE}\"/" \
+              -e 's/^LOGO=.*/LOGO=aios/' -e 's/^DEFAULT_HOSTNAME=.*/DEFAULT_HOSTNAME="aios"/' \
+              -e 's/^VARIANT=.*/VARIANT="SoIA"/' /usr/lib/os-release \
+    && for k in LOGO=aios DEFAULT_HOSTNAME=\"aios\"; do grep -q "^${k%%=*}=" /usr/lib/os-release || echo "$k" >> /usr/lib/os-release; done
+
+# Controllo finale (gli avvisi non bloccano l'anteprima)
+RUN bootc container lint || echo "avviso: bootc container lint ha segnalato problemi"

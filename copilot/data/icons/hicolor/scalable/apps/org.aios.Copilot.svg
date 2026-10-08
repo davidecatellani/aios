@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="90 90 420 420" width="420" height="420">
+  <title>Nova</title>
+  <defs>
+    <radialGradient id="base" cx="42%" cy="38%" r="68%">
+      <stop offset="0%" stop-color="#58D8C5"/>
+      <stop offset="55%" stop-color="#2EC4B6"/>
+      <stop offset="100%" stop-color="#1593AD"/>
+    </radialGradient>
+    <linearGradient id="amber" x1="15%" y1="0%" x2="85%" y2="100%">
+      <stop offset="0%" stop-color="#FBE3A0" stop-opacity="1"/>
+      <stop offset="100%" stop-color="#F0BE55" stop-opacity="1"/>
+    </linearGradient>
+    <linearGradient id="mint" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#B9F0D1" stop-opacity=".62"/>
+      <stop offset="100%" stop-color="#2EC4B6" stop-opacity=".18"/>
+    </linearGradient>
+    <clipPath id="sphere"><circle cx="300" cy="300" r="205"/></clipPath>
+  </defs>
+  <circle cx="300" cy="300" r="205" fill="url(#base)"/>
+  <g clip-path="url(#sphere)">
+    <!-- upper amber layer -->
+    <path d="M72 195 C150 100 260 82 370 126 C455 160 505 210 520 270
+             C445 245 382 244 317 210 C231 165 151 151 72 195 Z"
+          fill="url(#amber)"/>
+    <!-- translucent middle layer -->
+    <path d="M55 255 C140 188 220 192 303 238 C380 280 443 299 535 267
+             L535 365 C455 397 376 381 294 337 C202 288 132 282 55 335 Z"
+          fill="url(#mint)"/>
+    <!-- lower flowing layer -->
+    <path d="M58 350 C135 300 212 314 292 357 C366 397 437 414 515 382
+             L540 490 L50 490 Z"
+          fill="#1AA9B8" fill-opacity=".42"/>
+    <path d="M50 410 C140 365 220 389 301 429 C372 464 438 468 530 425
+             L540 510 L50 510 Z"
+          fill="#0B8EAA" fill-opacity=".45"/>
+  </g>
+  <circle cx="300" cy="300" r="205" fill="none" stroke="#fff" stroke-opacity=".12" stroke-width="2"/>
+</svg>

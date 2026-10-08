@@ -1,0 +1,8 @@
+[Unit]
+Description=SoIA: accesso al registro delle immagini lasciato dall'utente
+
+[Path]
+PathExists=/var/lib/aios-registro/auth.json
+
+[Install]
+WantedBy=multi-user.target

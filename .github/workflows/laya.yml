@@ -1,0 +1,61 @@
+name: Laya
+
+# Addestra Laya, il modello che prende le decisioni di Nova (ambito e azione delle richieste, «è per Nova?»
+# al microfono, ricaricare durante un gioco), partendo dal checkpoint multilingue. Lo misura su frasi mai viste
+# e, solo se migliora, lo pubblica in una Release «laya-N»; la costruzione dell'immagine prende l'ultima.
+# Si avvia solo a mano.
+on:
+  workflow_dispatch:
+    inputs:
+      epoche:
+        description: "Passate sugli esempi"
+        default: "3"
+
+permissions:
+  contents: write
+
+env:
+  BASE: convaiinnovations/laya-multilingual
+  LAYA_COMMIT: 8a6e1328cce2460a0e5aa348ad465bb1b5821cd2  # stessa versione dell'immagine (image/Containerfile)
+
+jobs:
+  laya:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 340
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Strumenti
+        run: |
+          pip install --index-url https://download.pytorch.org/whl/cpu torch
+          git clone https://github.com/NandhaKishorM/laya /tmp/laya && git -C /tmp/laya checkout "$LAYA_COMMIT"
+          pip install -e /tmp/laya huggingface_hub
+          pip install -e copilot
+      - name: Esempi
+        run: python copilot/addestramento/dati_laya.py --uscita dati-laya
+      - name: Checkpoint di partenza
+        run: |
+          huggingface-cli download "$BASE" --local-dir base || hf download "$BASE" --local-dir base
+          du -sh base
+      - name: Addestramento
+        run: |
+          python copilot/addestramento/addestra_laya.py --base base --dati dati-laya/laya.jsonl --uscita laya-nova \
+            --epoche "${{ inputs.epoche }}"
+      - name: Misura
+        run: |
+          set -o pipefail
+          python copilot/addestramento/valuta_laya.py --dati dati-laya/prova-laya.jsonl --base base --nuovo laya-nova \
+            | tee misura.md
+      - name: Pubblica
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          rm -rf laya-nova/checkpoint_latest  # stato dell'addestramento, non serve per usarlo
+          tar -C laya-nova -czf laya-nova.tar.gz .
+          sha256sum laya-nova.tar.gz > SHA256SUMS
+          tag="laya-${GITHUB_RUN_NUMBER}"
+          { echo "Laya addestrato per Nova (da $BASE)."; echo; cat misura.md; } > note.md
+          gh release create "$tag" --repo "$GITHUB_REPOSITORY" --prerelease --title "Laya ${GITHUB_RUN_NUMBER}" \
+            --notes-file note.md laya-nova.tar.gz misura.md SHA256SUMS

@@ -1,0 +1,30 @@
+name: Test
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  copilota:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Programmi usati dai test
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg poppler-utils openssl
+      - name: Installa
+        working-directory: copilot
+        run: pip install -e . pytest numpy
+      - name: Test
+        working-directory: copilot
+        env:
+          AIOS_OLLAMA_URL: http://127.0.0.1:9   # nessun modello AI: si provano i livelli veloci e gli strumenti
+          NO_PROXY: 127.0.0.1,localhost
+        run: pytest -q
+      - name: Script di installazione
+        run: |
+          bash -n install.sh
+          HOME="$(mktemp -d)" ./install.sh --si --senza-pacchetti --senza-ollama
+          for s in phone/scripts/*.sh; do bash -n "$s"; done

@@ -1,0 +1,144 @@
+name: Prove voci
+
+# Genera la stessa frase con le voci italiane candidate per Nova, misura quanto ci mette ognuna su
+# un processore senza scheda video (il runner di GitHub, 4 core) e mette i file audio nel ramo
+# «prove-voci», da ascoltare. Non tocca l'immagine di SoIA.
+on:
+  workflow_dispatch:
+  push:
+    branches: [claude/sharp-hawking-70lzfv]
+    paths: [.github/workflows/prove-voci.yml]
+
+permissions:
+  contents: write
+
+env:
+  FRASE: "Buongiorno! Oggi hai due impegni: la riunione alle dieci e la palestra alle sei. Vuoi che ti ricordi qualcosa?"
+
+jobs:
+  voci:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    steps:
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Preparazione
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL /usr/local/share/boost /usr/share/swift || true
+          sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg sox espeak-ng >/dev/null
+          mkdir -p ~/voci && echo "Processore: $(nproc) core, $(grep -m1 'model name' /proc/cpuinfo | cut -d: -f2)" > ~/voci/tempi.txt
+      - name: Riferimento (voci italiane vere, registrazioni libere)
+        continue-on-error: true
+        run: |
+          cd ~/voci
+          python3 - <<'PY'
+          import json, subprocess, urllib.parse, urllib.request
+          UA = {"User-Agent": "AIOS-prove-voci/1.0 (github.com/davidecatellani/aios)"}
+          def get(url):
+              return json.load(urllib.request.urlopen(urllib.request.Request(url, headers=UA), timeout=60))
+          def save(url, n, start):
+              req = urllib.request.Request(url, headers=UA)
+              open("tmp.audio", "wb").write(urllib.request.urlopen(req, timeout=120).read())
+              subprocess.run(["ffmpeg", "-loglevel", "error", "-y", "-ss", str(start), "-t", "12", "-i", "tmp.audio",
+                              "-ac", "1", "-ar", "24000", "-af", "loudnorm", f"riferimento-{n}.wav"], check=True)
+          urls = []
+          api = "https://commons.wikimedia.org/w/api.php?"
+          q = urllib.parse.urlencode({"action": "query", "format": "json", "generator": "categorymembers",
+                                      "gcmtitle": "Category:Spoken Wikipedia - Italian", "gcmtype": "file", "gcmlimit": "20",
+                                      "prop": "imageinfo", "iiprop": "url|size"})
+          try:
+              pages = get(api + q).get("query", {}).get("pages", {})
+              urls += [(p["imageinfo"][0]["url"], 20) for p in pages.values() if p.get("imageinfo")]
+              print("wikipedia parlata:", len(urls))
+          except Exception as e:
+              print("commons:", e)
+          for lang in ("Italian", "ita", "italiano"):
+              try:
+                  docs = get("https://archive.org/advancedsearch.php?" + urllib.parse.urlencode(
+                      {"q": f"collection:librivoxaudio AND language:({lang})", "fl[]": "identifier", "rows": "6", "output": "json"}))["response"]["docs"]
+              except Exception as e:
+                  print("archive:", e); docs = []
+              for d in docs:
+                  meta = get(f"https://archive.org/metadata/{d['identifier']}")
+                  mp3 = next((f["name"] for f in meta.get("files", []) if f["name"].endswith("_64kb.mp3")), None)
+                  if mp3:
+                      urls.append((f"https://archive.org/download/{d['identifier']}/{urllib.parse.quote(mp3)}", 50))
+              if docs:
+                  break
+          done = 0
+          for url, start in urls:
+              try:
+                  save(url, done, start); print("riferimento", done, url); done += 1
+              except Exception as e:
+                  print("salto", url, e)
+              if done == 3:
+                  break
+          PY
+          rm -f tmp.audio; ls -la
+      - name: Piper (Paola, Riccardo)
+        continue-on-error: true
+        run: |
+          cd ~/voci
+          curl -fsSL https://github.com/rhasspy/piper/releases/download/2023.11.14-2/piper_linux_x86_64.tar.gz | tar -xz -C /tmp
+          for v in paola/medium/it_IT-paola-medium riccardo/x_low/it_IT-riccardo-x_low; do
+            n=$(basename $v)
+            curl -fsSL -o /tmp/$n.onnx "https://huggingface.co/rhasspy/piper-voices/resolve/main/it/it_IT/$v.onnx"
+            curl -fsSL -o /tmp/$n.onnx.json "https://huggingface.co/rhasspy/piper-voices/resolve/main/it/it_IT/$v.onnx.json"
+            s=$(date +%s.%N); echo "$FRASE" | /tmp/piper/piper --model /tmp/$n.onnx --output_file piper-$n.wav
+            echo "piper-$n: $(python3 -c "print(round($(date +%s.%N)-$s,1))") s" >> tempi.txt
+          done
+      - name: Qwen3-TTS 0.6B
+        continue-on-error: true
+        run: |
+          python3 -m venv /tmp/qwen && . /tmp/qwen/bin/activate
+          pip install -q torch torchaudio --index-url https://download.pytorch.org/whl/cpu
+          pip install -q qwen-tts soundfile
+          cd ~/voci
+          python3 - <<'PY'
+          import glob, os, time, soundfile as sf, torch
+          from qwen_tts import Qwen3TTSModel
+          frase = os.environ["FRASE"]
+          def log(nome, t):
+              open("tempi.txt", "a").write(f"{nome}: {t:.1f} s\n")
+          for taglia in ("0.6B", "1.7B"):
+              try:
+                  m = Qwen3TTSModel.from_pretrained(f"Qwen/Qwen3-TTS-12Hz-{taglia}-Base", device_map="cpu", dtype=torch.float32)
+                  for ref in sorted(glob.glob("riferimento-*.wav")):
+                      t = time.time()
+                      wavs, sr = m.generate_voice_clone(text=frase, language="Italian", ref_audio=ref, x_vector_only_mode=True)
+                      nome = f"qwen3tts-{taglia}-voce" + ref.split("-")[1].split(".")[0]
+                      sf.write(nome + ".wav", wavs[0], sr); log(nome, time.time() - t)
+                  del m
+              except Exception as e:
+                  print("Base", taglia, e)
+          PY
+      - name: Chatterbox multilingue
+        continue-on-error: true
+        run: |
+          rm -rf /tmp/qwen ~/.cache/pip; df -h / | tail -1
+          python3 -m venv /tmp/cb && . /tmp/cb/bin/activate
+          pip install -q torch torchaudio --index-url https://download.pytorch.org/whl/cpu
+          pip install -q --no-cache-dir chatterbox-tts
+          cd ~/voci
+          python3 - <<'PY'
+          import glob, os, time, torchaudio as ta
+          from chatterbox.mtl_tts import ChatterboxMultilingualTTS
+          frase = os.environ["FRASE"]
+          m = ChatterboxMultilingualTTS.from_pretrained(device="cpu")
+          prove = [("chatterbox", None)] + [("chatterbox-voce" + r.split("-")[1].split(".")[0], r)
+                                             for r in sorted(glob.glob("riferimento-*.wav"))]
+          for nome, ref in prove:
+              t = time.time()
+              wav = m.generate(frase, language_id="it", **({"audio_prompt_path": ref} if ref else {}))
+              ta.save(nome + ".wav", wav, m.sr)
+              open("tempi.txt", "a").write(f"{nome}: {time.time() - t:.1f} s\n")
+          PY
+      - name: Nel ramo prove-voci
+        run: |
+          cd ~/voci
+          echo "Frase (circa 7 secondi parlata): $FRASE" >> tempi.txt; cat tempi.txt; ls -la
+          git init -q -b prove-voci && git add -A
+          git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+            commit -qm "Prove delle voci italiane per Nova"
+          git push -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${GITHUB_REPOSITORY}.git" prove-voci

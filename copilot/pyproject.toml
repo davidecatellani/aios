@@ -5,19 +5,48 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "aios-copilot"
 version = "0.1.0"
-description = "Copilota AI locale di AIOS: gestisci il sistema in lingua naturale"
+description = "Nova, l'assistente AI locale di SoIA: gestisci il sistema in lingua naturale"
 readme = "README.md"
 requires-python = ">=3.10"
-license = { text = "Apache-2.0" }
+license = { text = "GPL-3.0-or-later" }
+classifiers = ["License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)"]
 # Nessuna dipendenza obbligatoria: la finestra grafica usa PyGObject/GTK4 di sistema.
 dependencies = []
 
 [project.optional-dependencies]
 gui = ["PyGObject>=3.46"]
+voce = ["vosk>=0.3.45"]
 test = ["pytest>=8"]
 
 [project.scripts]
 aios-copilot = "aios_copilot.__main__:main"
+aios-voce = "aios_copilot.voice:main"
+aios-shell = "aios_copilot.shell:main"
+aios-accesso = "aios_copilot.accesso:main"
+aios-copilot-setup = "aios_copilot.multilingual:main"
+aios-welcome = "aios_copilot.welcome:main"
+aios-learn = "aios_copilot.learning:main"
+aios-agenda = "aios_copilot.agenda:main"
+aios-mail = "aios_copilot.mail.service:main"
+aios-posta = "aios_copilot.mail.ui:main"
+aios-modelli = "aios_copilot.models:main"
+aios-catalogo = "aios_copilot.modelcatalog:main"
+aios-memoria = "aios_copilot.memory:main"
+aios-telefono = "aios_copilot.mesh.service:main"
+aios-schermo = "aios_copilot.schermo.servizio:main"
+aios-relay = "aios_copilot.relay:main"
+aios-aggiornamenti = "aios_copilot.updates:main"
+aios-abilita = "aios_copilot.sdk:main"
+aios-installa-telefono = "aios_copilot.phoneinstall:main"
+aios-installatore = "aios_copilot.phoneapp:main"
+aios-catalogo-telefoni = "aios_copilot.phonecatalog:main"
 
 [tool.setuptools.packages.find]
 include = ["aios_copilot*"]
+
+[tool.setuptools.package-data]
+aios_copilot = ["welcome/*.html", "mail/*.html", "mesh/*.html", "brand/*", "phoneapp/*.html", "shell/*.html", "shell/static/*", "accesso/*.html"]
+
+[tool.pytest.ini_options]
+pythonpath = [".", "tests"]
+testpaths = ["tests"]

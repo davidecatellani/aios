@@ -1,0 +1,13 @@
+# Servizio utente: copiare in ~/.config/systemd/user/ e attivare con
+#   systemctl --user enable --now aios-telefono
+[Unit]
+Description=AIOS: telefono e PC (collegamento automatico, file del PC dal telefono, chiamate)
+After=network-online.target
+
+[Service]
+ExecStart=aios-telefono servizio
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=default.target

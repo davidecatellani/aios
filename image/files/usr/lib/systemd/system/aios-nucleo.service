@@ -1,0 +1,19 @@
+[Unit]
+Description=Nucleo di Nova: un modello piccolo con gli adattatori LoRA di SoIA
+ConditionPathExists=/usr/share/aios/nucleo/base.gguf
+After=local-fs.target
+
+[Service]
+DynamicUser=yes
+Environment=LD_LIBRARY_PATH=/usr/lib/aios/llama
+# un modello (0.8B, ~0,9 GB, letto dal disco su richiesta), gli adattatori accesi richiesta per richiesta
+# e il proiettore per le immagini (foto, documenti): vedi /usr/libexec/aios-nucleo
+ExecStart=/usr/libexec/aios-nucleo
+Restart=on-failure
+# l'interfaccia viene prima
+Nice=5
+CPUWeight=60
+MemoryHigh=2G
+
+[Install]
+WantedBy=multi-user.target

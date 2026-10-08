@@ -1,0 +1,11 @@
+# SoIA: il servizio che applica i valori di energia al primo avvio.
+type aios_energia, domain, coredomain;
+type aios_energia_exec, system_file_type, exec_type, file_type;
+init_daemon_domain(aios_energia)
+
+# usa «settings» (binder verso system_server)
+binder_use(aios_energia)
+binder_call(aios_energia, system_server)
+allow aios_energia settings_service:service_manager find;
+allow aios_energia shell_exec:file rx_file_perms;
+allow aios_energia system_file:file rx_file_perms;

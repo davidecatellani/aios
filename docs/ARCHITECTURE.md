@@ -1,6 +1,6 @@
-# AIOS — Architettura
+# SoIA — Architettura
 
-AIOS è un sistema operativo grafico, unico per computer, tablet e telefoni, in cui
+SoIA è un sistema operativo grafico, unico per computer, tablet e telefoni, in cui
 un **copilota AI locale** è il modo principale di interagire: si chiede in lingua
 naturale ("installa un programma per montare video", "cerca gli orari dei treni per
 Milano") e l'AI esegue, chiedendo conferma per le azioni importanti.
@@ -86,28 +86,438 @@ Ogni strumento dichiara se richiede conferma.
 Le azioni privilegiate passano da **polkit**, quindi il sistema stesso fa da ultima
 barriera anche se il modello sbagliasse.
 
-**Modelli:** su PC un modello da 7–14 miliardi di parametri con tool calling
-(famiglie Qwen, Llama, Mistral) tramite Ollama. Su telefono un modello da 1–4
-miliardi; le richieste pesanti possono essere delegate al PC dell'utente tramite la
-mesh, senza passare dal cloud. Un modello cloud resta un'opzione esplicita, scelta
-dall'utente.
+Il dettaglio di come il copilota resta veloce anche senza GPU è nella sezione
+successiva.
 
-### Mesh dei dispositivi
+### Motore AI: veloce anche senza GPU
 
-- **Identità:** ogni utente ha una chiave principale, e ogni dispositivo riceve una
-  chiave firmata da quella.
-- **Scoperta:** mDNS in LAN, Bluetooth LE di prossimità, relay opzionale da remoto.
-- **Funzioni:** clipboard condivisa, invio file, notifiche unificate, handoff delle
-  app, telefono come telecomando/webcam, delega di calcolo AI.
-- **Punto di partenza:** il protocollo KDE Connect, già maturo e compatibile con
-  Android; la sincronizzazione dei dati sarà basata su CRDT con cifratura end-to-end.
+Il copilota tradizionale manda ogni frase a un grande modello linguistico. Su un
+telefono o un PC senza GPU questo significa secondi di attesa per ogni comando.
+SoIA parte da un'idea diversa: **essendo il sistema operativo, sa già quasi tutto**
+(app installate, file, impostazioni, cosa c'è sullo schermo). Il modello linguistico
+serve solo per la parte che il sistema davvero non sa.
+
+Le richieste attraversano una cascata di livelli; ognuno risponde solo se è sicuro,
+altrimenti passa al successivo:
+
+| Livello | Cosa fa | Tempo tipico su CPU | Stato |
+|---|---|---|---|
+| **0 — Motore di intenti** | regole + conoscenza del sistema: "apri Firefox", "installa VLC", "apri i Download", "cerca …" | **~10 µs** | ✅ `copilot/aios_copilot/fastpath.py` |
+| **1 — Classificatore semantico** | riconosce frasi riformulate ("si sente troppo piano", "fammi sentire un po' di musica", "stacca il wifi") confrontandole con un catalogo di esempi; concetti (abbassa = riduci = più basso), regole come "troppo basso → alza", astensione su negazioni e parole ignote | **~0,3 ms** | ✅ `copilot/aios_copilot/semantic.py` (italiano e inglese) + `multilingual.py` (tutte le lingue, da calibrare) |
+| 2 — Modello linguistico piccolo | 0,5–3 miliardi di parametri quantizzati a 4 bit (o ternari, tipo BitNet), con output vincolato al formato delle azioni | 0,3–2 s | ✅ base (`qwen2.5:1.5b` via Ollama) |
+| 3 — Modello grande | sul PC dell'utente, raggiunto tramite la mesh, o nel cloud se l'utente lo sceglie | variabile | futuro |
+
+Il livello 2 ha un default piccolo perché su CPU conta la reattività. È proprio
+grazie ai livelli 0–1, che gestiscono i comandi frequenti, che basta un modello piccolo.
+
+**Qualità del livello 1, misurata.** Su frasi mai viste e scritte dopo la messa a
+punto: precisione 95%, copertura 81%, nessun falso positivo su 12 frasi-trappola
+("spegni la luce in cucina", "riavvia il router di casa", "blocca il numero di
+Marco"). Sul banco di prova permanente (`copilot/tests/semantic_eval.py`):
+precisione 100%, copertura 89%, 0 falsi positivi su 32. Quando non è sicuro il
+livello 1 non agisce: la richiesta passa all'LLM.
+
+**Lingue.** Il livello 1 ha due codificatori in cascata:
+
+- **integrato** (italiano e inglese, ~0,3 ms): concetti scritti a mano, il più veloce;
+- **neurale multilingue** (tutte le lingue, ~10–50 ms su CPU): un modello di embedding
+  servito da Ollama (candidati: `paraphrase-multilingual`, `granite-embedding:278m`,
+  `bge-m3`), con gli esempi del catalogo pre-calcolati in cache. Il catalogo si può
+  arricchire con traduzioni generate una volta sola dall'LLM locale.
+
+Il comando `aios-copilot-setup` sceglie il modello sul dispositivo reale. Calibra le
+soglie su metà delle frasi di prova, in 8 lingue con frasi-trappola e negazioni, con
+due vincoli: zero frasi fuori tema eseguite e precisione ≥ 97%. Il risultato
+dichiarato è quello misurato sull'altra metà. Le negazioni sono riconosciute anche
+in spagnolo, francese, tedesco, portoghese, russo, cinese, giapponese e coreano.
+*Stato:* la catena è verificata con un finto server Ollama; la qualità dei modelli
+veri va misurata sul primo dispositivo (da questo ambiente non si possono scaricare).
+
+**Vantaggi che ha solo un sistema operativo** (e che un'app non può avere):
+
+- **Modello sempre caricato.** Viene caricato all'avvio, non viene mai scaricato dalla
+  memoria e i pesi sono condivisi tra i processi: niente attese di caricamento. ✅ (`keep_alive`)
+- **Prompt pre-elaborato.** Istruzioni e strumenti vengono elaborati una volta sola e
+  la loro cache viene riusata; senza GPU, leggere il prompt è il costo maggiore. ✅ (warmup all'avvio)
+- **Contesto senza fatica.** Il sistema passa all'AI direttamente l'app attiva, la
+  selezione e gli appunti, invece di farglieli "indovinare" con prompt lunghi.
+- **Priorità dello scheduler.** Le richieste dell'utente ottengono i core più veloci
+  e la memoria con pagine grandi (huge pages).
+- **Indice sempre aggiornato.** File, app e impostazioni vengono indicizzati mentre
+  cambiano (inotify), non al momento della domanda.
+- **Esecuzione anticipata.** Mentre l'utente scrive, il livello 0–1 prevede l'azione
+  e prepara il necessario.
+- **Acceleratori.** NPU e unità vettoriali dei SoC dei telefoni, quando disponibili.
+
+**Verso un modello "nostro".** Addestrare da zero un modello generalista costa milioni
+e non serve. La strada percorribile è un modello piccolo **specializzato sulle
+azioni di SoIA**, ottenuto con fine-tuning e distillazione da un modello grande,
+usando come dati le richieste reali (anonime e con consenso) e il catalogo delle
+azioni del sistema. Un modello da 1 miliardo di parametri addestrato su questo
+compito può battere un modello generalista dieci volte più grande.
+
+### Conoscenza personale e privacy
+
+Il copilota conosce i file dell'utente tramite un **indice locale** (SQLite FTS5 per
+le parole, embedding per il significato), costruito a passi transazionali: uno
+spegnimento a metà non corrompe nulla e il lavoro riprende dal punto esatto.
+
+L'apprendimento avviene **a riposo** (`aios-learn`): utente inattivo o schermo
+bloccato, alimentazione collegata, sistema scarico; priorità `SCHED_IDLE` e I/O
+idle, cioè la CPU va all'apprendimento solo quando nessun altro la usa. Passi da
+0,5 s: al ritorno dell'utente la pausa è immediata. Durante lo standby il
+processore è spento: il processo resta congelato e riprende al risveglio, che
+viene riconosciuto (differenza tra `CLOCK_BOOTTIME` e `CLOCK_MONOTONIC`) per
+lasciare libero il computer.
+
+**Il rischio vero non è il cloud.** Un'AI che (1) legge dati privati, (2) legge
+contenuti di terzi (web, documenti ricevuti) e (3) può comunicare all'esterno può
+essere manipolata da istruzioni nascoste in una pagina per far uscire dati, anche
+se tutto gira in locale. Le difese di SoIA:
+
+- percorsi mai letti (chiavi, password, browser, posta) e segreti rimossi dall'indice;
+- cartelle escludibili a voce, con rimozione immediata dall'indice;
+- **porta di uscita sorvegliata**: dopo che una conversazione ha letto dati privati,
+  ogni azione verso l'esterno chiesta dal modello si ferma e mostra cosa uscirebbe,
+  segnalando i frammenti presi dai file (nomi, codici, importi);
+- contenuti web e dei file passati al modello come dati, mai come istruzioni;
+- permessi 600 per indice e cronologia; cifratura del disco e sandbox delle app
+  (che non possono leggere `~/.local/share/aios`) nell'immagine di sistema. Una
+  cifratura applicativa non basterebbe: un programma con lo stesso utente ne
+  leggerebbe comunque la chiave.
+
+**Addestramento del modello.** Oggi l'apprendimento è memoria e catalogo personale
+(le frasi dell'utente diventano esempi del livello 1). Il passo successivo è un
+adattamento LoRA del modello piccolo sulle richieste dell'utente, eseguito a riposo
+nello stesso pianificatore e con checkpoint frequenti.
+
+### Catalogazione automatica
+
+`organize.py` classifica a riposo documenti (per argomento), foto (per momento, da
+EXIF), video, musica (da tag), app e giochi (da `.desktop`), download; le raccolte
+sono virtuali (`~/Raccolte` con collegamenti) e il riordino reale avviene solo su
+richiesta, con piano, conferma e registro per annullare.
+
+### Temi
+
+`themes.py` (temi come soli dati, palette con contrasto WCAG garantito, atmosfere,
+estrazione dei colori da un'immagine, ritocchi, sfondi disegnati), `themeapply.py`
+(GTK/libadwaita, GNOME, KDE, app di SoIA via `/theme.css`, tema precedente),
+`thememarket.py` (indice firmato, pacchetti validati, temi «ispirati a» solo per uso
+personale). Prossimi passi: interfaccia del market con anteprime e valutazioni,
+sfondi generati dal modello di immagini quando installato.
+
+### Copilota proattivo (prossima fase)
+
+Non solo esecutore: un copilota che, conoscendo l'utente, **propone**.
+
+- **Agenda e promemoria** ✅: date e orari in linguaggio naturale capiti in locale
+  (`when.py`), ricorrenze, avvisi recuperati dopo lo standby, formato iCalendar;
+  scadenze trovate nei documenti proposte nel **riepilogo del mattino** ✅ (mai
+  aggiunte senza il sì dell'utente). Da fare: sincronizzazione CalDAV, email.
+- **Organizzazione della giornata**: impegni, scadenze, file su cui si sta lavorando.
+- **Consigli**: film, serie, cartoni, musica, software e giochi in base ai gusti,
+  **filtrati sugli abbonamenti attivi** (Netflix, Spotify…), riconosciuti in locale.
+  Vedi [DESIGN.md](DESIGN.md). I cataloghi (novità, uscite) si scaricano in forma generica e la scelta
+  avviene in locale: il profilo dei gusti non lascia mai il dispositivo.
+- **Dosaggio**: pochi suggerimenti, nei momenti giusti; "non mi interessa" è a sua
+  volta un segnale da cui imparare; "cosa sai di me?" mostra e corregge il profilo.
+
+### Modelli adatti al dispositivo
+
+`hardware.py` legge le caratteristiche del dispositivo; `models.py` sceglie per ogni
+capacità (testo, vista, dettatura, voce, significato, immagini, video) il modello più
+completo compatibile con memoria, GPU/CPU e disco, e lo propone; `learning.DownloadTask`
+lo scarica a riposo con pausa e ripresa; `engines.py` lo collega alle funzioni del
+sistema (il copilota cambia modello, compaiono vista, voce, dettatura, immagini).
+
+**Catalogo aggiornabile.** I modelli migliori cambiano di mese in mese, quindi
+l'elenco non sta nel codice: il progetto SoIA pubblica un catalogo JSON firmato
+(Ed25519, `modelcatalog.py`), scaricato una volta a settimana con una richiesta
+uguale per tutti. È accettato solo con firma valida per una chiave fidata
+(`/etc/aios/catalog-keys.d/`), versione più alta di quella in uso (niente ritorni
+a cataloghi vecchi) e, per i file, impronte SHA-256 che vengono verificate dopo lo
+scaricamento. Senza chiavi configurate vale il catalogo integrato. Ogni modello
+riporta la licenza; l'impostazione «solo licenze aperte» esclude quelle con
+condizioni.
+
+**Il laboratorio SoIA** (servizio del progetto, da costruire) valuta i nuovi modelli
+aperti sui compiti reali di SoIA (uso degli strumenti, italiano, resistenza alle
+istruzioni nascoste, velocità per classe di hardware) e pubblica nel catalogo solo
+quelli che superano le soglie, con il punteggio.
+
+**Prova sul dispositivo** (`trial.py`): prima di adottare un nuovo modello di testo
+se ne misura la velocità reale e la precisione su un insieme di compiti di SoIA;
+lo si adotta solo se è almeno buono quanto l'attuale e abbastanza veloce, altrimenti
+si scarta e si libera lo spazio. Il modello precedente resta: «torna al modello di
+prima».
+
+### Memoria compressa: modelli più grandi su dispositivi piccoli
+
+Un modello linguistico, per ogni parola, legge tutti i suoi pesi dalla memoria: la
+memoria limita sia *quale* modello entra sia *quanto* è veloce. SoIA comprime in tre
+punti, sempre in base al dispositivo (`memory.py`, `models.py`):
+
+- **Pesi del modello compressi (quantizzazione).** Il catalogo contiene varianti a
+  4, 3 e 2 bit dello stesso modello. Un 14B a 3 bit entra in una GPU da 12 GB dove
+  quello a 4 bit non entra; un 32B a 3 bit entra in 24 GB. La compressione toglie un
+  po' di qualità, quindi ogni variante ha un punteggio atteso (`score`) e la
+  **catena di prove** decide: se la variante scelta, provata sul dispositivo, è troppo
+  lenta o meno precisa del modello attuale, viene scartata (non si ripropone) e SoIA
+  prova da solo la successiva, mai sotto il modello già in uso. Senza GPU si
+  escludono i modelli che richiedono di leggere più di 5 GB per parola: sarebbero
+  troppo lenti per una conversazione.
+- **Memoria della conversazione compressa** (KV cache a 8 bit, o a 4 bit sotto gli
+  8 GB di RAM, con flash attention): contesti lunghi in metà o un quarto dello spazio.
+  Impostata per il servizio Ollama con un file di systemd, insieme a una lunghezza
+  di contesto adatta alla RAM.
+- **RAM compressa** (zram con zstd, metà della RAM fino a 8 GB): le pagine delle app
+  ferme restano in memoria compresse 2–4 volte invece di finire sul disco, e resta
+  più memoria vera per il modello. Parametri del kernel adatti (swappiness alta,
+  lettura di una pagina alla volta).
+
+Le impostazioni di sistema si applicano solo su richiesta («ottimizza la memoria»),
+con conferma e password di amministratore (pkexec); «quanta memoria ho» mostra lo
+stato e quanto si sta risparmiando.
+
+**Modelli a esperti (MoE, `moe.py`).** Un modello come Qwen3 30B-A3B ha 30 miliardi
+di parametri ma per ogni parola ne usa circa 3: va veloce come un modello piccolo e
+ragiona quasi come uno grande. Il catalogo indica per ogni modello a esperti quanti GB
+si leggono per parola (`active_gb`); SoIA stima la velocità di ogni sistemazione e
+sceglie la più veloce sopra le 4 parole al secondo:
+
+| Modalità | Quando | Motore |
+|---|---|---|
+| gpu | tutto entra nella scheda video | Ollama |
+| ram | tutto entra nella RAM (es. 32 GB senza GPU: ~20 parole/s) | Ollama |
+| gpu+ram | attenzione sulla GPU, esperti in RAM | llama.cpp `--n-cpu-moe` |
+| disco | gli esperti più usati in RAM, gli altri letti dal disco NVMe/SSD quando servono (mmap) | llama.cpp |
+
+Per le ultime due Ollama non basta (rifiuta i modelli più grandi della RAM): SoIA
+avvia `llama-server` come servizio utente (`aios-esperti.service`) direttamente sul
+file GGUF già scaricato da Ollama, senza copie, e il copilota gli parla con l'API
+OpenAI (`llm.LlamaServerClient`). La stima tiene conto che gli esperti non sono usati
+tutti allo stesso modo; la velocità vera la misura la prova sul dispositivo, che
+scarta il modello se è lento (e ferma il servizio). Tornando al modello di prima,
+il servizio si ferma e la memoria si libera.
+
+Ricerca futura del laboratorio SoIA: pesi compressi senza perdita, decompressi
+direttamente durante il calcolo.
+
+### Abilità delle app (`sdk.py`, [SDK.md](SDK.md))
+
+Le app offrono le loro funzioni al copilota con un manifesto JSON: parametri tipizzati,
+frasi riconosciute all'istante (livello 0) e chiamata tramite comando (senza shell)
+o D-Bus. Il risultato di un'app è un dato esterno, mai un'istruzione; le abilità che
+cambiano qualcosa chiedono conferma; quelle con dati personali passano dalla
+protezione dalle fughe. `aios-abilita` per elencare, validare, installare e provare.
+
+### Aggiornamenti del sistema (`updates.py`)
+
+- **Sistema immutabile** (rpm-ostree / Fedora Atomic, oppure bootc): due volte al
+  giorno, a riposo e in carica, SoIA controlla e **prepara** il nuovo sistema accanto a
+  quello in uso; parte al riavvio successivo, in modo atomico. **Mai un riavvio
+  forzato**: una notifica avvisa, e «riavvia per aggiornare» lo applica quando vuoi.
+- Gli aggiornamenti di **sicurezza** (avvisi Important/Critical, CVE) sono evidenziati.
+- **Ritorno automatico**: un controllo di greenboot (`data/greenboot/50-aios.sh` →
+  `aios-aggiornamenti verifica`) verifica il nuovo sistema all'avvio; se fallisce,
+  greenboot torna da solo alla versione precedente. A mano: «torna alla versione
+  precedente del sistema».
+- **App** (Flatpak) aggiornate a riposo; **firmware** (fwupd) solo segnalato;
+  **modelli AI** con il loro catalogo firmato.
+- Il lavoro lungo lo fanno i servizi di sistema (rpm-ostreed, flatpak) in un thread:
+  il pianificatore a riposo resta libero. Si possono disattivare: «disattiva gli
+  aggiornamenti automatici».
+
+### Telefono e PC (`mesh/`)
+
+Il telefono e il PC si collegano da soli quando sono vicini (stessa rete):
+
+- **Base: KDE Connect** (app per Android e iPhone, protocollo cifrato e maturo).
+  L'abbinamento si conferma una volta sul telefono; poi il servizio `aios-telefono`
+  vede ogni pochi secondi quali telefoni abbinati sono vicini, avvisa quando uno
+  arriva o se ne va, e il copilota può farlo squillare o mandargli file e link.
+- **File del PC dal telefono** (`mesh/files.py`): una pagina HTTPS in rete locale,
+  accesa *solo* mentre un telefono abbinato è vicino (o durante un abbinamento).
+  Abbinamento con un QR mostrato sullo schermo del PC: chi lo inquadra è davanti al
+  PC; il codice vale una volta e 5 minuti (massimo 10 tentativi). Il telefono riceve
+  una chiave personale, il PC ne conserva solo l'impronta e la può revocare
+  («scollega il telefono»). Solo lettura, solo la cartella personale, mai file
+  nascosti o esclusi dalla privacy, nessuna uscita con link simbolici; si scarica con
+  link monouso di 2 minuti, e i file HTML non vengono mai aperti come pagine.
+  La ricerca usa l'indice personale (anche nel contenuto dei documenti).
+- **Chiamate dal PC** (`mesh/calls.py`): il PC fa da vivavoce Bluetooth del
+  telefono (profilo HFP, ruolo hands-free, con PipeWire/WirePlumber e oFono). Una
+  chiamata in arrivo apre una notifica con «Rispondi» / «Rifiuta», e il copilota
+  capisce «rispondi» e «riaggancia».
+- **Notifiche e SMS** (`mesh/messages.py`): tramite il demone KDE Connect (D-Bus) il
+  copilota legge le notifiche del telefono e le riassume (messaggi delle persone,
+  codici, chiamate, il resto raggruppato per app), legge gli SMS con i nomi della
+  rubrica sincronizzata dal telefono, risponde ai messaggi (WhatsApp, Telegram… se
+  l'app lo consente) e manda SMS. I **codici di verifica** vengono riconosciuti: il
+  servizio propone una notifica con «Copia», e «copia il codice» li mette negli
+  appunti. Notifiche e SMS sono dati privati (protezione dalle fughe del copilota);
+  ogni invio chiede conferma, e un nome ambiguo nella rubrica non viene indovinato.
+- **Delega AI dal telefono al PC** (`mesh/delegate.py`):
+  - *cervello prestato*: sul telefono con SoIA il copilota resta quello del telefono,
+    con i suoi strumenti, ma il ragionamento lo fa il modello del PC (`/api/modello`)
+    quando è vicino. `HybridModel` torna al modello del telefono appena il PC non
+    risponde e lo riprova dopo 30 secondi. Il certificato del PC è «fissato» al
+    momento dell'abbinamento (l'impronta è nel QR): a chi si finge il PC non arriva
+    nulla. L'abbinamento: `aios-telefono collega-pc <indirizzo del QR>`;
+  - *«Chiedi al PC»* nella pagina del telefono: il copilota del PC risponde con un
+    insieme ristretto di strumenti (`PHONE_ALLOWED`: file, posta, agenda, web,
+    consigli); niente che cambi il PC da lontano (app, impostazioni, spegnimento,
+    temi, riordino, schermo). Le conferme, per esempio per inviare una mail, si danno
+    sul telefono.
+- Il copilota parla con il servizio da un socket locale leggibile solo dall'utente.
+
+### Telefono e PC: le funzioni di tutti i giorni
+
+- **Foto della fotocamera** (`mesh/photos.py`): la memoria del telefono si apre in
+  sola lettura tramite KDE Connect (SFTP); si copiano solo DCIM/Camera e simili (mai
+  WhatsApp, Telegram, screenshot), solo ciò che manca, senza mai sovrascrivere, con
+  ripresa dopo un'interruzione, in cartelle per data di scatto. iPhone: invio dalla
+  pagina «Il mio PC». «Migliora le foto»: Real-ESRGAN o correzione con ffmpeg.
+- **Tastiera e touchpad** (`mesh/remote_input.py`): dalla pagina del telefono, con
+  ydotool, wtype o xdotool sul PC; solo da telefoni abbinati e vicini.
+- **Bluetooth condiviso** (`mesh/bluetooth.py`): le chiavi di abbinamento non si
+  possono copiare, quindi l'elenco dei dispositivi viaggia con la sincronizzazione e
+  ogni dispositivo SoIA abbina da sé quelli dell'utente quando sono vicini (audio in
+  automatico, dispositivi di input solo con conferma).
+- **Documenti** (`documents.py`): il documento giusto per mese, anno e argomento; la
+  parte della dieta per giorno e pasto; la lista della spesa. Dal telefono il file
+  arriva come link monouso, solo se è nella cartella personale e non privato.
+
+### Vicini anche senza Wi-Fi (`mesh/nearby.py`, app Nova `nearby/`)
+
+Come iPhone e Mac: fuori casa, senza una rete in comune, telefono e PC si trovano e si
+collegano da soli.
+
+- **Riconoscersi**: codice BLE di 11 byte (dati del produttore) = versione, ruolo, flag e
+  HMAC-SHA256 del tempo (finestre di 15 minuti) con un segreto che hanno solo i
+  dispositivi dell'utente (dalla chiave di abbinamento del telefono, di cui il PC
+  conserva l'impronta, o dalla chiave di sincronizzazione). Gli estranei vedono numeri
+  casuali che cambiano; le richieste nei flag non si possono falsificare.
+- **Chi ascolta, chi annuncia**: il PC si annuncia sempre (bluetoothctl) e cerca con un
+  ritmo deciso da `energy.py`; il telefono affida l'ascolto al chip Bluetooth con un
+  filtro e si sveglia solo per i codici SoIA (nessun servizio sempre acceso). Con il PC
+  vicino parte `NearbyService`, con la sua notifica, e si spegne quando il PC se ne va.
+- **Il collegamento lo sceglie Nova** (`choose_link`): Wi-Fi diretto creato dal PC
+  (rete nascosta, senza internet, nome e password ricavati dal segreto e cambiati ogni
+  giorno; il telefono ci entra con `WifiNetworkSpecifier` senza perdere i dati mobili)
+  per il lavoro pesante quando il Wi-Fi del PC è libero; rete Bluetooth (PAN) aperta dal
+  telefono per il resto; internet del telefono (hotspot) solo se richiesto o
+  permesso, mai con la batteria del telefono bassa. Il collegamento si chiude da solo.
+- **Sicurezza**: la rete diretta ha una zona firewall dedicata (`aios-vicino`: DHCP,
+  DNS, KDE Connect, pagina del telefono); l'identità del PC resta garantita
+  dall'impronta del certificato, qualunque sia l'indirizzo.
+- **Da fare**: un identificativo produttore BLE registrato (oggi 0xFFFF, riservato alle
+  prove); annunci per più telefoni contemporaneamente; prove su dispositivi veri.
+
+### SoIA sul telefono: base AOSP e installazione dal PC (`phoneinstall.py`, `phoneapp/`)
+
+SoIA per telefono è basato su **AOSP** (Android open source): chiamate, fotocamera, rete
+e batteria funzionano, le app Android girano; sopra ci sono l'interfaccia di SoIA e
+Nova. Si installa **dal PC, con il cavo USB**: «Nova, installa SoIA sul telefono» apre
+l'installatore guidato.
+
+| Marca | Strada |
+|---|---|
+| Google Pixel | immagine per il modello; sblocco, chiave di avvio di SoIA (`avb_custom_key`) e **richiusura**: avvio verificato |
+| Motorola | codice di sblocco di Motorola (inviato per email), poi GSI da fastbootd |
+| Xiaomi / Redmi / POCO | permesso di Xiaomi (Mi Unlock, attesa di alcuni giorni), poi GSI |
+| Oppo | solo i modelli con l'app ufficiale «Deep Testing», poi GSI |
+| Samsung | modalità download e heimdall: recovery di SoIA con fastbootd, poi GSI; avviso sul contatore Knox; modelli nordamericani non sbloccabili |
+
+Prima di tutto: batteria ≥ 50%, permesso della marca (non cancella nulla), **backup
+completo sul PC** (foto e video, documenti, musica, WhatsApp, rubrica in .vcf, SMS e
+calendario se Android lo permette) e una **conferma esplicita** prima di cancellare.
+Immagini solo dal catalogo firmato, con impronta verificata (oppure una GSI scaricata
+dall'utente, di cui si mostra l'impronta). Dopo il primo avvio Nova **ripristina** il
+backup (che resta comunque sul PC) e collega il telefono all'identità dell'utente.
+Ogni comando finisce nel registro; la modalità prova mostra i passi senza toccare
+il telefono.
+
+La compilazione dell'immagine è in [`phone/`](../phone/README.md): AOSP per Pixel e
+GSI, LineageOS per i telefoni con supporto ufficiale (primo bersaglio: Redmi Note 9 Pro
+«miatoll»); `vendor/aios` con energia, tema e Nova; l'app di sistema Nova in Kotlin;
+script di preparazione, compilazione, firma (chiavi offline) e misura della batteria;
+`aios-catalogo-telefoni` produce il catalogo firmato letto dall'installatore.
+
+### Energia: decide Nova (`energy.py`)
+
+Nessuna soglia fissa: Nova impara (in locale) quando l'utente mette in carica, feriali
+e weekend a parte, e quanto consuma, e a ogni momento valuta se la batteria basta fino
+alla prossima ricarica prevista con un margine. Ne decide il lavoro in sottofondo:
+sincronizzazione, ricerca Bluetooth, copia delle foto, scaricamento dei modelli —
+normale ma più rado, rimandato alla ricarica, o solo l'essenziale; con la ricarica
+vicina aspetta comunque. Spiega ogni scelta («perché non hai copiato le foto?») e
+accetta per qualche ora «risparmia batteria» o «massime prestazioni». Sul telefono
+varranno anche: parola d'attivazione sul DSP audio, modello AI caricato solo quando
+serve (NPU) e delegato al PC quando è vicino, lavori pesanti solo in carica, processi in
+sottofondo sui core a basso consumo, limite di consumo in standby verificato a ogni
+versione.
+
+### Identità unica e sincronizzazione (`identity.py`, `sync.py`)
+
+- **Chiave principale dell'utente** (Ed25519) nata da un segreto di 128 bit, che
+  l'utente conserva come **frase di recupero** di 17 parole italiane (16 + una di
+  controllo; bastano le prime 4 lettere di ogni parola). Con la frase si ritrova la
+  stessa identità su un dispositivo nuovo.
+- Ogni dispositivo ha la sua chiave; la chiave principale gli firma un **certificato**.
+  L'abbinamento con il QR (pinned TLS) consegna al nuovo dispositivo certificato e
+  chiave di sincronizzazione; la chiave principale resta sul dispositivo che la custodisce.
+- **Revoche** firmate e numerate («revoca il Pixel»): si propagano con la
+  sincronizzazione e un dispositivo revocato non viene più riconosciuto.
+- Le richieste tra dispositivi sono **firmate** con la chiave del dispositivo
+  (metodo, percorso, orario, impronta del corpo; finestra di 2 minuti).
+- **Sincronizzazione cifrata end-to-end**: CRDT «vince l'ultima modifica» per chiave
+  con orologio logico ibrido (modifiche offline unite senza conflitti, cancellazioni
+  che non risorgono, orologi sbagliati tollerati). Chiave e valore cifrati con
+  ChaCha20-Poly1305; in chiaro solo un'impronta opaca e l'orologio. Si sincronizzano
+  agenda e promemoria, nome, temi creati e tema in uso; non ciò che dipende dal
+  dispositivo (modelli AI, cartelle escluse, posta). Il servizio sincronizza ogni
+  2 minuti con i dispositivi conosciuti.
+- Crittografia senza dipendenze (Ed25519, ChaCha20-Poly1305, HKDF in Python puro,
+  verificati con i vettori delle RFC); se c'è `cryptography` la si usa per la velocità.
+
+**Relay cifrato** (`relay.py`, `aios-relay`): per sincronizzare anche quando i
+dispositivi non sono nella stessa rete. È una cassetta postale che non sa leggere:
+conserva le operazioni già cifrate dai dispositivi (tiene solo la versione più recente
+di ogni voce, usando l'orologio in chiaro) e le consegna agli altri.
+
+- *Cosa vede*: l'impronta della cassetta (derivata dalla chiave pubblica dell'utente),
+  gli identificativi dei dispositivi, quando si collegano e quanti dati. *Non vede*:
+  contenuti, chiavi delle voci, nome dell'utente, chiave di sincronizzazione.
+- *Chi entra*: solo dispositivi con certificato dell'utente non revocato, con
+  richieste firmate. La cassetta è legata alla chiave dell'utente: nessuno può
+  occuparla. Le revoche (firmate, numerate) arrivano al relay dal dispositivo che
+  custodisce la chiave principale e da lì in poi il dispositivo revocato è respinto.
+- Nessun registro degli indirizzi IP, spazio limitato per cassetta (64 MB).
+- Chiunque può ospitarne uno (`data/aios-relay.service`); l'indirizzo si imposta con
+  «usa il relay https://…» e arriva da solo agli altri dispositivi (è un'impostazione
+  sincronizzata). Certificato verificato dalle autorità o fissato con l'impronta.
+
+**Cambio della chiave dopo una revoca.** Revocare un dispositivo crea una nuova
+chiave di sincronizzazione (epoca successiva), cifrata per ciascun dispositivo rimasto
+con la sua stessa chiave Ed25519 convertita in X25519 (chiave effimera + HKDF +
+ChaCha20-Poly1305) e firmata dalla chiave principale. Il pacchetto viaggia con le
+risposte di sincronizzazione (in casa e dal relay); chi lo riceve ricifra i propri dati
+con gli stessi orologi (nessuna modifica persa) e riparte. Il relay, alla nuova epoca,
+cancella i dati cifrati con la chiave vecchia. Il dispositivo revocato conserva solo
+ciò che aveva già.
+
+Prossimi passi: CRDT di testo per le note condivise, sincronizzazione delle immagini
+dei temi.
 
 ## Roadmap
 
 | Fase | Obiettivo |
 |---|---|
-| **1 — Copilota** *(in corso)* | `aios-copilot` funzionante su qualsiasi Linux: ricerca web, installazione/avvio app, overlay grafico richiamabile da tastiera |
-| 2 — Immagine PC | immagine immutabile con shell AIOS, copilota integrato, Bottles e Waydroid preinstallati |
-| 3 — Mesh | collegamento tra i dispositivi dello stesso utente, delega AI dal telefono al PC |
+| **1 — Copilota** *(in corso; benvenuto conversazionale ✅)* | `aios-copilot` funzionante su qualsiasi Linux: ricerca web, installazione/avvio app, overlay grafico richiamabile da tastiera, motore di intenti veloce, classificatore semantico |
+| 1b — Conoscenza personale *(in corso)* | indice dei file ✅, protezione dalle fughe di dati ✅, apprendimento a riposo ✅, agenda e promemoria ✅, riepilogo del mattino ✅, consigli personalizzati |
+| 2 — Immagine PC | immagine immutabile con shell SoIA, copilota integrato, Bottles e Waydroid preinstallati |
+| 3 — Mesh *(in corso: telefono↔PC ✅)* | collegamento tra i dispositivi dello stesso utente, delega AI dal telefono al PC |
 | 4 — Mobile | immagine per 1–2 telefoni/tablet, input vocale |
 | 5 — Ecosistema | SDK per esporre le funzioni delle app al copilota, memoria personale semantica |

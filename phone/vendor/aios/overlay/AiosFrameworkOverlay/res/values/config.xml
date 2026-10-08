@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Tema scuro predefinito: sugli schermi OLED consuma meno. 2 = sempre scuro. -->
+    <integer name="config_defaultNightMode">2</integer>
+    <!-- Doze profondo (modalità di risparmio automatiche quando il telefono è fermo). -->
+    <bool name="config_enableAutoPowerModes">true</bool>
+    <!-- Lo schermo non resta a frequenze alte quando non serve (i telefoni a 60 Hz la ignorano). -->
+    <integer name="config_defaultRefreshRate">60</integer>
+</resources>

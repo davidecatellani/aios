@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Nova</string>
+    <string name="hint">Chiedi a Nova…</string>
+    <string name="send">Invia</string>
+    <string name="connect_pc">Collega il computer</string>
+    <string name="confirm_pc_action">Conferma operazione Nova</string>
+    <string name="confirm">Conferma</string>
+    <string name="cancel">Annulla</string>
+    <string name="hello">Ciao! Sono Nova. Quando il computer è vicino uso il suo modello AI; altrimenti quello del telefono.</string>
+    <string name="restore_title">Collega il computer</string>
+    <string name="restore_text">Sul PC chiedi a Nova «collega il telefono». Incolla qui l\'indirizzo del QR per abbinare il PC e sincronizzare agenda, note e profilo. Foto, SMS e notifiche si collegano anche tramite KDE Connect.</string>
+</resources>

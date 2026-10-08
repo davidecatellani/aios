@@ -1,0 +1,56 @@
+#!/bin/sh
+# La sessione di SoIA: il compositore Hyprland (solo schermo, input e animazioni, niente interfaccia
+# sua) con la shell di SoIA sopra. Configurazione in /usr/share/aios/hyprland; l'utente può
+# aggiungere righe sue in ~/.config/aios/hyprland.conf. Se Hyprland manca (o con
+# AIOS_COMPOSITORE=labwc) si usa labwc, configurato in /usr/share/aios/labwc.
+export XDG_CURRENT_DESKTOP=AIOS
+export XDG_SESSION_DESKTOP=aios
+export XDG_SESSION_TYPE=wayland
+export MOZ_ENABLE_WAYLAND=1
+export QT_QPA_PLATFORM="wayland;xcb"
+export _JAVA_AWT_WM_NONREPARENTING=1
+export GTK_THEME=Adwaita:dark
+export XCURSOR_THEME=Adwaita
+export XCURSOR_SIZE=24
+# scheda NVIDIA col suo driver caricato (immagine universale o NVIDIA): Hyprland e i programmi usano quello
+if [ -e /proc/driver/nvidia/version ]; then
+  export LIBVA_DRIVER_NAME=nvidia __GLX_VENDOR_LIBRARY_NAME=nvidia NVD_BACKEND=direct GBM_BACKEND=nvidia-drm
+fi
+config_home="${XDG_CONFIG_HOME:-$HOME/.config}"
+# tastiera: quella scelta dall'utente (Impostazioni › Tastiera), altrimenti quella dell'installazione
+layout=$(cat "$config_home/aios/tastiera" 2>/dev/null)
+[ -n "$layout" ] || layout=$(localectl status 2>/dev/null | sed -n 's/.*X11 Layout: *//p' | head -n1)
+# solo nomi di tastiera veri («it», «us,it»): «(unset)» o «n/a» farebbero chiudere Hyprland all'avvio
+case "$layout" in
+  ""|*[!a-z,]*) layout=it ;;
+esac
+export XKB_DEFAULT_LAYOUT="$layout"
+
+if [ "${AIOS_COMPOSITORE:-hyprland}" != labwc ] && command -v Hyprland >/dev/null; then
+  run="${XDG_RUNTIME_DIR:-/tmp}/aios-hyprland"
+  mkdir -p "$run"
+  printf 'input {\n    kb_layout = %s\n}\n' "$XKB_DEFAULT_LAYOUT" > "$run/tastiera.conf"
+  cp -f "$config_home/aios/hyprland.conf" "$run/utente.conf" 2>/dev/null || : > "$run/utente.conf"
+  # schermi, mouse e tastiera, accessibilità scelti nelle Impostazioni (li scrive hyprconf.py)
+  cp -f "$config_home/aios/sistema-hyprland.conf" "$run/sistema.conf" 2>/dev/null || : > "$run/sistema.conf"
+  sed "s#@RUN@#$run#g" /usr/share/aios/hyprland/hyprland.conf > "$run/hyprland.conf"
+  # Se Hyprland non parte (si chiude entro pochi secondi), non si resta chiusi fuori: si apre la
+  # sessione con labwc e l'errore resta nel registro (journalctl -t aios-sessione).
+  started=$(date +%s)
+  Hyprland --config "$run/hyprland.conf" > "$run/hyprland-avvio.log" 2>&1
+  code=$?
+  if [ $(( $(date +%s) - started )) -ge 15 ]; then
+    exit "$code"  # sessione vera, chiusa dall'utente (uscita o spegnimento)
+  fi
+  logger -t aios-sessione "Hyprland si è chiuso all'avvio (codice $code): uso labwc. $(tail -n 20 "$run/hyprland-avvio.log" | tr '\n' ' ')"
+  mkdir -p "${XDG_STATE_HOME:-$HOME/.local/state}" && cp -f "$run/hyprland-avvio.log" "${XDG_STATE_HOME:-$HOME/.local/state}/aios-hyprland-errore.log" 2>/dev/null || true
+fi
+
+config=/usr/share/aios/labwc
+[ -f "$config_home/labwc/rc.xml" ] && config="$config_home/labwc"
+# copia di lavoro: la tastiera si cambia riscrivendo environment e con «labwc --reconfigure»
+run="${XDG_RUNTIME_DIR:-/tmp}/aios-labwc"
+mkdir -p "$run" && cp -f "$config"/* "$run"/ 2>/dev/null
+grep -v '^XKB_DEFAULT_LAYOUT=' "$config/environment" 2>/dev/null > "$run/environment"
+echo "XKB_DEFAULT_LAYOUT=$XKB_DEFAULT_LAYOUT" >> "$run/environment"
+exec labwc -C "$run"

@@ -1,0 +1,64 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="130 140 760 760">
+  <title>SoIA</title>
+  <defs>
+    <linearGradient id="leafGradient" x1="15%" y1="20%" x2="90%" y2="80%">
+      <stop offset="0%" stop-color="#0B6E99"/>
+      <stop offset="100%" stop-color="#2EC4B6"/>
+    </linearGradient>
+    <linearGradient id="orbitGradient" x1="5%" y1="85%" x2="95%" y2="15%">
+      <stop offset="0%" stop-color="#0B6E99"/>
+      <stop offset="100%" stop-color="#2EC4B6"/>
+    </linearGradient>
+    <radialGradient id="seedGlow">
+      <stop offset="0%" stop-color="#FFF3C4" stop-opacity="0.95"/>
+      <stop offset="45%" stop-color="#E9C46A" stop-opacity="1"/>
+      <stop offset="100%" stop-color="#E9C46A" stop-opacity="1"/>
+    </radialGradient>
+    <filter id="glow" x="-80%" y="-80%" width="260%" height="260%">
+      <feGaussianBlur stdDeviation="14" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+
+  <!-- Seed / glowing amber sphere -->
+  <circle cx="500" cy="250" r="62" fill="#E9C46A" opacity="0.20" filter="url(#glow)"/>
+  <circle cx="500" cy="250" r="48" fill="url(#seedGlow)"/>
+
+  <!-- Left leaf -->
+  <path d="M475 650
+           C470 565 442 465 370 405
+           C310 355 235 335 185 345
+           C178 420 202 500 255 553
+           C310 608 380 635 475 650 Z"
+        fill="url(#leafGradient)"/>
+
+  <!-- Right leaf -->
+  <path d="M520 680
+           C520 580 548 485 620 425
+           C685 372 760 350 825 360
+           C830 425 805 505 750 560
+           C690 620 615 650 520 680 Z"
+        fill="#2EC4B6"/>
+
+  <!-- Central stem -->
+  <path d="M500 690 C500 590 505 505 535 430"
+        fill="none"
+        stroke="#0B6E99"
+        stroke-width="28"
+        stroke-linecap="round"/>
+
+  <!-- Orbit-like sweeping arc -->
+  <path d="M170 625
+           C205 750 365 825 535 785
+           C700 746 835 625 850 470
+           C858 385 830 325 785 300"
+        fill="none"
+        stroke="url(#orbitGradient)"
+        stroke-width="34"
+        stroke-linecap="round"
+        stroke-linejoin="round"/>
+</svg>
