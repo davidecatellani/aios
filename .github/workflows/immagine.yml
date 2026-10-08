@@ -174,7 +174,7 @@ jobs:
             files+=(/mnt/uscita/bootiso/aios-installazione.iso*)
           fi
           # Qualche volta GitHub rifiuta (403/5xx) a fine caricamento: si riprova invece di buttare la costruzione.
-          tag="anteprima-$([ "$GPU" = nvidia ] && echo nvidia-)${GITHUB_RUN_NUMBER}"
+          tag="anteprima-$([ "$GPU" = nvidia ] && echo nvidia- || true)${GITHUB_RUN_NUMBER}"  # (con «|| true»: nella variante universale il test è falso e bash -e si fermerebbe)
           for i in 1 2 3 4; do
             # Se nel frattempo il ramo è andato avanti, GitHub rifiuta (403) l'etichetta sul commit costruito:
             # dal secondo tentativo l'etichetta va sul ramo, e il commit costruito è scritto nelle note.
