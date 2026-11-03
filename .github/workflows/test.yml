@@ -27,4 +27,4 @@ jobs:
         run: |
           bash -n install.sh
           HOME="$(mktemp -d)" ./install.sh --si --senza-pacchetti --senza-ollama
-          for s in phone/scripts/*.sh; do bash -n "$s"; done
+          for s in phone/*.sh phone/scripts/*.sh; do bash -n "$s"; done

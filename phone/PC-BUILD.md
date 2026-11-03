@@ -5,7 +5,26 @@ macchina di compilazione. Podman avvia un contenitore Ubuntu con gli strumenti
 Android; sorgenti e compilazioni restano sul disco tra un'esecuzione e l'altra.
 Non serve collegare il Motorola per preparare o compilare il sistema.
 
-## Dal terminale del PC
+## Tutto con un comando
+
+Dalla cartella del repository, come utente normale:
+
+```bash
+bash phone/compila-telefono.sh
+```
+
+Lo script aggiorna il codice con `git pull` (e riparte con la versione nuova),
+controlla lo spazio contando anche i sorgenti già scaricati, legge il telefono
+se `adb` è installato e il Motorola è collegato (rapporto in
+`phone/uscita/verifica-telefono.json`, senza numero di serie), impedisce la
+sospensione del PC con `systemd-inhibit`, lancia `pc-build.sh prototype` e alla
+fine dice se la sessione è in pausa, finita con le immagini oppure fallita.
+Tutto quello che compare sullo schermo è salvato anche in
+`~/soia-phone-build/logs/compila-telefono-<data>.log`. Se la sessione di 8 ore
+finisce prima della compilazione, basta rilanciare lo stesso comando.
+Opzioni: `--ore N` (0: fino alla fine), `--senza-aggiornare`, `--ignora-spazio`.
+
+## Dal terminale del PC, una fase alla volta
 
 Dal checkout di questo repository, come utente normale:
 

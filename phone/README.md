@@ -2,10 +2,11 @@
 
 Il [prototipo integrato](PROTOTIPO.md) include Nova, AI e voce offline, dati cifrati,
 collegamento al PC, KDE Connect, **Play Store e servizi Google**. Si prepara e
-compila sul PC con un solo comando:
+compila sul PC con un solo comando, che controlla anche spazio e telefono
+e si può rilanciare per continuare ([dettagli](PC-BUILD.md#tutto-con-un-comando)):
 
 ```bash
-bash phone/scripts/pc-build.sh prototype
+bash phone/compila-telefono.sh
 ```
 
 SoIA per telefono è **Android open source** con sopra Nova e le scelte di SoIA
