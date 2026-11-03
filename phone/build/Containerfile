@@ -1,8 +1,10 @@
 FROM docker.io/library/ubuntu:24.04
 
 ENV LANG=C.UTF-8 LC_ALL=C.UTF-8
+# openssh-client: `repo sync` controlla la versione di ssh all'avvio anche se i sorgenti
+# arrivano via HTTPS; senza, si ferma con «fatal: ssh not installed» (esecuzione del 7 ottobre).
 RUN apt-get -o APT::Update::Error-Mode=any update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-    ca-certificates git git-lfs gnupg curl python3 python-is-python3 \
+    ca-certificates git git-lfs gnupg curl openssh-client python3 python-is-python3 \
     build-essential cmake ninja-build flex bison gperf zip unzip rsync bc \
     zlib1g-dev lib32z1-dev libc6-dev-i386 libncurses-dev libx11-dev \
     libgl1-mesa-dev libxml2-utils xsltproc fontconfig openssl libssl-dev \

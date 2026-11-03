@@ -60,6 +60,12 @@ exec(sys.stdin.read())
     return run, env
 
 
+def test_builder_image_has_ssh_for_repo_sync():
+    # repo sync si ferma con «fatal: ssh not installed» se manca ssh, anche con manifest HTTPS.
+    containerfile = (PHONE / "build/Containerfile").read_text()
+    assert "openssh-client" in containerfile
+
+
 def test_check_does_not_download_or_start_a_container(pc):
     run, _ = pc
     result, calls = run("check", FAKE_FREE_GIB="29")
