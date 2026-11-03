@@ -23,62 +23,64 @@ paper stesso esclude. Lì Nova resta com'è.
 
 ## Com'è fatta una procedura
 
-Le procedure stanno in `~/Procedure/`, una cartella per procedura. Nomi in italiano, perché la cartella la apre
-l'utente; con l'importazione e l'esportazione si passa al formato ICM originale (tabella più sotto).
+Le procedure stanno in `~/Procedure/`, una cartella per procedura, con i **nomi originali di ICM**: così una cartella
+fatta per ICM funziona in SoIA e viceversa, senza traduzioni. Il contenuto dei file è in italiano.
 
 ```
 ~/Procedure/Resoconto spese/
-├── PROCEDURA.md              cos'è, a cosa serve, quando parte, le fasi        (livelli 0 e 1 di ICM)
-├── riferimenti/              regole che valgono sempre: categorie, stile…     (livello 3, «la fabbrica»)
-│   └── categorie.md
-├── fasi/
-│   ├── 01 Raccolta/
-│   │   ├── ISTRUZIONI.md     il contratto della fase                           (livello 2)
-│   │   └── risultato/        quello che la fase ha prodotto in questo giro     (livello 4, «il prodotto»)
-│   ├── 02 Conti/
-│   │   ├── ISTRUZIONI.md
-│   │   └── risultato/
-│   └── 03 Resoconto/
-│       ├── ISTRUZIONI.md
-│       └── risultato/
-└── .nova/                    stato del giro, correzioni dell'utente, registro  (nascosta)
+├── CLAUDE.md                 identità: cos'è, a cosa serve, dove si trovano le cose     (livello 0)
+├── CONTEXT.md                quale fase fa cosa, quando parte                           (livello 1)
+├── stages/
+│   ├── 01_raccolta/
+│   │   ├── CONTEXT.md        il contratto della fase                                    (livello 2)
+│   │   ├── references/       regole di questa fase                                      (livello 3)
+│   │   └── output/           quello che la fase ha prodotto in questo giro              (livello 4)
+│   ├── 02_conti/
+│   └── 03_resoconto/
+├── _config/                  regole che valgono sempre (stile, categorie…)              (livello 3, «la fabbrica»)
+├── shared/                   materiale comune alle fasi                                 (livello 3)
+├── setup/questionnaire.md    le domande per preparare la procedura
+└── .nova/                    stato del giro, risultati originali, correzioni            (nascosta, solo SoIA)
 ```
 
-Il contratto di una fase (`ISTRUZIONI.md`) ha sezioni fisse:
+Il contratto di una fase (`CONTEXT.md` della fase) ha le tre sezioni di ICM più tre di SoIA, tutte facoltative
+tranne le prime tre:
 
 ```markdown
-## Legge
-- fasi/01 Raccolta/risultato/bollette.md
-- riferimenti/categorie.md
+## Inputs
+- Layer 4 (working): ../01_raccolta/output/
+- Layer 3 (reference): ../../_config/categorie.md
 
-## Fa
+## Process
 Somma le spese per categoria e confrontale con il mese prima.
 
-## Scrive
-- conti.md
+## Outputs
+- conti.md -> output/
 
-## Strumenti
+## Tools
 - calculate
 
-## Controlla
-- ogni categoria di categorie.md compare in conti.md
-- il totale è la somma delle categorie
+## Verify
+- contiene: Totale
+- ogni categoria di categorie.md compare nei conti
 
-## Revisione
+## Review
 no
 ```
 
-- **Legge**: solo questi file entrano nel contesto, anche solo una sezione (`riferimenti/stile.md#Tono`).
-- **Strumenti**: alla fase si danno solo questi strumenti di Nova, non tutti (anche questo è contesto in meno).
-- **Controlla**: controlli prima di passare alla fase dopo (è la sezione *Verify* che il paper propone come
-  sviluppo futuro). Quando si può, li fa il codice (c'è il numero? c'è ogni categoria?); quando serve un
-  giudizio, il nucleo, come nella verifica delle personalizzazioni.
-- **Revisione**: `sì` = Nova si ferma e avvisa «la bozza è pronta, guardala»; `no` = prosegue da sola.
-  Il paper osserva che si corregge molto la prima e l'ultima fase e poco quelle in mezzo: di regola sarà
-  `sì` alla prima e all'ultima.
+- **Inputs**: solo questi file entrano nel contesto, anche solo una sezione (`../../_config/stile.md#Tono`).
+  Il livello si scrive come in ICM; se manca, è 3 per quello che sta in `references/`, `_config/`, `shared/`, e 4
+  per il resto.
+- **Tools**: alla fase si danno solo questi strumenti di Nova, non tutti (anche questo è contesto in meno).
+  Senza la sezione, nessuno strumento.
+- **Verify**: controlli prima di passare alla fase dopo (è la sezione che il paper propone come sviluppo futuro).
+  Quelli semplici li fa il codice (`contiene: …`, `non contiene: …`); per gli altri giudica il modello.
+- **Review**: `sì` = Nova si ferma e avvisa «la bozza è pronta, guardala»; `no` = prosegue da sola. Senza la
+  sezione vale quello che osserva il paper: si corregge molto la prima e l'ultima fase e poco quelle in mezzo,
+  quindi revisione alla prima e all'ultima.
 
 **Fasi senza modello.** Il lavoro meccanico non passa dal modello (la regola 60/30/10 di ICM): una riga
-`azione: search_files bollette ottobre` nella sezione **Fa** chiama lo strumento con quegli argomenti e scrive il
+`action: search_files bollette ottobre` nella sezione **Process** chiama lo strumento con quegli argomenti e scrive il
 risultato, senza chiedere niente al modello. Raccogliere file, mandare la mail finale, salvare un PDF sono
 azioni; scrivere, riassumere, decidere sono del modello.
 
@@ -87,8 +89,8 @@ azioni; scrivere, riassumere, decidere sono del modello.
 Un esecutore nuovo (`procedure.py`), che usa i pezzi che SoIA ha già:
 
 1. Per ogni fase in ordine: legge il contratto, prepara il contesto (identità della procedura, contratto, i file
-   della sezione Legge e niente altro), dà al modello solo gli strumenti della fase, salva il risultato in
-   `risultato/`.
+   della sezione Inputs e niente altro), dà al modello solo gli strumenti della fase, salva il risultato in
+   `output/`.
 2. Esegue i controlli. Se falliscono, il modello riprova una volta con l'errore davanti; se falliscono ancora, la
    procedura si ferma lì e Nova dice cosa non torna.
 3. Se la fase ha la revisione, si ferma e avvisa (centro notifiche). L'utente corregge il documento, se vuole, e
@@ -96,7 +98,7 @@ Un esecutore nuovo (`procedure.py`), che usa i pezzi che SoIA ha già:
 4. **Ripresa**: lo stato è nei file. Dopo un riavvio, o se l'utente corregge una fase, si riparte dalla prima fase
    che non ha un risultato valido.
 5. **Rifare solo quello che serve** (compilazione incrementale, sezione 6.1 del paper): se l'utente cambia un file
-   in `riferimenti/` o un risultato, sono da rifare solo le fasi che lo leggono e quelle dopo.
+   di riferimento o un risultato, sono da rifare solo le fasi che lo leggono e quelle dopo.
 
 Si appoggia a:
 
@@ -118,7 +120,7 @@ giudizio. Il cloud solo se l'utente l'ha acceso e solo per le procedure che lo p
 - **Da un modello**: SoIA ne porta qualcuna pronta (resoconto spese, riassunto della posta, preventivo).
 - **Copiando**: «fai come il resoconto spese, ma per le spese della casa al mare». Nel paper è il modo in cui la
   gente le crea più spesso.
-- **Importando** una cartella ICM fatta da altri (licenza MIT, formato aperto).
+- **Usando** una cartella ICM fatta da altri (licenza MIT, formato aperto): è già nel formato giusto.
 
 ## La procedura migliora con l'uso
 
@@ -126,11 +128,11 @@ giudizio. Il cloud solo se l'utente l'ha acceso e solo per le procedure che lo p
 farla subito:
 
 - quando l'utente corregge un risultato, la differenza tra quello che Nova aveva scritto e quello che l'utente ha
-  salvato si conserva in `.nova/correzioni/`;
+  salvato si conserva in `.nova/`;
 - se la stessa correzione torna tre giri di fila nella stessa fase («accorcia sempre l'introduzione», «cambia
-  sempre "Gentile" in "Ciao"»), Nova propone di metterla nelle istruzioni o nei riferimenti: «Ogni volta accorci
+  sempre "Gentile" in "Ciao"»), Nova propone di metterla nel contratto della fase o nei riferimenti: «Ogni volta accorci
   l'apertura: vuoi che lo scriva nelle istruzioni?»;
-- se l'utente accetta, la modifica è una riga in `ISTRUZIONI.md`, visibile e annullabile.
+- se l'utente accetta, la modifica è una riga nel `CONTEXT.md` della fase, visibile e annullabile.
 
 ## Come si vede
 
@@ -141,19 +143,10 @@ farla subito:
   «crea una procedura per…», «le mie procedure».
 - **Impostazioni › Procedure**: elenco, prossima esecuzione, cloud sì/no per ognuna.
 
-## Formato ICM e importazione
+## Compatibilità con ICM
 
-| ICM | SoIA |
-|---|---|
-| `CLAUDE.md` + `CONTEXT.md` (radice) | `PROCEDURA.md` |
-| `stages/01_research/` | `fasi/01 Raccolta/` |
-| `CONTEXT.md` della fase (Inputs, Process, Outputs) | `ISTRUZIONI.md` (Legge, Fa, Scrive, più Strumenti, Controlla, Revisione) |
-| `references/`, `_config/`, `shared/` | `riferimenti/` |
-| `output/` | `risultato/` |
-| `setup/questionnaire.md` | le domande del costruttore |
-
-L'importazione traduce le sezioni (Inputs → Legge…); le sezioni che ICM non ha restano vuote: nessuno
-strumento, nessun controllo, revisione a ogni fase, che è il comportamento di ICM.
+La cartella è nel formato ICM originale. Le sezioni in più (Tools, Verify, Review) ICM le ignora; una cartella ICM
+senza di esse in SoIA funziona così: nessuno strumento, nessun controllo, revisione alla prima e all'ultima fase.
 
 ## Come si misura
 
@@ -168,21 +161,18 @@ Noi possiamo farlo, ed è la cosa che decide se tenerlo:
 
 ## In che ordine
 
-1. **Formato ed esecutore**: lettura di `PROCEDURA.md` e `ISTRUZIONI.md`, contesto per fase, strumenti per fase,
+1. **Formato ed esecutore**: lettura della cartella e dei contratti, contesto per fase, strumenti per fase,
    azioni senza modello, controlli, revisione, ripresa. Con le prove.
 2. **La misura** con le tre procedure di prova: tutto in un prompt contro a fasi, modello locale. Se a fasi non
    va meglio con i nostri modelli, ci si ferma qui e si decide insieme.
 3. **Nova**: crearle parlando, avviarle, «a che punto è», «vai avanti»; avvio dall'agenda; modelli pronti.
 4. **App File e Impostazioni**: la vista della procedura.
 5. **Correzioni che diventano istruzioni.**
-6. **Importazione ed esportazione ICM.**
-7. Dopo: il programmatore delle personalizzazioni a fasi con lo stesso esecutore (con controlli automatici al
+6. Dopo: il programmatore delle personalizzazioni a fasi con lo stesso esecutore (con controlli automatici al
    posto della revisione dell'utente).
 
-## Da decidere
+## Deciso
 
-- **Nomi in italiano o quelli di ICM** nella cartella dell'utente: qui sono in italiano (la cartella la apre una
-  persona qualunque), con la traduzione all'importazione e all'esportazione.
-- **Dove stanno**: `~/Procedure/` visibile, oppure dentro `~/Documenti/Procedure/`.
-- **Revisione di regola**: alla prima e all'ultima fase (come suggerisce il paper), oppure a tutte finché l'utente
-  non si fida.
+- Nomi delle cartelle e dei file: quelli originali di ICM.
+- Posizione: `~/Procedure/`.
+- Revisione di regola: alla prima e all'ultima fase, come suggerisce il paper.
