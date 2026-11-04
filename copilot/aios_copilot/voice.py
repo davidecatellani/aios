@@ -176,8 +176,12 @@ def yes_no(text: str) -> bool | None:
 
 
 def for_speech(text: str, limit: int = 600) -> str:
-    """Il testo da leggere ad alta voce: niente emoji, simboli, indirizzi lunghi o elenchi infiniti."""
+    """Il testo da leggere ad alta voce: niente emoji, simboli, indirizzi lunghi o elenchi infiniti; prezzi, ore,
+    date e numeri in parole (parlato.py)."""
+    from .parlato import in_words
+
     text = re.sub(r"https?://\S+", "un link", text)
+    text = in_words(text)
     text = re.sub(r"[`*_#>|]", " ", text)
     text = re.sub(r"[\U0001F000-\U0001FAFF☀-➿️]", "", text)
     text = text.replace("«", "").replace("»", "").replace("•", ",")

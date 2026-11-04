@@ -78,7 +78,7 @@ def test_speak_uses_piper_then_plays(tmp_path, monkeypatch):
         if cmd[0] == "/bin/piper":
             out = cmd[cmd.index("--output_file") + 1]
             open(out, "wb").write(b"0" * 100)
-            assert kw["input"] == "Fatto: il volume è al 60%."
+            assert kw["input"] == "Fatto: il volume è al sessanta per cento."
             assert voice.speaking_flag().exists()  # mentre parla non ascolta
 
     which = {"piper": "/bin/piper", "pw-play": "/bin/pw-play"}.get

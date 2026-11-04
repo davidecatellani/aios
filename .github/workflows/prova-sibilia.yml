@@ -30,6 +30,17 @@ jobs:
           Marco Rossi ti ha scritto: chiede se domani alle undici riuscite a vedervi al bar sotto l'ufficio. Gli rispondo di sì?
           EOF
           sed -i 's/^ *//' ~/voci/frasi.txt
+      - uses: actions/checkout@v4
+        with:
+          path: aios
+      - name: Numeri in parole (come le legge Nova, aios_copilot/parlato.py)
+        run: |
+          cd ~/voci && cp frasi.txt frasi-originali.txt
+          PYTHONPATH="$GITHUB_WORKSPACE/aios/copilot" python3 -c "
+          from aios_copilot.voice import for_speech
+          righe = [r.strip() for r in open('frasi-originali.txt') if r.strip()]
+          open('frasi.txt', 'w').write(''.join(for_speech(r) + '\\n' for r in righe))"
+          cat frasi.txt
       - name: Kokoro (Sara, Nicola), la voce di adesso
         continue-on-error: true
         run: |
@@ -89,7 +100,7 @@ jobs:
         if: always()
         run: |
           cd ~/voci
-          { echo; echo "Frasi:"; cat frasi.txt; } >> tempi.txt; cat tempi.txt; ls -la
+          { echo; echo "Frasi scritte:"; cat frasi-originali.txt; echo; echo "Frasi lette (numeri in parole):"; cat frasi.txt; } >> tempi.txt; cat tempi.txt; ls -la
           git init -q -b prova-sibilia && git add -A
           git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
             commit -qm "Prova di Sibilia-TTS contro Kokoro"
