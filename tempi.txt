@@ -1,0 +1,26 @@
+Processore: 4 core, AMD EPYC 7763 64-Core Processor, memoria 15 GB
+
+kokoro if_sara frase 1: 2.6 s per 6.3 s di audio (0.42× il tempo reale)
+kokoro if_sara frase 2: 4.6 s per 11.7 s di audio (0.40× il tempo reale)
+kokoro if_sara frase 3: 2.6 s per 6.5 s di audio (0.40× il tempo reale)
+kokoro im_nicola frase 1: 2.8 s per 7.3 s di audio (0.38× il tempo reale)
+kokoro im_nicola frase 2: 5.1 s per 13.3 s di audio (0.38× il tempo reale)
+kokoro im_nicola frase 3: 2.8 s per 7.5 s di audio (0.38× il tempo reale)
+
+sibilia: caricato in 21 s (scaricamento compreso)
+sibilia voce 0 frase 1: 75.4 s per 6.4 s di audio (11.78× il tempo reale)
+sibilia voce 0 frase 2: 144.4 s per 12.2 s di audio (11.79× il tempo reale)
+sibilia voce 0 frase 3: 75.3 s per 6.2 s di audio (12.07× il tempo reale)
+sibilia voce 1 frase 1: 76.3 s per 6.6 s di audio (11.63× il tempo reale)
+sibilia voce 1 frase 2: 142.4 s per 11.8 s di audio (12.03× il tempo reale)
+sibilia voce 1 frase 3: 81.7 s per 6.7 s di audio (12.16× il tempo reale)
+
+Frasi scritte:
+Buongiorno! Oggi hai due impegni: la riunione alle dieci e la palestra alle sei. Vuoi che ti ricordi qualcosa?
+Ho trovato tre bollette della luce: luglio 84,20 euro, agosto 91,10 euro e settembre 78,50 euro. In media spendi 84,60 euro al mese.
+Marco Rossi ti ha scritto: chiede se domani alle undici riuscite a vedervi al bar sotto l'ufficio. Gli rispondo di sì?
+
+Frasi lette (numeri in parole):
+Buongiorno! Oggi hai due impegni: la riunione alle dieci e la palestra alle sei. Vuoi che ti ricordi qualcosa?
+Ho trovato tre bollette della luce: luglio ottantaquattro euro e venti, agosto novantuno euro e dieci e settembre settantotto euro e cinquanta. In media spendi ottantaquattro euro e sessanta al mese.
+Marco Rossi ti ha scritto: chiede se domani alle undici riuscite a vedervi al bar sotto l'ufficio. Gli rispondo di sì?
