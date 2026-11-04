@@ -79,6 +79,18 @@ no
   sezione vale quello che osserva il paper: si corregge molto la prima e l'ultima fase e poco quelle in mezzo,
   quindi revisione alla prima e all'ultima.
 
+**Conti fatti dal codice.** L'azione `tabella` lavora sulle tabelle scritte dalla fase prima (Markdown o CSV):
+`action: tabella ../01_righe/output/righe.md: calcola totale riga = quantità * prezzo unitario; somma totale riga -> righe_totali.md`
+oppure `somma importo per categoria`. Con `-> nome` il risultato va dritto in quel file della fase. Il modello
+classifica e scrive; i numeri li somma il computer (la prima misura ha mostrato che un modello da 4 miliardi, anche con
+la calcolatrice, sbaglia le somme di 20–30 importi).
+
+**Una cosa alla volta.** Con la sezione `## For each` e una cartella, la fase lavora un file alla volta (una mail,
+un documento) e mette i risultati uno sotto l'altro: il modello non vede mai tutto insieme.
+
+**Controllo dei numeri.** Nella sezione Verify, `riporta i numeri di ../02_conti/output/righe_totali.md` controlla
+che il risultato contenga tutti i numeri di quel file: un prezzo inventato o ricopiato male non passa.
+
 **Fasi senza modello.** Il lavoro meccanico non passa dal modello (la regola 60/30/10 di ICM): una riga
 `action: search_files bollette ottobre` nella sezione **Process** chiama lo strumento con quegli argomenti e scrive il
 risultato, senza chiedere niente al modello. Raccogliere file, mandare la mail finale, salvare un PDF sono

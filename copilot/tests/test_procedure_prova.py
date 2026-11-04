@@ -1,4 +1,5 @@
 import random
+import re
 import sys
 from pathlib import Path
 
@@ -29,6 +30,10 @@ class Fake:
     def chat(self, messages, tools):
         self.prompts.append(sum(len(m["content"]) for m in messages))
         self.calls.append({"prompt": self.prompts[-1] // 4, "risposta": 10, "secondi": 0})
+        if "Rispondi solo con il contenuto del file righe.md" in messages[-1]["content"]:
+            rows = re.findall(r"- (\S+) (.+?): (\d+) × ([\d.,]+) €", self.answer)
+            return {"content": "| codice | articolo | quantità | prezzo unitario |\n|---|---|---|---|\n"
+                               + "\n".join(f"| {c} | {d} | {q} | {p} € |" for c, d, q, p in rows)}
         return {"content": self.answer}
 
 
@@ -38,7 +43,7 @@ def test_one_prompt_reads_everything_and_stages_read_less(tmp_path):
     model.calls = []
     single = pp.run_one(task, "unico", tmp_path, model)
     staged = pp.run_one(task, "fasi", tmp_path, model)
-    assert single["tutto_giusto"] and staged["tutto_giusto"] and single["richieste"] == 1 and staged["richieste"] == 3
+    assert single["tutto_giusto"] and staged["tutto_giusto"] and single["richieste"] == 1 and staged["richieste"] == 4  # 3 fasi + il giudizio del controllo della prima
     unico = pp.write_workspace(task, tmp_path / "w", "unico").stages()
     assert len(unico) == 1 and unico[0].contract.tools == ["calculate"]
     assert {i.path.name for i in unico[0].contract.inputs} == {"richiesta.md", "listino.md", "regole.md"}

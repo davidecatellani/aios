@@ -14,7 +14,7 @@ on:
         default: "4"
       compiti:
         description: "Compiti separati da virgola"
-        default: "spese,posta,preventivo"
+        default: "spese,posta,preventivo,posta_lunga"
 
 permissions:
   contents: write

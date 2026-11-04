@@ -25,7 +25,7 @@ import hashlib
 import json
 import os
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any, Callable, Iterable
 
@@ -39,7 +39,9 @@ STATE_DIR = ".nova"
 YES = {"sì", "si", "yes", "true", "vero", "1"}
 NO = {"no", "false", "falso", "0"}
 SECTION_NAMES = {"inputs": "inputs", "input": "inputs", "process": "process", "outputs": "outputs",
-                 "output": "outputs", "tools": "tools", "verify": "verify", "review": "review"}
+                 "output": "outputs", "tools": "tools", "verify": "verify", "review": "review",
+                 "for each": "each", "per ogni": "each", "per ogni file": "each"}
+BUILTIN_ACTIONS = ("tabella", "table")
 
 # stato di una fase
 DONE, REVIEW, APPROVED, STOPPED, TODO = "fatta", "da guardare", "approvata", "ferma", "da fare"
@@ -61,6 +63,7 @@ class Input:
 class Action:
     tool: str
     args: str
+    output: str = ""  # «-> nome.md»: il risultato va dritto in quel file della fase
 
 
 @dataclass
@@ -73,6 +76,7 @@ class Contract:
     tools: list[str] = field(default_factory=list)
     verify: list[str] = field(default_factory=list)
     review: bool | None = None
+    each: Path | None = None  # «For each»: la fase lavora un file alla volta di questa cartella
 
 
 @dataclass
@@ -132,7 +136,8 @@ def parse_contract(text: str, stage_dir: Path, workspace: Path) -> Contract:
     for line in s.get("process", "").splitlines():
         m = re.match(r"^\s*(?:[-*]\s+)?(?:action|azione)\s*:\s*(\S+)\s*(.*)$", line, re.I)
         if m:
-            c.actions.append(Action(m.group(1), m.group(2).strip()))
+            args, _, out = m.group(2).strip().partition("->")
+            c.actions.append(Action(m.group(1), args.strip(), out.strip().strip("` ").split("/")[-1] if out else ""))
         else:
             process.append(line)
     c.process = "\n".join(process).strip()
@@ -142,6 +147,16 @@ def parse_contract(text: str, stage_dir: Path, workspace: Path) -> Contract:
             c.outputs.append(name)
     c.tools = [re.split(r"[\s:(]", t.strip("` "))[0] for t in _items(s.get("tools", ""))]
     c.verify = _items(s.get("verify", ""))
+    each = _items(s.get("each", "")) or [l.strip() for l in s.get("each", "").splitlines() if l.strip()]
+    if each:
+        path = (stage_dir / each[0].strip("` ")).resolve()
+        if path.is_relative_to(workspace.resolve()):
+            c.each = path
+            if all(i.path != path for i in c.inputs):
+                c.inputs.append(Input(path, "", 4))  # conta per l'impronta; il modello la vede un file alla volta
+    for a in c.actions:
+        if a.output and a.output not in c.outputs:
+            c.outputs.append(a.output)
     review = s.get("review", "").strip().lower().split()
     if review:
         c.review = True if review[0].strip(".") in YES else False if review[0].strip(".") in NO else None
@@ -212,7 +227,8 @@ def find(name: str, base: Path | None = None) -> Workspace | None:
 
 
 # --- lettura del contesto --------------------------------------------------------------------------------
-def _read(path: Path, limit: int = MAX_FILE_CHARS) -> str:
+def _read(path: Path, limit: int | None = None) -> str:
+    limit = limit or MAX_FILE_CHARS
     try:
         if path.suffix.lower() in TEXT_SUFFIXES:
             text = path.read_text(errors="replace")
@@ -264,6 +280,11 @@ def fingerprint(stage: Stage, workspace: Path) -> str:
     h = hashlib.sha256(stage.contract.text.encode())
     for _, label, text in read_inputs(stage, workspace):
         h.update(label.encode() + b"\0" + text.encode() + b"\0")
+    for act in stage.contract.actions:  # anche le tabelle che le azioni leggono: se cambiano, la fase si rifà
+        if act.tool.lower() in BUILTIN_ACTIONS:
+            table = (stage.dir / act.args.partition(":")[0].strip()).resolve()
+            if table.is_relative_to(workspace.resolve()):
+                h.update(_read(table).encode())
     return h.hexdigest()[:20]
 
 
@@ -421,20 +442,28 @@ class Runner:
 
     def _execute(self, st: Stage, stages: list[Stage], state: dict[str, Any]) -> Report | None:
         fp = fingerprint(st, self.ws.path)
-        results = []
+        results, direct = [], {}
         for act in st.contract.actions:
-            label, text, ok = self._action(act)
+            label, text, ok = self._action(act, st)
             if not ok:
                 return self._stop(st, state, fp, text)
+            if act.output:
+                direct[act.output] = text  # va dritto nel suo file (e la fase dopo lo legge da lì)
             results.append((label, text))
-        feedback, problems = "", []
-        if st.contract.process.strip() or not results:
-            for attempt in range(2):
-                text, refused = self._ask_model(build_messages(self.ws, st, results, feedback), st.contract.tools)
+        wanted = [n for n in st.contract.outputs if n not in direct]
+        feedback, problems, files = "", [], dict(direct)
+        if wanted and (st.contract.process.strip() or not results):
+            model_stage = Stage(st.key, st.name, st.dir, replace(st.contract, outputs=wanted))
+            for attempt in range(1 if st.contract.each else 2):
+                if st.contract.each:
+                    made, refused = self._each(model_stage, results)
+                else:
+                    text, refused = self._ask_model(build_messages(self.ws, model_stage, results, feedback), st.contract.tools)
+                    made = split_outputs(text, wanted)
                 if refused:
                     return self._stop(st, state, fp, refused)
-                files = split_outputs(text, st.contract.outputs)
-                missing = [n for n in st.contract.outputs if not files.get(n, "").strip()]
+                files = {**direct, **made}
+                missing = [n for n in wanted if not files.get(n, "").strip()]
                 problems = [f"manca il file {n}" for n in missing] + self._verify(st, files)
                 if not problems:
                     break
@@ -442,8 +471,8 @@ class Runner:
             if problems:
                 self._write(st, files)
                 return self._stop(st, state, fp, "Non passa i controlli: " + "; ".join(problems))
-        else:  # solo azioni: il risultato è quello delle azioni
-            files = {st.contract.outputs[0]: "\n\n".join(f"## {label}\n\n{text}" for label, text in results) + "\n"}
+        elif wanted:  # solo azioni: il risultato è quello delle azioni
+            files[wanted[0]] = "\n\n".join(f"## {label}\n\n{text}" for label, text in results) + "\n"
         self._write(st, files)
         review = self.ws.review_of(st, stages)
         state["stages"][st.key] = {"status": REVIEW if review else DONE, "fingerprint": fp}
@@ -470,7 +499,28 @@ class Runner:
                 (st.output_dir / name).write_text(text)
                 (keep / name).write_text(text)  # com'era prima delle correzioni dell'utente
 
-    def _action(self, act: Action) -> tuple[str, str, bool]:
+    def _each(self, st: Stage, results: list[tuple[str, str]]) -> tuple[dict[str, str], str]:
+        """«For each»: la fase lavora un file alla volta; i risultati, uno sotto l'altro, nell'unico file d'uscita."""
+        folder = st.contract.each
+        files = sorted(p for p in folder.rglob("*") if p.is_file() and not p.name.startswith(".")) if folder else []
+        parts = []
+        for f in files:
+            one = replace(st.contract, inputs=[i for i in st.contract.inputs if i.path != folder] + [Input(f, "", 4)])
+            text, refused = self._ask_model(build_messages(self.ws, Stage(st.key, st.name, st.dir, one), results),
+                                            st.contract.tools)
+            if refused:
+                return {}, refused
+            parts.append(f"## {f.name}\n\n{split_outputs(text, [st.contract.outputs[0]])[st.contract.outputs[0]].strip()}")
+        return {st.contract.outputs[0]: "\n\n".join(parts) + "\n"}, ""
+
+    def _action(self, act: Action, st: Stage | None = None) -> tuple[str, str, bool]:
+        if act.tool.lower() in BUILTIN_ACTIONS:
+            from . import tabelle
+
+            try:
+                return f"tabella {act.args}", tabelle.run(act.args, st.dir if st else self.ws.path, self.ws.path), True
+            except (OSError, ValueError, ZeroDivisionError) as exc:
+                return "tabella", f"la tabella non torna: {exc}", False
         tool = self.tools.get(act.tool)
         if tool is None:
             return act.tool, f"lo strumento «{act.tool}» non c'è", False
@@ -533,6 +583,16 @@ class Runner:
                 present = m.group(2).lower() in everything.lower()
                 if present == m.group(1).lower().startswith(("non", "not")):
                     problems.append(rule)
+                continue
+            m = re.match(r"^(?:riporta i numeri di|keeps numbers of)\s+(\S+)", rule, re.I)
+            if m:
+                from .tabelle import numbers_in
+
+                source = (st.dir / m.group(1).strip("`")).resolve()
+                have = numbers_in(everything)
+                lost = [n for n in numbers_in(_read(source)) if not any(abs(n - h) < 0.011 for h in have)] if source.is_file() else []
+                if lost:
+                    problems.append(f"{rule} (mancano o sono diversi: {', '.join(str(n).rstrip('0').rstrip('.') for n in lost[:6])})")
                 continue
             if re.match(r"^(non vuoto|not empty)$", rule, re.I):
                 if not everything.strip():

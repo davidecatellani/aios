@@ -11,8 +11,12 @@ Tre compiti, con dati inventati diversi a ogni giro e la risposta giusta nota, c
 - preventivo: da una richiesta scritta a parole e dal listino, il preventivo con righe, sconto, spedizione, IVA.
 
 Il modo «unico» è una procedura con una fase sola che legge tutto (le istruzioni di tutte le fasi, le regole, i
-dati) e scrive il risultato finale: è il prompt unico del paper. Il modo «fasi» è la procedura vera. Senza
-controlli (Verify) e senza revisione in entrambi: si misura il metodo, non i tentativi in più.
+dati) e scrive il risultato finale: è il prompt unico del paper. Il modo «fasi» è la procedura vera, con i conti
+fatti dal codice (azione «tabella») e i controlli (Verify) di ogni fase; il modo unico ha i controlli che si possono
+fare sul solo risultato finale. Senza revisione in entrambi.
+
+- posta_lunga: la posta di un mese, 60 mail lunghe in file separati (molto contesto): a fasi la prima fase legge
+  una mail alla volta («For each»), nel modo unico il modello le legge tutte insieme.
 Esce un JSON con i dettagli e una tabella in Markdown.
 """
 
@@ -117,34 +121,41 @@ def task_spese(rng: random.Random) -> Task:
 - Layer 3 (reference): ../../_config/categorie.md
 
 ## Process
-Assegna ogni movimento dell'estratto conto a una categoria di categorie.md. Scrivi una tabella con data,
-descrizione, importo (senza il segno meno) e categoria, una riga per movimento, senza saltarne nessuno.
+Assegna ogni movimento dell'estratto conto a una categoria di categorie.md. Scrivi solo una tabella in Markdown con
+le colonne | data | descrizione | importo | categoria |, una riga per movimento, senza saltarne nessuno; l'importo
+copialo com'è.
 
 ## Outputs
 - movimenti.md -> output/
+
+## Verify
+- riporta i numeri di ../../input/estratto_conto.csv
 """), ("02_conti", """## Inputs
-- Layer 4 (working): ../01_classifica/output/movimenti.md
 - Layer 4 (working): ../../input/mese_precedente.md
 
 ## Process
-Per ogni categoria somma gli importi dei suoi movimenti con lo strumento calculate (mai a mente), poi il totale del
-mese. Per ogni categoria scrivi il totale di questo mese, quello del mese precedente e se è aumentata o diminuita.
+action: tabella ../01_classifica/output/movimenti.md: somma importo per categoria -> totali.md
+Confronta i totali di questo mese con quelli del mese precedente: per ogni
+categoria scrivi il totale di questo mese, quello del mese precedente e se è aumentata o diminuita.
 
 ## Outputs
-- conti.md -> output/
-
-## Tools
-- calculate
+- totali.md -> output/
+- confronto.md -> output/
 """), ("03_resoconto", """## Inputs
-- Layer 4 (working): ../02_conti/output/conti.md
+- Layer 4 (working): ../02_conti/output/totali.md
+- Layer 4 (working): ../02_conti/output/confronto.md
 - Layer 3 (reference): ../../_config/stile.md
 
 ## Process
 Scrivi il resoconto del mese per la famiglia: il totale di ogni categoria, il totale del mese, la categoria in cui
-si è speso di più e un confronto breve con il mese precedente.
+si è speso di più e un confronto breve con il mese precedente. Usa i numeri di totali.md così come sono.
 
 ## Outputs
 - resoconto.md -> output/
+
+## Verify
+- riporta i numeri di ../02_conti/output/totali.md
+- contiene: Totale
 """)], "resoconto.md")
     t.checks = [(f"totale {c}", has_number(v)) for c, v in totals.items()]
     t.checks += [("totale del mese", has_number(total)), (f"categoria più costosa ({top})", has_word(top))]
@@ -217,6 +228,10 @@ Tieni solo le mail da fare. Mettile in ordine di scadenza, dalla più vicina.
 
 ## Outputs
 - da_fare.md -> output/
+
+## Verify
+- le cose da fare sono in ordine di scadenza, dalla più vicina alla più lontana
+- non c'è nessuna pubblicità o newsletter
 """), ("03_messaggio", """## Inputs
 - Layer 4 (working): ../02_da_fare/output/da_fare.md
 - Layer 3 (reference): ../../_config/regole.md
@@ -234,6 +249,98 @@ Scrivi il messaggio per l'utente: l'elenco numerato delle cose da fare, in ordin
     order = [last for _, last in sorted(actions)]
     t.checks.append(("in ordine di scadenza", lambda text, order=order: _in_order(text, order)))
     for brand, _ in promos[:3]:
+        t.checks.append((f"senza la pubblicità di {brand}", lacks_word(brand)))
+    t.answer = "\n".join(f"{n}. {last}: entro il {day} {MONTHS[month]}" for n, (day, last) in enumerate(sorted(actions), 1)) + "\n"
+    return t
+
+
+FILLER = ["Scopri le novità della settimana selezionate per te dal nostro team.", "Approfitta delle promozioni riservate agli iscritti.",
+          "Spedizione gratuita sopra i 49 euro e reso facile entro 30 giorni.", "Ti ricordiamo che puoi gestire le preferenze dal tuo profilo.",
+          "Le offerte sono valide fino a esaurimento scorte.", "Ecco i prodotti più amati dai nostri clienti questo mese.",
+          "Non perdere il nostro evento speciale con sconti fino al 50%.", "Hai punti fedeltà in scadenza: usali entro fine mese.",
+          "Leggi gli articoli più letti della settimana sul nostro blog.", "Consigli utili per organizzare al meglio la tua casa.",
+          "Il nostro servizio clienti è disponibile tutti i giorni dalle 9 alle 18.", "Ricevi questa mail perché sei iscritto alla newsletter.",
+          "Per non ricevere più queste comunicazioni clicca qui.", "Una selezione di idee regalo per ogni occasione e budget.",
+          "Prenota entro venerdì per bloccare il prezzo migliore.", "Le novità in arrivo nelle prossime settimane ti sorprenderanno."]
+BRANDS = ["Zalando", "Amazon", "Booking", "Unieuro", "Decathlon", "Spotify", "Ikea", "Feltrinelli", "Trenitalia", "Esselunga", "Mediaworld", "Netflix"]
+
+
+def task_posta_lunga(rng: random.Random) -> Task:
+    """La posta di un mese: 60 mail lunghe, una per file (newsletter, offerte, risposte con il messaggio citato)."""
+    month = rng.randrange(1, 12)
+    people = rng.sample(PEOPLE, 8)
+    todos = rng.sample(TODOS, 6)
+    people += [("Giorgio", "Conti", "studio-conti.it"), ("Marta", "Leone", "gmail.com")]
+    days = rng.sample(range(3, 29), 6)
+    actions, mails = [], []
+    for (first, last, dom), (what, subject), day in zip(people[:6], todos, days):
+        old = rng.randint(1, 28)
+        quoted = (f"\n\nIl {old} {MONTHS[month - 1]} {first} ha scritto:\n> Ti scrivo per l'incontro del {old} {MONTHS[month - 1]},"
+                  " che poi abbiamo rimandato. " + " ".join(rng.sample(FILLER[9:], 2)))
+        actions.append((day, last))
+        mails.append((f"{first} {last} <{first.lower()}.{last.lower()}@{dom}>", f"Re: {subject}",
+                      f"Ciao, come ti dicevo ti chiedo di {what} entro il {day} {MONTHS[month]}. Fammi sapere. Grazie, {first}" + quoted))
+    for i in range(10):
+        first, last, dom = people[6 + i % 4]
+        subject, text = rng.choice(INFO)
+        mails.append((f"{first} {last} <{first.lower()}@{dom}>", subject, text + " " + " ".join(rng.sample(FILLER[9:], 3))))
+    promos = []
+    while len(mails) < 60:
+        brand = rng.choice(BRANDS)
+        promos.append(brand)
+        body = " ".join(rng.choice(FILLER) for _ in range(rng.randint(10, 16)))
+        mails.append((f"{brand} <newsletter@{brand.lower()}.it>", f"{brand}: le offerte di {MONTHS[month]}",
+                       f"Offerta valida fino al {rng.randint(1, 28)} {MONTHS[month]}. " + body))
+    rng.shuffle(mails)
+    files = {f"input/posta/{i:02d}.md": f"Da: {who}\nOggetto: {subj}\n\n{text}" for i, (who, subj, text) in enumerate(mails, 1)}
+    files["_config/regole.md"] = ("# Regole\n- Una cosa da fare è una mail di una persona che chiede di fare qualcosa entro una data.\n"
+                                  "- Pubblicità, offerte e newsletter non sono cose da fare: non nominarle.\n"
+                                  "- Il testo citato (righe che cominciano con «>») è un messaggio vecchio: non conta.\n"
+                                  "- Per ogni cosa da fare: chi la chiede (nome e cognome), cosa, entro quando (giorno e mese).\n"
+                                  "- In ordine di scadenza: prima la più vicina.")
+    t = Task("posta_lunga", "# Cose da fare dalla posta del mese\nOgni mese, dalle mail ricevute, l'elenco delle cose da fare.\n", files,
+             [("01_classifica", """## For each
+../../input/posta/
+
+## Inputs
+- Layer 3 (reference): ../../_config/regole.md
+
+## Process
+Leggi la mail e scrivi una riga sola: mittente (nome e cognome), tipo (da fare, informazione o pubblicità) e, se è
+da fare, cosa chiede ed entro quando (giorno e mese).
+
+## Outputs
+- classificate.md -> output/
+"""), ("02_da_fare", """## Inputs
+- Layer 4 (working): ../01_classifica/output/classificate.md
+- Layer 3 (reference): ../../_config/regole.md
+
+## Process
+Tieni solo le mail da fare. Mettile in ordine di scadenza, dalla più vicina.
+
+## Outputs
+- da_fare.md -> output/
+
+## Verify
+- le cose da fare sono in ordine di scadenza, dalla più vicina alla più lontana
+- non c'è nessuna pubblicità o newsletter
+"""), ("03_messaggio", """## Inputs
+- Layer 4 (working): ../02_da_fare/output/da_fare.md
+- Layer 3 (reference): ../../_config/regole.md
+
+## Process
+Scrivi il messaggio per l'utente: l'elenco numerato delle cose da fare, in ordine di scadenza, con chi la chiede
+(nome e cognome), cosa ed entro quando. Niente altro.
+
+## Outputs
+- cose_da_fare.md -> output/
+""")], "cose_da_fare.md")
+    for day, last in actions:
+        t.checks.append((f"{last} con la scadenza {day} {MONTHS[month]}",
+                         lambda text, last=last, day=day: any(last in line and re.search(rf"\b{day}\b", line) for line in text.splitlines())))
+    order = [last for _, last in sorted(actions)]
+    t.checks.append(("in ordine di scadenza", lambda text, order=order: _in_order(text, order)))
+    for brand in list(dict.fromkeys(promos))[:3]:
         t.checks.append((f"senza la pubblicità di {brand}", lacks_word(brand)))
     t.answer = "\n".join(f"{n}. {last}: entro il {day} {MONTHS[month]}" for n, (day, last) in enumerate(sorted(actions), 1)) + "\n"
     return t
@@ -286,35 +393,51 @@ def task_preventivo(rng: random.Random) -> Task:
 - Layer 3 (reference): ../../_config/listino.md
 
 ## Process
-Trova nel listino gli articoli che il cliente chiede e quanti ne vuole. Scrivi una riga per articolo: codice,
-articolo, quantità, prezzo unitario.
+Trova nel listino gli articoli che il cliente chiede e quanti ne vuole. Scrivi solo una tabella in Markdown con le
+colonne | codice | articolo | quantità | prezzo unitario |, una riga per articolo, con il prezzo del listino.
 
 ## Outputs
 - righe.md -> output/
+
+## Verify
+- ogni articolo chiesto dal cliente ha una riga, con codice e prezzo presi dal listino
 """), ("02_conti", """## Inputs
-- Layer 4 (working): ../01_righe/output/righe.md
 - Layer 3 (reference): ../../_config/regole.md
 
 ## Process
-Calcola con lo strumento calculate (mai a mente) il totale di ogni riga, l'imponibile, lo sconto, la spedizione,
-l'IVA e il totale, seguendo le regole.
+action: tabella ../01_righe/output/righe.md: calcola totale riga = quantità * prezzo unitario; somma totale riga -> righe_totali.md
+Partendo dall'imponibile (la somma dei totali di riga), calcola con lo strumento
+calculate sconto, spedizione, IVA e totale seguendo le regole. Scrivi imponibile, sconto, spedizione, IVA e totale,
+uno per riga.
 
 ## Outputs
+- righe_totali.md -> output/
 - conti.md -> output/
 
 ## Tools
 - calculate
+
+## Verify
+- contiene: IVA
+- contiene: Totale
 """), ("03_preventivo", """## Inputs
+- Layer 4 (working): ../02_conti/output/righe_totali.md
 - Layer 4 (working): ../02_conti/output/conti.md
 - Layer 4 (working): ../../input/richiesta.md
 - Layer 3 (reference): ../../_config/regole.md
 
 ## Process
 Scrivi il preventivo per il cliente: intestazione con il nome del cliente, le righe con quantità, prezzo
-unitario e totale di riga, poi imponibile, sconto, spedizione, IVA e totale. Una riga di saluti.
+unitario e totale di riga, poi imponibile, sconto, spedizione, IVA e totale. Usa i numeri così come sono, senza
+rifare i conti. Una riga di saluti.
 
 ## Outputs
 - preventivo.md -> output/
+
+## Verify
+- riporta i numeri di ../02_conti/output/righe_totali.md
+- riporta i numeri di ../02_conti/output/conti.md
+- contiene: Totale
 """)], "preventivo.md")
     t.checks = [(f"riga {c} ({q} × {euro(p)})", has_number(lt)) for c, _, p, q, lt in lines]
     t.checks += [("imponibile", has_number(taxable)), ("IVA", has_number(vat)), ("totale", has_number(total)),
@@ -327,7 +450,7 @@ unitario e totale di riga, poi imponibile, sconto, spedizione, IVA e totale. Una
     return t
 
 
-TASKS = {"spese": task_spese, "posta": task_posta, "preventivo": task_preventivo}
+TASKS = {"spese": task_spese, "posta": task_posta, "preventivo": task_preventivo, "posta_lunga": task_posta_lunga}
 
 
 # --- le due procedure -----------------------------------------------------------------------------------------
@@ -353,11 +476,20 @@ def write_workspace(task: Task, folder: Path, mode: str) -> procedure.Workspace:
                     line = f"- Layer {inp.layer}: {rel}"
                     if line not in inputs:
                         inputs.append(line)
-            steps.append(f"Passo {len(steps) + 1}: {c.process}")
+            # i conti che a fasi fa il codice, qui li deve fare il modello (con la calcolatrice)
+            sums = [a.args.partition(":")[2].strip() for a in c.actions if a.tool.lower() in procedure.BUILTIN_ACTIONS]
+            todo = "".join(f"Calcola con calculate: {s}. " for s in sums)
+            each = f"Per ogni file di {c.each.relative_to(ws)}/ (uno alla volta): " if c.each else ""
+            steps.append(f"Passo {len(steps) + 1}: {each}{todo}{c.process}")
+            if sums:
+                tools.add("calculate")
             tools.update(c.tools)
+        final = procedure.parse_contract(task.stages[-1][1], ws / "stages" / task.stages[-1][0], ws)
+        verify = [r for r in final.verify if "../" not in r]  # i controlli sui file intermedi qui non hanno senso
         contract = (f"## Inputs\n" + "\n".join(inputs) + "\n\n## Process\nFai tutto il lavoro in un colpo solo, passo dopo passo, "
                     "e scrivi solo il risultato dell'ultimo passo.\n\n" + "\n\n".join(steps) + f"\n\n## Outputs\n- {task.final} -> output/\n"
-                    + ("\n## Tools\n" + "\n".join(f"- {t}" for t in sorted(tools)) + "\n" if tools else "") + "\n## Review\nno\n")
+                    + ("\n## Tools\n" + "\n".join(f"- {t}" for t in sorted(tools)) + "\n" if tools else "")
+                    + ("\n## Verify\n" + "\n".join(f"- {r}" for r in verify) + "\n" if verify else "") + "\n## Review\nno\n")
         (ws / "stages" / "01_tutto").mkdir(parents=True)
         (ws / "stages" / "01_tutto" / "CONTEXT.md").write_text(contract)
     return procedure.Workspace(ws)
@@ -434,11 +566,13 @@ def main() -> int:
     ap.add_argument("--compiti", default="spese,posta,preventivo")
     ap.add_argument("--quante", type=int, default=4, help="lavori diversi per compito")
     ap.add_argument("--seme", type=int, default=7)
-    ap.add_argument("--num-ctx", type=int, default=16384)
+    ap.add_argument("--num-ctx", type=int, default=32768)
     ap.add_argument("--ragiona", action="store_true")
     ap.add_argument("--uscita", default="procedure.json")
     args = ap.parse_args()
     model = Measured(args.modello, args.url, args.num_ctx, args.ragiona)
+    procedure.MAX_CONTEXT_CHARS = 120_000  # il modo unico deve poter leggere tutto (circa 30 mila token)
+    procedure.MAX_FILE_CHARS = 60_000
     results = []
     folder = Path(tempfile.mkdtemp(prefix="procedure-"))
     for name in [n.strip() for n in args.compiti.split(",") if n.strip()]:
