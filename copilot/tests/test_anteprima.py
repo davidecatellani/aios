@@ -1,4 +1,7 @@
 import json
+
+import pytest
+
 from aios_copilot import anteprima, cloud
 from aios_copilot.nucleo import SYSTEM_VERIFICA, VERIFY_SCHEMA, Nucleo, prompt_verifica
 
@@ -50,7 +53,7 @@ def test_verdict_from_the_nucleo(monkeypatch, tmp_path):
 
 
 def test_change_crops(tmp_path):
-    import cv2
+    cv2 = pytest.importorskip("cv2")  # OpenCV c'è nell'immagine, non per forza dove girano le prove
     import numpy as np
 
     a = np.full((400, 600, 3), 240, np.uint8)
