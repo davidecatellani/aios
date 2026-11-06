@@ -131,9 +131,16 @@ from pathlib import Path
 stato, repo, inizio, codice, log = Path(sys.argv[1]), Path(sys.argv[2]), int(sys.argv[3]), int(sys.argv[4]), sys.argv[5]
 sessioni = [p for p in (stato / "logs").glob("*/session.json") if p.stat().st_mtime >= inizio]
 sessione = max(sessioni, key=lambda p: p.stat().st_mtime, default=None)
-esito = json.loads(sessione.read_text()).get("state") if sessione else None
+dettaglio = json.loads(sessione.read_text()) if sessione else {}
+esito = dettaglio.get("state")
 report = repo / "phone/uscita/gsi/prototipo/prototipo.json"
 print()
+if esito == "paused" and dettaglio.get("reason") == "interrupted":
+    print("INTERROTTA: la sessione è stata fermata da fuori (Ctrl+C, spegnimento, riavvio")
+    print("o uscita dall'utente), non da un errore. Il lavoro fatto è salvato.")
+    print("Per continuare, rilancia lo stesso comando:")
+    print("  bash phone/compila-telefono.sh")
+    sys.exit(codice or 1)
 if codice != 0:
     print(f"ERRORE: la compilazione si è fermata (codice {codice}). Il lavoro già fatto resta sul disco.")
     print("Manda questi file a chi ti aiuta:")

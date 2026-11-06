@@ -33,6 +33,9 @@ case "$FAKE_OUTCOME" in
   failed)
     echo '{"state": "failed"}' > "$AIOS_PC_BUILD_DIR/logs/run-1/session.json"
     exit 17 ;;
+  interrupted)
+    echo '{"state": "paused", "reason": "interrupted", "exit_code": 143}' > "$AIOS_PC_BUILD_DIR/logs/run-1/session.json"
+    exit 143 ;;
 esac
 """
 
@@ -99,6 +102,13 @@ def test_build_error_is_an_error_and_points_to_the_logs(pc):
     result, _ = run("--senza-aggiornare", FAKE_OUTCOME="failed")
     assert result.returncode == 17
     assert "ERRORE" in result.stdout and str(state / "logs/run-1/build.log") in result.stdout
+
+
+def test_outside_stop_is_reported_as_interruption_not_as_error(pc):
+    run, *_ = pc
+    result, _ = run("--senza-aggiornare", FAKE_OUTCOME="interrupted")
+    assert result.returncode == 143
+    assert "INTERROTTA" in result.stdout and "ERRORE" not in result.stdout
 
 
 def test_session_hours_are_passed_and_validated(pc):

@@ -11,6 +11,7 @@ import time
 
 
 PAUSED = 75
+STOP_CODES = {128 + signal.SIGHUP, 128 + signal.SIGINT, 128 + signal.SIGTERM}
 
 
 def stop_group(process, grace):
@@ -75,6 +76,10 @@ def main():
         code = process.poll()
         if code is not None:
             code = code if code >= 0 else 128 - code
+            # Spegnimento, riavvio o uscita dall'utente fermano tutti i processi insieme:
+            # il comando muore per il segnale, non per un errore della compilazione.
+            if interrupted or code in STOP_CODES:
+                return result('paused', 'interrupted', code)
             return result('completed' if code == 0 else 'failed', 'command_exit', code)
         if interrupted or (args.seconds and time.monotonic() - started >= args.seconds):
             reason = 'interrupted' if interrupted else 'time_limit'

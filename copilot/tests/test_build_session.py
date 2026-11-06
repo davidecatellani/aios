@@ -116,3 +116,12 @@ Path(name).write_text('compiled')
     assert resumed.returncode == 0, resumed.stderr
     assert (tmp_path / 'calls').read_text().splitlines() == ['first.o', 'second.o', 'second.o']
     assert (tmp_path / 'second.o').read_text() == 'compiled'
+
+
+def test_command_killed_by_shutdown_is_an_interruption_not_a_build_error(tmp_path):
+    # Allo spegnimento o all'uscita dall'utente il comando riceve SIGTERM insieme alla sessione.
+    code = 'import os, signal; os.kill(os.getpid(), signal.SIGTERM)'
+    proc = subprocess.run(command(tmp_path, code), capture_output=True, timeout=5)
+    assert proc.returncode == 143
+    doc = json.loads((tmp_path / 'session.json').read_text())
+    assert doc['state'] == 'paused' and doc['reason'] == 'interrupted'
