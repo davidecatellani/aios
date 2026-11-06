@@ -343,6 +343,25 @@ def split_outputs(text: str, names: list[str]) -> dict[str, str]:
     return out
 
 
+def _merge(parts: list[tuple[str, str]]) -> str:
+    """I risultati di «For each» uno sotto l'altro; se ognuno è una tabella con le stesse colonne, una tabella sola
+    (così la fase dopo, o il codice, la può filtrare e ordinare)."""
+    from .tabelle import parse_table
+
+    tables = []
+    for _, text in parts:
+        try:
+            tables.append(parse_table(text) if "|" in text else None)
+        except ValueError:
+            tables.append(None)
+    if parts and all(tables) and len({tuple(h.lower() for h in tb[0]) for tb in tables}) == 1:
+        headers = tables[0][0]
+        rows = [r for _, rs in tables for r in rs]
+        return ("| " + " | ".join(headers) + " |\n|" + "---|" * len(headers) + "\n"
+                + "\n".join("| " + " | ".join(r) + " |" for r in rows) + "\n")
+    return "\n\n".join(f"## {name}\n\n{text}" for name, text in parts) + "\n"
+
+
 # --- esecuzione ------------------------------------------------------------------------------------------
 @dataclass
 class Report:
@@ -468,9 +487,15 @@ class Runner:
                 if not problems:
                     break
                 feedback = "\n".join(f"- {p}" for p in problems)
-            if problems:
+            if problems:  # non si butta via niente: la fase si ferma «da guardare» e decide l'utente
                 self._write(st, files)
-                return self._stop(st, state, fp, "Non passa i controlli: " + "; ".join(problems))
+                state["stages"][st.key] = {"status": REVIEW, "fingerprint": fp, "problems": problems}
+                self.ws.save_state(state)
+                message = (f"La fase «{st.name}» di «{self.ws.name}» non passa questi controlli: {'; '.join(problems)}. "
+                           f"Guarda {', '.join(st.contract.outputs)} in stages/{st.key}/output/, correggi se serve e poi "
+                           "dimmi «vai avanti» (o «rifai» per riprovare).")
+                self.notify(f"Procedura «{self.ws.name}»", message)
+                return Report("da guardare", st.key, message)
         elif wanted:  # solo azioni: il risultato è quello delle azioni
             files[wanted[0]] = "\n\n".join(f"## {label}\n\n{text}" for label, text in results) + "\n"
         self._write(st, files)
@@ -510,8 +535,8 @@ class Runner:
                                             st.contract.tools)
             if refused:
                 return {}, refused
-            parts.append(f"## {f.name}\n\n{split_outputs(text, [st.contract.outputs[0]])[st.contract.outputs[0]].strip()}")
-        return {st.contract.outputs[0]: "\n\n".join(parts) + "\n"}, ""
+            parts.append((f.name, split_outputs(text, [st.contract.outputs[0]])[st.contract.outputs[0]].strip()))
+        return {st.contract.outputs[0]: _merge(parts)}, ""
 
     def _action(self, act: Action, st: Stage | None = None) -> tuple[str, str, bool]:
         if act.tool.lower() in BUILTIN_ACTIONS:

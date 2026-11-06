@@ -13,7 +13,8 @@ Tre compiti, con dati inventati diversi a ogni giro e la risposta giusta nota, c
 Il modo «unico» è una procedura con una fase sola che legge tutto (le istruzioni di tutte le fasi, le regole, i
 dati) e scrive il risultato finale: è il prompt unico del paper. Il modo «fasi» è la procedura vera, con i conti
 fatti dal codice (azione «tabella») e i controlli (Verify) di ogni fase; il modo unico ha i controlli che si possono
-fare sul solo risultato finale. Senza revisione in entrambi.
+fare sul solo risultato finale. Senza revisione in entrambi; se una fase non passa i controlli si ferma «da
+guardare»: qui si va avanti con quello che c'è e la fermata si conta a parte («fermate per controllo»).
 
 - posta_lunga: la posta di un mese, 60 mail lunghe in file separati (molto contesto): a fasi la prima fase legge
   una mail alla volta («For each»), nel modo unico il modello le legge tutte insieme.
@@ -214,24 +215,17 @@ def task_posta(rng: random.Random) -> Task:
 - Layer 3 (reference): ../../_config/regole.md
 
 ## Process
-Per ogni mail scrivi una riga: numero della mail, mittente, tipo (da fare, informazione, pubblicità) e, se è da
-fare, cosa chiede ed entro quando.
+Scrivi solo una tabella in Markdown con le colonne | mittente | tipo | cosa | scadenza |, una riga per mail:
+mittente (nome e cognome), tipo (da fare, informazione o pubblicità) e, se è da fare, cosa chiede e la scadenza
+(giorno e mese, per esempio «12 ottobre»).
 
 ## Outputs
 - classificate.md -> output/
-"""), ("02_da_fare", """## Inputs
-- Layer 4 (working): ../01_classifica/output/classificate.md
-- Layer 3 (reference): ../../_config/regole.md
-
-## Process
-Tieni solo le mail da fare. Mettile in ordine di scadenza, dalla più vicina.
+"""), ("02_da_fare", """## Process
+action: tabella ../01_classifica/output/classificate.md: filtra tipo = da fare; ordina per scadenza -> da_fare.md
 
 ## Outputs
 - da_fare.md -> output/
-
-## Verify
-- le cose da fare sono in ordine di scadenza, dalla più vicina alla più lontana
-- non c'è nessuna pubblicità o newsletter
 """), ("03_messaggio", """## Inputs
 - Layer 4 (working): ../02_da_fare/output/da_fare.md
 - Layer 3 (reference): ../../_config/regole.md
@@ -242,6 +236,9 @@ Scrivi il messaggio per l'utente: l'elenco numerato delle cose da fare, in ordin
 
 ## Outputs
 - cose_da_fare.md -> output/
+
+## Verify
+- riporta i numeri di ../02_da_fare/output/da_fare.md
 """)], "cose_da_fare.md")
     for day, last in actions:
         t.checks.append((f"{last} con la scadenza {day} {MONTHS[month]}",
@@ -306,24 +303,17 @@ def task_posta_lunga(rng: random.Random) -> Task:
 - Layer 3 (reference): ../../_config/regole.md
 
 ## Process
-Leggi la mail e scrivi una riga sola: mittente (nome e cognome), tipo (da fare, informazione o pubblicità) e, se è
-da fare, cosa chiede ed entro quando (giorno e mese).
+Leggi la mail e rispondi solo con una tabella in Markdown di una riga, con le colonne | mittente | tipo | cosa | scadenza |:
+mittente (nome e cognome), tipo (da fare, informazione o pubblicità) e, se è da fare, cosa chiede e la scadenza
+(giorno e mese, per esempio «12 ottobre»).
 
 ## Outputs
 - classificate.md -> output/
-"""), ("02_da_fare", """## Inputs
-- Layer 4 (working): ../01_classifica/output/classificate.md
-- Layer 3 (reference): ../../_config/regole.md
-
-## Process
-Tieni solo le mail da fare. Mettile in ordine di scadenza, dalla più vicina.
+"""), ("02_da_fare", """## Process
+action: tabella ../01_classifica/output/classificate.md: filtra tipo = da fare; ordina per scadenza -> da_fare.md
 
 ## Outputs
 - da_fare.md -> output/
-
-## Verify
-- le cose da fare sono in ordine di scadenza, dalla più vicina alla più lontana
-- non c'è nessuna pubblicità o newsletter
 """), ("03_messaggio", """## Inputs
 - Layer 4 (working): ../02_da_fare/output/da_fare.md
 - Layer 3 (reference): ../../_config/regole.md
@@ -334,6 +324,9 @@ Scrivi il messaggio per l'utente: l'elenco numerato delle cose da fare, in ordin
 
 ## Outputs
 - cose_da_fare.md -> output/
+
+## Verify
+- riporta i numeri di ../02_da_fare/output/da_fare.md
 """)], "cose_da_fare.md")
     for day, last in actions:
         t.checks.append((f"{last} con la scadenza {day} {MONTHS[month]}",
@@ -401,27 +394,12 @@ colonne | codice | articolo | quantità | prezzo unitario |, una riga per artico
 
 ## Verify
 - ogni articolo chiesto dal cliente ha una riga, con codice e prezzo presi dal listino
-"""), ("02_conti", """## Inputs
-- Layer 3 (reference): ../../_config/regole.md
-
-## Process
-action: tabella ../01_righe/output/righe.md: calcola totale riga = quantità * prezzo unitario; somma totale riga -> righe_totali.md
-Partendo dall'imponibile (la somma dei totali di riga), calcola con lo strumento
-calculate sconto, spedizione, IVA e totale seguendo le regole. Scrivi imponibile, sconto, spedizione, IVA e totale,
-uno per riga.
+"""), ("02_conti", """## Process
+action: tabella ../01_righe/output/righe.md: calcola totale riga = quantità * prezzo unitario; valore imponibile = somma(totale riga); valore sconto = se imponibile > 1000 allora imponibile * 10% altrimenti 0; valore spedizione = se imponibile < 300 allora 25 altrimenti 0; valore base_iva = imponibile - sconto + spedizione; valore IVA = base_iva * 22%; valore totale = base_iva + IVA -> conti.md
 
 ## Outputs
-- righe_totali.md -> output/
 - conti.md -> output/
-
-## Tools
-- calculate
-
-## Verify
-- contiene: IVA
-- contiene: Totale
 """), ("03_preventivo", """## Inputs
-- Layer 4 (working): ../02_conti/output/righe_totali.md
 - Layer 4 (working): ../02_conti/output/conti.md
 - Layer 4 (working): ../../input/richiesta.md
 - Layer 3 (reference): ../../_config/regole.md
@@ -435,7 +413,6 @@ rifare i conti. Una riga di saluti.
 - preventivo.md -> output/
 
 ## Verify
-- riporta i numeri di ../02_conti/output/righe_totali.md
 - riporta i numeri di ../02_conti/output/conti.md
 - contiene: Totale
 """)], "preventivo.md")
@@ -478,7 +455,7 @@ def write_workspace(task: Task, folder: Path, mode: str) -> procedure.Workspace:
                         inputs.append(line)
             # i conti che a fasi fa il codice, qui li deve fare il modello (con la calcolatrice)
             sums = [a.args.partition(":")[2].strip() for a in c.actions if a.tool.lower() in procedure.BUILTIN_ACTIONS]
-            todo = "".join(f"Calcola con calculate: {s}. " for s in sums)
+            todo = "".join(f"Fai tu questi conti e operazioni sulla tabella (con calculate per i conti): {s}. " for s in sums)
             each = f"Per ogni file di {c.each.relative_to(ws)}/ (uno alla volta): " if c.each else ""
             steps.append(f"Passo {len(steps) + 1}: {each}{todo}{c.process}")
             if sums:
@@ -527,8 +504,13 @@ def run_one(task: Task, mode: str, folder: Path, model: Measured) -> dict[str, A
     tools = {t.name: t for t in calc_tools()}
     start = time.monotonic()
     error = ""
+    stops = []
     try:
-        report = procedure.Runner(ws, model, tools, wait=lambda: True).run()
+        runner = procedure.Runner(ws, model, tools, wait=lambda: True)
+        report = runner.run()
+        while report.status == "da guardare" and len(stops) < 10:
+            stops.append(report.message[:200])  # nella vita vera decide l'utente; qui si va avanti con quello che c'è
+            report = runner.proceed()
         if report.status != "finita":
             error = report.message
     except Exception as exc:  # un giro rotto conta come sbagliato, non ferma la misura
@@ -537,15 +519,15 @@ def run_one(task: Task, mode: str, folder: Path, model: Measured) -> dict[str, A
     text = final.read_text() if final.is_file() else ""
     checks = score(task, text)
     return {"modo": mode, "controlli": checks, "giusti": sum(ok for _, ok in checks), "totale": len(checks),
-            "tutto_giusto": all(ok for _, ok in checks) and bool(checks), "errore": error,
+            "tutto_giusto": all(ok for _, ok in checks) and bool(checks), "errore": error, "fermate": stops,
             "richieste": len(model.calls), "contesto_max": max((c["prompt"] for c in model.calls), default=0),
             "token_letti": sum(c["prompt"] for c in model.calls), "token_scritti": sum(c["risposta"] for c in model.calls),
             "secondi": round(time.monotonic() - start, 1), "risultato": text[:3000]}
 
 
 def table(results: list[dict[str, Any]]) -> str:
-    lines = ["| compito | modo | controlli giusti | lavori tutti giusti | contesto massimo (token) | token letti | secondi |",
-             "|---|---|---|---|---|---|---|"]
+    lines = ["| compito | modo | controlli giusti | lavori tutti giusti | fermate per controllo | contesto massimo (token) | token letti | secondi |",
+             "|---|---|---|---|---|---|---|---|"]
     for name in dict.fromkeys(r["compito"] for r in results):
         for mode in ("unico", "fasi"):
             rs = [r for r in results if r["compito"] == name and r["modo"] == mode]
@@ -554,7 +536,8 @@ def table(results: list[dict[str, Any]]) -> str:
             ok, tot = sum(r["giusti"] for r in rs), sum(r["totale"] for r in rs)
             full = sum(r["tutto_giusto"] for r in rs)
             avg = lambda k: round(sum(r[k] for r in rs) / len(rs))  # noqa: E731
-            lines.append(f"| {name} | {mode} | {ok}/{tot} ({ok / max(tot, 1):.0%}) | {full}/{len(rs)} | {avg('contesto_max')} | "
+            stopped = sum(len(r.get("fermate", [])) for r in rs)
+            lines.append(f"| {name} | {mode} | {ok}/{tot} ({ok / max(tot, 1):.0%}) | {full}/{len(rs)} | {stopped} | {avg('contesto_max')} | "
                          f"{avg('token_letti')} | {avg('secondi')} |")
     return "\n".join(lines)
 

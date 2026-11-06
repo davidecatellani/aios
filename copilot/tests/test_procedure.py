@@ -170,10 +170,14 @@ no
     model = Model([{"content": "Casa 61,20"}, {"content": '{"ok": true}'},       # manca «Totale»: riprova
                    {"content": "Casa 61,20 $"}, {"content": '{"ok": false, "motivo": "dollari"}'}])  # ancora no
     report = procedure.Runner(ws, model, wait=lambda: True).run()
-    assert report.status == "ferma" and report.stage == "02_conti" and "contiene: Totale" in report.message
+    # non passa i controlli neanche riprovando: si ferma «da guardare» (decide l'utente), il risultato resta
+    assert report.status == "da guardare" and report.stage == "02_conti" and "contiene: Totale" in report.message
     retry_prompt = model.seen[2][0][1]["content"]
     assert "Da correggere" in retry_prompt and "contiene: Totale" in retry_prompt
-    assert procedure.Runner(ws, Model([]), wait=lambda: True).status()[1][1] == "ferma"
+    assert (ws.path / "stages/02_conti/output/conti.md").read_text().startswith("Casa 61,20 $")
+    later = procedure.Runner(ws, Model([{"content": "=== resoconto.md ===\nok\n=== titolo.txt ===\nok"}]), wait=lambda: True)
+    assert later.status()[1][1] == "da guardare"
+    assert later.proceed().stage == "03_resoconto"  # «vai avanti»: si continua con quello che c'è
 
 
 def test_actions_need_confirmation(tmp_path):

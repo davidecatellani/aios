@@ -85,6 +85,15 @@ oppure `somma importo per categoria`. Con `-> nome` il risultato va dritto in qu
 classifica e scrive; i numeri li somma il computer (la prima misura ha mostrato che un modello da 4 miliardi, anche con
 la calcolatrice, sbaglia le somme di 20–30 importi).
 
+Oltre a somme e colonne, la tabella sa **filtrare** (`filtra tipo = da fare`), **ordinare** (`ordina per scadenza`,
+anche con date in italiano come «12 ottobre») e calcolare **valori con regole semplici**
+(`valore sconto = se imponibile > 1000 allora imponibile * 10% altrimenti 0`): mettere in ordine le date e fare i conti
+con le regole erano gli errori più frequenti del modello nella seconda misura.
+
+**Un controllo che non passa non butta via il lavoro.** Se dopo un nuovo tentativo la fase non passa ancora i
+controlli, il risultato resta e la fase si ferma «da guardare», con il problema scritto: l'utente corregge o dice
+«vai avanti», come in una revisione.
+
 **Una cosa alla volta.** Con la sezione `## For each` e una cartella, la fase lavora un file alla volta (una mail,
 un documento) e mette i risultati uno sotto l'altro: il modello non vede mai tutto insieme.
 

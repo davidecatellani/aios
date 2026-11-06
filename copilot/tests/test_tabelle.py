@@ -88,3 +88,30 @@ def test_table_error_stops_the_stage(tmp_path):
     model = Model([{"content": "niente tabella qui"}])
     report = procedure.Runner(ws, model, wait=lambda: True).run()
     assert report.status == "ferma" and report.stage == "02_conti" and "tabella non torna" in report.message
+
+
+def test_filter_sort_dates_and_values(tmp_path):
+    (tmp_path / "p.md").write_text("| mittente | tipo | cosa | scadenza |\n|---|---|---|---|\n"
+                                   "| Paolo Bianchi | Da fare | report | entro il 24 febbraio |\n| Zalando | pubblicità | | |\n"
+                                   "| Anna Neri | da fare | firma | 8 febbraio |\n| Elena Ricci | Da fare. | visita | 11/2 |\n")
+    out = tabelle.run("p.md: filtra tipo = da fare; ordina per scadenza", tmp_path, tmp_path)
+    assert "Zalando" not in out and out.index("Neri") < out.index("Ricci") < out.index("Bianchi")
+    assert tabelle.parse_date("entro il 12 ottobre 2026") == (2026, 10, 12) and tabelle.parse_date("12/10") == (0, 10, 12)
+    assert tabelle.parse_date("2026-10-12") == (2026, 10, 12) and tabelle.parse_date("domani") is None
+    (tmp_path / "r.md").write_text("| codice | quantità | prezzo unitario |\n|---|---|---|\n| A | 2 | 549,00 € |\n| B | 3 | 34,90 |\n")
+    rules = ("calcola totale riga = quantità * prezzo unitario; valore imponibile = somma(totale riga); "
+             "valore sconto = se imponibile > 1000 allora imponibile * 10% altrimenti 0; "
+             "valore spedizione = se imponibile < 300 allora 25 altrimenti 0; valore base_iva = imponibile - sconto + spedizione; "
+             "valore iva = base_iva * 22%; valore totale = base_iva + iva")
+    out = tabelle.run("r.md: " + rules, tmp_path, tmp_path)
+    for line in ("Imponibile: 1.202,70", "Sconto: 120,27", "Spedizione: 0,00", "Iva: 238,13", "Totale: 1.320,56"):
+        assert line in out
+    with pytest.raises(ValueError, match="non è un valore calcolato prima"):
+        tabelle.run("r.md: valore iva = base * 22%", tmp_path, tmp_path)
+
+
+def test_for_each_rows_become_one_table():
+    rows = [("01.md", "| mittente | tipo |\n|---|---|\n| Paolo | da fare |"), ("02.md", "| Mittente | Tipo |\n|---|---|\n| Zalando | pubblicità |")]
+    merged = procedure._merge(rows)
+    assert merged.count("| mittente | tipo |") == 1 and "| Zalando | pubblicità |" in merged and "##" not in merged
+    assert "## 01.md" in procedure._merge([("01.md", "da fare"), ("02.md", "| a |\n|---|\n| b |")])
