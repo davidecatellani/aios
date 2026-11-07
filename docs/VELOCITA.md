@@ -35,6 +35,12 @@ Qwen3.5 4B senza attese lunghe.
    il 4B a 4 bit 3,0 GB, la memoria della conversazione ~100 KB per token (800 MB per posto da 8192 token), le copie
    in RAM delle istruzioni già lette 300-480 MB l'una. Terzo giro: il 4B IQ4_XS (2,7 GB), due posti su un'unica
    memoria da 8192 token, memoria a 8 bit o no, niente copie in RAM.
+   Terzo giro (Release `velocita-3`, AMD EPYC 9V74 con 2 core veri e 4 thread): il 4B IQ4_XS su llama-server con
+   due posti su un'unica memoria da 8192 token e niente copie in RAM occupa **3,4 GB in tutto**; una domanda normale
+   a Nova aspetta **1,0-1,3 s** (la conversazione resta nel suo posto anche mentre il sottofondo lavora nell'altro);
+   la posta di tre settimane 50 s, il codice 68 s. La memoria a 8 bit risparmia solo 0,1 GB e legge il 30% più
+   piano: resta a 16 bit. È la configurazione di aios-modello. Con il nucleo (0.8B, ~0,9 GB) l'AI tiene ~4,3 GB su
+   un PC da 8: ~3,7 GB restano a sistema e programmi (il nucleo a 4 bit ne libererebbe altri ~0,3, da misurare).
 2. **I modi che vincono, in SoIA**; più la protezione della memoria del modello (limiti di systemd perché il kernel
    non lo scarichi quando si apre il browser) e la cache del contesto salvata su disco per le istruzioni fisse.
    Misurati prima e dopo su un i3 vero.
