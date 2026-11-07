@@ -115,3 +115,6 @@ def test_for_each_rows_become_one_table():
     merged = procedure._merge(rows)
     assert merged.count("| mittente | tipo |") == 1 and "| Zalando | pubblicità |" in merged and "##" not in merged
     assert "## 01.md" in procedure._merge([("01.md", "da fare"), ("02.md", "| a |\n|---|\n| b |")])
+    # una risposta senza intestazione, con le stesse colonne, vale come riga (è successo nella misura con 60 mail)
+    loose = procedure._merge(rows + [("03.md", "| Anna Neri | da fare |")])
+    assert loose.count("| mittente | tipo |") == 1 and "| Anna Neri | da fare |" in loose

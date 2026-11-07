@@ -344,22 +344,23 @@ def split_outputs(text: str, names: list[str]) -> dict[str, str]:
 
 
 def _merge(parts: list[tuple[str, str]]) -> str:
-    """I risultati di «For each» uno sotto l'altro; se ognuno è una tabella con le stesse colonne, una tabella sola
-    (così la fase dopo, o il codice, la può filtrare e ordinare)."""
-    from .tabelle import parse_table
-
-    tables = []
+    """I risultati di «For each» uno sotto l'altro; se sono righe di tabella con le stesse colonne, una tabella sola
+    (così la fase dopo, o il codice, la può filtrare e ordinare). Il modello a volte scorda l'intestazione: una
+    risposta senza intestazione ma con lo stesso numero di colonne vale come riga."""
+    rows_of = []
     for _, text in parts:
-        try:
-            tables.append(parse_table(text) if "|" in text else None)
-        except ValueError:
-            tables.append(None)
-    if parts and all(tables) and len({tuple(h.lower() for h in tb[0]) for tb in tables}) == 1:
-        headers = tables[0][0]
-        rows = [r for _, rs in tables for r in rs]
-        return ("| " + " | ".join(headers) + " |\n|" + "---|" * len(headers) + "\n"
-                + "\n".join("| " + " | ".join(r) + " |" for r in rows) + "\n")
-    return "\n\n".join(f"## {name}\n\n{text}" for name, text in parts) + "\n"
+        rows = [[c.strip() for c in l.strip().strip("|").split("|")] for l in text.splitlines() if l.strip().startswith("|")]
+        rows_of.append([r for r in rows if not all(re.fullmatch(r":?-{2,}:?", c) for c in r if c)])
+    headed = [rs for rs in rows_of if len(rs) >= 2]
+    if not parts or not all(rows_of) or not headed:
+        return "\n\n".join(f"## {name}\n\n{text}" for name, text in parts) + "\n"
+    headers = headed[0][0]
+    norm = [h.lower() for h in headers]
+    if any(len(r) != len(headers) for rs in rows_of for r in rs):
+        return "\n\n".join(f"## {name}\n\n{text}" for name, text in parts) + "\n"
+    rows = [r for rs in rows_of for r in rs if [c.lower() for c in r] != norm]
+    return ("| " + " | ".join(headers) + " |\n|" + "---|" * len(headers) + "\n"
+            + "\n".join("| " + " | ".join(r) + " |" for r in rows) + "\n")
 
 
 # --- esecuzione ------------------------------------------------------------------------------------------
