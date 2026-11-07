@@ -203,7 +203,7 @@ Noi possiamo farlo, ed è la cosa che decide se tenerlo:
 2. **La misura** con le tre procedure di prova: tutto in un prompt contro a fasi, modello locale. Se a fasi non
    va meglio con i nostri modelli, ci si ferma qui e si decide insieme.
 3. **Nova**: crearle parlando, avviarle, «a che punto è», «vai avanti»; avvio a orario; modelli pronti. *Fatto.*
-4. **App File e Impostazioni**: la vista della procedura.
+4. **App File e Impostazioni**: la vista della procedura. *Fatto.*
 5. **Correzioni che diventano istruzioni.**
 6. Dopo: il programmatore delle personalizzazioni a fasi con lo stesso esecutore (con controlli automatici al
    posto della revisione dell'utente).

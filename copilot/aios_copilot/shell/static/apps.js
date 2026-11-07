@@ -215,6 +215,9 @@ const VISTE = {
       griglia.append(b);
     }
     corpo.append(griglia);
+    // la cartella di una procedura: le fasi in fila, con lo stato e i pulsanti (procedure.py)
+    const proc = await api(`/api/procedure?p=${encodeURIComponent(data.cartella)}`).catch(() => null);
+    if (proc && proc.procedura) corpo.prepend(strisciaProcedura(proc.procedura, () => apriVista("file", data.cartella)));
   },
 
   async foto(box) {
@@ -348,7 +351,7 @@ const VISTE = {
     const wrap = el("div", "impostazioni"); const nav = el("div", "sezioni"); const pan = el("div", "pannello-imp");
     wrap.append(nav, pan); corpo.append(wrap);
     const SEZ = [["personalizzazioni", "Personalizzazioni"], ["wifi", "Wi-Fi"], ["bluetooth", "Bluetooth"], ["suono", "Suono"], ["schermo", "Schermo"], ["voce", "Voce di Nova"], ["mouse", "Mouse e touchpad"], ["tastiera", "Tastiera"],
-                 ["aspetto", "Testo e carattere"], ["accessibilita", "Accessibilità"], ["aggiornamenti", "Aggiornamenti"], ["posta", "Posta"], ["account", "Password"], ["privacy", "Privacy e memoria"], ["azioni", "Azioni di Nova"],
+                 ["aspetto", "Testo e carattere"], ["accessibilita", "Accessibilità"], ["aggiornamenti", "Aggiornamenti"], ["posta", "Posta"], ["account", "Password"], ["privacy", "Privacy e memoria"], ["azioni", "Azioni di Nova"], ["procedure", "Procedure"],
                  ["cloud", "AI in cloud"], ["info", "Questo computer"], ["energia", "Spegni"]];
     for (const [id, t] of SEZ) {
       const b = bottone("", () => apriVista("impostazioni", id), ""); b.classList.toggle("attiva", id === sezione);
@@ -711,6 +714,8 @@ const VISTE = {
       await disegnaPersonalizzazioni(carta, riga, dici, esito, pan);
     } else if (sezione === "azioni") {
       await disegnaAzioni(carta, riga, dici, esito, pan);
+    } else if (sezione === "procedure") {
+      await disegnaProcedure(carta, riga, dici, esito, pan);
     } else if (sezione === "cloud") {
       const c = await api("/api/cloud").catch(() => null);
       if (!c) { pan.append(el("p", "esito no", "Non riesco a leggere le impostazioni.")); return; }
@@ -1128,6 +1133,68 @@ async function disegnaAzioni(carta, riga, dici, esito, pan) {
     lista.append(riga(a.descrizione, quando, a.annullata ? el("span", "nota", "annullata")
       : bottone("Annulla", () => annulla({ id: a.id }), "bottone")));
   }
+}
+
+// --- Procedure: lavori ripetuti fatti a fasi (procedure.py, docs/PROCEDURE.md) -----------------------------
+const STATI_FASE = { "fatta": "ok", "da guardare": "guarda", "ferma": "no", "da fare": "" };
+function strisciaProcedura(p, ricarica, dici = r => avviso(r.messaggio || "Fatto.")) {
+  const fai = corpo => api("/api/procedure", { nome: p.nome, ...corpo })
+    .then(r => { dici(r); ricarica(); }).catch(e => dici({ ok: false, messaggio: e.message }));
+  const box = el("div", "procedura");
+  const testa = el("div", "procedura-testa");
+  testa.append(el("b", "", p.nome), el("span", "nota", `parte ${p.quando}`));
+  const avvia = bottone(p.in_corso ? "Sta lavorando…" : "Avvia", () => fai({ azione: "avvia" }));
+  avvia.disabled = p.in_corso;
+  testa.append(avvia,
+    bottone("Quando", async () => {
+      const q = await chiediTesto("Quando deve partire da sola? (es. «ogni mese il 1 alle 9», «ogni lunedì alle 8», «solo a mano»)", p.quando);
+      if (q) fai({ azione: "quando", quando: q });
+    }),
+    bottone("File da elaborare", () => apriVista("file", p.input)),
+    bottone("Regole", () => apriVista("file", p.regole)));
+  box.append(testa);
+  const fasi = el("ol", "fasi");
+  for (const f of p.fasi) {
+    const li = el("li", "fase " + (STATI_FASE[f.stato] || ""));
+    const riga = el("div", "fase-riga");
+    riga.append(el("span", "fase-nome", f.nome), el("span", "fase-stato", f.stato));
+    for (const r of f.risultati) riga.append(bottone(r.split("/").pop(), () => apriFile({ percorso: r }), "bottone piccolo"));
+    if (f.stato === "da guardare" || f.stato === "ferma") {
+      riga.append(bottone("Vai avanti", () => fai({ azione: "avanti" }), "bottone piccolo primo"));
+      riga.append(bottone("Rifai", () => fai({ azione: "rifai", fase: f.nome }), "bottone piccolo"));
+    }
+    riga.append(bottone("Istruzioni", () => apriFile({ percorso: f.istruzioni }), "bottone piccolo"));
+    li.append(riga);
+    if (f.problemi.length) li.append(el("small", "fase-problemi", f.problemi.join("; ")));
+    fasi.append(li);
+  }
+  box.append(fasi);
+  if (p.in_corso) setTimeout(() => { if (box.isConnected) ricarica(); }, 5000);  // si aggiorna da sola mentre lavora
+  return box;
+}
+
+async function disegnaProcedure(carta, riga, dici, esito, pan) {
+  const d = await api("/api/procedure").catch(e => ({ errore: e.message, procedure: [], modelli: [] }));
+  const ricarica = () => apriVista("impostazioni", "procedure");
+  carta(el("h3", "", "Procedure"),
+        el("p", "nota", "I lavori che fai spesso e sempre allo stesso modo (il resoconto delle spese, le cose da fare dalla posta, "
+          + "i preventivi), fatti da Nova a fasi: ogni fase scrive un documento che puoi aprire e correggere prima di andare avanti. "
+          + "I conti, i filtri e l'ordine li fa il computer, il modello classifica e scrive. Le procedure stanno nella cartella Procedure."));
+  if (d.errore) { pan.append(el("p", "esito no", d.errore)); return; }
+  for (const p of d.procedure) carta(strisciaProcedura(p, ricarica, dici));
+  if (!d.procedure.length) carta(el("p", "nota", "Non hai ancora procedure. Puoi partire da un modello qui sotto o dire a Nova "
+    + "«ogni mese voglio il resoconto delle spese»."));
+  const nuove = carta(el("h3", "", "Nuova procedura"));
+  const esistenti = new Set(d.procedure.map(p => p.nome));
+  for (const m of d.modelli) {
+    nuove.append(riga(m.nome, `${m.cosa}${m.quando ? " Parte " + m.quando + "." : ""}`,
+      esistenti.has(m.nome) ? el("span", "nota", "c'è già")
+        : bottone("Crea", () => api("/api/procedure", { azione: "crea", modello: m.id }).then(r => { dici(r); ricarica(); })
+            .catch(e => dici({ ok: false, messaggio: e.message })))));
+  }
+  nuove.append(riga("Una procedura tua", "Dilla a Nova con le fasi in ordine, per esempio: «crea una procedura: riassumi gli articoli "
+    + "della settimana; scegli i tre più importanti; scrivi la mail»",
+    bottone("Chiedi a Nova…", () => { chiudiVista(); $("testo").value = "Crea una procedura: "; $("testo").focus(); })));
 }
 
 // --- Personalizzazioni: SoIA che si riprogramma su richiesta (codice.py, programmatore.py) -------------------

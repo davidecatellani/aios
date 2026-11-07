@@ -1589,6 +1589,83 @@ def register_actions(app: Any) -> None:
     app.route("POST", r"/api/azioni/annulla", undo)
 
 
+def describe_procedure(ws: Any, runner: Any) -> dict[str, Any]:
+    """Una procedura per la vista (Impostazioni › Procedure e la cartella nell'app File)."""
+    from .. import procedure
+    from ..tools import procedure as ptools
+
+    base = home()
+    rel = lambda p: str(Path(p).resolve().relative_to(base)) if Path(p).resolve().is_relative_to(base) else ""  # noqa: E731
+    saved = ws.load_state()["stages"]
+    phases = []
+    for st, label in runner.status():
+        s = saved.get(st.key, {})
+        phases.append({"chiave": st.key, "nome": st.name, "stato": label,
+                       "risultati": [rel(f) for f in st.output_files() if f.is_file()],
+                       "istruzioni": rel(st.dir / "CONTEXT.md"),
+                       "problemi": s.get("problems") or ([s["message"]] if s.get("message") else [])})
+    running = ws.name in ptools._running and ptools._running[ws.name].is_alive()
+    return {"nome": ws.name, "cartella": rel(ws.path), "quando": procedure.describe_when(procedure.schedule(ws)),
+            "in_corso": running, "fasi": phases, "stato": ptools._status_line(ws, runner),
+            "input": rel(ws.path / "input"), "regole": rel(ws.path / "_config")}
+
+
+def register_procedures(app: Any) -> None:
+    """Impostazioni › Procedure e la striscia delle fasi nella cartella di una procedura (procedure.py): avviarle,
+    farle andare avanti, rifare una fase, cambiare quando partono, crearne una dai modelli pronti. Usa gli stessi
+    strumenti di Nova (tools/procedure.py), con il modello e gli strumenti di Nova."""
+    from .. import procedure, procedure_crea
+    from ..tools import procedure as ptools
+
+    def nova_tools() -> dict[str, Any]:
+        agent = getattr(app, "agent", None)
+        return dict(getattr(agent, "tools", {}) or {})
+
+    tools = {t.name: t.func for t in ptools.make_tools(
+        model=lambda: getattr(getattr(app, "agent", None), "model", None), tools=nova_tools,
+        base=lambda: home() / "Procedure")}
+
+    def runner(ws: Any) -> Any:
+        return procedure.Runner(ws, None, {})
+
+    def listing(m: Any, b: dict[str, Any], q: dict[str, str]) -> tuple[int, Any]:
+        if q.get("p"):  # una cartella dell'app File: è (dentro) una procedura?
+            path = safe_path(q["p"])
+            for ws in procedure.procedures(home() / "Procedure"):
+                if path == ws.path.resolve() or path.is_relative_to(ws.path.resolve()):
+                    return 200, {"procedura": describe_procedure(ws, runner(ws))}
+            return 200, {"procedura": None}
+        found = procedure.procedures(home() / "Procedure")
+        return 200, {"procedure": [describe_procedure(ws, runner(ws)) for ws in found],
+                     "modelli": [{"id": k, "nome": f()["name"], "cosa": f()["purpose"], "quando": f()["when"]}
+                                 for k, f in procedure_crea.MODELS.items()]}
+
+    def act(m: Any, b: dict[str, Any], q: dict[str, str]) -> tuple[int, Any]:
+        name, what = str(b.get("nome", "")), str(b.get("azione", ""))
+        if what == "crea":
+            model = str(b.get("modello", ""))
+            if model not in procedure_crea.MODELS:
+                return 400, {"error": "modello sconosciuto"}
+            return 200, {"ok": True, "messaggio": tools["create_procedure"](cosa=procedure_crea.MODELS[model]()["purpose"])}
+        ws = procedure.find(name, home() / "Procedure") if name else None
+        if ws is None or ws.name != name:
+            return 404, {"error": f"non trovo la procedura «{name}»"}
+        if what == "avvia":
+            text = tools["run_procedure"](nome=name)
+        elif what == "avanti":
+            text = tools["continue_procedure"](nome=name)
+        elif what == "rifai":
+            text = tools["redo_procedure"](nome=name, fase=str(b.get("fase", "")))
+        elif what == "quando":
+            text = tools["schedule_procedure"](nome=name, quando=str(b.get("quando", "")))
+        else:
+            return 400, {"error": "azione sconosciuta"}
+        return 200, {"ok": True, "messaggio": text}
+
+    app.route("GET", r"/api/procedure", listing)
+    app.route("POST", r"/api/procedure", act)
+
+
 def register_versions(app: Any) -> None:
     """Le versioni dei documenti (versioni.py): elenco per un file, ripristino, cosa è cambiato; on/off e spazio."""
     from .. import versioni

@@ -50,6 +50,7 @@ const ICONE = {
   matita: "M4 20l1-4.5L15.5 5a2.1 2.1 0 0 1 3 3L8 18.5z M13.5 7l3 3 M4 20l4.5-1",
   personalizzazioni: "M12 3l1.8 4.7L18.5 9.5l-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8z M18.5 15l.9 2.1 2.1.9-2.1.9-.9 2.1-.9-2.1-2.1-.9 2.1-.9z M5 16l.6 1.4L7 18l-1.4.6L5 20l-.6-1.4L3 18l1.4-.6z",
   azioni: "M9 14L4 9l5-5 M4 9h10.5a5.5 5.5 0 0 1 0 11H11",
+  procedure: "M4 5h4v4H4z M10 7h10 M4 15h4v4H4z M10 17h10 M6 9v6",
   chip: "M7 7h10v10H7z M9.5 9.5h5v5h-5z M9 3v4 M15 3v4 M9 17v4 M15 17v4 M3 9h4 M3 15h4 M17 9h4 M17 15h4",
 };
 // i colori delle «piastrelle» delle app di SoIA nel dock
