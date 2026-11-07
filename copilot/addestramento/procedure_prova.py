@@ -482,7 +482,7 @@ class Measured:
     def chat(self, messages: list[dict[str, Any]], tools: list[dict[str, Any]]) -> dict[str, Any]:
         payload = {"model": self.model, "messages": messages, "tools": tools, "stream": False,
                    "options": {"num_ctx": self.num_ctx, "temperature": 0.2}, "keep_alive": "60m"}
-        if self.model.startswith(("qwen3", "gemma4")):
+        if any(k in self.model.lower() for k in ("qwen3", "gemma4")):  # anche hf.co/…/Qwen_Qwen3.5-4B-GGUF
             payload["think"] = self.think
         start = time.monotonic()
         req = urllib.request.Request(f"{self.url}/api/chat", data=json.dumps(payload).encode(),
