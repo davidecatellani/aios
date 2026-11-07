@@ -51,6 +51,115 @@ def root() -> Path:
     return Path(os.environ.get("AIOS_CASA", Path.home())) / "Procedure"
 
 
+def recent_mail(days: int = 7, store: Any = None, now: Any = None) -> str:
+    """Azione «posta 7»: le mail arrivate negli ultimi giorni, una sotto l'altra (mittente, oggetto, data, testo)."""
+    from datetime import datetime, timedelta
+
+    if store is None:
+        from .mail.store import MailStore
+
+        store = MailStore()
+    since = (now or datetime.now()) - timedelta(days=days)
+    mails = [m for m in store.inbox(limit=300) if m.date.replace(tzinfo=None) >= since.replace(tzinfo=None)]
+    if not mails:
+        return f"Nessuna mail negli ultimi {days} giorni."
+    return "\n\n".join(f"### Mail {i}\nDa: {m.sender_name or m.sender} <{m.sender}>\nOggetto: {m.subject}\n"
+                         f"Data: {m.date:%d/%m/%Y}\n\n{(m.body or m.snippet).strip()[:2500]}"
+                         for i, m in enumerate(sorted(mails, key=lambda m: m.date), 1))
+
+
+# --- quando parte da sola -----------------------------------------------------------------------------------
+WEEKDAYS = ["lunedì", "martedì", "mercoledì", "giovedì", "venerdì", "sabato", "domenica"]
+
+
+def parse_when(text: str) -> dict[str, Any] | None:
+    """«ogni mese il 1 alle 9», «ogni lunedì alle 8:30», «ogni giorno alle 18», «ogni settimana» → la pianificazione."""
+    low = text.lower().replace("primo", "1")
+    hour, minute = 9, 0
+    m = re.search(r"\balle?\s+(\d{1,2})(?:[:.](\d{2}))?", low)
+    if m:
+        hour, minute = int(m.group(1)) % 24, int(m.group(2) or 0)
+    if "mese" in low or "mensil" in low:
+        d = re.search(r"\b(?:il|giorno)\s+(\d{1,2})\b", low)
+        return {"ogni": "mese", "giorno": min(int(d.group(1)) if d else 1, 28), "ora": hour, "minuto": minute}
+    day = next((i for i, w in enumerate(WEEKDAYS) if w.rstrip("ì") in low), None)
+    if day is not None or "settiman" in low:
+        return {"ogni": "settimana", "giorno": day if day is not None else 0, "ora": hour, "minuto": minute}
+    if "giorno" in low or "sera" in low or "mattina" in low or re.search(r"\bogni\s+(?:notte|giorno)", low):
+        return {"ogni": "giorno", "ora": hour, "minuto": minute}
+    return None
+
+
+def describe_when(plan: dict[str, Any] | None) -> str:
+    if not plan:
+        return "solo quando lo chiedi"
+    at = f"alle {plan.get('ora', 9)}:{plan.get('minuto', 0):02d}"
+    if plan["ogni"] == "mese":
+        return f"ogni mese il {plan.get('giorno', 1)} {at}"
+    if plan["ogni"] == "settimana":
+        return f"ogni {WEEKDAYS[plan.get('giorno', 0)]} {at}"
+    return f"ogni giorno {at}"
+
+
+def last_due(plan: dict[str, Any], now: Any) -> Any:
+    """L'ultimo momento in cui la procedura doveva partire (≤ now)."""
+    from datetime import timedelta
+
+    at = now.replace(hour=plan.get("ora", 9), minute=plan.get("minuto", 0), second=0, microsecond=0)
+    if plan["ogni"] == "giorno":
+        return at if at <= now else at - timedelta(days=1)
+    if plan["ogni"] == "settimana":
+        at -= timedelta(days=(at.weekday() - plan.get("giorno", 0)) % 7)
+        return at if at <= now else at - timedelta(days=7)
+    at = at.replace(day=plan.get("giorno", 1))
+    if at > now:
+        prev_month = (at.replace(day=1) - timedelta(days=1)).replace(day=plan.get("giorno", 1))
+        at = prev_month
+    return at
+
+
+def schedule(ws: "Workspace") -> dict[str, Any] | None:
+    try:
+        return json.loads((ws.path / STATE_DIR / "quando.json").read_text())
+    except (OSError, ValueError):
+        return None
+
+
+def set_schedule(ws: "Workspace", plan: dict[str, Any] | None) -> None:
+    path = ws.path / STATE_DIR / "quando.json"
+    if plan is None:
+        path.unlink(missing_ok=True)
+        return
+    path.parent.mkdir(parents=True, exist_ok=True)
+    import time
+
+    old = schedule(ws) or {}
+    # si conta da adesso: una procedura mensile creata il 7 non parte subito «per il 1»
+    path.write_text(json.dumps({**plan, "ultimo": old.get("ultimo") or time.time()}))
+
+
+def due(base: Path | None = None, now: Any = None) -> list["Workspace"]:
+    """Le procedure che dovevano partire e non sono ancora partite (al massimo un giro per scadenza)."""
+    from datetime import datetime
+
+    now = now or datetime.now()
+    out = []
+    for ws in procedures(base):
+        plan = schedule(ws)
+        if plan and plan.get("ultimo", 0) < last_due(plan, now).timestamp():
+            out.append(ws)
+    return out
+
+
+def mark_started(ws: "Workspace", now: Any = None) -> None:
+    from datetime import datetime
+
+    plan = schedule(ws)
+    if plan:
+        plan["ultimo"] = (now or datetime.now()).timestamp()
+        (ws.path / STATE_DIR / "quando.json").write_text(json.dumps(plan))
+
+
 # --- il formato ------------------------------------------------------------------------------------------
 @dataclass
 class Input:
@@ -259,7 +368,7 @@ def _section(text: str, title: str) -> str:
 
 def _files(inp: Input) -> Iterable[Path]:
     if inp.path.is_dir():
-        return sorted(p for p in inp.path.rglob("*") if p.is_file() and not p.name.startswith("."))
+        return sorted(p for p in inp.path.rglob("*") if p.is_file() and not p.name.startswith(".") and p.name != "LEGGIMI.txt")
     return [inp.path] if inp.path.is_file() else []
 
 
@@ -528,7 +637,7 @@ class Runner:
     def _each(self, st: Stage, results: list[tuple[str, str]]) -> tuple[dict[str, str], str]:
         """«For each»: la fase lavora un file alla volta; i risultati, uno sotto l'altro, nell'unico file d'uscita."""
         folder = st.contract.each
-        files = sorted(p for p in folder.rglob("*") if p.is_file() and not p.name.startswith(".")) if folder else []
+        files = sorted(p for p in folder.rglob("*") if p.is_file() and not p.name.startswith(".") and p.name != "LEGGIMI.txt") if folder else []
         parts = []
         for f in files:
             one = replace(st.contract, inputs=[i for i in st.contract.inputs if i.path != folder] + [Input(f, "", 4)])
@@ -540,6 +649,11 @@ class Runner:
         return {st.contract.outputs[0]: _merge(parts)}, ""
 
     def _action(self, act: Action, st: Stage | None = None) -> tuple[str, str, bool]:
+        if act.tool.lower() in ("posta", "mail"):
+            try:
+                return "posta", recent_mail(int(re.sub(r"\D", "", act.args) or 7)), True
+            except Exception as exc:  # posta non collegata, archivio non leggibile…
+                return "posta", f"non riesco a leggere la posta: {exc}", False
         if act.tool.lower() in BUILTIN_ACTIONS:
             from . import tabelle
 
@@ -616,7 +730,8 @@ class Runner:
 
                 source = (st.dir / m.group(1).strip("`")).resolve()
                 have = numbers_in(everything)
-                lost = [n for n in numbers_in(_read(source)) if not any(abs(n - h) < 0.011 for h in have)] if source.is_file() else []
+                texts = [_read(f) for f in _files(Input(source))] if source.is_relative_to(self.ws.path.resolve()) else []
+                lost = [n for n in numbers_in("\n".join(texts)) if not any(abs(n - h) < 0.011 for h in have)]
                 if lost:
                     problems.append(f"{rule} (mancano o sono diversi: {', '.join(str(n).rstrip('0').rstrip('.') for n in lost[:6])})")
                 continue

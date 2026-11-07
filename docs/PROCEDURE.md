@@ -155,6 +155,22 @@ farla subito:
   l'apertura: vuoi che lo scriva nelle istruzioni?»;
 - se l'utente accetta, la modifica è una riga nel `CONTEXT.md` della fase, visibile e annullabile.
 
+## Con Nova (fatto)
+
+- **Crearle parlando**: «ogni mese voglio il resoconto delle spese» → Nova usa il modello pronto (spese, posta,
+  preventivo) o le fasi dette dall'utente («prendi gli articoli; scegli i tre più importanti; scrivi la mail»), scrive
+  la cartella in `~/Procedure/` e dice dove mettere i file (`input/`) e le regole (`_config/`).
+- **Modelli pronti** (`procedure_crea.py`), quelli misurati: *Resoconto spese* (ogni mese il 1 alle 9; somme per
+  categoria col codice), *Cose da fare dalla posta* (ogni lunedì alle 8; azione `posta 7` per le mail della settimana,
+  filtro e ordine per scadenza col codice), *Preventivo* (a mano; tutti i conti col codice dalle regole).
+- **Frasi riconosciute senza modello** (`tools/procedure.py`): «fai il resoconto spese», «a che punto è il resoconto?»,
+  «vai avanti» (se c'è una sola procedura che aspetta), «rifai i conti del resoconto spese», «le mie procedure».
+  «Avvia X» vale solo se X è davvero il nome di una procedura: «avvia Spotify» o «avvia la posta» restano alle app.
+- **In sottofondo**: la procedura cede il passo all'utente e avvisa (notifica) quando è finita o quando una fase è da
+  guardare.
+- **Quando parte da sola**: «ogni mese il 1 alle 9», «ogni lunedì alle 8», «ogni giorno alle 18» (`.nova/quando.json`);
+  si conta da quando la si imposta, e un solo Nova aperto alla volta le fa partire.
+
 ## Come si vede
 
 - **App File**: una cartella di procedura si apre con una vista apposita: le fasi in fila con il loro stato
@@ -186,7 +202,7 @@ Noi possiamo farlo, ed è la cosa che decide se tenerlo:
    azioni senza modello, controlli, revisione, ripresa. Con le prove.
 2. **La misura** con le tre procedure di prova: tutto in un prompt contro a fasi, modello locale. Se a fasi non
    va meglio con i nostri modelli, ci si ferma qui e si decide insieme.
-3. **Nova**: crearle parlando, avviarle, «a che punto è», «vai avanti»; avvio dall'agenda; modelli pronti.
+3. **Nova**: crearle parlando, avviarle, «a che punto è», «vai avanti»; avvio a orario; modelli pronti. *Fatto.*
 4. **App File e Impostazioni**: la vista della procedura.
 5. **Correzioni che diventano istruzioni.**
 6. Dopo: il programmatore delle personalizzazioni a fasi con lo stesso esecutore (con controlli automatici al

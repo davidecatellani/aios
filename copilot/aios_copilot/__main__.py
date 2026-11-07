@@ -33,6 +33,7 @@ from .tools import rubrica as contacts_tools
 from .tools import memoria as memory_tools
 from .tools import azioni as actions_tools
 from .tools import versioni as versions_tools
+from .tools import procedure as procedure_tools
 from .tools import sessione as session_tools
 from .tools import fuso as timezone_tools
 from .tools import mail as mail_tools
@@ -171,6 +172,10 @@ def make_agent(confirm: Confirm, model: str | None = None, allowed: frozenset[st
         return load_profile().get("name", "")
 
     llm = make_client(model)
+    every_tool: dict[str, Tool] = {}  # tutti gli strumenti per nome (le procedure li usano nelle loro fasi)
+    procedures = procedure_tools.make_tools(
+        model=lambda: llm, tools=lambda: every_tool,
+        confirm=lambda name, args: bool(every_tool.get(name)) and confirm(every_tool[name], args))
     from .tools import apps as apps_tools, settings as settings_tools, system as system_tools, web as web_tools
 
     # Gli strumenti divisi per ambito: lo smistatore (smistatore.py) dà al modello solo quelli giusti.
@@ -182,7 +187,7 @@ def make_agent(confirm: Confirm, model: str | None = None, allowed: frozenset[st
                     *update_tools.make_tools(runner), *energy_tools.make_tools(), *voice_tools.make_tools(runner),
                     *timezone_tools.make_tools(), *calc_tools.make_tools(), *audio_tools.make_tools(),
                     *activity_tools.make_tools(), *display_tools.make_tools(), *notification_tools.make_tools()],
-        "file": [*versions_tools.make_tools(), *files.make_tools(get_index, meaning_query()), *photo_tools.make_tools(), *organize_tools.make_tools(library), *document_tools.make_tools(get_index, runner)],
+        "file": [*versions_tools.make_tools(), *procedures, *files.make_tools(get_index, meaning_query()), *photo_tools.make_tools(), *organize_tools.make_tools(library), *document_tools.make_tools(get_index, runner)],
         "agenda": [*agenda_tools.make_tools(get_agenda, user_name, extras=lambda: [model_hint()]), *contacts_tools.make_tools()],
         "posta": mail_tools.make_tools(mail_store, send, has_accounts),
         "gusti": taste_tools.make_tools(subs, catalog, profile, web_search=web_group[0].func),
@@ -198,6 +203,9 @@ def make_agent(confirm: Confirm, model: str | None = None, allowed: frozenset[st
     # quello che Nova cambia finisce nel registro delle azioni, per poterlo annullare (azioni.py)
     groups = {k: [azioni.wrap(t) for t in v] for k, v in groups.items()}
     tools = [t for group in groups.values() for t in group]
+    every_tool.update({t.name: t for t in tools})
+    if allowed is None:
+        procedure_tools.start_scheduler(procedures)  # le procedure con un «quando» partono da sole
     if allowed is not None:
         tools = [t for t in tools if t.name in allowed]
     from .cloud import Escalation
@@ -220,6 +228,7 @@ def make_agent(confirm: Confirm, model: str | None = None, allowed: frozenset[st
         escalation=Escalation(),
         routers=[
             actions_tools.ActionsRouter(),
+            procedure_tools.ProceduresRouter(),  # livello 0: «fai il resoconto spese», «vai avanti», «le mie procedure»
             versions_tools.VersionsRouter(),  # livello 0: «rimetti il contratto com'era ieri», «le versioni della tesi»  # livello 0: «annulla l'ultima cosa che hai fatto», «rimetti com'era stamattina»
             screen_tools.ScreensRouter(),  # livello 0: «fammi vedere il PC da gaming» (prima di «apri <app>»)
             audio_tools.AudioRouter(),  # livello 0: «fai uscire l'audio dal monitor»
