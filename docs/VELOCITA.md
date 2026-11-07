@@ -41,6 +41,8 @@ Qwen3.5 4B senza attese lunghe.
    la posta di tre settimane 50 s, il codice 68 s. La memoria a 8 bit risparmia solo 0,1 GB e legge il 30% più
    piano: resta a 16 bit. È la configurazione di aios-modello. Con il nucleo (0.8B, ~0,9 GB) l'AI tiene ~4,3 GB su
    un PC da 8: ~3,7 GB restano a sistema e programmi (il nucleo a 4 bit ne libererebbe altri ~0,3, da misurare).
+   Qualità del 4B IQ4_XS (Release `procedure-4`, stesse prove delle procedure di `procedure-3` col Q4 di Ollama):
+   a fasi posta 100% (uguale), preventivo 100% (uguale), spese 86% (79% col Q4): regge, resta in aios-modello.
 2. **I modi che vincono, in SoIA**; più la protezione della memoria del modello (limiti di systemd perché il kernel
    non lo scarichi quando si apre il browser) e la cache del contesto salvata su disco per le istruzioni fisse.
    Misurati prima e dopo su un i3 vero.
