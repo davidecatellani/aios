@@ -21,6 +21,13 @@ Qwen3.5 4B senza attese lunghe.
    tipo di lavoro (le istruzioni fisse si leggono una volta), con la bozza (lo 0.8B del nucleo scrive in anticipo,
    il 4B controlla), con 4 thread invece di 2. Le macchine di GitHub hanno 2 core veri e 4 thread come un i3, ma la
    memoria è più veloce: contano i rapporti tra i modi.
+   Primo giro (Release `velocita-1`, Xeon con 2 core veri e 4 thread): Ollama com'è oggi 67,5 s di attesa media
+   e 17,1 minuti per il giro; Ollama con flash attention e cache a 8 bit più lento (21,7 min); llama-server con un
+   posto 13,9 min, con un posto per tipo di lavoro 13,1 min (le istruzioni fisse lette una volta: metà dei token
+   letti), con 4 thread 11,3 min (1,5 volte più veloce di oggi, 6,4 parole al secondo invece di 4,8). Ma
+   llama-server così usa 9,3 GB di RAM (la memoria dei prompt passati è di 8 GB in partenza): troppo per un PC da
+   8 GB. La bozza non è partita: llama.cpp prende lo 0.8B per una testa MTP (va detto `--spec-type draft-simple`).
+   Secondo giro: RAM limitata, bozza, testa MTP del 4B, previsione a n-grammi.
 2. **I modi che vincono, in SoIA**; più la protezione della memoria del modello (limiti di systemd perché il kernel
    non lo scarichi quando si apre il browser) e la cache del contesto salvata su disco per le istruzioni fisse.
    Misurati prima e dopo su un i3 vero.

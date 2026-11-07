@@ -126,7 +126,7 @@ class Peak:
 
     def _run(self) -> None:
         while not self._stop.is_set():
-            out = subprocess.run(["ps", "-eo", "rss=,comm="], capture_output=True, text=True).stdout
+            out = subprocess.run(["ps", "-eo", "rss=,args="], capture_output=True, text=True).stdout  # anche «ollama runner»
             kb = sum(int(l.split()[0]) for l in out.splitlines() if l.split() and any(n in l for n in self.names))
             self.max_kb = max(self.max_kb, kb)
             time.sleep(0.5)
@@ -220,6 +220,16 @@ def make(mode: str, args: argparse.Namespace) -> Any:
         return Llama(args.server, args.gguf, 3, ["-md", args.bozza])
     if mode == "llama-3-t4":
         return Llama(args.server, args.gguf, 3, ["-t", "4"])
+    # per un PC da 8 GB: la memoria dei prompt passati (prompt cache in RAM, 8 GB di base) a 1 GB
+    small = ["-t", "4", "--cache-ram", "1024"]
+    if mode == "llama-3-t4-poca":
+        return Llama(args.server, args.gguf, 3, small)
+    if mode == "llama-3-t4-bozza":  # lo 0.8B come bozza normale (da solo llama.cpp lo prenderebbe per una testa MTP)
+        return Llama(args.server, args.gguf, 3, [*small, "-md", args.bozza, "--spec-type", "draft-simple"])
+    if mode == "llama-3-t4-mtp":  # la testa MTP del 4B stesso: nessun secondo modello
+        return Llama(args.server, args.gguf, 3, [*small, "-md", args.gguf, "--spec-type", "draft-mtp"])
+    if mode == "llama-3-t4-ngram":  # previsione dai pezzi già scritti nel contesto: nessun modello
+        return Llama(args.server, args.gguf, 3, [*small, "--spec-type", "ngram-mod"])
     raise ValueError(mode)
 
 
@@ -263,11 +273,11 @@ def summary(result: dict[str, Any], base: dict[str, Any] | None) -> dict[str, An
 
 
 def table(results: list[dict[str, Any]]) -> str:
-    base = next((r for r in results if r["modo"] == "llama-1" and r["richieste"]), None)
+    base = next((r for r in results if r["modo"].startswith("llama") and r["richieste"]), None)
     first = next((r for r in results if r["richieste"]), None)
     ref = summary(first, None).get("totale") if first else None
     lines = ["| modo | attesa media prima della risposta | parole al secondo | tempo totale del giro | rispetto al primo | "
-             "token letti | RAM massima | bozza accettata | risposte uguali a llama-1 |", "|---|---|---|---|---|---|---|---|---|"]
+             "token letti | RAM massima | bozza accettata | risposte uguali al primo llama |", "|---|---|---|---|---|---|---|---|---|"]
     for r in results:
         s = summary(r, base if r is not base else None)
         if not s:
