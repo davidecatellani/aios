@@ -98,8 +98,21 @@ def send_with_account(store: MailStore, to: list[str], subject: str, body: str, 
     return f"Inviata a {', '.join(to)}: «{subject}». ✉️"
 
 
+def read_facts(store: MailStore) -> int:
+    """Il silver della posta (livelli.py): il modello legge le mail nuove in sottofondo, cedendo il passo all'utente.
+    Solo in carica (o su un fisso): a batteria si aspetta."""
+    from ..learning import Conditions
+    from ..llm import make_client
+    from ..precedenza import wait_turn
+    from . import livelli
+
+    if not Conditions().on_ac():
+        return 0
+    return livelli.update(store, make_client(), wait=lambda: wait_turn(limit=600))
+
+
 def run_service(store: MailStore, notify: Callable[[str, str], None], once: bool = False,
-                sleep: Callable[[float], None] = time.sleep) -> None:
+                sleep: Callable[[float], None] = time.sleep, facts: Callable[[MailStore], int] = read_facts) -> None:
     from ..agenda import Agenda
 
     while True:
@@ -111,6 +124,10 @@ def run_service(store: MailStore, notify: Callable[[str, str], None], once: bool
                 renewal_suggestions(subs, Agenda())
         notify_important(store, notify)
         auto_archive(store, accounts)
+        try:
+            facts(store)
+        except Exception as exc:  # il silver si rifà al giro dopo; la posta intanto funziona
+            print(f"posta: lettura delle mail non riuscita: {exc}", file=sys.stderr, flush=True)
         for e in errors:
             print(f"posta: {e}", file=sys.stderr, flush=True)
         if once:

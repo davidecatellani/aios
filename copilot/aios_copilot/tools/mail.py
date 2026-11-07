@@ -6,6 +6,7 @@ import re
 from typing import Callable
 
 from ..fastpath import Intent, normalize
+from ..mail import livelli
 from ..mail.classify import CATEGORIES
 from ..mail.store import MailStore
 from ..privacy import redact_secrets
@@ -37,7 +38,17 @@ def make_tools(get_store: Callable[[], MailStore], send: Callable[[list[str], st
         parts = [f"{CATEGORIES[c].split(' ', 1)[1]}: {u}" for c, (_, u) in counts.items() if u and c in CATEGORIES]
         if parts:
             lines.append("Per categoria — " + ", ".join(parts) + ".")
+        todo = livelli.todo(store, days=7)[:3]  # il gold: già pronto
+        if todo:
+            lines.append("Da fare questa settimana: " + "; ".join(f"{t['chi']}: {t['cosa']}" for t in todo) + ".")
         return "\n".join(lines)
+
+    def mail_todo(giorni: str = "") -> str:
+        if not has_accounts():
+            offer("collega la posta")
+            return "Non hai ancora collegato la posta. Vuoi farlo adesso? Ti apro la schermata giusta."
+        days = int(giorni) if str(giorni).strip().isdigit() else None
+        return livelli.todo_text(get_store(), days=days)
 
     def search_mail(query: str) -> str:
         found = get_store().search(query)
@@ -104,6 +115,9 @@ def make_tools(get_store: Callable[[], MailStore], send: Callable[[list[str], st
         Tool("connect_mail", "Collega un account di posta (apre Impostazioni › Posta).", params(), connect_mail),
         Tool("mail_overview", "Riepilogo della posta: non lette, importanti, categorie.", params(), mail_overview,
              reads_private=True),
+        Tool("mail_todo", "Le cose da fare che chiedono le mail ricevute: chi chiede cosa ed entro quando, in ordine di "
+             "scadenza (già pronte, si legge subito).", params([], giorni="Solo le scadenze dei prossimi N giorni (facoltativo)"),
+             mail_todo, reads_private=True),
         Tool("search_mail", "Cerca nelle email dell'utente.", params(query="Parole da cercare"), search_mail,
              reads_private=True),
         Tool("read_mail", "Legge una email (numero tra parentesi quadre).", params(mail_id="Numero"), read_mail,
@@ -122,6 +136,11 @@ RE_OVERVIEW = re.compile(
     r"controlla (?:la posta|le mail|le email)|leggi(?:mi)? (?:la posta|le mail|le email)|(?:le )?mie mail|"
     r"posta in arrivo|(?:novità|cosa c'è) nella posta|any new (?:mail|email)s?|check (?:my )?(?:mail|email))"
 )
+RE_TODO = re.compile(
+    r"^(?:(?:quali sono |dimmi |elenca(?:mi)? )?(?:le )?(?:cose da fare|scadenze) (?:dalla|nella|delle|nelle|dalle|per la|per le) "
+    r"(?:mia |mie )?(?:posta|mail|email)|cosa (?:mi chiedono|mi hanno chiesto|devo fare) (?:nelle|per le|dalle|con le) "
+    r"(?:mie )?(?:mail|email)|(?:che |quali )?scadenze (?:ho )?(?:nella posta|nelle mail))"
+    r"(?: (?:di |per )?(?:questa|la prossima) settimana| (?:dei|nei) prossimi (?P<n>\d+) giorni)?$")
 RE_SEARCH = re.compile(r"^(?:cerca|trova)\s+(?:nelle|tra le|nella)\s+(?:mie\s+)?(?:mail|email|posta)\s+(?P<x>.+)$")
 RE_READ = re.compile(r"^(?:leggi|apri|mostra(?:mi)?)\s+(?:la\s+)?(?:mail|email)\s+(?:numero\s+)?(?P<n>\d+)$")
 RE_CATEGORIZE = re.compile(
@@ -138,6 +157,10 @@ class MailRouter:
         low = normalize(text)
         if RE_CONNECT.match(low.strip(" .!?")):
             return Intent("connect_mail", {})
+        m = RE_TODO.match(low.strip(" .!?"))
+        if m:
+            week = "settimana" in low
+            return Intent("mail_todo", {"giorni": m.group("n") or ("7" if week else "")})
         if RE_OVERVIEW.match(low):
             return Intent("mail_overview", {})
         m = RE_SEARCH.match(low)

@@ -30,5 +30,12 @@ Qwen3.5 4B senza attese lunghe.
    toccare llama.cpp). Con 8 GB e un SSD SATA un 30B-A3B resta lento (circa 1,7 GB da leggere per parola se gli
    esperti non sono in memoria): ha senso con modelli a esperti più piccoli o con un NVMe. Prima prova: quanto
    richieste simili usano esperti simili.
-4. **Neuroni attivi nei modelli densi** (Deja Vu, PowerInfer): solo se il resto non basta; serve un motore apposito
+4. **I livelli dei dati** (bronze → silver → gold, come un datalake, in SQLite): il lavoro lento del modello si
+   sposta da *mentre l'utente aspetta* a *mentre non c'è*. Primo caso, la posta (`aios_copilot/mail/livelli.py`):
+   bronze le mail, silver i fatti di ogni mail (tipo, chi, cosa, entro quando: le mail di massa li decide il codice,
+   le altre il modello in sottofondo, solo in carica, cedendo il passo all'utente), gold le cose da fare in ordine di
+   scadenza, composte dal codice. Nova: «cosa mi chiedono nelle mail?» (strumento `mail_todo`) e il riepilogo della
+   posta. Misura: `.github/workflows/livelli.yml`. Parquet e Iceberg no: sono fatti per tabelle enormi lette da
+   più motori; per un utente solo basta SQLite.
+5. **Neuroni attivi nei modelli densi** (Deja Vu, PowerInfer): solo se il resto non basta; serve un motore apposito
    e i modelli di oggi ne accendono troppi.

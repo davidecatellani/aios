@@ -1,0 +1,69 @@
+name: Prova livelli posta
+
+# La misura dei livelli della posta (docs/VELOCITA.md): «quali sono le cose da fare dalla posta?» letto dal bronze
+# (il modello legge tutte le mail mentre l'utente aspetta) o dal gold (letto prima in sottofondo, risponde il
+# codice), con Qwen3.5 4B su CPU (2 core veri come un i3). Alla fine una Release «livelli-N». Si avvia solo a mano.
+on:
+  workflow_dispatch:
+    inputs:
+      modello:
+        description: "Modello Ollama"
+        default: "qwen3.5:4b"
+      quante:
+        description: "Caselle di posta"
+        default: "4"
+
+permissions:
+  contents: write
+
+jobs:
+  prova:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 240
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Strumenti
+        env:
+          MODELLO: ${{ inputs.modello }}
+        run: |
+          pip install -e copilot
+          curl -fsSL https://ollama.com/install.sh | sh
+          sudo systemctl stop ollama || true
+          (OLLAMA_NUM_PARALLEL=1 ollama serve > ollama.log 2>&1 &)
+          for i in $(seq 30); do curl -sf localhost:11434/api/version && break; sleep 1; done
+          ollama pull "$MODELLO"
+      - name: Misura
+        env:
+          MODELLO: ${{ inputs.modello }}
+          QUANTE: ${{ inputs.quante }}
+        run: |
+          python copilot/addestramento/livelli_prova.py --modello "$MODELLO" --quante "$QUANTE" --uscita livelli.json | tee livelli.txt
+      - name: Pubblica
+        if: always()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          MODELLO: ${{ inputs.modello }}
+        run: |
+          [ -f livelli.json ] || exit 0
+          python3 - <<'PY' > tabella.md
+          import json, os, sys
+          sys.path.insert(0, "copilot")
+          sys.path.insert(0, "copilot/addestramento")
+          from livelli_prova import table
+          rows = json.load(open("livelli.json"))["risultati"]
+          print(f"Modello: {os.environ['MODELLO']} (CPU, Ollama). Caselle di 20 mail con 5 cose da fare, risposta giusta nota.\n")
+          print(table(rows))
+          print("\nControlli sbagliati:\n")
+          for r in rows:
+              for level in ("bronze", "gold"):
+                  bad = [c for c, ok in r[level]["controlli"] if not ok]
+                  if bad:
+                      print(f"- casella {r['casella']} {level}: " + "; ".join(bad))
+          PY
+          cat tabella.md >> "$GITHUB_STEP_SUMMARY"
+          tag="livelli-${GITHUB_RUN_NUMBER}"
+          gh release create "$tag" --repo "$GITHUB_REPOSITORY" --prerelease --title "Prova livelli posta ${GITHUB_RUN_NUMBER}" \
+            --notes-file tabella.md livelli.json livelli.txt
