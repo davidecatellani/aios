@@ -145,6 +145,7 @@ def test_nova_tools_and_router(home, monkeypatch):
     monkeypatch.setattr(codice, "check", fake_check)
     restarts = []
     tools = {t.name: t for t in make_tools(restart=lambda: restarts.append(1))}
+    monkeypatch.setenv("AIOS_PROGRAMMATORE", "libero")  # il ciclo libero; quello a fasi ha la sua prova
     monkeypatch.setattr(programmatore, "pick_model", lambda: (Script([
         call("modifica_file", percorso="aios_copilot/widget.py", vecchio="RAGGIO = 0", nuovo="RAGGIO = 12"),
         call("controlla"), call("fatto", riassunto="Bordi più tondi (widget.py)."),
@@ -240,3 +241,78 @@ def test_page_address_and_report(tmp_path):
     assert anteprima.page_url(base, "pannello/emoji")[0] == "http://127.0.0.1:5/static/pannello.html#t=abc&apri=emoji"
     assert anteprima.page_report(tmp_path / "manca.png") == {"errori": [], "problemi": [], "inventario": None}
     assert codice.js_balance(anteprima.CHECK_JS) == "" and codice.js_balance(anteprima.CATCH_ERRORS_JS) == ""
+
+
+class Recorder(Script):
+    """Come Script, ma si ricorda cosa ha visto ogni fase."""
+
+    def __init__(self, steps):
+        super().__init__(steps)
+        self.seen = []
+
+    def chat(self, messages, tools):
+        self.seen.append(([dict(m) for m in messages], [t["function"]["name"] for t in tools]))
+        return super().chat(messages, tools)
+
+
+def test_staged_programmer(home, monkeypatch):
+    """Il programmatore a fasi: piano → codice trovato dal codice → modifica → verifica (e si rifà) → riassunto."""
+    codice.ensure(home)
+    checks = iter([(False, "home.html: parentesi non chiuse"), (True, "ok")])
+    looked = []
+
+    class Eyes:
+        broken = False
+
+        def available(self):
+            return True
+
+        def __call__(self, page, question):
+            looked.append((page, question))
+            return "La pagina si vede bene."
+
+    model = Recorder([
+        {"content": '{"pagina": "casa", "file": ["aios_copilot/shell/home.html", "aios_copilot/inventato.css"], '
+                    '"cerca": [".orologio"], "cosa": "orologio rotondo", "controlli": ["l\'orologio è un cerchio"]}'},
+        {"content": "Fatto."},  # niente cambiato: gli si ricorda di modificare
+        call("modifica_file", percorso="aios_copilot/shell/home.html", vecchio="border-radius: 0", nuovo="border-radius: 50%; {"),
+        {"content": "Ho reso rotondo l'orologio."},
+        call("modifica_file", percorso="aios_copilot/shell/home.html", vecchio="50%; {", nuovo="50%"),  # dopo la verifica
+        {"content": "Sistemata la parentesi."},
+        {"content": "L'orologio della pagina iniziale adesso è rotondo."},  # il riassunto
+    ])
+    p = programmatore.StagedProgrammer(model, check=lambda: next(checks), eyes=Eyes())
+    ok, summary = p.run("voglio l'orologio rotondo")
+    assert ok and summary == "L'orologio della pagina iniziale adesso è rotondo." and not model.steps
+    plan_msgs, plan_tools = model.seen[0]
+    assert plan_tools == [] and "JSON" in plan_msgs[0]["content"]  # il piano: niente strumenti
+    edit_msgs, edit_tools = model.seen[1]
+    assert set(edit_tools) == {"cerca", "leggi", "modifica_file", "scrivi_file"}  # niente controlla/guarda/fatto
+    assert "border-radius: 0" in edit_msgs[1]["content"] and "### aios_copilot/shell/home.html" in edit_msgs[1]["content"]
+    assert "inventato.css" not in edit_msgs[1]["content"]  # un file che non c'è non entra nel piano
+    assert "Non hai ancora cambiato niente" in model.seen[2][0][-1]["content"]
+    assert "parentesi non chiuse" in model.seen[4][0][-1]["content"]  # la verifica fallita torna alla modifica
+    assert looked == [("casa", "l'orologio è un cerchio")]  # la pagina si guarda quando il codice regge
+    assert "border-radius: 50%;" in (codice.root() / "aios_copilot/shell/home.html").read_text()
+    work = programmatore.work_dir()
+    assert {f.name for f in work.iterdir()} == {"01_piano.md", "02_codice.md", "04_verifica.md", "05_riassunto.md"}
+    assert json.loads((work / "01_piano.md").read_text())["cosa"] == "orologio rotondo"
+
+
+def test_staged_programmer_gives_up_and_choice(home, monkeypatch):
+    codice.ensure(home)
+    model = Script([{"content": "non so"}]  # un piano senza JSON: si usa la richiesta
+                   + [call("modifica_file", percorso="aios_copilot/widget.py", vecchio="RAGGIO = 0", nuovo="RAGGIO = 1"),
+                      {"content": "fatto"}] * programmatore.MAX_ROUNDS)
+    ok, why = programmatore.StagedProgrammer(model, check=lambda: (False, "errore di sintassi")).run("bordi tondi widget")
+    assert not ok and "errore di sintassi" in why and not model.steps
+    local, cloud = Script([]), Script([])
+    cloud.is_cloud = True
+    monkeypatch.delenv("AIOS_PROGRAMMATORE", raising=False)
+    monkeypatch.setattr(programmatore, "pick_model", lambda: (local, "pc"))
+    assert programmatore.choose_programmer() == (programmatore.StagedProgrammer, local)  # il modello del PC: a fasi
+    monkeypatch.setattr(programmatore, "pick_model", lambda: (cloud, "cloud"))
+    assert programmatore.choose_programmer() == (programmatore.Programmer, cloud)  # il cloud: il ciclo libero
+    assert programmatore.choose_programmer(local)[0] is programmatore.Programmer  # chi passa il modello sceglie il libero
+    monkeypatch.setenv("AIOS_PROGRAMMATORE", "fasi")
+    assert programmatore.choose_programmer(cloud)[0] is programmatore.StagedProgrammer

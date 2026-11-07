@@ -205,8 +205,19 @@ Noi possiamo farlo, ed è la cosa che decide se tenerlo:
 3. **Nova**: crearle parlando, avviarle, «a che punto è», «vai avanti»; avvio a orario; modelli pronti. *Fatto.*
 4. **App File e Impostazioni**: la vista della procedura. *Fatto.*
 5. **Correzioni che diventano istruzioni.** *Fatto:* ogni differenza tra il risultato com'era uscito (`.nova/original/`) e quello lasciato dall'utente si annota (`.nova/correzioni.jsonl`); dopo tre giri corretti la regola comune (la trova il codice se è sempre la stessa sostituzione, altrimenti il modello) si propone con una notifica, in Impostazioni › Procedure e a voce («sì, scrivila nelle istruzioni»).
-6. Dopo: il programmatore delle personalizzazioni a fasi con lo stesso esecutore (con controlli automatici al
-   posto della revisione dell'utente).
+6. **Il programmatore delle personalizzazioni a fasi.** *Fatto* (`StagedProgrammer` in `programmatore.py`), con
+   controlli automatici al posto della revisione dell'utente:
+   1. *piano* (modello, nessuno strumento): un JSON con pagina, file, cosa cercare, cosa cambiare, cosa deve
+      risultare vero dopo; i file che non esistono si scartano;
+   2. *codice* (lo fa il codice): grep dei termini del piano, le righe intorno a ogni risultato (al massimo ~14 000
+      caratteri), prima i file del piano;
+   3. *modifica* (modello): vede solo la richiesta, il piano e quei pezzi; può solo cercare, leggere e modificare;
+   4. *verifica* (codice): `codice.check`, poi il controllo visivo della pagina con i controlli del piano; se non va,
+      torna alla 3 con il problema scritto (al massimo tre giri);
+   5. *riassunto* (modello, con un testo di riserva).
+   Le fasi restano scritte in `lavoro/` accanto allo stato della copia personale. Si usa a fasi col modello del PC,
+   il ciclo libero di prima col cloud; `AIOS_PROGRAMMATORE=fasi|libero` lo decide a mano. Non ancora misurato con
+   un modello vero.
 
 ## Deciso
 

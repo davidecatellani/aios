@@ -279,6 +279,208 @@ class Programmer:
         return f"Strumento sconosciuto: {name}"
 
 
+# --- il programmatore a fasi (ICM, docs/PROCEDURE.md punto 6) ---------------------------------------------------
+PLAN_SYSTEM = """Sei il programmatore di SoIA. Prima di toccare il codice fai il piano di una modifica chiesta dall'utente.
+{map}
+
+Rispondi solo con un JSON:
+{{"pagina": "la pagina da guardare dopo: casa, impostazioni/<sezione>, attivita, calendario, pannello/emoji… oppure nessuna",
+  "file": ["i file da cambiare, dalla mappa"],
+  "cerca": ["2-5 parole o pezzi di codice da cercare per trovare il punto giusto (nomi di classi, id, testi visibili)"],
+  "cosa": "cosa cambiare, in una frase",
+  "controlli": ["cosa deve risultare vero dopo la modifica, guardando la pagina"]}}"""
+
+EDIT_SYSTEM = """Sei il programmatore di SoIA: fai una modifica al codice del sistema operativo dell'utente.
+Hai il piano e i pezzi di codice giusti, trovati prima di te: lavora su quelli (se serve, leggi o cerca ancora).
+- Fai il cambiamento più piccolo e pulito che soddisfa la richiesta, nello stile del codice intorno. Non toccare altro.
+- Non togliere niente di quello che c'era, a meno che l'utente lo chieda. Funziona col tema chiaro e con quello scuro.
+- Modifica con modifica_file (testo vecchio esatto e unico → testo nuovo); scrivi_file solo per file nuovi.
+- Rileggi quello che hai scritto e verifica la logica a mente (calcoli, unità, angoli, centri di rotazione).
+Quando hai finito rispondi con una riga che dice cosa hai cambiato, senza chiamare strumenti."""
+
+EDIT_TOOLS = [t for t in TOOLS if t["function"]["name"] in ("cerca", "leggi", "modifica_file", "scrivi_file")]
+MAX_EDIT_STEPS = 20
+MAX_ROUNDS = 3  # modifica → verifica: al massimo tre giri
+EXCERPT_CHARS = 14000
+
+
+def work_dir() -> Path:
+    """Dove restano le fasi dell'ultima personalizzazione (piano, codice trovato, verifica): si possono leggere."""
+    return codice.state_path().parent / "lavoro"
+
+
+class StagedProgrammer(Programmer):
+    """Il programmatore a fasi, come una procedura: piano (modello, niente strumenti) → codice (lo trova il codice)
+    → modifica (modello, solo il piano e i pezzi trovati) → verifica (il codice e il controllo visivo; se non va,
+    di nuovo modifica con il problema scritto) → riassunto. Ogni fase vede solo quello che le serve: un modello
+    piccolo del PC non si perde in un contesto lungo. Le fasi restano scritte in work_dir()."""
+
+    def run(self, request: str) -> tuple[bool, str]:
+        if self.model is None:
+            self.model, _ = pick_model()
+        folder = work_dir()
+        folder.mkdir(parents=True, exist_ok=True)
+        for old in folder.glob("*.md"):
+            old.unlink()
+        plan = self.plan(request)
+        (folder / "01_piano.md").write_text(json.dumps(plan, ensure_ascii=False, indent=1))
+        excerpts = self.find_code(plan)
+        (folder / "02_codice.md").write_text(excerpts)
+        self.on_step("piano: " + plan["cosa"])
+        messages = [{"role": "system", "content": EDIT_SYSTEM},
+                    {"role": "user", "content": f"Richiesta dell'utente: {request}\n\nIl piano:\n- cosa: {plan['cosa']}\n"
+                                                f"- file: {', '.join(plan['file']) or 'da trovare'}\n"
+                                                f"- dopo deve risultare: {'; '.join(plan['controlli']) or request}\n\n"
+                                                f"Il codice che serve:\n{excerpts}"}]
+        report = ""
+        for round_ in range(MAX_ROUNDS):
+            said = self.edit(messages)
+            problem, report = self.verify(plan)
+            (folder / "04_verifica.md").write_text(f"Giro {round_ + 1}\n\n{report}\n")
+            if not problem:
+                summary = self.summary(request, plan, said, report)
+                (folder / "05_riassunto.md").write_text(summary + "\n")
+                return True, summary
+            messages.append({"role": "user", "content": "(Controllo automatico di SoIA, non dell'utente) La modifica non va ancora: "
+                                                        f"{problem}\nCorreggi e poi rispondi con una riga."})
+        return False, "Non sono riuscita a finire la modifica: " + report[:300]
+
+    def _wait(self) -> None:
+        if not getattr(self.model, "is_cloud", False):  # col modello del PC: prima l'utente che parla con Nova
+            from .precedenza import wait_turn
+
+            wait_turn(limit=600)
+
+    def plan(self, request: str) -> dict[str, Any]:
+        self._wait()
+        reply = self.model.chat([{"role": "system", "content": PLAN_SYSTEM.format(map=MAP)},
+                                 {"role": "user", "content": f"Richiesta dell'utente: {request}"}], [])
+        data: dict[str, Any] = {}
+        m = re.search(r"\{.*\}", reply.get("content") or "", re.DOTALL)
+        if m:
+            try:
+                data = json.loads(m.group(0))
+            except ValueError:
+                data = {}
+        as_list = lambda v: [str(x).strip() for x in (v if isinstance(v, list) else [v] if v else []) if str(x).strip()]
+        files = [f for f in as_list(data.get("file")) if self._exists(f)]
+        page = str(data.get("pagina") or "").strip()
+        return {"pagina": "" if page.lower() in ("", "nessuna", "none") else page, "file": files[:4],
+                "cerca": as_list(data.get("cerca"))[:5] or [w for w in re.findall(r"\w{5,}", request)][:3],
+                "cosa": str(data.get("cosa") or request).strip(), "controlli": as_list(data.get("controlli"))[:4]}
+
+    def _exists(self, rel: str) -> bool:
+        try:
+            return self.ws.path(rel).is_file()
+        except ValueError:
+            return False
+
+    def find_code(self, plan: dict[str, Any]) -> str:
+        """I pezzi di codice giusti, trovati dal codice (grep), non dal modello: le righe intorno a ogni risultato."""
+        hits: dict[str, list[int]] = {}
+        for term in plan["cerca"]:
+            for line in self.ws.search(re.escape(term), "aios_copilot").splitlines():
+                m = re.match(r"^(.+?):(\d+):", line)
+                if m:
+                    hits.setdefault(m.group(1), []).append(int(m.group(2)))
+        if plan["file"]:  # i file del piano prima di tutto; gli altri risultati solo se nei file del piano non c'è niente
+            mine = {f: hits.get(f, []) for f in plan["file"]}
+            hits = mine if any(mine.values()) else {**hits, **mine}
+        parts, used = [], 0
+        for rel, lines in sorted(hits.items(), key=lambda kv: (kv[0] not in plan["file"], -len(kv[1]), kv[0])):
+            try:
+                text = self.ws.path(rel).read_text(errors="replace").splitlines()
+            except (OSError, ValueError):
+                continue
+            ranges: list[list[int]] = []
+            for n in sorted(set(lines))[:8] or [1]:
+                a, b = max(1, n - 20), min(len(text), n + 25)
+                if ranges and a <= ranges[-1][1] + 5:
+                    ranges[-1][1] = max(ranges[-1][1], b)
+                else:
+                    ranges.append([a, b])
+            for a, b in ranges:
+                chunk = f"### {rel}, righe {a}-{b}\n" + "\n".join(f"{i}\t{text[i - 1]}" for i in range(a, b + 1))
+                if used + len(chunk) > EXCERPT_CHARS:
+                    break
+                parts.append(chunk)
+                used += len(chunk)
+        return "\n\n".join(parts) or "(non ho trovato niente: cerca tu con cerca e leggi)"
+
+    def edit(self, messages: list[dict[str, Any]]) -> str:
+        for _ in range(MAX_EDIT_STEPS):
+            self._wait()
+            reply = self.model.chat(messages, EDIT_TOOLS)
+            calls = reply.get("tool_calls") or []
+            messages.append({"role": "assistant", "content": reply.get("content") or "", "tool_calls": calls})
+            if not calls:
+                if self.changed:
+                    return (reply.get("content") or "").strip()
+                messages.append({"role": "user", "content": "Non hai ancora cambiato niente: fai la modifica con modifica_file."})
+                continue
+            for call in calls:
+                name = call.get("function", {}).get("name", "")
+                args = call.get("function", {}).get("arguments") or {}
+                if isinstance(args, str):
+                    try:
+                        args = json.loads(args)
+                    except ValueError:
+                        args = {}
+                result = self._call(name, args) if name in ("cerca", "leggi", "modifica_file", "scrivi_file") else \
+                    "In questa fase puoi solo cercare, leggere e modificare."
+                if name in ("modifica_file", "scrivi_file") and result in ("Modificato.", "Creato."):
+                    self.changed = True
+                self.on_step(f"{name} {args.get('percorso') or args.get('testo') or ''}".strip())
+                messages.append({"role": "tool", "tool_name": name, "content": result})
+        return ""
+
+    changed = False
+
+    def verify(self, plan: dict[str, Any]) -> tuple[str, str]:
+        """→ (problema da correggere o "", resoconto). Lo fa il codice: controlla, poi il controllo visivo della pagina."""
+        ok, msg = self.check()
+        if not ok:
+            return f"il codice non regge: {msg}", f"Controllo del codice: {msg}"
+        report = "Controllo del codice: tutto a posto."
+        if self.page_changed and self.eyes is not None and self.eyes.available() and self.looks < MAX_LOOKS:
+            self.looks += 1
+            seen = self.eyes(plan["pagina"] or "casa", "; ".join(plan["controlli"]))
+            self.page_changed = False
+            report += "\n\n" + seen
+            if getattr(self.eyes, "broken", False):
+                return "la pagina ha errori o problemi nuovi:\n" + seen, report
+            if "non sembra riuscita" in seen or "uguale a prima" in seen:
+                return seen, report
+        return "", report
+
+    def summary(self, request: str, plan: dict[str, Any], said: str, report: str) -> str:
+        try:
+            self._wait()
+            reply = self.model.chat([{"role": "system", "content": "Scrivi in due o tre frasi semplici, in italiano, cosa è stato "
+                                                                    "cambiato in SoIA per l'utente, e che può toglierlo da Impostazioni › "
+                                                                    "Personalizzazioni. Niente codice."},
+                                     {"role": "user", "content": f"Richiesta: {request}\nCosa è stato fatto: {said or plan['cosa']}\n"
+                                                                 f"Verifica:\n{report[:1500]}"}], [])
+            text = (reply.get("content") or "").strip()
+        except Exception:
+            text = ""
+        return text or f"Fatto: {plan['cosa']}. Puoi toglierlo da Impostazioni › Personalizzazioni."
+
+
+def choose_programmer(model: Any = None) -> tuple[type, Any]:
+    """Quale programmatore: a fasi col modello del PC (scelto da SoIA), il ciclo libero col cloud o con un modello
+    passato da chi chiama. AIOS_PROGRAMMATORE=fasi|libero lo decide a mano."""
+    import os
+
+    mode = os.environ.get("AIOS_PROGRAMMATORE", "")
+    if model is None and mode != "libero":
+        model, _ = pick_model()
+        if mode == "fasi" or not getattr(model, "is_cloud", False):
+            return StagedProgrammer, model
+        return Programmer, model
+    return (StagedProgrammer if mode == "fasi" else Programmer), model
+
+
 def customize(request: str, model: Any = None, on_step: Callable[[str], None] = lambda s: None,
               confirm_risky: bool = False, retouch: str = "") -> dict[str, Any]:
     """Una richiesta dell'utente → una modifica salvata nella copia personale (o niente, se non riesce).
@@ -299,7 +501,8 @@ def customize(request: str, model: Any = None, on_step: Callable[[str], None] = 
         eyes = Eyes(codice.root(), request)
     except Exception:
         pass
-    ok, summary = Programmer(model, on_step=on_step, eyes=eyes).run(task)
+    kind, model = choose_programmer(model)
+    ok, summary = kind(model, on_step=on_step, eyes=eyes).run(task)
     if not ok:
         codice.discard()
         return {"ok": False, "messaggio": summary}
