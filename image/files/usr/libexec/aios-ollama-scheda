@@ -1,0 +1,21 @@
+#!/bin/sh
+# Prima di Ollama (ollama.service, ExecStartPre): flash attention e memoria della conversazione a 8 bit aiutano
+# con una scheda video, ma sul processore rallentano (Ollama 0,78 volte più lento, docs/VELOCITA.md). Si accendono
+# solo se c'è una scheda video con almeno 4 GB di memoria sua; sennò restano spente (valori di Ollama).
+out=/run/aios-ollama.env
+gpu=0
+[ -e /dev/nvidia0 ] && gpu=1
+for f in /sys/class/drm/card*/device/mem_info_vram_total; do
+  [ -r "$f" ] || continue
+  [ "$(cat "$f" 2>/dev/null || echo 0)" -ge 4000000000 ] 2>/dev/null && gpu=1
+done
+if [ "$gpu" = 1 ]; then
+  printf 'OLLAMA_FLASH_ATTENTION=1\nOLLAMA_KV_CACHE_TYPE=q8_0\n' > "$out"
+else
+  : > "$out"
+fi
+# con meno di 12 GB al massimo due modelli insieme (Nova e quello che cerca per significato): il resto della RAM è
+# dei programmi (docs/VELOCITA.md, al massimo ~3 GB per l'AI su un PC da 8)
+kb=$(sed -n 's/^MemTotal: *\([0-9]*\) kB/\1/p' /proc/meminfo)
+[ -n "$kb" ] && [ "$kb" -lt 12000000 ] && echo 'OLLAMA_MAX_LOADED_MODELS=2' >> "$out"
+exit 0

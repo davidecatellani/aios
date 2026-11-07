@@ -8,9 +8,10 @@ Group=ollama
 StateDirectory=ollama
 Environment=HOME=/var/lib/ollama
 Environment=OLLAMA_MODELS=/var/lib/ollama/models
-# memoria della conversazione del modello compressa (memory.py)
-Environment=OLLAMA_FLASH_ATTENTION=1
-Environment=OLLAMA_KV_CACHE_TYPE=q8_0
+# flash attention e memoria della conversazione a 8 bit solo con una scheda video: sul processore rallentano
+# (aios-ollama-scheda scrive il file prima dell'avvio; memory.py può aggiungere un file suo)
+ExecStartPre=+/usr/libexec/aios-ollama-scheda
+EnvironmentFile=-/run/aios-ollama.env
 # i modelli già inclusi nell'immagine (/usr/share/aios/modelli)
 ExecStartPre=-/usr/libexec/aios-modelli-inclusi
 ExecStart=/usr/bin/ollama serve

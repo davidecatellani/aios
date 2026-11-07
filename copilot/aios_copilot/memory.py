@@ -4,7 +4,9 @@ Tre leve, tutte decise in base al dispositivo:
 1. RAM compressa (zram + zstd): le pagine delle app ferme restano in RAM ma compresse,
    di solito 2-4 volte; resta più memoria vera per il modello.
 2. Memoria della conversazione del modello (KV cache) a 8 o 4 bit invece di 16,
-   con flash attention: contesti lunghi in metà (o un quarto) della memoria.
+   con flash attention: contesti lunghi in metà (o un quarto) della memoria. Solo con una scheda video: sul
+   processore la flash attention rallenta (Ollama 0,78 volte più lento, docs/VELOCITA.md) e Qwen3.5 ha già una
+   memoria della conversazione piccola.
 3. Lunghezza del contesto adatta alla RAM.
 La scelta del modello compresso (4, 3 o 2 bit) la fa models.py con la prova sul
 dispositivo. Le impostazioni di sistema richiedono conferma e privilegi (pkexec).
@@ -31,7 +33,7 @@ OLLAMA_DROPIN = Path("/etc/systemd/system/ollama.service.d/aios-memoria.conf")
 @dataclass
 class Plan:
     zram_mb: int
-    kv_cache: str  # q8_0 | q4_0
+    kv_cache: str  # q8_0 | q4_0 | "" (sul processore: non compressa)
     context: int  # token
     files: dict[Path, str]
 
@@ -40,15 +42,19 @@ def plan_for(device: Device) -> Plan:
     ram_mb = int(device.ram_gb * 1024)
     # Metà della RAM come area compressa (con zstd vale circa il doppio), al massimo 8 GB.
     zram_mb = max(1024, min(ram_mb // 2, 8192))
-    kv = "q4_0" if device.ram_gb < 8 and device.vram_gb < 6 else "q8_0"
+    gpu = device.vram_gb >= 4
+    kv = ("q4_0" if device.ram_gb < 8 and device.vram_gb < 6 else "q8_0") if gpu else ""
     context = 4096 if device.ram_gb < 8 else 8192 if device.ram_gb < 24 and device.vram_gb < 12 else 16384
     files = {
         ZRAM_CONF: f"# Generato da SoIA: RAM compressa\n[zram0]\nzram-size = {zram_mb}\ncompression-algorithm = zstd\nswap-priority = 100\n",
         # Con zram conviene usare la memoria compressa prima del disco e leggere una pagina alla volta.
         SYSCTL_CONF: "# Generato da SoIA: parametri adatti alla RAM compressa\nvm.swappiness = 180\nvm.page-cluster = 0\n"
                      "vm.watermark_boost_factor = 0\nvm.watermark_scale_factor = 125\n",
-        OLLAMA_DROPIN: f"# Generato da SoIA: memoria della conversazione compressa\n[Service]\nEnvironment=OLLAMA_FLASH_ATTENTION=1\n"
-                       f"Environment=OLLAMA_KV_CACHE_TYPE={kv}\nEnvironment=OLLAMA_CONTEXT_LENGTH={context}\n",
+        OLLAMA_DROPIN: (f"# Generato da SoIA: memoria della conversazione compressa\n[Service]\nEnvironment=OLLAMA_FLASH_ATTENTION=1\n"
+                        f"Environment=OLLAMA_KV_CACHE_TYPE={kv}\nEnvironment=OLLAMA_CONTEXT_LENGTH={context}\n") if kv else
+                       (f"# Generato da SoIA: senza scheda video la memoria della conversazione resta com'è (più veloce)\n"
+                        f"[Service]\nEnvironment=OLLAMA_FLASH_ATTENTION=0\nEnvironment=OLLAMA_KV_CACHE_TYPE=f16\n"
+                        f"Environment=OLLAMA_CONTEXT_LENGTH={context}\n"),
     }
     return Plan(zram_mb, kv, context, files)
 
@@ -120,12 +126,15 @@ def describe(device: Device, root: Path = Path("/"), ollama_env: dict[str, str] 
     else:
         lines.append(f"RAM compressa non attiva: posso attivarla ({plan.zram_mb / 1024:.1f} GB con zstd).")
     kv = env.get("OLLAMA_KV_CACHE_TYPE")
-    if kv:
+    if not plan.kv_cache:
+        lines.append("Memoria della conversazione del modello non compressa: sul processore la compressione rallenta le risposte.")
+        kv = kv or "f16"
+    elif kv and kv != "f16":
         lines.append(f"Memoria della conversazione del modello compressa ({kv}).")
     else:
         lines.append(f"Memoria della conversazione del modello non compressa: con {plan.kv_cache} occuperebbe "
                      f"{'un quarto' if plan.kv_cache == 'q4_0' else 'metà'} della memoria.")
-    if not z or not kv:
+    if not z or not kv or (plan.kv_cache and kv == "f16"):
         lines.append("Dimmi «ottimizza la memoria» per attivare tutto (serve la password di amministratore).")
     return "\n".join(lines)
 
@@ -137,7 +146,8 @@ def main(argv: list[str] | None = None) -> int:
         print(describe(device))
     elif args[0] == "configura":
         plan = plan_for(device)
-        print(f"RAM compressa {plan.zram_mb} MB (zstd), conversazione del modello {plan.kv_cache}, contesto {plan.context} token.")
+        print(f"RAM compressa {plan.zram_mb} MB (zstd), conversazione del modello {plan.kv_cache or 'non compressa'}, "
+              f"contesto {plan.context} token.")
         errors = apply_plan(plan)
         print("Fatto." if not errors else "Problemi:\n" + "\n".join(errors))
         return 1 if errors else 0
