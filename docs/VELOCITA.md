@@ -35,7 +35,10 @@ Qwen3.5 4B senza attese lunghe.
    bronze le mail, silver i fatti di ogni mail (tipo, chi, cosa, entro quando: le mail di massa li decide il codice,
    le altre il modello in sottofondo, solo in carica, cedendo il passo all'utente), gold le cose da fare in ordine di
    scadenza, composte dal codice. Nova: «cosa mi chiedono nelle mail?» (strumento `mail_todo`) e il riepilogo della
-   posta. Misura: `.github/workflows/livelli.yml`. Parquet e Iceberg no: sono fatti per tabelle enormi lette da
+   posta. Misura: `.github/workflows/livelli.yml`. Risultato (Release `livelli-1`, Qwen3.5 4B su CPU, 4 caselle di
+   20 mail con 5 cose da fare): bronze 89 s di attesa, 1 casella su 4 tutta giusta (le voci ci sono quasi sempre,
+   l'ordine per scadenza no); gold risposta istantanea, 4 caselle su 4 giuste, 87 s di lavoro in sottofondo per
+   casella (8 mail lette dal modello, 12 dal codice). Parquet e Iceberg no: sono fatti per tabelle enormi lette da
    più motori; per un utente solo basta SQLite.
 5. **Neuroni attivi nei modelli densi** (Deja Vu, PowerInfer): solo se il resto non basta; serve un motore apposito
    e i modelli di oggi ne accendono troppi.
