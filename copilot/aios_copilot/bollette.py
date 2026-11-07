@@ -26,7 +26,7 @@ from .fileindex import data_dir
 from .privacy import private_dir
 from .tabelle import MONTHS, fmt, numbers_in, parse_number
 
-VERSION = 1
+VERSION = 2  # 2: JSON del modello letto con tolleranza, tipo e fornitore anche dal testo
 DOC_EXT = (".pdf", ".txt", ".md", ".docx", ".odt", ".html", ".htm")
 TYPES = ("bolletta", "fattura", "avviso di pagamento", "multa", "ricevuta", "altro")
 PAYABLE = ("bolletta", "fattura", "avviso di pagamento", "multa")
@@ -42,7 +42,9 @@ MONEY = re.compile(r"€|\beur(?:o)?\b", re.I)
 DIRECT_DEBIT = re.compile(r"domiciliazion\w*|addebito\s+(?:diretto|automatico|su\s+conto|in\s+conto|sepa)|\bsdd\b|\brid\b|"
                           r"sar[àa]\s+addebitat\w*", re.I)
 TOTAL_NEAR = re.compile(r"(?:totale\s+(?:da\s+pagare|bolletta|fattura|documento|dovuto)|importo\s+(?:da\s+pagare|totale|dovuto)|"
-                        r"da\s+pagare)[^\d\n]{0,40}?(\d[\d.,]*\d)", re.I)
+                        r"rata\s+\d+\s+di\s+\d+|da\s+pagare)[^\d\n]{0,40}?(\d[\d.,]*\d)", re.I)
+KIND_WORDS = (("avviso di pagamento", r"avviso\s+di\s+pagamento"), ("multa", r"\bmulta\b|verbale\s+di\s+(?:accertamento|contestazione)"),
+              ("fattura", r"\bfattura\b"), ("bolletta", r"\bbolletta\b"), ("ricevuta", r"\bricevuta\b"))
 DUE_NEAR = re.compile(r"(?:scadenz\w*|scade|entro\s+il|da\s+pagare\s+entro|pagare\s+entro)[^\d\n]{0,30}?"
                       r"(\d{1,2}[/.\-]\d{1,2}[/.\-]\d{2,4}|\d{1,2}\s+(?:" + "|".join(MONTHS) + r")(?:\s+\d{4})?)", re.I)
 DATE_RE = re.compile(r"\b(\d{4})-(\d{1,2})-(\d{1,2})\b|\b(\d{1,2})[/.\-](\d{1,2})[/.\-](\d{2,4})\b|"
@@ -94,6 +96,23 @@ def to_date(text: str, known: list[date], ref: date | None = None) -> date | Non
     return None
 
 
+def loose_json(reply: str) -> dict[str, Any]:
+    """Il JSON del modello, anche quando non è valido («"totale": 77,07», virgole in fondo): prima com'è, poi chiave
+    per chiave."""
+    m = re.search(r"\{.*\}", reply or "", re.DOTALL)
+    if not m:
+        return {}
+    try:
+        data = json.loads(m.group(0))
+        return data if isinstance(data, dict) else {}
+    except ValueError:
+        pass
+    out: dict[str, Any] = {}
+    for k, quoted, bare in re.findall(r'"(\w+)"\s*:\s*(?:"((?:[^"\\]|\\.)*)"|([^,"}\n]+(?:,\d{1,2}\b)?))', m.group(0)):
+        out[k] = quoted if quoted or not bare else bare.strip()
+    return out
+
+
 def code_only(text: str) -> bool:
     """Il codice decide da solo che non è un documento da pagare (niente parole da bolletta o niente importi)."""
     return not CANDIDATE.search(text) or not MONEY.search(text)
@@ -106,21 +125,22 @@ def read_document(text: str, model: Any) -> dict[str, Any]:
     if code_only(text):
         return empty
     reply = model.chat([{"role": "system", "content": PROMPT}, {"role": "user", "content": text[:6000]}], [])
-    data: dict[str, Any] = {}
-    m = re.search(r"\{.*\}", reply.get("content") or "", re.DOTALL)
-    if m:
-        try:
-            data = json.loads(m.group(0))
-        except ValueError:
-            data = {}
+    data = loose_json(reply.get("content") or "")
     kind = str(data.get("tipo") or "").strip().lower()
-    kind = next((t for t in TYPES if t in kind), "altro")
+    kind = next((t for t in TYPES if t in kind), "")
+    if not kind or (kind == "altro" and TOTAL_NEAR.search(text)):  # il modello non si capisce: il tipo dalle parole
+        kind = next((k for k, rx in KIND_WORDS if re.search(rx, text, re.I)), "altro")
+    low = text.lower()
     service = str(data.get("servizio") or "").strip().lower()
     if service not in SERVICES:
         service = next((s for w, s in SERVICE_WORDS.items() if w in service), "altro")
+    if re.search(r"\btari\b|rifiuti", low):
+        service = "rifiuti"  # la TARI è una tassa, ma chi chiede «quanto ho speso di rifiuti» la vuole qui
     if service == "altro":  # il modello non l'ha detto: si guarda il documento
-        low = text.lower()
         service = next((s for w, s in SERVICE_WORDS.items() if re.search(rf"\b{w}", low)), "altro")
+    issuer = str(data.get("emittente") or "").strip()
+    if not issuer:  # di solito il nome del fornitore è la prima riga
+        issuer = next((l.strip() for l in text.splitlines() if l.strip()), "")[:60]
     known = dates_in(text)
     problems = []
     total = parse_number(str(data.get("totale") or ""))
@@ -138,7 +158,7 @@ def read_document(text: str, model: Any) -> dict[str, Any]:
         due = to_date(near.group(1), known) if near else None
         if data.get("scadenza") and due is None:
             problems.append("la scadenza non è nel documento")
-    return {"tipo": kind, "servizio": service if kind != "altro" else "", "emittente": str(data.get("emittente") or "").strip()[:80],
+    return {"tipo": kind, "servizio": service if kind != "altro" else "", "emittente": issuer[:80] if kind != "altro" else "",
             "numero": str(data.get("numero") or "").strip()[:40], "data": doc_date.isoformat() if doc_date else "",
             "scadenza": due.isoformat() if due else "", "totale": total, "addebito": int(bool(DIRECT_DEBIT.search(text))),
             "controllo": "; ".join(problems)}
@@ -216,8 +236,8 @@ class Facts:
         today = (now or datetime.now()).date()
         end = (today + timedelta(days=days or 3650)).isoformat()
         return [{"emittente": r[0], "scadenza": r[1], "totale": r[2]} for r in self.db.execute(
-            "SELECT emittente, scadenza, totale FROM documenti_fatti WHERE addebito = 1 AND scadenza >= ? AND scadenza <= ? "
-            "ORDER BY scadenza", (today.isoformat(), end))]
+            f"SELECT emittente, scadenza, totale FROM documenti_fatti WHERE addebito = 1 AND tipo IN ({','.join('?' * len(PAYABLE))}) "
+            "AND scadenza >= ? AND scadenza <= ? ORDER BY scadenza", (*PAYABLE, today.isoformat(), end))]
 
     def spent(self, service: str = "", year: int | None = None, issuer: str = "") -> list[dict[str, Any]]:
         """Le bollette e fatture di un servizio (o di un emittente) in un anno: per data del documento, o di scadenza."""

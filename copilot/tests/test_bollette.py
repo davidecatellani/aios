@@ -116,3 +116,26 @@ def test_nova_tools_and_task(tmp_path, monkeypatch):
     off = bollette.BillsTask(indexed(other, {"b.txt": "Bolletta: totale da pagare 12,00 €"}), bollette.Facts(other / "d.db"), model=Off)
     off.step(0.5)
     assert not off.available()  # modello spento: si riprova più tardi
+
+
+def test_broken_json_from_the_model(tmp_path):
+    files, bills = bp.make_folder(random.Random("bollette-0"))
+    index = indexed(tmp_path, files)
+
+    class Sloppy:
+        """Come il 4B a volte: numeri senza virgolette, con la virgola, e niente servizio."""
+
+        def chat(self, messages, tools):
+            text = messages[-1]["content"]
+            total = re.search(r"(?:Totale da pagare|Totale fattura \(IVA inclusa\)|Importo da pagare): ([\d.,]+)", text)
+            return {"content": '{"tipo": "bolletta", "numero": 635968/2026, "totale": %s, "scadenza": "",}' % (total.group(1) if total else '""')}
+
+    facts = bollette.Facts(tmp_path / "documenti.db")
+    facts.update(index, Sloppy())
+    got = {Path(p).name: (t, e, s, tot) for p, t, e, s, tot in facts.db.execute(
+        "SELECT path, tipo, emittente, scadenza, totale FROM documenti_fatti WHERE tipo != 'altro'")}
+    for b in bills:
+        kind, issuer, due, total = got[b["file"]]
+        assert due == b["scadenza"].isoformat() and total == b["totale"], (b, got[b["file"]])  # la TARI: la rata
+        assert issuer.startswith(b["emittente"].split()[0]) or b["servizio"] == "rifiuti"
+    assert bollette.loose_json('Ecco {"totale": 77,07, "tipo": "bolletta"}') == {"totale": "77,07", "tipo": "bolletta"}

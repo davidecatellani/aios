@@ -14,7 +14,6 @@ decine di secondi). docs/VELOCITA.md.
 
 from __future__ import annotations
 
-import json
 import re
 import time
 from datetime import date, datetime, timedelta
@@ -78,13 +77,9 @@ def read_one(mail: Mail, model: Any) -> dict[str, str]:
     text = (f"Da: {who} <{mail.sender}>\nData: {mail.date:%d/%m/%Y}\nOggetto: {mail.subject}\n\n"
             + redact_secrets(re.sub(r"\n{3,}", "\n\n", mail.body or mail.snippet)[:3000]))
     reply = model.chat([{"role": "system", "content": PROMPT}, {"role": "user", "content": text}], [])
-    data: dict[str, Any] = {}
-    m = re.search(r"\{.*\}", reply.get("content") or "", re.DOTALL)
-    if m:
-        try:
-            data = json.loads(m.group(0))
-        except ValueError:
-            data = {}
+    from ..bollette import loose_json
+
+    data = loose_json(reply.get("content") or "")
     kind = str(data.get("tipo") or "").strip().lower()
     kind = next((t for t in TYPES if t in kind or kind.startswith(t[:6])), "informazione")
     what = str(data.get("cosa") or "").strip()
