@@ -98,18 +98,19 @@ def telco_bill(rng: random.Random, issuer: str, service: str, offer: str, doc: d
     return text, total
 
 
-def water_or_tari(rng: random.Random, kind: str, doc: date, due: date) -> tuple[str, float]:
+def water_or_tari(rng: random.Random, kind: str, doc: date, due: date, auto: bool) -> tuple[str, float]:
+    pay = "Pagamento con addebito diretto SEPA (SDD) sul conto corrente alla scadenza.\n" if auto else ""
     if kind == "acqua":
         total = euro(rng, 40, 140)
         return (f"Acea Ato 2\nBolletta servizio idrico integrato del {it_date(doc, False)}\nMatricola contatore {rng.randint(10**6, 10**7)}\n"
                 f"Consumo: {rng.randint(20, 90)} metri cubi\nQuota fissa: {fmt(euro(rng, 5, 15))} €\nImporto da pagare: {fmt(total)} €\n"
-                f"Scadenza pagamento: {it_date(due, False)}\n"), total
+                f"Scadenza pagamento: {it_date(due, False)}\n{pay}"), total
     annual = euro(rng, 180, 420)
     rata = round(annual / 2, 2)
     return (f"COMUNE DI BOLOGNA - Servizio Tributi\nAVVISO DI PAGAMENTO TARI {doc.year}\nEmesso il {it_date(doc, False)}\n"
             f"Superficie: {rng.randint(50, 130)} mq - Componenti del nucleo: {rng.randint(1, 5)}\n"
             f"Importo annuo dovuto: {fmt(annual)} €\nRata 2 di 2: {fmt(rata)} € con scadenza {it_date(due, False)}\n"
-            "Pagabile con modello F24 o pagoPA.\n"), rata
+            + (pay or "Pagabile con modello F24 o pagoPA.\n")), rata
 
 
 def make_folder(rng: random.Random) -> tuple[dict[str, str], list[dict[str, Any]]]:
@@ -137,7 +138,7 @@ def make_folder(rng: random.Random) -> tuple[dict[str, str], list[dict[str, Any]
             text, total = telco_bill(rng, issuer, service, word, doc, due, auto)
         else:
             issuer, service = ("Acea Ato 2", "acqua") if kind == "acqua" else ("Comune di Bologna", "rifiuti")
-            text, total = water_or_tari(rng, kind, doc, due)
+            text, total = water_or_tari(rng, kind, doc, due, auto)  # prima l'addebito non si scriveva: la prova sbagliava
         name = f"{service}_{doc:%Y_%m}_{n}.txt"
         files[name] = text
         bills.append({"file": name, "emittente": issuer, "servizio": service, "data": doc, "scadenza": due, "totale": total,

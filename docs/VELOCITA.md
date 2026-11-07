@@ -54,5 +54,11 @@ Qwen3.5 4B senza attese lunghe.
    scadenza e quanto si è speso per un servizio in un anno. Nova: «che bollette devo pagare?», «quanto ho speso di
    luce quest'anno?» (strumenti `bills_to_pay`, `bills_spent`). Il modello di sottofondo si interrompe da solo se
    l'utente parla con Nova (`precedenza.BackgroundModel`), per la posta e per i documenti.
+   Risultato (Release `livelli-3`, 3 cartelle di 25 documenti con 12 bollette): bronze 178 s di attesa per due
+   domande, 0 cartelle su 3 tutte giuste (58% dei controlli: bollette dimenticate, ordine sbagliato, già scadute
+   messe tra quelle da pagare); gold risposta istantanea, 96% dei controlli e in realtà tutte giuste (l'unico
+   errore era della prova: una rata TARI segnata come addebito automatico senza che il documento lo dicesse),
+   150 s di lavoro in sottofondo per cartella. Il primo giro (`livelli-2`, 58%) aveva mostrato che il 4B a volte
+   scrive JSON non valido: ora si legge con tolleranza e il codice ricava tipo, fornitore e rata dal testo.
 5. **Neuroni attivi nei modelli densi** (Deja Vu, PowerInfer): solo se il resto non basta; serve un motore apposito
    e i modelli di oggi ne accendono troppi.

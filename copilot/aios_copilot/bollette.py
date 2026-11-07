@@ -317,7 +317,7 @@ class BillsTask:
 
     def __init__(self, index: Any, facts: Facts | None = None, model: Callable[[], Any] | None = None):
         self.index, self._facts, self._model = index, facts, model
-        self._checked, self._has = 0.0, False
+        self._checked, self._has = float("-inf"), False  # anche nel primo minuto dopo l'accensione
         self._retry_at = 0.0
 
     @property
@@ -341,6 +341,6 @@ class BillsTask:
             self._model = BackgroundModel
         before = len(self.facts.pending(self.index, limit=1000))
         self.facts.update(self.index, self._model(), limit=1, deadline=time.monotonic() + seconds)
-        self._checked = 0.0
+        self._checked = float("-inf")
         if len(self.facts.pending(self.index, limit=1000)) == before:  # niente di fatto (modello spento): si riprova tra 10 minuti
             self._retry_at = time.monotonic() + 600
