@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE wallpapers SYSTEM "gnome-wp-list.dtd">
+<wallpapers>
+  <wallpaper deleted="false">
+    <name>SoIA</name>
+    <filename>/usr/share/backgrounds/aios/aios-chiaro.svg</filename>
+    <filename-dark>/usr/share/backgrounds/aios/aios-scuro.svg</filename-dark>
+    <options>zoom</options>
+    <shade_type>solid</shade_type>
+    <pcolor>#0A2A3A</pcolor>
+    <scolor>#0A2A3A</scolor>
+  </wallpaper>
+</wallpapers>

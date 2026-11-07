@@ -1,0 +1,30 @@
+# SoIA: Super+Spazio apre Nova; il cambio della lingua della tastiera resta sul tasto dedicato
+[org/gnome/desktop/wm/keybindings]
+switch-input-source=['XF86Keyboard']
+
+[org/gnome/settings-daemon/plugins/media-keys]
+custom-keybindings=['/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/aios-nova/']
+
+[org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/aios-nova]
+name='Nova'
+command='/usr/bin/aios-copilot'
+binding='<Super>space'
+
+[org/gnome/desktop/interface]
+color-scheme='prefer-dark'
+accent-color='teal'
+
+# Aspetto di SoIA: sfondo (chiaro e scuro), blocco schermo, colore del marchio
+[org/gnome/desktop/background]
+picture-uri='file:///usr/share/backgrounds/aios/aios-chiaro.svg'
+picture-uri-dark='file:///usr/share/backgrounds/aios/aios-scuro.svg'
+picture-options='zoom'
+primary-color='#0A2A3A'
+
+[org/gnome/desktop/screensaver]
+picture-uri='file:///usr/share/backgrounds/aios/aios-scuro.svg'
+primary-color='#0A2A3A'
+
+[org/gnome/shell]
+favorite-apps=['org.aios.Copilot.desktop', 'org.mozilla.firefox.desktop', 'firefox.desktop', 'org.gnome.Nautilus.desktop', 'org.gnome.Calendar.desktop', 'org.gnome.Settings.desktop']
+welcome-dialog-last-shown-version='999'

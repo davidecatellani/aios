@@ -1,0 +1,6 @@
+// Sovrapposizione delle risorse del framework: tema scuro (OLED), Doze profondo,
+// frequenza dello schermo che scende quando l'immagine è ferma.
+runtime_resource_overlay {
+    name: "AiosFrameworkOverlay",
+    product_specific: true,
+}

@@ -1,0 +1,258 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<title>SoIA pannello</title>
+<style>
+:root {
+  --blu: #0B6E99; --turchese: #2EC4B6; --turchese-scuro: #0F8077;
+  --fondo: rgba(244,250,251,.97); --carta: #fff; --bordo: rgba(10,42,58,.10); --testo: #10232E; --tenue: #5B6E78;
+  --chip: rgba(10,42,58,.05); --sopra: rgba(46,196,182,.16);
+}
+@media (prefers-color-scheme: dark) {
+  :root { --fondo: rgba(8,30,42,.97); --carta: rgba(18,57,75,.75); --bordo: rgba(255,255,255,.10); --testo: #EAF4F4;
+          --tenue: #9FC1C6; --chip: rgba(255,255,255,.06); --sopra: rgba(46,196,182,.22); }
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body.lato .schede { background: none; padding: 0; }
+body.lato .schede button.attiva { background: none; box-shadow: none; font-size: 20px; padding: 2px 4px; cursor: default; }
+html, body { margin: 0; height: 100%; background: transparent; }
+body { font-family: var(--carattere, "Inter"), "Inter", "Cantarell", "DejaVu Sans", sans-serif; color: var(--testo); font-size: 15px;
+       -webkit-font-smoothing: antialiased; overflow: hidden; }
+#riquadro { position: absolute; inset: 0; background: var(--fondo); border: 1px solid var(--bordo); border-radius: 22px;
+            display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 24px 60px rgba(3,12,18,.35); }
+body.lato #riquadro { border-radius: 22px 0 0 22px; }
+.testa { display: flex; align-items: center; gap: 8px; padding: 14px 16px 8px; }
+.schede { display: flex; gap: 4px; background: var(--chip); border-radius: 12px; padding: 3px; }
+.schede button { border: 0; background: none; color: var(--tenue); font: inherit; font-weight: 700; font-size: 14px; padding: 6px 14px; border-radius: 9px; cursor: pointer; }
+.schede button.attiva { background: var(--carta); color: var(--testo); box-shadow: 0 1px 3px rgba(3,12,18,.12); }
+.testa .spazio { flex: 1; }
+.testa .piccolo { border: 0; background: none; color: var(--tenue); font: inherit; font-size: 13px; font-weight: 600; padding: 6px 8px; border-radius: 8px; cursor: pointer; }
+.testa .piccolo:hover { background: var(--chip); color: var(--testo); }
+#cerca { margin: 4px 16px 10px; border: 1px solid var(--bordo); background: var(--carta); color: var(--testo); border-radius: 12px;
+         padding: 10px 14px; font: inherit; outline: 0; }
+#cerca:focus { border-color: var(--turchese); box-shadow: 0 0 0 3px rgba(46,196,182,.25); }
+#contenuto { flex: 1; overflow: auto; padding: 0 12px 14px; }
+.vuoto { color: var(--tenue); text-align: center; padding: 40px 20px; line-height: 1.6; }
+.voce { position: relative; display: block; width: 100%; text-align: left; border: 1px solid var(--bordo); background: var(--carta); color: var(--testo);
+        font: inherit; border-radius: 14px; padding: 10px 40px 10px 14px; margin-bottom: 8px; cursor: pointer; }
+.voce:hover, .voce.sel { border-color: var(--turchese); background: var(--sopra); }
+.voce .testo { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; white-space: pre-wrap; word-break: break-word; font-size: 14px; line-height: 1.45; }
+.voce img { max-width: 100%; max-height: 140px; border-radius: 8px; display: block; }
+.voce small { color: var(--tenue); font-size: 12px; display: block; margin-top: 4px; }
+.voce .azioni { position: absolute; top: 6px; right: 6px; display: flex; flex-direction: column; gap: 2px; opacity: 0; }
+.voce:hover .azioni, .voce.sel .azioni { opacity: 1; }
+.voce .azioni span { width: 26px; height: 26px; display: grid; place-items: center; border-radius: 8px; color: var(--tenue); font-size: 13px; }
+.voce .azioni span:hover { background: var(--chip); color: var(--testo); }
+.voce.fissata .fissa { color: var(--turchese); opacity: 1; }
+.categoria { font-size: 12px; font-weight: 800; letter-spacing: 1.2px; text-transform: uppercase; color: var(--tenue); margin: 10px 6px 4px; }
+.emoji { display: grid; grid-template-columns: repeat(auto-fill, minmax(46px, 1fr)); gap: 2px; }
+.emoji button { border: 0; background: none; font-size: 28px; line-height: 1; height: 46px; border-radius: 10px; cursor: pointer;
+                font-family: "Noto Color Emoji", "Apple Color Emoji", "Segoe UI Emoji", sans-serif; }
+.emoji button:hover, .emoji button.sel { background: var(--sopra); transform: scale(1.1); }
+.piede { padding: 8px 16px 12px; color: var(--tenue); font-size: 12px; border-top: 1px solid var(--bordo); display: flex; gap: 12px; }
+.nd { background: var(--carta); border: 1px solid var(--bordo); border-radius: 16px; padding: 12px 14px; margin: 4px 0 12px;
+      display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.nd.acceso { border-color: rgba(123,108,246,.5); background: rgba(123,108,246,.10); }
+.nd-testo { flex: 1; } .nd-testo b, .nd-testo small { display: block; } .nd-testo small { color: var(--tenue); font-size: 13px; }
+.nd-scelte { display: flex; gap: 6px; flex-wrap: wrap; width: 100%; }
+.chip { border: 1px solid var(--bordo); background: var(--chip); color: var(--testo); font: inherit; font-size: 13px; font-weight: 600;
+        border-radius: 999px; padding: 5px 12px; cursor: pointer; }
+.chip.si { border-color: var(--turchese); color: var(--turchese-scuro); }
+@media (prefers-color-scheme: dark) { .chip.si { color: var(--turchese); } }
+.interruttore { width: 46px; height: 26px; border-radius: 999px; border: 0; background: rgba(120,140,150,.35); position: relative; cursor: pointer; flex: none; }
+.interruttore::after { content: ""; position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 50%; background: #fff; transition: left .2s; }
+.interruttore.acceso { background: linear-gradient(135deg, #7B6CF6, #3D3BB7); } .interruttore.acceso::after { left: 23px; }
+.riassunto { width: 100%; border: 0; border-radius: 14px; padding: 10px 14px; margin-bottom: 4px; font: inherit; font-weight: 700; color: #fff; cursor: pointer;
+             background: linear-gradient(135deg, var(--blu), var(--turchese)); text-align: left; }
+.notifica b { display: block; font-size: 15px; margin: 2px 0; }
+.notifica .app { margin: 0; text-transform: none; }
+.notifica.nuova { box-shadow: inset 3px 0 0 var(--turchese); }
+.notifica.urgente { box-shadow: inset 3px 0 0 #D9534F; }
+.piede kbd { font: inherit; font-weight: 700; background: var(--chip); border-radius: 6px; padding: 1px 6px; }
+</style>
+</head>
+<body>
+<div id="riquadro">
+  <div class="testa">
+    <div class="schede" id="schede"></div>
+    <span class="spazio"></span>
+    <span id="extra"></span>
+  </div>
+  <input id="cerca" autocomplete="off" spellcheck="false">
+  <div id="contenuto"></div>
+  <div class="piede" id="piede"></div>
+</div>
+<script>
+"use strict";
+const TOKEN = new URLSearchParams(location.hash.slice(1)).get("t") || "";
+const $ = id => document.getElementById(id);
+const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+async function api(path, body) {
+  const r = await fetch(path, { method: body === undefined ? "GET" : "POST", headers: { "X-AIOS-Token": TOKEN, "Content-Type": "application/json" },
+                                body: body === undefined ? undefined : JSON.stringify(body) });
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(d.error || r.status);
+  return d;
+}
+const LATO = new URLSearchParams(location.hash.slice(1)).get("lato") === "1";
+if (LATO) document.body.classList.add("lato");
+const SCHEDE = LATO ? { notifiche: "Notifiche" } : { appunti: "Appunti", emoji: "Emoji" };
+let scheda = "appunti", sel = 0, voci = [], emoji = null;
+const recenti = () => { try { return JSON.parse(localStorage.getItem("emoji-recenti") || "[]"); } catch { return []; } };
+const ricorda = e => { try { localStorage.setItem("emoji-recenti", JSON.stringify([e, ...recenti().filter(x => x !== e)].slice(0, 24))); } catch {} };
+const chiudi = () => api("/api/scelta/chiudi", {}).catch(() => {});
+
+function quando(t) {
+  const s = Math.floor(Date.now() / 1000) - t;
+  if (s < 60) return "adesso";
+  if (s < 3600) return `${Math.floor(s / 60)} min fa`;
+  if (s < 86400) return `${Math.floor(s / 3600)} h fa`;
+  return new Date(t * 1000).toLocaleDateString("it-IT", { day: "numeric", month: "short" });
+}
+
+async function apri(nome) {
+  scheda = SCHEDE[nome] ? nome : Object.keys(SCHEDE)[0]; sel = 0;
+  $("schede").replaceChildren(...Object.entries(SCHEDE).map(([k, t]) => {
+    const b = el("button", k === scheda ? "attiva" : "", t); b.onclick = () => apri(k); return b;
+  }));
+  $("cerca").value = ""; $("cerca").placeholder = scheda === "emoji" ? "Cerca: cuore, ridere, pizza…" : "Cerca negli appunti";
+  $("piede").replaceChildren();
+  for (const [k, t] of [["↑↓", "scegli"], ["Invio", "incolla"], ["Esc", "chiudi"]]) { const s = el("span"); s.append(el("kbd", "", k), " " + t); $("piede").append(s); }
+  $("extra").replaceChildren();
+  $("cerca").hidden = scheda === "notifiche"; $("piede").hidden = scheda === "notifiche";
+  if (scheda === "notifiche") return notifiche();
+  if (scheda === "appunti") {
+    const d = await api("/api/appunti").catch(() => ({ voci: [], attivo: true }));
+    voci = d.voci;
+    const svuota = el("button", "piccolo", "Svuota");
+    svuota.onclick = async () => { await api("/api/appunti/svuota", {}); apri("appunti"); };
+    $("extra").append(svuota);
+    if (!d.attivo) voci = [];
+    disegna(d.attivo);
+  } else {
+    if (!emoji) emoji = (await api("/api/emoji").catch(() => ({ emoji: [] }))).emoji;
+    disegna(true);
+  }
+  setTimeout(() => $("cerca").focus(), 20);
+}
+window.apri = apri;
+
+function disegna(attivo = true) {
+  const box = $("contenuto"); box.replaceChildren();
+  const q = $("cerca").value.toLowerCase().trim();
+  if (scheda === "appunti") {
+    if (!attivo) { box.append(el("p", "vuoto", "La cronologia degli appunti è spenta (Impostazioni › Privacy e memoria).")); return; }
+    const trovate = voci.filter(v => !q || (v.testo || "").toLowerCase().includes(q));
+    if (!trovate.length) box.append(el("p", "vuoto", q ? "Niente di simile negli appunti." : "Qui trovi le ultime cose che hai copiato: testi e immagini. Copia qualcosa e ritorna con Super+V."));
+    trovate.forEach((v, i) => {
+      const b = el("button", "voce" + (i === sel ? " sel" : "") + (v.fissato ? " fissata" : ""));
+      if (v.tipo === "immagine") { const img = el("img"); img.src = `/api/appunti/img/${v.id}.png?t=${encodeURIComponent(TOKEN)}`; b.append(img); }
+      else b.append(el("div", "testo", v.testo.length > 600 ? v.testo.slice(0, 600) + "…" : v.testo));
+      b.append(el("small", "", (v.fissato ? "📌 fissato · " : "") + quando(v.quando)));
+      const az = el("div", "azioni");
+      const fissa = el("span", "fissa", "📌"); fissa.title = v.fissato ? "Non tenere più" : "Tieni sempre (fissa)";
+      fissa.onclick = async e => { e.stopPropagation(); await api("/api/appunti/fissa", { id: v.id, fissato: !v.fissato }); apri("appunti"); };
+      const via = el("span", "", "✕"); via.title = "Togli";
+      via.onclick = async e => { e.stopPropagation(); await api("/api/appunti/togli", { id: v.id }); apri("appunti"); };
+      az.append(fissa, via); b.append(az);
+      b.onclick = () => usa(v);
+      box.append(b);
+    });
+  } else {
+    const r = recenti();
+    const filtro = emoji.filter(e => !q || e.n.includes(q));
+    const gruppi = q ? [["Risultati", filtro]] : [["Usate di recente", r.map(x => ({ e: x }))], ...[...new Set(emoji.map(e => e.c))].map(c => [c, emoji.filter(e => e.c === c)])];
+    let i = 0;
+    for (const [nome, lista] of gruppi) {
+      if (!lista.length) continue;
+      box.append(el("div", "categoria", nome));
+      const g = el("div", "emoji");
+      for (const e of lista) {
+        const b = el("button", i === sel ? "sel" : "", e.e); b.title = e.n ? e.n.trim().split(" ").slice(0, 4).join(" ") : "";
+        b.dataset.i = i++; b.onclick = () => usaEmoji(e.e); g.append(b);
+      }
+      box.append(g);
+    }
+    if (!i) box.append(el("p", "vuoto", "Nessuna emoji trovata."));
+  }
+  box.querySelector(".sel")?.scrollIntoView({ block: "nearest" });
+}
+
+// --- centro notifiche ------------------------------------------------------------------------------------
+async function notifiche() {
+  const d = await api("/api/notifiche").catch(() => ({ notifiche: [], non_disturbare: {}, silenzio: "" }));
+  const box = $("contenuto"); box.replaceChildren();
+  const nd = d.non_disturbare;
+  const pulisci = el("button", "piccolo", "Cancella tutte");
+  pulisci.onclick = async () => { await api("/api/notifiche/togli", { tutte: true }); notifiche(); };
+  $("extra").replaceChildren(pulisci);
+  // non disturbare
+  const quiet = el("div", "nd" + (d.silenzio ? " acceso" : ""));
+  const t = el("div", "nd-testo"); t.append(el("b", "", "Non disturbare"), el("small", "", d.silenzio ? `Attivo: ${d.silenzio}` : "Le notifiche compaiono"));
+  const sw = el("button", "interruttore" + (d.silenzio ? " acceso" : "")); sw.title = d.silenzio ? "Spegni" : "Accendi";
+  sw.onclick = async () => { await api("/api/notifiche/non-disturbare", d.silenzio ? { attivo: false, fino_a: "" } : { attivo: true }); notifiche(); };
+  quiet.append(t, sw);
+  const scelte = el("div", "nd-scelte");
+  for (const [txt, corpo] of [["1 ora", { minuti: 60 }], ["Fino a domattina", { minuti: 0 }], [nd.nei_giochi ? "✓ Mentre giochi" : "Mentre giochi", { nei_giochi: !nd.nei_giochi }]]) {
+    const b = el("button", "chip" + (txt.startsWith("✓") ? " si" : ""), txt); b.onclick = async () => { await api("/api/notifiche/non-disturbare", corpo); notifiche(); }; scelte.append(b);
+  }
+  quiet.append(scelte);
+  box.append(quiet);
+  const lista = d.notifiche;
+  if (!lista.length) { box.append(el("p", "vuoto", "Nessuna notifica. Quando ne arrivano, le ritrovi tutte qui, anche dopo un riavvio.")); return; }
+  const nuove = lista.filter(n => !n.letta).length;
+  if (nuove) {
+    const r = el("button", "riassunto", `✨ Riassumimi le ${nuove} nuove`);
+    r.onclick = () => api("/api/nova/chiedi", { testo: "cosa mi sono perso nelle notifiche?" });
+    box.append(r);
+  }
+  let giorno = "";
+  const oggi = new Date().toDateString(), ieri = new Date(Date.now() - 86400000).toDateString();
+  for (const n of lista) {
+    const d0 = new Date(n.quando * 1000), g = d0.toDateString();
+    if (g !== giorno) {
+      giorno = g;
+      box.append(el("div", "categoria", g === oggi ? "Oggi" : g === ieri ? "Ieri" : d0.toLocaleDateString("it-IT", { weekday: "long", day: "numeric", month: "long" })));
+    }
+    const c = el("button", "voce notifica" + (n.letta ? "" : " nuova") + (n.urgente ? " urgente" : ""));
+    const testa = el("small", "app"); testa.textContent = `${n.app} · ${d0.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })}` + (n.nascosta ? " · arrivata in silenzio" : "");
+    c.append(testa, el("b", "", n.titolo));
+    if (n.testo) c.append(el("div", "testo", n.testo));
+    const az = el("div", "azioni"); const via = el("span", "", "✕"); via.title = "Togli";
+    via.onclick = async e => { e.stopPropagation(); await api("/api/notifiche/togli", { id: n.id }); c.remove(); };
+    az.append(via); c.append(az);
+    c.onclick = () => n.app_id && api("/api/notifiche/apri", { app_id: n.app_id });
+    if (!n.app_id) c.style.cursor = "default";
+    box.append(c);
+  }
+  if (nuove) setTimeout(() => api("/api/notifiche/lette", {}).catch(() => {}), 1500);
+}
+
+async function usa(v) { await api("/api/appunti/usa", { id: v.id }).catch(() => {}); }
+async function usaEmoji(e) { ricorda(e); await api("/api/appunti/usa", { testo: e }).catch(() => {}); }
+
+$("cerca").oninput = () => { sel = 0; disegna(); };
+document.addEventListener("keydown", e => {
+  const tutti = [...$("contenuto").querySelectorAll(scheda === "emoji" ? ".emoji button" : ".voce")];
+  const colonne = scheda === "emoji" ? Math.max(1, Math.round($("contenuto").clientWidth / 48)) : 1;
+  if (e.key === "Escape") { e.preventDefault(); chiudi(); return; }
+  if (e.key === "Tab") { e.preventDefault(); apri(scheda === "appunti" ? "emoji" : "appunti"); return; }
+  let n = sel;
+  if (e.key === "ArrowDown") n = sel + colonne;
+  else if (e.key === "ArrowUp") n = sel - colonne;
+  else if (e.key === "ArrowRight" && scheda === "emoji") n = sel + 1;
+  else if (e.key === "ArrowLeft" && scheda === "emoji") n = sel - 1;
+  else if (e.key === "Enter") { e.preventDefault(); tutti[sel]?.click(); return; }
+  else return;
+  e.preventDefault();
+  sel = Math.max(0, Math.min(tutti.length - 1, n));
+  tutti.forEach((b, i) => b.classList.toggle("sel", i === sel));
+  tutti[sel]?.scrollIntoView({ block: "nearest" });
+});
+const parte = new URLSearchParams(location.hash.slice(1)).get("apri");
+if (parte) apri(parte);
+</script>
+</body>
+</html>

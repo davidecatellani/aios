@@ -1,0 +1,14 @@
+[Unit]
+Description=Nova: ascolto della parola «Nova» (tutto sul computer, niente viene registrato)
+After=pipewire.service wireplumber.service
+Wants=pipewire.service
+
+[Service]
+ExecStart=aios-voce servizio
+Restart=on-failure
+RestartSec=10
+Nice=5
+CPUWeight=50
+
+[Install]
+WantedBy=default.target

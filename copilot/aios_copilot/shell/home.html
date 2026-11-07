@@ -1,0 +1,920 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SoIA</title>
+<style>
+:root {
+  --blu: #0B6E99; --turchese: #2EC4B6; --turchese-scuro: #0F8077; --ambra: #E9C46A; --notte: #0A2A3A;
+  --fondo: linear-gradient(135deg, #EEF6F7 0%, #E6F2F5 40%, #DCEFF0 100%);
+  --carta: rgba(255,255,255,.86); --bordo: rgba(10,42,58,.08); --testo: #10232E; --tenue: #5B6E78;
+  --ombra: 0 10px 30px rgba(10,42,58,.08); --barra: rgba(255,255,255,.72); --chip: #FFFFFF;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --fondo: radial-gradient(circle at 70% 30%, #0F4A63 0%, #0A2A3A 45%, #05141D 100%);
+    --carta: rgba(18,57,75,.52); --bordo: rgba(255,255,255,.09); --testo: #EAF4F4; --tenue: #9FC1C6;
+    --ombra: 0 10px 30px rgba(0,0,0,.25); --barra: rgba(7,30,42,.75); --chip: rgba(18,57,75,.9);
+  }
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; overflow: hidden; }
+body { font-family: var(--carattere, "Inter"), "Inter", "Cantarell", "DejaVu Sans", sans-serif; color: var(--testo); background: var(--fondo);
+       user-select: none; -webkit-user-select: none; cursor: default; }
+button { font: inherit; cursor: pointer; }
+[hidden] { display: none !important; }
+
+/* barra in alto: sempre visibile, anche sopra le app */
+#barra { position: fixed; top: 0; left: 0; right: 0; height: 40px; display: flex; align-items: center; gap: 14px;
+         padding: 0 18px; background: var(--barra); backdrop-filter: blur(18px); border-bottom: 1px solid var(--bordo);
+         font-size: 14px; font-weight: 600; z-index: 10; }
+#logo { font-weight: 800; letter-spacing: .5px; cursor: pointer; }
+#logo b { color: var(--turchese-scuro); }
+@media (prefers-color-scheme: dark) { #logo b { color: var(--turchese); } }
+#app-aperte { display: flex; gap: 6px; overflow: hidden; }
+.aperta { display: flex; align-items: center; gap: 7px; height: 28px; padding: 0 6px 0 7px; border-radius: 9px;
+          background: transparent; color: var(--tenue); font-size: 13px; font-weight: 600; cursor: pointer;
+          border: 1px solid transparent; transition: background .15s, color .15s, border-color .15s; max-width: 200px; }
+.aperta:hover { background: var(--chip); color: var(--testo); }
+.aperta.davanti { background: var(--carta); color: var(--testo); border-color: var(--bordo);
+                  box-shadow: 0 1px 4px rgba(3,12,18,.10), inset 0 -2px 0 var(--turchese); }
+.icona-finestra { flex: none; width: 18px; height: 18px; border-radius: 5px; display: grid; place-items: center;
+                  font-size: 11px; font-weight: 800; color: #fff; background: linear-gradient(135deg, var(--turchese), var(--turchese-scuro)); }
+.icona-finestra.con-img { background: none; }
+.icona-finestra img { width: 18px; height: 18px; object-fit: contain; }
+.nome-finestra { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.aperta .x { flex: none; width: 18px; height: 18px; padding: 0; border: 0; border-radius: 5px; background: none;
+             color: inherit; display: grid; place-items: center; opacity: 0; transition: opacity .15s, background .15s; }
+.aperta .x svg { width: 12px; height: 12px; }
+.aperta:hover .x, .aperta.davanti .x { opacity: .7; }
+.aperta .x:hover { opacity: 1; background: rgba(217,83,79,.15); color: #D9534F; }
+#ora { position: absolute; left: 50%; transform: translateX(-50%); }
+#destra { margin-left: auto; display: flex; gap: 14px; align-items: center; }
+/* Accessibilità: contrasto alto (colori pieni, bordi netti, testo secondario leggibile) e meno animazioni */
+body.contrasto { --carta: #FFFFFF; --chip: #FFFFFF; --bordo: #10232E; --tenue: #23343D; --testo: #000; --barra: #FFFFFF; --fondo: #F2F5F6; }
+@media (prefers-color-scheme: dark) {
+  body.contrasto { --carta: #000; --chip: #000; --bordo: #FFFFFF; --tenue: #E6EEF0; --testo: #FFF; --barra: #000; --fondo: #000; }
+}
+body.contrasto .carta, body.contrasto .bottone, body.contrasto .campo, body.contrasto #barra { border-width: 2px; backdrop-filter: none; }
+body.contrasto :focus-visible { outline: 3px solid #E9C46A !important; outline-offset: 2px; }
+body.fermo *, body.fermo *::before, body.fermo *::after { animation: none !important; transition: none !important; }
+#campanella { position: relative; border: 0; background: none; color: var(--testo); padding: 4px; border-radius: 8px; display: grid; place-items: center; cursor: pointer; }
+#campanella:hover { background: var(--chip); }
+#campanella .icona { width: 17px; height: 17px; }
+#campanella.silenzio { color: #7B6CF6; }
+#campanella .conta { position: absolute; top: -3px; right: -5px; min-width: 16px; height: 16px; padding: 0 4px; border-radius: 999px;
+                     background: #D9534F; color: #fff; font-size: 10px; font-weight: 800; display: grid; place-items: center; }
+.badge { background: rgba(46,196,182,.16); color: var(--turchese-scuro); padding: 3px 10px; border-radius: 999px; }
+@media (prefers-color-scheme: dark) { .badge { color: var(--turchese); } }
+
+/* la giornata */
+#casa { position: absolute; top: 40px; bottom: 0; left: 0; right: 0; display: grid;
+        grid-template-columns: minmax(280px, 1fr) minmax(380px, 1.5fr) minmax(260px, 1fr); gap: 36px; padding: 40px 48px 210px; }
+.colonna { display: flex; flex-direction: column; gap: 18px; overflow: hidden;
+           /* spazio per le ombre delle carte: senza, il bordo della colonna le taglia di netto (rettangoli grigi) */
+           padding: 4px 18px 28px; margin: -4px -18px 0; }
+.etichetta { font-size: 13px; letter-spacing: 2px; color: var(--tenue); font-weight: 700; text-transform: uppercase; }
+.carta { background: var(--carta); border: 1px solid var(--bordo); border-radius: 22px; padding: 20px 22px;
+         box-shadow: var(--ombra), inset 0 1px 0 rgba(255,255,255,.06);
+         backdrop-filter: blur(22px) saturate(150%); -webkit-backdrop-filter: blur(22px) saturate(150%);
+         animation: entra .45s cubic-bezier(.22,1,.36,1) both; }
+.colonna .carta:nth-child(3) { animation-delay: .05s; } .colonna .carta:nth-child(4) { animation-delay: .1s; }
+.colonna .carta:nth-child(5) { animation-delay: .15s; }
+@keyframes entra { from { opacity: 0; transform: translateY(12px) scale(.985); } }
+.carta h3 { margin: 0 0 8px; font-size: 18px; display: flex; gap: 10px; align-items: center; }
+.carta p { margin: 0; line-height: 1.5; }
+.carta .nota { color: var(--tenue); font-size: 14px; margin-top: 8px; }
+.carta .tipo { font-size: 12px; letter-spacing: 1.5px; font-weight: 700; color: var(--tenue); text-transform: uppercase; margin-bottom: 6px; }
+.azioni { display: flex; gap: 10px; margin-top: 14px; }
+.azioni button { border-radius: 12px; padding: 8px 16px; border: 1px solid var(--bordo); background: var(--chip); color: var(--testo); font-weight: 600; }
+.azioni button:first-child { background: linear-gradient(135deg, var(--blu), var(--turchese)); color: #fff; border: 0; }
+.sfera { width: 30px; height: 30px; flex: none; }
+
+#centro { display: flex; flex-direction: column; gap: 14px; overflow: hidden; }
+#saluto { font-size: 44px; font-weight: 800; margin: 18px 0 0; letter-spacing: -1px; }
+#sottotitolo { font-size: 20px; line-height: 1.45; color: var(--tenue); margin: 0 0 8px; }
+#esempi { display: flex; flex-wrap: wrap; gap: 10px; }
+.esempio { border: 1px solid var(--bordo); background: var(--chip); color: var(--testo); border-radius: 999px; padding: 9px 16px; font-size: 15px; }
+
+/* la conversazione con Nova (al centro della schermata) */
+#conversazione { display: flex; flex-direction: column; gap: 10px; overflow-y: auto; padding-right: 4px; scroll-behavior: smooth;
+                 flex: 1 1 auto; min-height: 0; }
+#conversazione > :first-child { margin-top: auto; }  /* i messaggi partono dal basso, vicino alla casella */
+/* appena si parla con Nova il saluto si fa piccolo e la conversazione prende tutto lo spazio */
+#saluto { transition: font-size .35s ease, margin .35s ease; }
+body.in-chat #saluto { font-size: 26px; margin: 0; }
+body.in-chat #sottotitolo, body.in-chat #esempi { display: none; }
+body.in-chat #conversazione { -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 28px);
+                              mask-image: linear-gradient(to bottom, transparent 0, #000 28px); padding-top: 24px; }
+.blocco { display: contents; }  /* lo spazio di una domanda: i suoi messaggi restano nel flusso della conversazione */
+.msg { max-width: 92%; padding: 11px 15px; border-radius: 18px; line-height: 1.45; white-space: pre-wrap; user-select: text; -webkit-user-select: text; }
+.msg.io { align-self: flex-end; background: linear-gradient(135deg, var(--blu), #1593AD); color: #fff; }
+.msg.nova { align-self: flex-start; background: var(--carta); border: 1px solid var(--bordo); }
+.stato { color: var(--tenue); font-size: 14px; display: flex; gap: 8px; align-items: center; }
+.veloce { background: rgba(46,196,182,.18); color: var(--turchese-scuro); border-radius: 999px; padding: 1px 8px; font-weight: 700; font-size: 12px; }
+.conferma { border: 1.5px solid #D9822B; border-radius: 18px; padding: 14px; background: var(--carta); }
+.conferma .bottoni { display: flex; gap: 8px; justify-content: flex-end; margin-top: 10px; }
+.conferma button { border-radius: 12px; padding: 7px 14px; border: 1px solid var(--bordo); background: var(--chip); color: var(--testo); font-weight: 600; }
+.conferma button.si { background: linear-gradient(135deg, var(--blu), var(--turchese)); color: #fff; border: 0; }
+
+/* casella di Nova e dock */
+#fondo { position: fixed; left: 0; right: 0; bottom: 26px; display: flex; flex-direction: column; align-items: center; gap: 16px; }
+#casella { width: min(980px, 70vw); display: flex; align-items: center; gap: 14px; background: var(--carta); border: 1px solid var(--bordo);
+           border-radius: 28px; padding: 12px 14px 12px 16px; box-shadow: 0 14px 40px rgba(10,42,58,.14); }
+#casella input { flex: 1; border: 0; outline: 0; background: transparent; color: var(--testo); font-size: 20px; }
+#casella input::placeholder { color: var(--tenue); }
+.tasto { border: 1px solid var(--bordo); border-radius: 8px; padding: 2px 8px; font-size: 13px; color: var(--tenue); }
+#microfono { width: 46px; height: 46px; border-radius: 50%; border: 1px solid var(--bordo); background: var(--chip); font-size: 20px; }
+#microfono.attivo { background: var(--turchese); animation: pulsa 1.2s infinite; }
+@keyframes pulsa { 50% { box-shadow: 0 0 0 10px rgba(46,196,182,.15); } }
+/* la sfera di Nova: respira piano quando aspetta, gira e pulsa quando pensa */
+#sfera-nova { width: 44px; height: 44px; flex: none; border-radius: 50%; filter: drop-shadow(0 0 8px rgba(46,196,182,.45));
+              animation: galleggia 5s ease-in-out 3; }  /* poche volte: un'animazione continua consuma batteria */
+#sfera-nova.pensa { animation: pensa 1.1s cubic-bezier(.45,0,.55,1) infinite; filter: drop-shadow(0 0 16px rgba(46,196,182,.85)); }
+@keyframes galleggia { 50% { transform: translateY(-2px) scale(1.04); filter: drop-shadow(0 0 12px rgba(46,196,182,.6)); } }
+@keyframes pensa { 0% { transform: rotate(0) scale(1); } 50% { transform: rotate(180deg) scale(1.14); } 100% { transform: rotate(360deg) scale(1); } }
+.msg { animation: entra .3s cubic-bezier(.22,1,.36,1) both; }
+.app { transition: transform .2s cubic-bezier(.22,1,.36,1), box-shadow .2s; }
+.app:hover { box-shadow: 0 10px 24px rgba(0,0,0,.25); }
+.piastrella { display: grid; place-items: center; width: 100%; height: 100%; border-radius: 17px; box-shadow: inset 0 1px 0 rgba(255,255,255,.25); }
+.piastrella .icona { width: 32px; height: 32px; color: #fff; stroke-width: 1.7; }
+.icona { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+#microfono { display: grid; place-items: center; color: var(--testo); }
+#microfono .icona { width: 22px; height: 22px; }
+/* le schede accanto alla risposta */
+/* i widget a destra */
+#destra-col { overflow-y: auto; }
+.widget { cursor: pointer; }
+.carta { position: relative; }
+/* senza accelerazione della scheda video (driver mancante, macchina virtuale) la sfocatura «vetro» e le ombre
+   grandi si disegnano male, a rettangoli grigi, e rallentano tutto: carte piene, ombre leggere */
+body.senza-gpu .carta, body.senza-gpu #barra, body.senza-gpu .aperta.davanti { backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important; }
+body.senza-gpu .carta { background: var(--carta-piena, var(--chip)); box-shadow: 0 1px 3px rgba(3,12,18,.10); }
+body.senza-gpu .carta, body.senza-gpu .msg { animation: none !important; }
+button:focus-visible, a:focus-visible { outline: 2px solid var(--turchese); outline-offset: 2px; }
+.campo:focus { outline: none; border-color: var(--turchese) !important; box-shadow: 0 0 0 3px rgba(46,196,182,.22); }
+.chiudi-carta { position: absolute; top: 14px; right: 14px; }
+.sessione-app { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 0 12px; }
+.app-sessione { display: flex; align-items: center; gap: 8px; border: 1px solid var(--bordo); background: var(--chip);
+                color: var(--testo); border-radius: 12px; padding: 5px 10px 5px 5px; font-size: 13px; font-weight: 600;
+                max-width: 220px; }
+.app-sessione:hover { border-color: var(--turchese); }
+.app-sessione .app { width: 28px; height: 28px; flex: none; }
+.app-sessione span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.app-sessione.riaperta { opacity: .5; }
+.schermo-pc { margin-top: 10px; }
+.schermo-pc img { width: 100%; aspect-ratio: 16 / 9; object-fit: cover; border-radius: 10px; cursor: pointer;
+                  background: rgba(127,127,127,.15); display: block; }
+.schermo-pc img.spenta { opacity: .35; }
+.schermo-riga { display: flex; align-items: center; gap: 6px; margin-top: 6px; }
+.schermo-riga .con-icona { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.schermo-riga button.piccolo { font-size: .8rem; padding: 3px 10px; }
+.widget .testa-risultati .tipo { margin: 0; }
+.meteo-ora { display: flex; align-items: center; gap: 12px; }
+.meteo-simbolo { font-size: 38px; }
+.meteo-gradi { font-size: 38px; font-weight: 800; letter-spacing: -1px; }
+.meteo-cielo { color: var(--tenue); font-size: 13px; white-space: pre-line; line-height: 1.4; }
+.meteo-giorni { display: none; grid-template-columns: repeat(5, 1fr); gap: 4px; margin-top: 10px; text-align: center; }
+.widget.ampio .meteo-giorni { display: grid; }
+.meteo-giorno { display: flex; flex-direction: column; align-items: center; gap: 2px; font-size: 14px; }
+.meteo-giorno small { color: var(--tenue); font-size: 12px; }
+.mappa { position: relative; height: 150px; overflow: hidden; border-radius: 12px; background: var(--chip); margin-top: 6px;
+         transition: height .3s cubic-bezier(.22,1,.36,1); }
+.widget.ampio .mappa { height: 320px; }
+.mappa img { position: absolute; width: 256px; height: 256px; user-select: none; }
+.mappa .spillo { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -100%); font-size: 24px; }
+.mappa .crediti { position: absolute; right: 6px; bottom: 4px; font-size: 10px; color: #333; background: rgba(255,255,255,.7);
+                  padding: 0 4px; border-radius: 4px; }
+.orologio-ora { font-size: 36px; font-weight: 800; letter-spacing: -1px; }
+.nota-testo { white-space: pre-wrap; margin: 6px 0 0; }
+/* lo storico dei risultati, a sinistra: aperto su una risposta, prende il posto delle carte di oggi */
+#sinistra { overflow-y: auto; }
+.storico { display: contents; }
+body.storico-aperto #sinistra > .carta, body.storico-aperto #sinistra > .etichetta { display: none; }
+.indietro { border: 0; background: none; color: var(--turchese-scuro); font-weight: 700; padding: 4px 2px; }
+.risultati { display: flex; flex-direction: column; gap: 10px; max-height: 100%; overflow-y: auto; }
+.testa-risultati { display: flex; align-items: center; justify-content: space-between; }
+.testa-risultati .via { border: 0; background: none; color: var(--tenue); padding: 4px; }
+.voce-risultato { display: flex; gap: 12px; align-items: flex-start; text-align: left; border: 0; background: none; color: var(--testo);
+                  padding: 9px 8px; border-radius: 12px; width: 100%; }
+.voce-risultato:hover { background: var(--chip); }
+.voce-risultato .icona { color: var(--turchese); margin-top: 2px; }
+.testo-voce { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.testo-voce b { font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.testo-voce small { color: var(--tenue); font-size: 13px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.elenco-foto { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.foto-mini { border: 0; padding: 0; aspect-ratio: 1; border-radius: 10px; overflow: hidden; background: var(--chip); }
+.foto-mini img { width: 100%; height: 100%; object-fit: cover; transition: transform .2s; }
+.foto-mini:hover img { transform: scale(1.06); }
+.elenco-media { display: flex; flex-direction: column; gap: 12px; }
+.media { display: flex; gap: 12px; }
+.locandina { flex: none; width: 70px; height: 100px; border-radius: 10px; overflow: hidden; background: var(--chip);
+             display: grid; place-items: center; color: var(--tenue); }
+.locandina img { width: 100%; height: 100%; object-fit: cover; }
+.testo-media { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.testo-media small { color: var(--tenue); font-size: 13px; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.azioni-media { display: flex; gap: 6px; flex-wrap: wrap; }
+.azioni-media button { border: 1px solid var(--bordo); background: var(--chip); color: var(--testo); border-radius: 10px; padding: 4px 10px; font-size: 13px; }
+/* indicatore del volume e della luminosità, al centro della barra */
+#livello { position: fixed; top: 6px; left: 50%; transform: translate(-50%, -140%); display: flex; align-items: center; gap: 10px;
+           padding: 4px 14px; border-radius: 999px; background: var(--carta); border: 1px solid var(--bordo); box-shadow: var(--ombra);
+           backdrop-filter: blur(18px); z-index: 50; transition: transform .25s cubic-bezier(.22,1,.36,1), opacity .25s; opacity: 0; }
+#livello.visibile { transform: translate(-50%, 0); opacity: 1; }
+#ora { transition: opacity .2s; }
+body.con-livello #ora { opacity: 0; }
+#livello .traccia { width: 140px; height: 6px; border-radius: 3px; background: var(--chip); overflow: hidden; }
+#livello .riempi { height: 100%; background: linear-gradient(90deg, var(--blu), var(--turchese)); transition: width .15s; }
+#livello b { font-size: 13px; min-width: 38px; text-align: right; }
+.con-icona { display: inline-flex; align-items: center; gap: 6px; }
+.con-icona .icona { width: 16px; height: 16px; }
+#dock { display: flex; gap: 12px; background: var(--carta); border: 1px solid var(--bordo); border-radius: 26px; padding: 10px 14px; box-shadow: var(--ombra);
+        backdrop-filter: blur(24px) saturate(150%); -webkit-backdrop-filter: blur(24px) saturate(150%); }
+.app { width: 64px; height: 64px; border-radius: 18px; border: 1px solid var(--bordo); background: var(--chip); position: relative;
+       display: grid; place-items: center; transition: transform .15s; }
+.app:hover { transform: translateY(-4px); }
+.app img { width: 42px; height: 42px; }
+.app .win { position: absolute; bottom: -6px; right: -4px; background: var(--blu); color: #fff; font-size: 10px; font-weight: 800;
+            border-radius: 6px; padding: 1px 5px; }
+.app .lettera { font-size: 24px; font-weight: 800; color: var(--turchese-scuro); }
+
+/* tutte le app */
+#tutte { position: fixed; inset: 40px 0 0 0; background: var(--fondo); z-index: 5; padding: 40px 10vw; overflow-y: auto; }
+#cerca-app { width: 100%; font-size: 22px; padding: 14px 20px; border-radius: 18px; border: 1px solid var(--bordo); background: var(--carta);
+             color: var(--testo); outline: 0; margin-bottom: 28px; }
+#griglia { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 22px; }
+.voce-app { display: flex; flex-direction: column; align-items: center; gap: 8px; border: 0; background: none; color: var(--testo); font-size: 14px; text-align: center; }
+.voce-app .app { width: 72px; height: 72px; }
+
+/* la shell divisa in tre superfici: barra (sopra alle app), casa (sotto), pannello (Nova sopra tutto) */
+body.barra { background: transparent; }
+body.barra > *:not(#barra) { display: none !important; }
+body.barra #barra { position: static; height: 100vh; }
+body.casa #barra { display: none !important; }
+body.casa #casa { top: 0; }
+body.casa #tutte { inset: 0; }
+
+/* pannello di Nova sopra le app (Super+Spazio) */
+body.pannello { background: transparent; }
+body.pannello #barra, body.pannello #casa > .colonna, body.pannello #saluto, body.pannello #sottotitolo,
+body.pannello #esempi, body.pannello #dock, body.pannello #tutte { display: none !important; }
+body.pannello #casa { display: block; top: 0; padding: 0; }
+body.pannello #centro { position: fixed; inset: 0; padding: 22px 22px 110px; background: var(--fondo); border-radius: 24px;
+                        border: 1px solid var(--bordo); }
+body.pannello #testa-pannello { display: flex !important; }
+#testa-pannello { align-items: center; gap: 12px; margin-bottom: 8px; }
+#testa-pannello h2 { margin: 0; font-size: 20px; }
+#testa-pannello span { color: var(--tenue); font-size: 13px; }
+body.pannello #fondo { bottom: 18px; }
+body.pannello #casella { width: calc(100vw - 36px); }
+body.pannello .tasto { display: none; }
+</style>
+<link rel="stylesheet" href="/static/apps.css">
+</head>
+<body>
+<div id="barra">
+  <span id="logo" title="Torna alla schermata">So<b>IA</b></span>
+  <div id="app-aperte"></div>
+  <span id="ora"></span>
+  <div id="destra">
+    <span class="badge" id="privacy"></span>
+    <span id="dispositivi" hidden></span>
+    <button id="campanella" title="Notifiche (Super+N)"></button>
+    <span id="volume" title="Volume"></span>
+    <span id="rete" title="Rete"></span>
+    <span id="batteria"></span>
+  </div>
+</div>
+
+<div id="casa">
+  <div class="colonna" id="sinistra">
+    <div class="etichetta">Oggi</div>
+  </div>
+  <div id="centro">
+    <div id="testa-pannello" hidden>
+      <svg class="sfera" viewBox="0 0 40 40"><use href="#orb"/></svg>
+      <div><h2>Nova</h2><span id="contesto">Chiedimi qualsiasi cosa, anche sopra un'app.</span></div>
+    </div>
+    <h1 id="saluto">Ciao.</h1>
+    <p id="sottotitolo">Cosa facciamo oggi? Puoi chiedermi qualsiasi cosa, a voce o scrivendo.</p>
+    <div id="esempi"></div>
+    <div id="conversazione" aria-live="polite"></div>
+  </div>
+  <div class="colonna" id="destra-col"></div>
+</div>
+
+<div id="fondo">
+  <form id="casella" autocomplete="off">
+    <svg id="sfera-nova" viewBox="0 0 40 40"><use href="#orb"/></svg>
+    <input id="testo" placeholder="Chiedimi qualsiasi cosa…" aria-label="Chiedi a Nova">
+    <span class="tasto">Super</span><span class="tasto">Spazio</span>
+    <button id="microfono" type="button" title="Parla con Nova (oppure di' «Nova»)"></button>
+  </form>
+  <div id="dock"></div>
+</div>
+
+<div id="vista" hidden></div>
+
+<div id="tutte" hidden>
+  <input id="cerca-app" placeholder="Cerca un'app…" aria-label="Cerca un'app">
+  <div id="griglia"></div>
+</div>
+
+<svg width="0" height="0" style="position:absolute">
+  <defs>
+    <linearGradient id="og" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#2EC4B6"/><stop offset="1" stop-color="#0B6E99"/></linearGradient>
+    <linearGradient id="oa" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#FBE3A0"/><stop offset="1" stop-color="#E9C46A"/></linearGradient>
+    <symbol id="orb" viewBox="0 0 40 40">
+      <circle cx="20" cy="20" r="18" fill="url(#og)"/>
+      <path d="M4 17 C 12 9, 26 7, 36 14 A 18 18 0 0 0 5 13 Z" fill="url(#oa)"/>
+      <path d="M3 24 C 13 17, 27 19, 37 25" stroke="#58D8C5" stroke-width="3" fill="none" opacity=".8"/>
+    </symbol>
+  </defs>
+</svg>
+
+<script src="/static/icone.js"></script>
+<script>
+"use strict";
+const $ = id => document.getElementById(id);
+const hash = new URLSearchParams(location.hash.slice(1));
+const TOKEN = hash.get("t") || "";
+const PARTE = new URLSearchParams(location.search + "&" + location.hash.slice(1)).get("parte") || "tutto";
+const PANNELLO = PARTE === "pannello";
+document.body.classList.add(PARTE);
+
+async function api(path, body) {
+  const r = await fetch(path, { method: body === undefined ? "GET" : "POST", headers: { "X-AIOS-Token": TOKEN,
+    "Content-Type": "application/json" }, body: body === undefined ? undefined : JSON.stringify(body) });
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(data.error || r.status);
+  return data;
+}
+const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+
+// --- orologio e barra -------------------------------------------------------------------------------
+const GIORNI = ["domenica", "lunedì", "martedì", "mercoledì", "giovedì", "venerdì", "sabato"];
+const MESI = ["gennaio","febbraio","marzo","aprile","maggio","giugno","luglio","agosto","settembre","ottobre","novembre","dicembre"];
+// il fuso lo dice SoIA (/api/aspetto): se il sistema è rimasto in UTC l'orologio mostra comunque l'ora di casa
+let fuso = "";
+function orologio() {
+  let p = {};
+  try {
+    for (const x of new Intl.DateTimeFormat("en-GB", { timeZone: fuso || undefined, weekday: "short", day: "numeric",
+      month: "numeric", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).formatToParts(new Date())) p[x.type] = x.value;
+  } catch { fuso = ""; return orologio(); }
+  const giorno = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].indexOf(p.weekday);
+  $("ora").textContent = `${GIORNI[giorno]} ${+p.day} ${MESI[p.month - 1]} · ${p.hour}:${p.minute}`;
+}
+setInterval(orologio, 10000); orologio();
+
+function mostraVolume(livello, muto) {
+  $("volume").replaceChildren(conIcona(muto || livello === 0 ? "muto" : "suono", muto ? "muto" : `${livello}%`));
+}
+// l'indicatore a comparsa (tasti del volume e della luminosità, o cambi fatti da un programma o da Nova)
+let livelloTimer = null;
+window.mostraLivello = (tipo, livello, muto) => {
+  if (tipo === "volume") mostraVolume(livello, muto);
+  let box = $("livello");
+  if (!box) { box = el("div"); box.id = "livello"; document.body.append(box); }
+  const barra = el("div", "riempi"); barra.style.width = `${muto ? 0 : Math.min(100, livello)}%`;
+  const traccia = el("div", "traccia"); traccia.append(barra);
+  box.replaceChildren(svgIcona(tipo === "luminosita" ? "luminosita" : (muto || livello === 0 ? "muto" : "suono")), traccia,
+                      el("b", "", muto ? "muto" : `${livello}%`));
+  box.classList.add("visibile"); document.body.classList.add("con-livello");
+  clearTimeout(livelloTimer);
+  livelloTimer = setTimeout(() => { box.classList.remove("visibile"); document.body.classList.remove("con-livello"); }, 1800);
+};
+
+function stato(s) {
+  if (s.volume != null) mostraVolume(s.volume, s.muto);
+  $("batteria").replaceChildren(...(s.batteria != null ? [conIcona(s.in_carica ? "carica" : "batteria", `${s.batteria}%`)] : []));
+  $("rete").replaceChildren(s.rete ? conIcona({ ethernet: "internet_cavo", gsm: "telefono", bt: "telefono" }[s.rete_tipo] || "wifi", "")
+                                   : conIcona("avviso", "senza rete"));
+  $("rete").title = s.rete_nome || "Nessuna rete: di' «Nova, collegati al Wi-Fi»";
+  const disp = s.dispositivi || [];
+  $("dispositivi").hidden = !disp.length;
+  $("dispositivi").replaceChildren(conIcona("telefono", `${disp.length} ${disp.length === 1 ? "dispositivo" : "dispositivi"}`));
+  $("dispositivi").title = disp.join(", ");
+}
+
+// Le finestre aperte nella barra: l'ordine non cambia mai da solo (una finestra nuova va in fondo, una chiusa
+// sparisce); quella davanti è evidenziata, subito al clic e poi con lo stato vero ogni 4 secondi.
+let ordineFinestre = [], ultimeFinestre = [], finestraDavanti = "";
+const chiaveFinestra = w => w.indirizzo || w.app_id;
+function nomeFinestra(w) {
+  return (w.title || w.app_id).replace(/\s+[—–-]\s+(?:Mozilla Firefox|Firefox|Chromium|Google Chrome)$/, "") || w.app_id;
+}
+function disegnaFinestre() {
+  const box = $("app-aperte"); box.replaceChildren();
+  const perChiave = new Map(ultimeFinestre.map(w => [chiaveFinestra(w), w]));
+  for (const k of ordineFinestre.slice(0, 8)) {
+    const w = perChiave.get(k);
+    const b = el("div", "aperta" + (k === finestraDavanti ? " davanti" : ""));
+    b.title = w.title || w.app_id;
+    const ic = el("span", "icona-finestra", (w.app_id || "?").replace(/^.*\./, "").slice(0, 1).toUpperCase());
+    if (!icone.has(w.app_id)) icone.set(w.app_id, api(`/api/icona/${encodeURIComponent(w.app_id)}`));
+    icone.get(w.app_id).then(i => { const img = el("img"); img.alt = ""; img.src = `data:${i.tipo};base64,${i.dati}`; ic.replaceChildren(img); ic.classList.add("con-img"); }).catch(() => {});
+    const nome = el("span", "nome-finestra", nomeFinestra(w));
+    const x = el("button", "x"); x.append(svgIcona("chiudi")); x.title = "Chiudi";
+    x.onclick = e => {
+      e.stopPropagation();
+      api("/api/finestra-chiudi", { app_id: w.app_id, indirizzo: w.indirizzo }).catch(() => {});
+      ordineFinestre = ordineFinestre.filter(o => o !== k); disegnaFinestre(); setTimeout(finestre, 600);
+    };
+    b.onclick = () => { finestraDavanti = k; disegnaFinestre(); api("/api/finestra", { app_id: w.app_id, indirizzo: w.indirizzo }).catch(() => {}); };
+    b.onauxclick = e => { if (e.button === 1) x.onclick(e); };  // clic con la rotellina: chiudi
+    b.append(ic, nome, x); box.append(b);
+  }
+}
+async function finestre() {
+  try {
+    const { finestre: elenco } = await api("/api/finestre");
+    ultimeFinestre = elenco;
+    const presenti = new Set(elenco.map(chiaveFinestra));
+    ordineFinestre = ordineFinestre.filter(k => presenti.has(k));
+    for (const w of elenco) if (!ordineFinestre.includes(chiaveFinestra(w))) ordineFinestre.push(chiaveFinestra(w));
+    const att = elenco.find(w => w.attiva);
+    finestraDavanti = att ? chiaveFinestra(att) : "";
+    disegnaFinestre();
+  } catch {}
+}
+$("logo").onclick = () => api("/api/casa-vai", {}).catch(() => {});
+
+// --- icone delle app ----------------------------------------------------------------------------------
+const icone = new Map();
+async function icona(app) {
+  const box = el("div", "app");
+  box.title = app.label || app.name;
+  const fallback = el("span", "lettera", (app.label || app.name || "?").slice(0, 1));
+  box.append(fallback);
+  if (app.windows) box.append(el("span", "win", "Win"));
+  if (app.vista || app.piastrella) { fallback.replaceWith(piastrella(app.vista || app.piastrella)); return box; }
+  try {
+    if (!icone.has(app.id)) icone.set(app.id, api(`/api/icona/${encodeURIComponent(app.id)}`));
+    const i = await icone.get(app.id);
+    const img = el("img"); img.alt = ""; img.src = `data:${i.tipo};base64,${i.dati}`;
+    fallback.replaceWith(img);
+  } catch {}
+  return box;
+}
+async function avvia(id) {
+  $("tutte").hidden = true;
+  if (id.startsWith("aios:")) return window.apriVista(id.slice(5));
+  try { await api("/api/avvia", { id }); } catch (e) { nova(`Non riesco ad aprire l'app: ${e.message}`); }
+}
+
+// --- la giornata -----------------------------------------------------------------------------------------
+function carta(c) {
+  const d = el("div", "carta");
+  if (c.tipo === "riepilogo") {
+    const h = el("h3"); h.innerHTML = `<svg class="sfera" viewBox="0 0 40 40"><use href="#orb"/></svg>`;
+    h.append(c.titolo); d.append(h);
+  } else {
+    d.append(el("div", "tipo", c.tipo === "scadenza" ? "📌 Trovata nei tuoi documenti" : "↪ Continua da dove eri"));
+    d.append(el("h3", "", "")); d.lastChild.innerHTML = c.titolo;
+  }
+  const p = el("p"); p.innerHTML = c.testo; d.append(p);
+  if (c.nota) { const n = el("p", "nota"); n.innerHTML = c.nota; d.append(n); }
+  if (c.programmi && c.programmi.length) {  // i programmi che erano aperti: si riaprono uno alla volta
+    const g = el("div", "sessione-app");
+    for (const pr of c.programmi) {
+      const b = el("button", "app-sessione"); b.title = pr.file ? `${pr.nome} con ${pr.file}` : `Riapri ${pr.nome}`;
+      icona({ id: pr.app, name: pr.nome }).then(i => b.prepend(i));
+      b.append(el("span", "", pr.file || pr.nome));
+      b.onclick = async () => { b.disabled = true; b.classList.add("riaperta");
+        await api("/api/sessione/riapri", { indice: pr.indice }).catch(() => {}); };
+      g.append(b);
+    }
+    d.append(g);
+  }
+  if (c.chiudibile) {
+    const x = el("button", "via chiudi-carta"); x.append(svgIcona("chiudi")); x.title = "Non riaprire niente";
+    x.onclick = () => { api("/api/sessione/no", {}).catch(() => {}); d.remove(); };
+    d.append(x);
+  }
+  if (c.azioni) {
+    const a = el("div", "azioni");
+    for (const az of c.azioni) {
+      const b = el("button", "", az.etichetta);
+      b.onclick = () => az.chiedi ? chiedi(az.chiedi) : (az.vista ? window.apriVista(az.vista) : window.apriFile({ percorso: az.apri }));
+      a.append(b);
+    }
+    d.append(a);
+  }
+  return d;
+}
+
+async function casa() {
+  let data;
+  try { data = await api("/api/casa"); } catch { return; }
+  $("saluto").textContent = data.saluto;
+  stato(data.stato || {});
+  const sin = $("sinistra"); sin.replaceChildren(el("div", "etichetta", "Oggi"));
+  for (const c of data.carte) sin.append(carta(c));
+  const st = el("div", "storico"); st.id = "storico"; sin.append(st); disegnaStorico();
+  const es = $("esempi"); es.replaceChildren();
+  if (!$("conversazione").childElementCount) {
+    for (const e of data.esempi) {
+      const b = el("button", "esempio", e);
+      b.onclick = () => chiedi(e.replace(/^\S+\s/, ""));
+      es.append(b);
+    }
+  }
+  const destra = $("destra-col"); destra.replaceChildren();
+  const disp = (data.stato || {}).dispositivi || [];
+  const dc = el("div", "carta");
+  dc.append(el("div", "tipo", "Dispositivi"));
+  if (disp.length) for (const n of disp) { const p = el("p"); p.append(conIcona("telefono", `${n} · vicino`)); dc.append(p); }
+  await disegnaSchermi(dc, disp.length);
+  destra.append(dc);
+  await disegnaWidget(destra, dc);
+  if (window.cartaPrimiPassi) window.cartaPrimiPassi();
+  const dock = $("dock"); dock.replaceChildren();
+  for (const app of data.dock) {
+    const b = el("button", "", null); b.style.cssText = "border:0;background:none;padding:0";
+    b.append(await icona(app)); b.onclick = () => avvia(app.id); dock.append(b);
+  }
+  const tutte = el("button", "", null); tutte.style.cssText = "border:0;background:none;padding:0";
+  const t = el("div", "app"); t.title = "Tutte le app"; t.append(el("span", "lettera", "⋯"));
+  tutte.append(t); tutte.onclick = mostraTutte; dock.append(tutte);
+}
+
+// --- Schermo SoIA: gli altri tuoi PC accesi, con l'anteprima dal vivo (schermo/azioni.py) ---------------------
+let anteprime = null;
+async function disegnaSchermi(dc, telefoni) {
+  const r = await api("/api/schermi").catch(() => ({ dispositivi: [] }));
+  clearInterval(anteprime);
+  if (!r.dispositivi.length) {
+    if (!telefoni) dc.append(el("p", "nota", "Nessun altro dispositivo acceso. Di' «Nova, collega il telefono», o accendi un altro PC con la tua identità SoIA."));
+    return;
+  }
+  const imgs = [];
+  for (const d of r.dispositivi) {
+    const box = el("div", "schermo-pc");
+    const img = el("img"); img.alt = `Schermo di ${d.nome}`; img.draggable = false;
+    const src = () => `/api/schermi/${d.id}/anteprima.jpg?${tokenQ}&t=${Date.now()}`;
+    img.src = src(); imgs.push([img, src]);
+    img.onerror = () => img.classList.add("spenta");
+    img.onload = () => img.classList.remove("spenta");
+    img.onclick = () => apriSchermo(d);
+    const riga = el("div", "schermo-riga");
+    riga.append(conIcona("schermo", d.nome));
+    const apri = el("button", "piccolo", "Apri"); apri.onclick = () => apriSchermo(d);
+    const manda = el("button", "piccolo", "Manda file");
+    manda.onclick = () => api(`/api/schermi/${d.id}/manda`, {}).catch(() => {});
+    riga.append(apri, manda);
+    box.append(img, riga);
+    dc.append(box);
+  }
+  anteprime = setInterval(() => { if (!document.hidden) imgs.forEach(([i, s]) => { i.src = s(); }); }, 5000);
+}
+async function apriSchermo(d) {
+  const r = await api(`/api/schermi/${d.id}/guarda`, {}).catch(() => null);
+  if (r && !r.ok && r.messaggio) alert(r.messaggio);
+}
+
+// --- i widget a destra (widget.py): meteo, mappa, orologio, nota; li aggiunge Nova, si tolgono con la × ----------
+let orologi = null;
+async function disegnaWidget(col, prima) {
+  const r = await api("/api/widget").catch(() => ({ widget: [] }));
+  clearInterval(orologi);
+  const ore = [];
+  for (const w of r.widget) {
+    const c = el("div", `carta widget w-${w.tipo}`);
+    const testa = el("div", "testa-risultati");
+    const via = el("button", "via"); via.append(svgIcona("chiudi")); via.title = "Togli dalla home";
+    via.onclick = async e => { e.stopPropagation(); await api("/api/widget/via", { id: w.id }).catch(() => {}); c.remove(); };
+    testa.append(el("div", "tipo", w.titolo), via);
+    c.append(testa);
+    c.onclick = () => c.classList.toggle("ampio");  // un tocco: più grande, con più dettagli
+    c.title = "Tocca per ingrandire";
+    if (w.errore) c.append(el("p", "nota", `Non disponibile adesso (${w.errore}).`));
+    else if (w.tipo === "meteo") {
+      const ora = el("div", "meteo-ora");
+      ora.append(el("span", "meteo-simbolo", w.simbolo), el("span", "meteo-gradi", `${w.temperatura}°`),
+                 el("span", "meteo-cielo", `${w.cielo}\npercepita ${w.percepita}° · vento ${w.vento} km/h`));
+      const giorni = el("div", "meteo-giorni");
+      for (const g of w.giorni) {
+        const d = el("div", "meteo-giorno");
+        d.append(el("small", "", g.giorno), el("span", "", g.simbolo), el("b", "", `${g.max}°`), el("small", "", `${g.min}°`));
+        if (g.pioggia != null) d.title = `pioggia ${g.pioggia}%`;
+        giorni.append(d);
+      }
+      c.append(ora, giorni);
+    } else if (w.tipo === "mappa") {
+      const m = el("div", "mappa");
+      const tx = Math.floor(w.x), ty = Math.floor(w.y);
+      for (let dx = -2; dx <= 2; dx++) for (let dy = -2; dy <= 2; dy++) {
+        const img = el("img"); img.alt = ""; img.loading = "lazy"; img.draggable = false;
+        img.src = `/api/mappa/${w.zoom}/${tx + dx}/${ty + dy}.png?${tokenQ}`;
+        img.style.left = `calc(50% + ${(tx + dx - w.x) * 256}px)`; img.style.top = `calc(50% + ${(ty + dy - w.y) * 256}px)`;
+        m.append(img);
+      }
+      m.append(el("span", "spillo", "📍"), el("small", "crediti", "© OpenStreetMap"));
+      c.append(m);
+      if (w.zona) c.append(el("p", "nota", w.zona));
+    } else if (w.tipo === "orologio") {
+      const t = el("div", "orologio-ora"), d = el("p", "nota");
+      const aggiorna = () => {
+        const adesso = new Date();
+        t.textContent = adesso.toLocaleTimeString("it-IT", { timeZone: w.fuso, hour: "2-digit", minute: "2-digit" });
+        d.textContent = `${adesso.toLocaleDateString("it-IT", { timeZone: w.fuso, weekday: "long", day: "numeric", month: "long" })} · ${w.fuso}`;
+      };
+      aggiorna(); ore.push(aggiorna);
+      c.append(t, d);
+    } else if (w.tipo === "nota") c.append(el("p", "nota-testo", w.testo));
+    col.insertBefore(c, prima);
+  }
+  if (ore.length) orologi = setInterval(() => ore.forEach(f => f()), 20000);
+}
+
+async function mostraTutte() {
+  $("tutte").hidden = false;
+  const r = await api("/api/app").catch(() => ({ app: [], aios: [] }));
+  const app = [...(r.aios || []), ...r.app];
+  const griglia = $("griglia");
+  const disegna = async filtro => {
+    griglia.replaceChildren();
+    const f = filtro.toLowerCase();
+    for (const a of app.filter(a => !f || (a.name + " " + (a.keywords || "")).toLowerCase().includes(f))) {
+      const b = el("button", "voce-app"); b.append(await icona(a), el("span", "", a.name));
+      b.onclick = () => avvia(a.id); griglia.append(b);
+    }
+  };
+  $("cerca-app").value = ""; $("cerca-app").oninput = e => disegna(e.target.value);
+  $("cerca-app").focus();
+  disegna("");
+}
+document.addEventListener("keydown", e => { if (e.key === "Escape") $("tutte").hidden = true; });
+
+// --- Nova ------------------------------------------------------------------------------------------------
+// Grafica senza scheda video (llvmpipe, SwiftShader…): niente vetro sfocato (vedi body.senza-gpu nel CSS)
+(() => {
+  try {
+    const gl = document.createElement("canvas").getContext("webgl");
+    const info = gl && gl.getExtension("WEBGL_debug_renderer_info");
+    const r = gl ? String(gl.getParameter(info ? info.UNMASKED_RENDERER_WEBGL : gl.RENDERER)) : "";
+    if (!gl || /llvmpipe|softpipe|swiftshader|software|lavapipe/i.test(r)) document.body.classList.add("senza-gpu");
+  } catch { document.body.classList.add("senza-gpu"); }
+})();
+const conv = $("conversazione");
+function giu() { conv.scrollTop = conv.scrollHeight; }
+// Ogni domanda ha il suo spazio subito sotto: stati, conferme e risposta ci finiscono dentro, anche se
+// nel frattempo l'utente ha già chiesto altro (le richieste vanno avanti insieme o in coda).
+function io(t) {
+  $("esempi").replaceChildren(); $("sottotitolo").hidden = true; document.body.classList.add("in-chat");
+  const blocco = el("div", "blocco");
+  conv.append(el("div", "msg io", t), blocco); giu();
+  return blocco;
+}
+function nova(t, dove = conv) { dove.append(el("div", "msg nova", t)); giu(); }
+function riga(t, veloce, dove = conv) {
+  const s = el("div", "stato", t);
+  if (veloce) s.append(el("span", "veloce", veloce));
+  dove.append(s); giu();
+  return s;
+}
+
+// --- le schede accanto alla risposta: file, link, film e serie, foto ---------------------------------------
+const tokenQ = `t=${encodeURIComponent(TOKEN)}`;
+// I risultati da vedere (file, foto, link, film…) finiscono a sinistra, nello storico delle ultime 10 risposte:
+// toccandone una si vedono i suoi risultati al posto della lista, con «indietro» per tornare alla lista.
+const STORICO = "aios-risultati", STORICO_MAX = 10;
+let storico = (() => { try { return JSON.parse(localStorage.getItem(STORICO)) || []; } catch { return []; } })();
+let storicoAperto = null;
+// lo storico resta sul disco del PC (risultati.json): la pagina della shell non conserva i suoi dati tra un riavvio e l'altro
+function salvaStorico() {
+  try { localStorage.setItem(STORICO, JSON.stringify(storico)); } catch {}
+  api("/api/storico/salva", { storico }).catch(() => {});
+}
+api("/api/storico").then(r => { if (r.storico && r.storico.length && !storico.length) { storico = r.storico; disegnaStorico(); } }).catch(() => {});
+const SIMBOLO_RISULTATI = { file: "documento", foto: "foto", link: "internet", media: "video" };
+function boxRisultati(ev) {
+  const lista = el("div", `elenco-${ev.tipo}`);
+  for (const [i, it] of ev.elementi.entries()) lista.append(scheda(ev.tipo, it, ev.elementi, i));
+  return lista;
+}
+function mostraSchede(ev, domanda = "") {
+  if (PANNELLO) {  // nel pannello sopra le app: dentro la conversazione
+    const box = el("div", "carta risultati");
+    box.append(el("div", "tipo", ev.titolo || "Risultati"), boxRisultati(ev));
+    conv.append(box); giu(); return;
+  }
+  storico = [{ domanda, titolo: ev.titolo || "Risultati", tipo: ev.tipo, elementi: ev.elementi, quando: Date.now() },
+             ...storico].slice(0, STORICO_MAX);
+  salvaStorico();
+  storicoAperto = 0;  // i risultati appena arrivati si vedono subito
+  disegnaStorico();
+}
+function disegnaStorico() {
+  const box = $("storico");
+  if (!box) return;
+  box.replaceChildren();
+  const r = storicoAperto !== null ? storico[storicoAperto] : null;
+  document.body.classList.toggle("storico-aperto", !!r);
+  if (r) {
+    const testa = el("div", "testa-risultati");
+    const indietro = el("button", "indietro", "‹ Indietro");
+    indietro.onclick = () => { storicoAperto = null; disegnaStorico(); };
+    const via = el("button", "via"); via.append(svgIcona("chiudi")); via.title = "Togli dallo storico";
+    via.onclick = () => { storico.splice(storicoAperto, 1); salvaStorico(); storicoAperto = null; disegnaStorico(); };
+    testa.append(indietro, via);
+    const c = el("div", "carta risultati");
+    c.append(testa, el("div", "tipo", r.titolo));
+    if (r.domanda) c.append(el("p", "nota", `«${r.domanda}»`));
+    c.append(boxRisultati(r));
+    box.append(c);
+    return;
+  }
+  if (!storico.length) return;
+  const c = el("div", "carta risultati");
+  c.append(el("div", "tipo", "Risultati recenti"));
+  for (const [i, x] of storico.entries()) {
+    const v = el("button", "voce-risultato");
+    v.append(svgIcona(SIMBOLO_RISULTATI[x.tipo] || "documento"));
+    const t = el("div", "testo-voce");
+    const ora = new Date(x.quando).toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" });
+    t.append(el("b", "", x.domanda || x.titolo), el("small", "", `${x.titolo} · ${x.elementi.length} ${x.elementi.length === 1 ? "risultato" : "risultati"} · ${ora}`));
+    v.append(t);
+    v.onclick = () => { storicoAperto = i; disegnaStorico(); };
+    c.append(v);
+  }
+  box.append(c);
+}
+function scheda(tipo, it, tutti, i) {
+  if (tipo === "foto") {
+    const b = el("button", "foto-mini"); b.title = `${it.titolo} · ${it.sottotitolo || ""}`;
+    const img = el("img"); img.loading = "lazy"; img.alt = it.titolo;
+    img.src = `/api/miniatura-file?p=${encodeURIComponent(it.percorso)}&${tokenQ}`;
+    b.append(img);
+    b.onclick = () => lampada(tutti.map(f => ({ ...f, nome: f.titolo })), i);
+    return b;
+  }
+  if (tipo === "media") {
+    const c = el("div", "media");
+    const img = el("div", "locandina"); img.append(svgIcona(it.tipo === "libro" ? "documento" : "video"));
+    const testo = el("div", "testo-media");
+    const nome = el("b", "", it.titolo + (it.anno ? ` (${it.anno})` : ""));
+    const est = el("small", "", it.estratto || it.sottotitolo || "");
+    const azioni = el("div", "azioni-media");
+    testo.append(nome, est, azioni);
+    c.append(img, testo);
+    const metti = (d) => {
+      const src = d.immagine || it.immagine;
+      if (src) { const im = el("img"); im.alt = ""; im.src = `/api/miniatura?u=${encodeURIComponent(src)}&${tokenQ}`; im.onerror = () => im.remove(); img.replaceChildren(im); }
+      if (d.estratto && !it.estratto) est.textContent = d.estratto;
+      if (d.dove) azioni.append(bottone("Dove vederlo", () => { location.href = d.dove; }, ""));
+      if (d.url) azioni.append(bottone("Scheda", () => { location.href = d.url; }, ""));
+    };
+    api(`/api/scheda?titolo=${encodeURIComponent(it.titolo)}&tipo=${encodeURIComponent(it.tipo || "film")}`).then(metti).catch(() => metti({}));
+    return c;
+  }
+  const r = el("button", "voce-risultato");
+  r.append(svgIcona(tipo === "link" ? "internet" : SIMBOLO_FILE(it.percorso)));
+  const t = el("div", "testo-voce");
+  t.append(el("b", "", it.titolo), el("small", "", [it.sottotitolo, it.estratto].filter(Boolean).join(" · ")));
+  r.append(t);
+  r.onclick = tipo === "link" ? () => { location.href = it.url; } : () => apriFile({ percorso: it.percorso });
+  return r;
+}
+const SIMBOLO_FILE = p => ({ immagine: "foto", audio: "musica", video: "video", testo: "note" }[tipoDa(p)] || "documento");
+
+let inVolo = 0;  // richieste in corso: se ne può fare un'altra mentre Nova lavora alla precedente
+async function chiedi(text, aVoce = false) {
+  if (!text) return;
+  inVolo++; const dove = io(text);
+  $("testo").value = ""; $("sfera-nova").classList.add("pensa");
+  const inizio = performance.now();
+  let risposta = "", veloce = false, inCorso = null, coda = null;
+  try {
+    const { job } = await api("/api/ask", { text });
+    let next = 0, mostrata = false;
+    for (;;) {
+      const s = await api(`/api/job/${job}?after=${next}`);
+      next = s.next;
+      for (const ev of s.events) {
+        if (ev.kind === "fast") veloce = true;
+        if (ev.kind === "lento") veloce = false;
+        if (ev.kind === "coda") coda = riga("⏳ in coda: rispondo appena finisco la richiesta di prima", null, dove);
+        if (ev.kind === "status") { coda?.remove(); coda = null; riga(ev.text, null, dove); }
+        if (ev.kind === "schede") mostraSchede(ev, text);
+        if (ev.kind === "ricomincia" && inCorso) inCorso.textContent = "";  // Nova ricontrolla e riscrive
+        if (ev.kind === "token") {  // la risposta compare mentre Nova la scrive
+          if (!inCorso) { coda?.remove(); coda = null; inCorso = el("div", "msg nova", ""); dove.append(inCorso); }
+          inCorso.textContent += ev.text; giu();
+        }
+      }
+      if (s.pending && !mostrata) { mostrata = true; conferma(job, s.pending.label, s.pending.warning, aVoce, dove); }
+      if (!s.pending) mostrata = false;
+      if (s.done) { risposta = s.answer; break; }
+      await new Promise(r => setTimeout(r, 200));
+    }
+  } catch (e) { risposta = `Non riesco a parlare con Nova (${e.message}).`; }
+  coda?.remove();
+  if (--inVolo === 0) $("sfera-nova").classList.remove("pensa");
+  if (veloce && performance.now() - inizio < 5000) riga("capito all'istante", `⚡ ${Math.max(1, Math.round(performance.now() - inizio))} ms`, dove);
+  if (inCorso) inCorso.textContent = risposta; else nova(risposta, dove);
+  if (aVoce) api("/api/parla", { testo: risposta }).catch(() => {});
+  if (inVolo === 0) { aspetto(); if (!PANNELLO) setTimeout(casa, 500); }
+}
+
+function conferma(job, label, warning, aVoce, dove = conv) {
+  const box = el("div", "conferma");
+  box.append(el("div", "", (warning ? `Attenzione: ${warning}\n` : "") + `Confermi? ${label}`));
+  const bottoni = el("div", "bottoni");
+  const no = el("button", "", "Annulla"), si = el("button", "si", "Procedi");
+  let deciso = false;
+  const decidi = ok => {
+    if (deciso) return; deciso = true;
+    si.disabled = no.disabled = true; box.firstChild.textContent += ok ? "  ✓" : "  ✕";
+    api(`/api/job/${job}/confirm`, { ok }).catch(() => {});
+  };
+  si.onclick = () => decidi(true); no.onclick = () => decidi(false);
+  bottoni.append(no, si); box.append(bottoni); dove.append(box); giu(); si.focus();
+  if (aVoce) {  // anche a voce: «sì» / «no»
+    api("/api/parla", { testo: `${warning ? warning + ". " : ""}Confermi? ${label}` })
+      .then(() => api("/api/ascolta-si-no", {}))
+      .then(r => { if (r.risposta === true || r.risposta === false) decidi(r.risposta); }).catch(() => {});
+  }
+}
+
+$("casella").addEventListener("submit", e => { e.preventDefault(); chiedi($("testo").value.trim()); });
+$("microfono").onclick = async () => {
+  const m = $("microfono"); m.classList.add("attivo");
+  try {
+    const { testo } = await api("/api/ascolta", {});
+    m.classList.remove("attivo");
+    if (testo) chiedi(testo, true); else nova("Non ho sentito: riprova, o scrivi.");
+  } catch (e) { m.classList.remove("attivo"); nova(`Microfono non disponibile (${e.message}).`); }
+};
+document.addEventListener("keydown", e => {
+  if (e.key.length === 1 && !["INPUT", "TEXTAREA"].includes(document.activeElement.tagName) && $("tutte").hidden
+      && !document.body.classList.contains("in-vista")) $("testo").focus();
+});
+
+// carattere e dimensione del testo scelti dall'utente (Impostazioni › Aspetto o «ingrandisci il testo»)
+let aspettoOra = "";
+async function aspetto() {
+  const a = await api("/api/aspetto").catch(() => null);
+  if (!a || JSON.stringify(a) === aspettoOra) return;
+  aspettoOra = JSON.stringify(a);
+  if (a.fuso && a.fuso !== fuso) { fuso = a.fuso; orologio(); }
+  document.documentElement.style.setProperty("--carattere", `"${a.carattere}"`);
+  document.body.classList.toggle("contrasto", !!a.contrasto);  // Accessibilità › Contrasto alto
+  document.body.classList.toggle("fermo", !!a.meno_animazioni);  // Accessibilità › Meno animazioni
+  // la barra ha un'altezza fissa: lì cambia solo il carattere
+  aspettoScala = a.scala;
+  adattaAlloSchermo();
+}
+// La schermata è disegnata per schermi larghi (1700 px circa): su quelli più piccoli (1366×768, 1440×900)
+// si rimpicciolisce da sola, così ci sta tutto; la scelta dell'utente (Testo e carattere) si somma.
+let aspettoScala = 1;
+function adattaAlloSchermo() {
+  const auto = Math.min(1, Math.max(0.72, window.innerWidth / 1700, window.innerHeight / 1000));
+  document.documentElement.style.zoom = PARTE === "barra" ? 1 : (auto * aspettoScala).toFixed(3);
+}
+window.addEventListener("resize", adattaAlloSchermo);
+window.novaAspetto = aspetto;
+aspetto(); setInterval(aspetto, 15000);
+
+// chiamate dalla shell (Super+Spazio, voce)
+window.novaChiedi = (t, aVoce) => chiedi(t, aVoce);
+window.novaFocus = () => $("testo").focus();
+
+// la campanella: quante notifiche nuove, e se è «non disturbare»; al clic il centro notifiche
+async function campanella() {
+  const c = await api("/api/notifiche/conta").catch(() => null);
+  if (!c) return;
+  const b = $("campanella");
+  b.replaceChildren(svgIcona(c.silenzio ? "disturbare" : "notifiche"));
+  if (c.non_lette) b.append(el("span", "conta", c.non_lette > 9 ? "9+" : String(c.non_lette)));
+  b.classList.toggle("silenzio", !!c.silenzio);
+  b.title = c.silenzio ? `Non disturbare (${c.silenzio})` : c.non_lette ? `${c.non_lette} notifiche nuove` : "Notifiche (Super+N)";
+}
+$("campanella").onclick = () => { api("/api/pannello", { quale: "notifiche" }).catch(() => {}); setTimeout(campanella, 2500); };
+if (PARTE === "barra") {
+  campanella(); setInterval(campanella, 8000);
+  // batteria: controlli rari (finestre ogni 4 s, stato ogni minuto)
+  api("/api/stato").then(stato).catch(() => {});
+  setInterval(finestre, 4000);
+  setInterval(() => api("/api/stato").then(stato).catch(() => {}), 60000);
+  finestre();
+} else if (PANNELLO) {
+  $("saluto").hidden = true;
+} else {
+  casa();
+  setInterval(casa, 60000);
+  if (PARTE === "tutto") {
+    campanella(); setInterval(campanella, 8000);
+    setInterval(finestre, 4000);
+    setInterval(() => api("/api/stato").then(stato).catch(() => {}), 60000);
+  }
+}
+$("microfono").append(svgIcona("voce"));
+$("privacy").append(conIcona("privacy", "AI in locale"));
+$("testo").focus();
+</script>
+<script src="/static/apps.js"></script>
+</body>
+</html>

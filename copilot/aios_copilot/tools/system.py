@@ -62,5 +62,6 @@ def make_tools(runner: Runner | None = None) -> list[Tool]:
             "l'applicazione predefinita.",
             params(target="Percorso o URL da aprire"),
             open_location,
+            sends_out=True,  # un indirizzo web può contenere dati
         ),
     ]
