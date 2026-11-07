@@ -180,3 +180,45 @@ def test_adopted_experts_model_is_remembered_and_released(monkeypatch):
     monkeypatch.setattr(trial, "run_trial", lambda name, call=None: trial.Result(name, 0.9, 2.0, []))
     adopt, why = learning._trial_text_model(QWEN3.name)
     assert not adopt and "lento" in why and stopped == [1, 1]
+
+
+class StreamingLlamaServer(BaseHTTPRequestHandler):
+    """Risponde a pezzi (SSE), come llama-server con stream: testo e chiamate agli strumenti a frammenti."""
+
+    seen: list = []
+
+    def log_message(self, *a):
+        pass
+
+    def do_POST(self):
+        body = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
+        StreamingLlamaServer.seen.append(body)
+        if body["messages"][-1]["role"] == "tool":
+            chunks = [{"content": "Sono "}, {"content": "le 10:00."}]
+        else:
+            chunks = [{"tool_calls": [{"index": 0, "function": {"name": "ora", "arguments": ""}}]},
+                      {"tool_calls": [{"index": 0, "function": {"arguments": '{"zona": '}}]},
+                      {"tool_calls": [{"index": 0, "function": {"arguments": '"Roma"}'}}]}]
+        self.send_response(200)
+        self.send_header("Content-Type", "text/event-stream")
+        self.end_headers()
+        for c in chunks:
+            self.wfile.write(f"data: {json.dumps({'choices': [{'delta': c}]})}\n\n".encode())
+        self.wfile.write(b"data: [DONE]\n\n")
+
+
+def test_llama_server_streams_with_a_fixed_slot():
+    server = HTTPServer(("127.0.0.1", 0), StreamingLlamaServer)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    client = LlamaServerClient(f"http://127.0.0.1:{server.server_address[1]}", "qwen3.5:4b", slot=0)
+    asked = []
+    tools = [Tool("ora", "Che ore sono", params(zona="Fuso"), lambda zona: asked.append(zona) or "10:00")]
+    words = []
+    agent = Agent(client, tools, confirm=lambda *a, **k: True)
+    assert agent.ask("che ore sono a Roma?", on_event=lambda kind, data: words.append(data) if kind == "token" else None) \
+        == "Sono le 10:00."
+    assert asked == ["Roma"]  # gli argomenti ricomposti dai frammenti
+    sent = StreamingLlamaServer.seen[-1]
+    assert sent["id_slot"] == 0 and sent["stream"] is True and sent["cache_prompt"] is True
+    assert sent["chat_template_kwargs"] == {"enable_thinking": False}
+    server.shutdown()

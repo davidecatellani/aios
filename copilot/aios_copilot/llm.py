@@ -68,20 +68,82 @@ class ChatModel(Protocol):
 
 
 class LlamaServerClient:
-    """Per i modelli a esperti sistemati tra GPU, RAM e disco (moe.py): llama.cpp con API OpenAI."""
+    """llama.cpp con API OpenAI: i modelli a esperti sistemati tra GPU, RAM e disco (moe.py) e il modello di Nova.
 
-    def __init__(self, url: str, model: str, timeout: int = 300):
-        self.url, self.model, self.timeout = url.rstrip("/"), model, timeout
+    `slot`: il posto fisso della conversazione in llama-server. Le istruzioni e gli strumenti già letti restano lì e
+    la domanda dopo legge solo le parole nuove (prova velocita-1: 1,3 s invece di 33). I lavori di sottofondo usano
+    altri posti e non la cancellano. La risposta arriva parola per parola (on_token), come con Ollama."""
 
-    def chat(self, messages: list[dict[str, Any]], tools: list[dict[str, Any]]) -> dict[str, Any]:
-        from .moe import _post, from_openai, to_openai
+    supports_stream = True
+
+    def __init__(self, url: str, model: str, timeout: int = 300, slot: int | None = None):
+        self.url, self.model, self.timeout, self.slot = url.rstrip("/"), model, timeout, slot
+        self.think = False
+
+    def _payload(self, messages: list[dict[str, Any]], tools: list[dict[str, Any]], **extra: Any) -> dict[str, Any]:
+        from .moe import to_openai
+
+        payload: dict[str, Any] = {"messages": to_openai(messages), "tools": tools or None, "cache_prompt": True,
+                                   "chat_template_kwargs": {"enable_thinking": bool(self.think)}, **extra}
+        if self.slot is not None:
+            payload["id_slot"] = self.slot
+        return {k: v for k, v in payload.items() if v is not None}
+
+    def chat(self, messages: list[dict[str, Any]], tools: list[dict[str, Any]],
+             on_token: Callable[[str], None] | None = None) -> dict[str, Any]:
+        from .moe import _post, from_openai
 
         try:
-            return from_openai(_post(f"{self.url}/v1/chat/completions",
-                                     {"messages": to_openai(messages), "tools": tools or None}, self.timeout))
+            if on_token is not None:
+                return self._stream(self._payload(messages, tools, stream=True), on_token)
+            return from_openai(_post(f"{self.url}/v1/chat/completions", self._payload(messages, tools), self.timeout))
         except urllib.error.URLError as exc:
-            raise LLMError(f"Non riesco a contattare il modello a esperti su {self.url} "
-                           "(systemctl --user status aios-esperti).") from exc
+            raise LLMError(f"Non riesco a contattare il modello su {self.url}.") from exc
+
+    def _stream(self, payload: dict[str, Any], on_token: Callable[[str], None]) -> dict[str, Any]:
+        """La risposta a pezzi (SSE): il testo va subito a on_token; le chiamate agli strumenti arrivano a frammenti
+        (nome, poi gli argomenti come testo) e si ricompongono alla fine."""
+        req = urllib.request.Request(f"{self.url}/v1/chat/completions", data=json.dumps(payload).encode(),
+                                     headers={"Content-Type": "application/json"})
+        content: list[str] = []
+        calls: dict[int, dict[str, str]] = {}
+        with urllib.request.urlopen(req, timeout=self.timeout) as resp:
+            if resp.headers.get_content_type() != "text/event-stream":  # un server che risponde tutto insieme
+                from .moe import from_openai
+
+                message = from_openai(json.loads(resp.read()))
+                if message.get("content") and not message.get("tool_calls"):
+                    on_token(message["content"])
+                return message
+            for raw in resp:
+                line = raw.decode(errors="replace").strip()
+                if not line.startswith("data:") or line.endswith("[DONE]"):
+                    continue
+                try:
+                    delta = json.loads(line[5:])["choices"][0].get("delta") or {}
+                except (ValueError, KeyError, IndexError):
+                    continue
+                for c in delta.get("tool_calls") or []:
+                    slot = calls.setdefault(int(c.get("index", 0)), {"name": "", "arguments": ""})
+                    fn = c.get("function") or {}
+                    slot["name"] += fn.get("name") or ""
+                    slot["arguments"] += fn.get("arguments") or ""
+                piece = delta.get("content") or ""
+                if piece:
+                    content.append(piece)
+                    if not calls:
+                        on_token(piece)
+        message: dict[str, Any] = {"role": "assistant", "content": "".join(content)}
+        if calls:
+            out = []
+            for _, c in sorted(calls.items()):
+                try:
+                    args = json.loads(c["arguments"] or "{}")
+                except ValueError:
+                    args = {}
+                out.append({"function": {"name": c["name"], "arguments": args}})
+            message["tool_calls"] = out
+        return message
 
     def warmup(self, messages: list[dict[str, Any]], tools: list[dict[str, Any]]) -> None:
         pass  # llama-server tiene già il modello caricato
