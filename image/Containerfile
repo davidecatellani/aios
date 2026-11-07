@@ -348,7 +348,7 @@ RUN chmod 755 /usr/libexec/aios-nucleo /usr/libexec/aios-decisore /usr/bin/aios-
 # Il marchio di SoIA: logo all'avvio e all'accesso, nome del sistema, app tecniche nascoste dal menu
 COPY image/branding/ /tmp/aios-branding/
 RUN install -Dm644 /tmp/aios-branding/aios-logo-chiaro.png /usr/share/pixmaps/aios-logo-chiaro.png \
-    && install -Dm644 /tmp/aios-branding/aios-logo-chiaro.png /usr/share/plymouth/themes/spinner/watermark.png \
+    && install -Dm644 /tmp/aios-branding/aios-logo-avvio.png /usr/share/plymouth/themes/spinner/watermark.png \
     && rm -rf /tmp/aios-branding \
     && for app in org.gnome.Yelp nm-connection-editor system-config-printer ibus-setup org.gnome.Tour \
                   org.freedesktop.MalcontentControl; do \

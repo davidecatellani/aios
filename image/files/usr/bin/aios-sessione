@@ -33,6 +33,14 @@ if [ "${AIOS_COMPOSITORE:-hyprland}" != labwc ] && command -v Hyprland >/dev/nul
   cp -f "$config_home/aios/hyprland.conf" "$run/utente.conf" 2>/dev/null || : > "$run/utente.conf"
   # schermi, mouse e tastiera, accessibilità scelti nelle Impostazioni (li scrive hyprconf.py)
   cp -f "$config_home/aios/sistema-hyprland.conf" "$run/sistema.conf" 2>/dev/null || : > "$run/sistema.conf"
+  # dalla 0.53 le regole hanno una sintassi nuova («blur on, match:namespace …»): quella vecchia dà errori in alto
+  ver=$(Hyprland --version 2>/dev/null | sed -n 's/^Hyprland v\{0,1\}\([0-9][0-9]*\)\.\([0-9][0-9]*\).*/\1 \2/p' | head -n1)
+  major=${ver%% *}; minor=${ver##* }
+  if [ -n "$ver" ] && { [ "$major" -gt 0 ] || [ "$minor" -ge 53 ]; }; then
+    printf 'layerrule = blur on, match:namespace aios-pannello\nlayerrule = ignore_alpha 0, match:namespace aios-pannello\n' > "$run/regole.conf"
+  else
+    printf 'layerrule = blur, aios-pannello\nlayerrule = ignorezero, aios-pannello\n' > "$run/regole.conf"
+  fi
   sed "s#@RUN@#$run#g" /usr/share/aios/hyprland/hyprland.conf > "$run/hyprland.conf"
   # Se Hyprland non parte (si chiude entro pochi secondi), non si resta chiusi fuori: si apre la
   # sessione con labwc e l'errore resta nel registro (journalctl -t aios-sessione).
