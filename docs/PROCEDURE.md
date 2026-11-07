@@ -216,8 +216,12 @@ Noi possiamo farlo, ed è la cosa che decide se tenerlo:
       torna alla 3 con il problema scritto (al massimo tre giri);
    5. *riassunto* (modello, con un testo di riserva).
    Le fasi restano scritte in `lavoro/` accanto allo stato della copia personale. Si usa a fasi col modello del PC,
-   il ciclo libero di prima col cloud; `AIOS_PROGRAMMATORE=fasi|libero` lo decide a mano. Non ancora misurato con
-   un modello vero.
+   il ciclo libero di prima col cloud; `AIOS_PROGRAMMATORE=fasi|libero` lo decide a mano.
+   Misura (Release `programmatore-1`, qwen3.5:4b su CPU, 7 richieste × 3 giri, controllo visivo spento): lavori tutti
+   giusti 15/21 a fasi contro 10/21 libero (13/21 contando giusto «colore», dove il libero ha cambiato anche il
+   turchese di pannello.html: il controllo era troppo stretto); finiti 21/21 contro 16/21; token letti in media
+   18 500 contro 52 000; tempo uguale (~3,5 minuti). A fasi sbaglia quando il piano sceglie l'elemento sbagliato
+   («l'ora» → `#ora` della barra invece di `.orologio-ora` del widget; «testo grigio» → `--testo`).
 
 ## Deciso
 
