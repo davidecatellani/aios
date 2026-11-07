@@ -173,7 +173,7 @@ def pick_model() -> tuple[Any, str]:
         pass
     from .llm import make_client
 
-    m = make_client()
+    m = make_client(slot=1)  # il posto dei lavori lunghi: la conversazione con Nova resta pronta
     return m, getattr(m, "model", "locale")
 
 

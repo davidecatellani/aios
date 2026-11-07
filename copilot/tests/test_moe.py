@@ -222,3 +222,20 @@ def test_llama_server_streams_with_a_fixed_slot():
     assert sent["id_slot"] == 0 and sent["stream"] is True and sent["cache_prompt"] is True
     assert sent["chat_template_kwargs"] == {"enable_thinking": False}
     server.shutdown()
+
+
+def test_nova_client_uses_the_server_when_it_is_there(monkeypatch):
+    from aios_copilot import llm
+
+    up = [False]
+    client = llm.NovaClient("qwen3.5:4b", url="http://127.0.0.1:9", ready=lambda: up[0])
+    assert client.current() is client.ollama  # servizio spento: Ollama come prima
+    up[0] = True
+    assert client.current() is client.server and client.server.slot == 0
+    client.think = True
+    assert client.server.think and client.ollama.think
+    background = llm.make_client(slot=1)
+    assert isinstance(background, llm.NovaClient) and background.server.slot == 1
+    assert isinstance(llm.make_client("qwen3.5:9b"), OllamaClient)  # gli altri modelli restano su Ollama
+    llm._health.clear()
+    assert llm.server_ready("http://127.0.0.1:9") is False and llm._health["http://127.0.0.1:9"][1] is False

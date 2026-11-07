@@ -181,12 +181,12 @@ class BackgroundModel:
     def __init__(self, client: Any = None):
         from .llm import make_client
 
-        self.client = client or make_client()
+        self.client = client or make_client(slot=1)
 
     def chat(self, messages: list[dict[str, Any]], tools: list[dict[str, Any]]) -> dict[str, Any]:
-        from .llm import KEEP_ALIVE, NUM_CTX, THINKING_PREFIXES, LlamaServerClient, OllamaClient
+        from .llm import KEEP_ALIVE, NUM_CTX, THINKING_PREFIXES, LlamaServerClient, NovaClient, OllamaClient
 
-        c = self.client
+        c = self.client.current() if isinstance(self.client, NovaClient) else self.client
         if isinstance(c, OllamaClient):
             payload: dict[str, Any] = {"model": c.model, "messages": messages, "keep_alive": KEEP_ALIVE,
                                        "options": {"num_ctx": NUM_CTX, "temperature": 0}}
@@ -195,5 +195,7 @@ class BackgroundModel:
             return {"role": "assistant", "content": background_chat(f"{c.url}/api/chat", payload, resume=False)}
         if isinstance(c, LlamaServerClient):
             payload = {"messages": messages, "temperature": 0, "chat_template_kwargs": {"enable_thinking": False}}
+            if c.slot is not None:
+                payload["id_slot"] = c.slot  # il posto dei lavori di sottofondo, non quello della conversazione
             return {"role": "assistant", "content": background_chat(f"{c.url}/v1/chat/completions", payload, resume=False)}
         return c.chat(messages, tools)

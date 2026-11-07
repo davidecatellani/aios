@@ -4,7 +4,7 @@ import time
 import pytest
 
 from aios_copilot.agent import Agent
-from aios_copilot.llm import OllamaClient, make_client
+from aios_copilot.llm import OllamaClient, make_client, NovaClient
 from aios_copilot.mesh import delegate
 from aios_copilot.mesh.delegate import PHONE_ALLOWED, Assistant, Brain, HybridModel, PinError, RemoteBrain
 from aios_copilot.mesh.files import Devices, FileShare, PhoneServer
@@ -154,7 +154,8 @@ def test_phone_cannot_change_the_pc():
 
 
 def test_make_client_on_a_paired_phone(tmp_path):
-    assert isinstance(make_client(), OllamaClient)
+    client = make_client()
+    assert isinstance(client, NovaClient) and isinstance(client.ollama, OllamaClient)  # il 4B incluso: llama-server o Ollama
     path = delegate.pc_config_path()
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps({"url": "https://192.168.1.5:8743", "key": "k", "fingerprint": "ab", "pc": "Studio"}))

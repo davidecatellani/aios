@@ -279,6 +279,11 @@ RUN set -e; rm -f /usr/share/aios/nucleo/.gitkeep /usr/share/aios/nucleo/.gitign
       chmod -R a+rX /usr/share/aios/nucleo; systemctl enable aios-nucleo.service; \
     else echo "Nucleo senza adattatori: Nova userà Tev1"; fi
 
+# Il modello di Nova su llama-server (aios-modello.service, docs/VELOCITA.md): Qwen3.5 4B compresso (IQ4_XS, 2,7 GB),
+# con le istruzioni lette una volta e la risposta parola per parola. Se il servizio non c'è, Nova usa Ollama.
+ARG MODELLO_NOVA="https://huggingface.co/bartowski/Qwen_Qwen3.5-4B-GGUF/resolve/main/Qwen_Qwen3.5-4B-IQ4_XS.gguf"
+RUN set -e; if [ -n "$MODELLO_NOVA" ]; then       mkdir -p /usr/share/aios/modello;       for i in 1 2 3; do curl -fL --retry 3 -o /usr/share/aios/modello/nova.gguf "$MODELLO_NOVA" && break;         [ "$i" = 3 ] && exit 1; sleep 20; done;       test "$(stat -c %s /usr/share/aios/modello/nova.gguf)" -gt 1000000000;       chmod -R a+rX /usr/share/aios/modello; systemctl enable aios-modello.service;     else echo "Senza il modello su llama-server: Nova usa Ollama"; fi
+
 # Il decisore: Laya, il System One di Nova (copilot/aios_copilot/decisore.py), addestrato per SoIA
 # (flusso «Laya», Release «laya-N»: la mette in image/laya il flusso di costruzione). Ambito, azione, percorso,
 # posta, «è per Nova?», giochi: tutte le decisioni rapide in ~0,2 s. Gira con torch per CPU in un ambiente a
@@ -333,7 +338,7 @@ RUN systemctl enable ollama.service aios-modello-base.service aios-risparmio.ser
 # controlli: se manca un pezzo della sessione, la costruzione si ferma (non un'anteprima a metà)
 RUN test -x /usr/bin/Hyprland && test -x /usr/bin/hyprctl && test -x /usr/bin/labwc && test -x /usr/bin/greetd \
     && test -x /usr/bin/cage
-RUN chmod 755 /usr/libexec/aios-ollama-scheda /usr/libexec/aios-nucleo /usr/libexec/aios-decisore /usr/bin/aios-sessione /usr/bin/aios-blocca /usr/bin/aios-schermata /usr/libexec/aios-accesso-avvio /usr/libexec/aios-avvio-sessione /usr/share/aios/labwc/autostart /usr/libexec/aios-risparmio /usr/lib/systemd/system-sleep/aios-risparmio /usr/libexec/aios-credenziali-registro \
+RUN chmod 755 /usr/libexec/aios-modello /usr/libexec/aios-ollama-scheda /usr/libexec/aios-nucleo /usr/libexec/aios-decisore /usr/bin/aios-sessione /usr/bin/aios-blocca /usr/bin/aios-schermata /usr/libexec/aios-accesso-avvio /usr/libexec/aios-avvio-sessione /usr/share/aios/labwc/autostart /usr/libexec/aios-risparmio /usr/lib/systemd/system-sleep/aios-risparmio /usr/libexec/aios-credenziali-registro \
     && rm -f /etc/systemd/system/display-manager.service \
     && (systemctl disable gdm.service || true) \
     && (systemctl enable greetd.service || true) \

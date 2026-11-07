@@ -146,11 +146,74 @@ class LlamaServerClient:
         return message
 
     def warmup(self, messages: list[dict[str, Any]], tools: list[dict[str, Any]]) -> None:
-        pass  # llama-server tiene già il modello caricato
+        """Legge in anticipo istruzioni e strumenti nel posto della conversazione: alla prima domanda resta da leggere
+        solo la frase dell'utente. (Il modello di Qwen vuole un messaggio dell'utente: uno qualsiasi, poi si cambia.)"""
+        from .moe import _post
+
+        if self.slot is None:
+            return
+        try:
+            _post(f"{self.url}/v1/chat/completions",
+                  self._payload([*messages, {"role": "user", "content": "ciao"}], tools, max_tokens=1), self.timeout)
+        except (urllib.error.URLError, OSError, ValueError):
+            pass
 
 
-def make_client(model: str | None = None) -> Any:
-    """Il client giusto per il modello di testo: Ollama, o llama.cpp per un modello a esperti sistemato a pezzi."""
+NOVA_URL = os.environ.get("AIOS_MODELLO_URL", "http://127.0.0.1:11438")  # aios-modello.service
+_health: dict[str, tuple[float, bool]] = {}
+
+
+def server_ready(url: str, ttl: float = 20.0) -> bool:
+    """llama-server risponde? (al massimo una domanda ogni `ttl` secondi)"""
+    now = time.monotonic()
+    seen = _health.get(url)
+    if seen and now - seen[0] < ttl:
+        return seen[1]
+    try:
+        with urllib.request.urlopen(f"{url}/health", timeout=0.5) as resp:
+            ok = resp.status == 200
+    except (urllib.error.URLError, OSError, ValueError):
+        ok = False
+    _health[url] = (now, ok)
+    return ok
+
+
+class NovaClient:
+    """Il modello incluso in SoIA: su llama-server (aios-modello.service, docs/VELOCITA.md) quando il servizio c'è,
+    altrimenti su Ollama come prima. Si sceglie a ogni richiesta, così se il servizio parte dopo Nova lo usa subito.
+    Il posto 0 è della conversazione con Nova; i lavori di sottofondo (procedure, programmatore, livelli) usano il 1
+    e non cancellano le istruzioni già lette."""
+
+    supports_stream = True
+
+    def __init__(self, model: str, url: str | None = None, slot: int = 0, ready: Callable[[], bool] | None = None):
+        self.model = model
+        self.server = LlamaServerClient(url or NOVA_URL, model, slot=slot)
+        self.ollama = OllamaClient(model=model)
+        self._ready = ready or (lambda: server_ready(self.server.url))
+
+    @property
+    def think(self) -> bool:
+        return self.server.think
+
+    @think.setter
+    def think(self, value: bool) -> None:
+        self.server.think = self.ollama.think = value
+
+    def current(self) -> Any:
+        return self.server if self._ready() else self.ollama
+
+    def chat(self, messages: list[dict[str, Any]], tools: list[dict[str, Any]],
+             on_token: Callable[[str], None] | None = None) -> dict[str, Any]:
+        return self.current().chat(messages, tools, on_token=on_token)
+
+    def warmup(self, messages: list[dict[str, Any]], tools: list[dict[str, Any]]) -> None:
+        self.current().warmup(messages, tools)
+
+
+def make_client(model: str | None = None, slot: int = 0) -> Any:
+    """Il client giusto per il modello di testo: il modello incluso su llama-server (o Ollama se il servizio non c'è),
+    gli altri su Ollama, o llama.cpp per un modello a esperti sistemato a pezzi. `slot` 1: per i lavori di sottofondo."""
     from .models import load_config
 
     name = model or os.environ.get("AIOS_MODEL") or _configured_text_model() or DEFAULT_MODEL
@@ -158,7 +221,12 @@ def make_client(model: str | None = None) -> Any:
         placed = json.loads(load_config().get("_esperti", "{}")).get(name)
     except ValueError:
         placed = None
-    local = LlamaServerClient(placed["url"], name) if placed and placed.get("url") else OllamaClient(model=name)
+    if placed and placed.get("url"):
+        local: Any = LlamaServerClient(placed["url"], name)
+    elif name == DEFAULT_MODEL:
+        local = NovaClient(name, slot=slot)
+    else:
+        local = OllamaClient(model=name)
     from .mesh.delegate import HybridModel, RemoteBrain, load_pc
 
     pc = load_pc()  # su un telefono abbinato a un PC: il modello del PC quando è vicino

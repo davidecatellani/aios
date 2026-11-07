@@ -3,7 +3,7 @@
 Si accorge dei giochi dalle finestre (Hyprland): Steam (steam_app_…), gamescope, Wine/Proton (.exe), gli
 emulatori più noti, e ogni app che nel suo file .desktop si dichiara gioco (Categories=Game). Allora:
 - scarica i modelli di Ollama dalla memoria (il modello per parlare, Tev1, gli embedding…);
-- ferma il nucleo (aios-nucleo: modello piccolo e adattatori);
+- ferma il nucleo (aios-nucleo: modello piccolo e adattatori) e il modello di Nova su llama-server (aios-modello);
 - lascia un segno ($XDG_RUNTIME_DIR/aios-gioco) che ferma i lavori a riposo (foto, documenti) e fa usare
   all'ascolto solo Vosk, senza caricare Parakeet né il riconoscimento di chi parla.
 Quando ricaricare: se l'ultimo gioco si chiude, dopo mezzo minuto (un caricamento tra due finestre non fa
@@ -86,10 +86,11 @@ def unload_ollama() -> list[str]:
 
 
 def nucleo(action: str) -> bool:
-    """Ferma o riavvia aios-nucleo (la regola polkit di SoIA lo permette all'utente seduto al computer)."""
+    """Ferma o riavvia aios-nucleo e aios-modello, il modello di Nova su llama-server (la regola polkit di SoIA lo
+    permette all'utente seduto al computer)."""
     try:
-        return subprocess.run(["systemctl", action, "--no-block", "aios-nucleo.service"], capture_output=True,
-                              timeout=15).returncode == 0
+        return subprocess.run(["systemctl", action, "--no-block", "aios-nucleo.service", "aios-modello.service"],
+                              capture_output=True, timeout=15).returncode == 0
     except (OSError, subprocess.SubprocessError):
         return False
 
