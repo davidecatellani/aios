@@ -115,17 +115,19 @@ class SystemBackend:
                           version.group(1) if version else "")
         return None
 
-    def from_registry(self, ref: str) -> bool:
-        """Il sistema in uso (o quello pronto) arriva già dal registro delle immagini?"""
-        from .registro import on_registry
+    def from_registry(self, ref: str) -> str:
+        """Da quale etichetta del registro arriva il sistema pronto (o in uso)? "" se non dal registro."""
+        from .registro import _image, registry_ref
 
         if self.tool == "rpm-ostree":
             code, out = self.runner.run(["rpm-ostree", "status", "--json"])
-            return code == 0 and on_registry(out, ref)
+            return registry_ref(out, ref) if code == 0 else ""
         if self.tool == "bootc":
             code, out = self.runner.run(["bootc", "status", "--json"])
-            return code == 0 and ref in out
-        return False
+            if code == 0 and _image(ref) in out:
+                found = re.search(re.escape(_image(ref)) + r":[\w.-]+", out)
+                return found.group(0) if found else ref
+        return ""
 
     def check_registry(self) -> Update | None:
         """Nuova versione nel registro? (si confrontano gli strati, non si scarica niente)"""
@@ -216,7 +218,13 @@ class Updates:
         if self.system.available():
             self.try_registry()
         ref = load_state().get("registro") if self.system.available() else None
-        if ref and self.system.from_registry(ref):
+        following = self.system.from_registry(ref) if ref else ""
+        if following and following != ref:  # passato a mano a un'altra etichetta (es. da :44-nvidia a :44): si segue quella
+            state = load_state()
+            state["registro"] = following
+            state.pop("registro_motivo", None)
+            save_state(state)
+        if following:
             system = self.system.check_registry()  # incrementale: solo gli strati cambiati
         elif ref and "github" in sources:
             system = Update("sistema", "SoIA dal registro di GitHub: questa volta si scarica tutto, poi solo le "

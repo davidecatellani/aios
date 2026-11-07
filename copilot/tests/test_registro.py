@@ -99,3 +99,18 @@ def test_first_switch_then_incremental(monkeypatch):
     runner.outputs = {"rpm-ostree status": (0, status_new), "rpm-ostree upgrade --check": (0, "Version: 2026.10.05.21")}
     found = [u for u in up.check() if u.kind == "sistema"]
     assert found[0].version == "2026.10.05.21" and "differenze" in found[0].summary
+
+
+def test_switched_by_hand_to_another_tag(monkeypatch):
+    """Il PC seguiva :44-nvidia, poi l'utente è passato a mano a :44: niente più passaggio vecchio, si segue :44."""
+    updates.save_state({"repo": "d/aios", "registro": "ghcr.io/d/aios:44-nvidia", "registro_provato": 9e12})
+    status = json.dumps({"deployments": [
+        {"booted": True, "container-image-reference": "ostree-unverified-registry:ghcr.io/d/aios:44"},
+        {"container-image-reference": "ostree-unverified-registry:ghcr.io/d/aios:44-nvidia"}]})
+    runner = FakeRunner({"rpm-ostree status": (0, status), "rpm-ostree upgrade --check": (77, "No updates available.")})
+    up = updates.Updates(runner, version=lambda: "2026.10.08.35", media=lambda: None, github=lambda: None, clock=lambda: 9e12)
+    assert [u for u in up.check() if u.kind == "sistema"] == []
+    assert updates.load_state()["registro"] == "ghcr.io/d/aios:44"
+    assert not any(c[:2] == ["rpm-ostree", "rebase"] for c in runner.calls)
+    assert registro.registry_ref(status, "ghcr.io/d/aios:44-nvidia") == "ghcr.io/d/aios:44"
+    assert registro.registry_ref(status, "ghcr.io/altro/aios:44") == ""

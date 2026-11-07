@@ -56,11 +56,31 @@ def rebase_command(tool: str, ref: str) -> list[str]:
 
 def on_registry(status_json: str, ref: str) -> bool:
     """Il sistema in uso (o quello pronto) viene già dal registro?"""
+    return bool(registry_ref(status_json, ref))
+
+
+def _image(ref: str) -> str:
+    """ghcr.io/d/aios:44-nvidia → ghcr.io/d/aios (l'immagine, senza etichetta)."""
+    ref = ref.split("ostree-unverified-registry:")[-1].split("docker://")[-1]
+    return ref.rsplit(":", 1)[0] if ":" in ref.rsplit("/", 1)[-1] else ref
+
+
+def registry_ref(status_json: str, ref: str) -> str:
+    """L'immagine del registro da cui viene il sistema pronto (o in uso), con la sua etichetta; "" se non viene dal
+    registro. Vale qualsiasi etichetta della stessa immagine: un PC passato a mano da «:44-nvidia» a «:44» è già
+    sul registro, e da lì si aggiorna (non si rifà il passaggio vecchio)."""
     try:
         deployments = json.loads(status_json).get("deployments", [])
-    except ValueError:
-        return False
-    return any(ref in str(d.get("container-image-reference", "")) for d in deployments if d.get("booted") or d.get("staged"))
+    except (ValueError, AttributeError):
+        return ""
+    want = _image(ref)
+    for d in sorted((d for d in deployments if d.get("booted") or d.get("staged")), key=lambda d: not d.get("staged")):
+        got = str(d.get("container-image-reference", ""))
+        if "ostree-unverified-registry:" in got or got.startswith(REGISTRY):
+            got = got.split("ostree-unverified-registry:")[-1]
+            if _image(got) == want:
+                return got
+    return ""
 
 
 class Access:
