@@ -1,0 +1,8 @@
+[Unit]
+Description=AIOS: propone l'aggiornamento trovato sulla chiavetta
+
+[Service]
+Type=oneshot
+ExecStart=aios-aggiornamenti chiavetta --avvisa
+Nice=10
+IOSchedulingClass=idle

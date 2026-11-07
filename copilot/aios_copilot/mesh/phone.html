@@ -1,0 +1,353 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0b6e99">
+<title>Il mio PC</title>
+<link rel="icon" href="/brand/aios-piccolo.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/brand/aios-simbolo.png">
+<style>
+  :root { --bg:#f6f7fb; --surface:#fff; --text:#16202a; --muted:#5b6672; --accent:#0b6e99; --on-accent:#fff; --line:#e3e7ee; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#0f1419; --surface:#18212b; --text:#e9eef3; --muted:#a3afbb; --accent:#4fb3e0; --on-accent:#061018; --line:#26313c; }
+  }
+  * { box-sizing:border-box; }
+  [hidden] { display:none !important; }
+  body { margin:0; font:16px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif; background:var(--bg); color:var(--text); }
+  header { position:sticky; top:0; z-index:2; background:var(--bg); padding:14px 16px 10px; border-bottom:1px solid var(--line); }
+  h1 { font-size:20px; margin:0 0 10px; display:flex; align-items:center; gap:8px; }
+  h1 .dot { width:10px; height:10px; border-radius:50%; background:#2fbf71; }
+  h1 .logo { width:28px; height:28px; }
+  input[type=search], input[type=text] { width:100%; font:inherit; padding:12px 14px; border-radius:14px; border:1px solid var(--line);
+    background:var(--surface); color:var(--text); }
+  .crumbs { display:flex; gap:4px; flex-wrap:wrap; margin-top:10px; font-size:14px; }
+  .crumbs button { border:0; background:none; color:var(--accent); padding:4px 2px; font:inherit; }
+  main { padding:8px 12px 40px; }
+  ul { list-style:none; margin:0; padding:0; }
+  li { display:flex; align-items:center; gap:12px; padding:12px 8px; border-bottom:1px solid var(--line); min-width:0; }
+  li .icon { font-size:24px; width:32px; text-align:center; flex:none; }
+  li .info { flex:1; min-width:0; }
+  li .name { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  li .meta { color:var(--muted); font-size:13px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  li button.dl { flex:none; border:1px solid var(--line); background:var(--surface); color:var(--text); border-radius:12px; padding:8px 10px; font-size:18px; }
+  li.tap { cursor:pointer; }
+  .card { background:var(--surface); border-radius:20px; padding:22px; margin:24px 4px; border:1px solid var(--line); }
+  .card button.main { width:100%; margin-top:14px; padding:14px; border-radius:14px; border:0; background:var(--accent); color:var(--on-accent); font:600 16px system-ui; }
+  .muted { color:var(--muted); }
+  .empty { text-align:center; color:var(--muted); padding:40px 10px; }
+  .upload { display:block; text-align:center; margin-top:10px; padding:10px; border-radius:12px; border:1px dashed var(--accent);
+    color:var(--accent); font-weight:600; cursor:pointer; }
+  #keys-view { padding:10px 12px 30px; }
+  #typing { width:100%; min-height:110px; font:inherit; padding:12px; border-radius:14px; border:1px solid var(--line);
+    background:var(--surface); color:var(--text); }
+  .keyrow { display:flex; gap:6px; margin:10px 0; }
+  .keyrow button { flex:1; padding:12px 0; border-radius:12px; border:1px solid var(--line); background:var(--surface);
+    color:var(--text); font:600 16px system-ui; min-width:0; }
+  #pad { height:240px; border-radius:18px; border:1px solid var(--line); background:var(--surface); color:var(--muted);
+    display:flex; align-items:center; justify-content:center; text-align:center; padding:20px; touch-action:none;
+    user-select:none; -webkit-user-select:none; font-size:14px; }
+  .tabs { display:flex; gap:6px; margin-bottom:10px; }
+  .tabs button { flex:1; border:1px solid var(--line); background:var(--surface); color:var(--text); border-radius:12px; padding:9px; font:600 15px system-ui; }
+  .tabs button[aria-selected=true] { background:var(--accent); color:var(--on-accent); border-color:var(--accent); }
+  #chat { display:flex; flex-direction:column; gap:10px; padding:6px 4px 96px; scroll-padding-bottom:96px; }
+  .bubble { max-width:88%; padding:10px 14px; border-radius:18px; white-space:pre-wrap; overflow-wrap:anywhere; }
+  .me { align-self:flex-end; background:var(--accent); color:var(--on-accent); border-bottom-right-radius:6px; }
+  .pc { align-self:flex-start; background:var(--surface); border:1px solid var(--line); border-bottom-left-radius:6px; }
+  .bubble, .filebtn, .confirm, .status { scroll-margin-bottom:100px; }
+  .filebtn { align-self:flex-start; display:inline-block; padding:12px 16px; border-radius:14px; background:var(--accent);
+    color:var(--on-accent); font-weight:600; text-decoration:none; max-width:88%; overflow-wrap:anywhere; }
+  .status { align-self:flex-start; color:var(--muted); font-size:14px; }
+  .confirm { align-self:stretch; background:var(--surface); border:1px solid var(--accent); border-radius:16px; padding:12px; }
+  .confirm .row { display:flex; gap:8px; margin-top:10px; }
+  .confirm button { flex:1; padding:11px; border-radius:12px; border:1px solid var(--line); background:var(--bg); color:var(--text); font:600 15px system-ui; }
+  .confirm button.yes { background:var(--accent); color:var(--on-accent); border-color:var(--accent); }
+  form.ask { position:fixed; left:0; right:0; bottom:0; display:flex; gap:8px; padding:10px 12px calc(10px + env(safe-area-inset-bottom));
+    background:var(--bg); border-top:1px solid var(--line); }
+  form.ask input { flex:1; min-width:0; }
+  form.ask button { border:0; border-radius:14px; background:var(--accent); color:var(--on-accent); padding:0 16px; font-size:18px; }
+</style>
+</head>
+<body>
+<header id="top" hidden>
+  <h1><img class="logo" src="/brand/aios-piccolo.svg" alt=""><span id="pc">Il mio PC</span><span class="dot" title="Collegato"></span></h1>
+  <div class="tabs" role="tablist">
+    <button id="tab-files" role="tab" aria-selected="true">📁 File</button>
+    <button id="tab-ask" role="tab" aria-selected="false">💬 Chiedi</button>
+    <button id="tab-keys" role="tab" aria-selected="false">⌨️ Tastiera</button>
+  </div>
+  <input id="q" type="search" placeholder="Cerca nei file del PC…" autocomplete="off">
+  <nav class="crumbs" id="crumbs"></nav>
+  <label class="upload" id="upload-label">📤 Invia foto e video al PC
+    <input id="upload" type="file" accept="image/*,video/*" multiple hidden>
+  </label>
+</header>
+<main id="main"></main>
+<section id="keys-view" hidden>
+  <textarea id="typing" placeholder="Scrivi qui: il testo appare sul PC, dove c'è il cursore." autocapitalize="sentences"></textarea>
+  <div class="keyrow">
+    <button data-k="esc">Esc</button><button data-k="tab">Tab</button><button data-k="sinistra">◀</button>
+    <button data-k="su">▲</button><button data-k="giu">▼</button><button data-k="destra">▶</button>
+    <button data-k="cancella">⌫</button><button data-k="invio">⏎</button>
+  </div>
+  <div id="pad" aria-label="Touchpad">Touchpad: trascina per muovere, tocca per cliccare, due dita per scorrere</div>
+  <div class="keyrow"><button id="left">Clic sinistro</button><button id="right">Clic destro</button></div>
+</section>
+<section id="ask-view" hidden>
+  <div id="chat"><img src="/brand/copilota.png" alt="" style="width:56px;height:56px;align-self:center;margin:8px 0"><p class="bubble pc">Chiedimi qualcosa: uso il modello AI del PC, più grande di quello del telefono. Posso cercare nei file e nella posta, leggere l'agenda, cercare sul web. Dal telefono non cambio nulla sul PC.</p></div>
+  <form class="ask" id="ask-form">
+    <input id="ask-text" type="text" placeholder="Es. trova il contratto d'affitto" autocomplete="off" maxlength="500">
+    <button aria-label="Invia">➤</button>
+  </form>
+</section>
+<script>
+const $ = (id) => document.getElementById(id);
+const store = { get(k) { try { return localStorage.getItem(k); } catch { return null; } },
+                set(k, v) { try { localStorage.setItem(k, v); } catch {} } };
+let key = store.get("aios-chiave");
+const icons = { dir:"📁", image:"🖼️", video:"🎬", audio:"🎵", pdf:"📄", doc:"📝", other:"📎" };
+
+function kind(name) {
+  const ext = name.split(".").pop().toLowerCase();
+  if (["jpg","jpeg","png","webp","gif","heic"].includes(ext)) return "image";
+  if (["mp4","mkv","mov","webm"].includes(ext)) return "video";
+  if (["mp3","flac","ogg","m4a","wav","opus"].includes(ext)) return "audio";
+  if (ext === "pdf") return "pdf";
+  if (["doc","docx","odt","txt","md","xls","xlsx","ods","ppt","pptx","odp"].includes(ext)) return "doc";
+  return "other";
+}
+function size(n) { return n < 1024 ? n + " B" : n < 1048576 ? (n/1024).toFixed(0) + " KB" : n < 1073741824 ? (n/1048576).toFixed(1) + " MB" : (n/1073741824).toFixed(1) + " GB"; }
+function el(tag, props = {}, ...children) {
+  const e = document.createElement(tag);
+  Object.assign(e, props);
+  for (const c of children) e.append(c);
+  return e;
+}
+async function api(path) {
+  const r = await fetch(path, { headers: { Authorization: "Bearer " + key } });
+  if (r.status === 403) { key = null; showPairing("Questo telefono non è più abbinato. Inquadra il QR sul PC (chiedi a Nova «collega il telefono»)."); throw new Error("non abbinato"); }
+  return r.json();
+}
+async function openFile(path, view) {
+  const r = await api("/api/link?p=" + encodeURIComponent(path));
+  if (r.url) location.href = r.url + (view ? "?vedi=1" : "");
+}
+
+function row(entry, sub) {
+  const k = entry.dir ? "dir" : kind(entry.name);
+  const li = el("li", { className: "tap" }, el("span", { className: "icon", textContent: icons[k] }),
+    el("div", { className: "info" }, el("div", { className: "name", textContent: entry.name }),
+       el("div", { className: "meta", textContent: sub })));
+  li.onclick = () => entry.dir ? browse(entry.path) : openFile(entry.path, true);
+  if (!entry.dir) {
+    const dl = el("button", { className: "dl", textContent: "⬇", title: "Scarica" });
+    dl.setAttribute("aria-label", "Scarica " + entry.name);
+    dl.onclick = (ev) => { ev.stopPropagation(); openFile(entry.path, false); };
+    li.append(dl);
+  }
+  return li;
+}
+
+async function browse(path) {
+  $("q").value = "";
+  const data = await api("/api/cartella?p=" + encodeURIComponent(path || ""));
+  const crumbs = $("crumbs");
+  crumbs.replaceChildren();
+  const parts = data.path ? data.path.split("/") : [];
+  const home = el("button", { textContent: "🏠 Home" });
+  home.onclick = () => browse("");
+  crumbs.append(home);
+  parts.forEach((p, i) => {
+    const b = el("button", { textContent: "› " + p });
+    b.onclick = () => browse(parts.slice(0, i + 1).join("/"));
+    crumbs.append(b);
+  });
+  const list = el("ul");
+  for (const e of data.entries || []) {
+    const date = new Date(e.modified * 1000).toLocaleDateString("it-IT");
+    list.append(row(e, e.dir ? date : size(e.size) + " · " + date));
+  }
+  $("main").replaceChildren(data.entries?.length ? list : el("p", { className: "empty", textContent: "Cartella vuota" }));
+}
+
+let timer;
+$("q").addEventListener("input", () => {
+  clearTimeout(timer);
+  const q = $("q").value.trim();
+  if (!q) return browse("");
+  timer = setTimeout(async () => {
+    const data = await api("/api/cerca?q=" + encodeURIComponent(q));
+    const list = el("ul");
+    for (const r of data.results) list.append(row({ name: r.name, path: r.path, dir: false }, r.snippet || r.path));
+    $("main").replaceChildren(data.results.length ? list : el("p", { className: "empty", textContent: "Nessun file trovato" }));
+  }, 300);
+});
+
+function showPairing(message, code) {
+  $("top").hidden = true;
+  $("ask-view").hidden = true;
+  $("keys-view").hidden = true;
+  $("main").hidden = false;
+  const name = el("input", { type: "text", value: /iPhone/.test(navigator.userAgent) ? "iPhone" : /Android/.test(navigator.userAgent) ? "Telefono Android" : "Telefono" });
+  name.setAttribute("aria-label", "Nome del telefono");
+  const button = el("button", { className: "main", textContent: "Collega questo telefono" });
+  const status = el("p", { className: "muted" });
+  const card = el("div", { className: "card" }, el("h2", { textContent: "📱 Collega il telefono al PC" }),
+    el("p", { className: "muted", textContent: message }));
+  if (code) {
+    card.append(name, button, status);
+    button.onclick = async () => {
+      button.disabled = true;
+      const r = await fetch("/api/abbina", { method: "POST", headers: { "Content-Type": "application/json" },
+                                             body: JSON.stringify({ code, name: name.value }) });
+      const data = await r.json();
+      if (!r.ok) { status.textContent = data.error; button.disabled = false; return; }
+      key = data.key;
+      store.set("aios-chiave", key);
+      store.set("aios-pc", data.pc);
+      history.replaceState(null, "", "/");
+      start();
+    };
+  }
+  $("main").replaceChildren(card);
+}
+
+function start() {
+  $("top").hidden = false;
+  showTab("files");
+  $("pc").textContent = store.get("aios-pc") || "Il mio PC";
+  browse("").catch(() => {});
+}
+
+function showTab(which) {
+  for (const t of ["files", "ask", "keys"]) $("tab-" + t).setAttribute("aria-selected", String(t === which));
+  const files = which === "files";
+  $("q").hidden = !files; $("crumbs").hidden = !files; $("upload-label").hidden = !files; $("main").hidden = !files;
+  $("ask-view").hidden = which !== "ask"; $("keys-view").hidden = which !== "keys";
+  if (which === "ask") $("ask-text").focus();
+}
+$("tab-files").onclick = () => showTab("files");
+$("tab-keys").onclick = () => showTab("keys");
+$("upload").onchange = async () => {
+  const files = [...$("upload").files];
+  const label = $("upload-label").firstChild;
+  let done = 0;
+  for (const f of files) {
+    label.textContent = `📤 Invio ${done + 1} di ${files.length}… `;
+    const r = await fetch("/api/carica?nome=" + encodeURIComponent(f.name), { method: "POST", body: f,
+                                                                           headers: { Authorization: "Bearer " + key } });
+    if (r.ok) done++;
+  }
+  label.textContent = `✅ ${done} di ${files.length} salvati sul PC (Immagini/Telefono). Invia altre foto `;
+  $("upload").value = "";
+};
+$("tab-ask").onclick = () => showTab("ask");
+
+// --- tastiera e touchpad -------------------------------------------------------------------
+let queue = [], sending = false;
+async function sendInput(ev) {
+  queue.push(ev);
+  if (sending) return;
+  sending = true;
+  while (queue.length) {
+    const eventi = queue.splice(0, 50);
+    try { await post("/api/input", { eventi }); } catch {}
+  }
+  sending = false;
+}
+$("typing").addEventListener("beforeinput", (e) => {
+  if (e.inputType === "insertText" || e.inputType === "insertCompositionText" || e.inputType === "insertReplacementText") {
+    if (e.data) sendInput({ tipo: "testo", testo: e.data });
+  } else if (e.inputType === "insertLineBreak" || e.inputType === "insertParagraph") sendInput({ tipo: "tasto", tasto: "invio" });
+  else if (e.inputType === "deleteContentBackward") sendInput({ tipo: "tasto", tasto: "cancella" });
+  else if (e.inputType === "deleteContentForward") sendInput({ tipo: "tasto", tasto: "canc" });
+});
+document.querySelectorAll("[data-k]").forEach((b) => b.onclick = () => sendInput({ tipo: "tasto", tasto: b.dataset.k }));
+$("left").onclick = () => sendInput({ tipo: "click", tasto: "sinistro" });
+$("right").onclick = () => sendInput({ tipo: "click", tasto: "destro" });
+const touches = new Map();
+let moved = 0, acc = { dx: 0, dy: 0, wheel: 0 }, flushTimer = null;
+function flush() {
+  flushTimer = null;
+  if (acc.dx || acc.dy) sendInput({ tipo: "muovi", dx: Math.round(acc.dx), dy: Math.round(acc.dy) });
+  if (Math.abs(acc.wheel) >= 1) sendInput({ tipo: "scorri", passi: Math.trunc(acc.wheel) });
+  acc = { dx: 0, dy: 0, wheel: acc.wheel % 1 };
+}
+$("pad").addEventListener("pointerdown", (e) => { $("pad").setPointerCapture(e.pointerId); touches.set(e.pointerId, e); moved = 0; });
+$("pad").addEventListener("pointermove", (e) => {
+  const prev = touches.get(e.pointerId);
+  if (!prev) return;
+  const dx = e.clientX - prev.clientX, dy = e.clientY - prev.clientY;
+  touches.set(e.pointerId, e);
+  moved += Math.abs(dx) + Math.abs(dy);
+  if (touches.size >= 2) acc.wheel += dy / 25; else { acc.dx += dx * 1.6; acc.dy += dy * 1.6; }
+  if (!flushTimer) flushTimer = setTimeout(flush, 30);
+});
+$("pad").addEventListener("pointerup", (e) => {
+  touches.delete(e.pointerId);
+  if (moved < 6 && touches.size === 0) sendInput({ tipo: "click", tasto: "sinistro" });
+});
+$("pad").addEventListener("pointercancel", (e) => touches.delete(e.pointerId));
+
+function bubble(cls, text) {
+  const b = el("div", { className: cls, textContent: text });
+  $("chat").append(b);
+  b.scrollIntoView({ block: "end" });
+  return b;
+}
+async function post(path, data) {
+  const r = await fetch(path, { method: "POST", headers: { "Content-Type": "application/json", Authorization: "Bearer " + key },
+                                body: JSON.stringify(data) });
+  return r.json();
+}
+$("ask-form").onsubmit = async (ev) => {
+  ev.preventDefault();
+  const text = $("ask-text").value.trim();
+  if (!text) return;
+  $("ask-text").value = "";
+  bubble("bubble me", text);
+  const wait = bubble("status", "Il PC ci sta pensando…");
+  const { job, error } = await post("/api/chiedi", { text });
+  if (!job) { wait.textContent = error || "Il PC non risponde."; return; }
+  let after = 0, asked = null;
+  const files = [];
+  while (true) {
+    const s = await api(`/api/job/${job}?after=${after}`);
+    after = s.next;
+    for (const e of s.events) {
+      if (e.kind === "status") wait.textContent = e.text + "…";
+      if (e.kind === "file") files.push(e);
+    }
+    if (s.pending && !asked) {
+      asked = el("div", { className: "confirm" }, el("strong", { textContent: "Confermi? " }), s.pending.label);
+      if (s.pending.warning) asked.append(el("p", { className: "muted", textContent: s.pending.warning }));
+      const yes = el("button", { className: "yes", textContent: "Sì" }), no = el("button", { textContent: "No" });
+      const answer = async (ok) => { await post(`/api/job/${job}/conferma`, { ok }); asked.remove(); asked = null; };
+      yes.onclick = () => answer(true); no.onclick = () => answer(false);
+      asked.append(el("div", { className: "row" }, yes, no));
+      $("chat").append(asked);
+      wait.textContent = "Aspetto la tua conferma…";
+      asked.scrollIntoView({ block: "end" });
+    }
+    if (s.done) {
+      wait.remove();
+      bubble("bubble pc", s.answer);
+      for (const f of files) {  // il file trovato, sotto la risposta
+        const a = el("a", { className: "filebtn", href: f.url + "?vedi=1", textContent: "📄 Apri " + f.name });
+        a.target = "_blank";
+        $("chat").append(a);
+        a.scrollIntoView({ block: "end" });
+      }
+      break;
+    }
+    await new Promise((r) => setTimeout(r, 600));
+  }
+};
+
+const code = new URLSearchParams(location.hash.slice(1)).get("abbina");
+if (code) showPairing("Dai un nome a questo telefono: lo vedrai sul PC e potrai scollegarlo quando vuoi.", code);
+else if (!key) showPairing("Sul PC chiedi a Nova «collega il telefono» e inquadra il codice QR che compare.");
+else start();
+</script>
+</body>
+</html>

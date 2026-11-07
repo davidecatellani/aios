@@ -1,0 +1,11 @@
+# Servizio utente: copiare in ~/.config/systemd/user/ e attivare con
+#   systemctl --user enable --now aios-agenda
+[Unit]
+Description=AIOS: promemoria e riepilogo del mattino
+
+[Service]
+ExecStart=aios-agenda
+Restart=on-failure
+
+[Install]
+WantedBy=default.target

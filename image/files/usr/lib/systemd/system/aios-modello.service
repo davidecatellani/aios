@@ -1,0 +1,23 @@
+[Unit]
+Description=Il modello di Nova (Qwen3.5 4B) su llama-server: istruzioni lette una volta, risposta parola per parola
+ConditionPathExists=/usr/share/aios/modello/nova.gguf
+After=local-fs.target
+
+[Service]
+DynamicUser=yes
+CacheDirectory=aios-modello
+Environment=LD_LIBRARY_PATH=/usr/lib/aios/llama
+ExecStart=/usr/libexec/aios-modello
+Restart=on-failure
+RestartSec=5
+# l'interfaccia viene prima
+Nice=5
+CPUWeight=60
+IOWeight=60
+# su un PC da 8 GB l'AI ne tiene ~3, il resto è dei programmi (docs/VELOCITA.md): sotto il 30% della RAM il kernel
+# non gli toglie le pagine (niente ricaricamenti dal disco quando si apre il browser), oltre il 45% lo frena
+MemoryLow=30%
+MemoryHigh=45%
+
+[Install]
+WantedBy=multi-user.target

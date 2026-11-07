@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <!-- Fondo premium -->
+    <radialGradient id="bg" cx="38%" cy="25%" r="90%">
+      <stop offset="0%" stop-color="#123F52"/>
+      <stop offset="55%" stop-color="#0A2A3A"/>
+      <stop offset="100%" stop-color="#061E2B"/>
+    </radialGradient>
+
+    <!-- Foglie -->
+    <linearGradient id="leafL" x1="15%" y1="15%" x2="85%" y2="90%">
+      <stop offset="0%" stop-color="#48E3DA"/>
+      <stop offset="55%" stop-color="#2EC4B6"/>
+      <stop offset="100%" stop-color="#1599AA"/>
+    </linearGradient>
+    <linearGradient id="leafR" x1="85%" y1="15%" x2="20%" y2="90%">
+      <stop offset="0%" stop-color="#48E3DA"/>
+      <stop offset="55%" stop-color="#2EC4B6"/>
+      <stop offset="100%" stop-color="#1599AA"/>
+    </linearGradient>
+
+    <!-- Seme -->
+    <radialGradient id="seed" cx="38%" cy="30%" r="72%">
+      <stop offset="0%" stop-color="#FFF1B0"/>
+      <stop offset="35%" stop-color="#F3D277"/>
+      <stop offset="100%" stop-color="#E9C46A"/>
+    </radialGradient>
+
+    <!-- Bagliore seme -->
+    <filter id="seedGlow" x="-120%" y="-120%" width="340%" height="340%">
+      <feGaussianBlur stdDeviation="26"/>
+    </filter>
+
+    <!-- Ombra simbolo -->
+    <filter id="symbolShadow" x="-30%" y="-30%" width="160%" height="180%">
+      <feDropShadow dx="0" dy="14" stdDeviation="18" flood-color="#00131C" flood-opacity="0.38"/>
+    </filter>
+
+    <!-- Highlight leggero -->
+    <linearGradient id="highlight" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.22"/>
+      <stop offset="45%" stop-color="#FFFFFF" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Icon tile -->
+  <rect x="42" y="42" width="940" height="940" rx="215" fill="url(#bg)"/>
+
+  <!-- Leggera luce interna superiore -->
+  <path d="M257 43 H767
+           C885 43 981 139 981 257
+           V350
+           C815 244 209 244 43 350
+           V257
+           C43 139 139 43 257 43 Z"
+        fill="url(#highlight)" opacity="0.32"/>
+
+  <!-- Bagliore dietro al seme -->
+  <circle cx="512" cy="355" r="105" fill="#E9C46A" opacity="0.30" filter="url(#seedGlow)"/>
+
+  <!-- Germoglio -->
+  <g filter="url(#symbolShadow)">
+    <!-- foglia sinistra -->
+    <path d="M500 755
+             C468 641 423 596 337 568
+             C236 535 180 447 184 330
+             C297 323 398 365 455 436
+             C505 498 520 601 500 755 Z"
+          fill="url(#leafL)"/>
+
+    <!-- foglia destra -->
+    <path d="M524 755
+             C556 641 601 596 687 568
+             C788 535 844 447 840 330
+             C727 323 626 365 569 436
+             C519 498 504 601 524 755 Z"
+          fill="url(#leafR)"/>
+
+    <!-- seed -->
+    <circle cx="512" cy="355" r="92" fill="url(#seed)"/>
+  </g>
+
+  <!-- Sottilissimo bordo interno -->
+  <rect x="43.5" y="43.5" width="937" height="937" rx="213.5"
+        fill="none" stroke="#FFFFFF" stroke-opacity="0.10" stroke-width="3"/>
+</svg>

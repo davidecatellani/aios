@@ -1,0 +1,245 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="960" viewBox="0 0 1600 960" role="img" aria-label="Tavola di identità visiva SoIA e Nova">
+  <defs>
+    <linearGradient id="soiaLeaf" x1="0%" y1="20%" x2="100%" y2="80%">
+      <stop offset="0%" stop-color="#0B6E99"/>
+      <stop offset="100%" stop-color="#2EC4B6"/>
+    </linearGradient>
+    <radialGradient id="seedGrad" cx="38%" cy="30%" r="70%">
+      <stop offset="0%" stop-color="#FFF5C9"/>
+      <stop offset="55%" stop-color="#F1D27B"/>
+      <stop offset="100%" stop-color="#E9C46A"/>
+    </radialGradient>
+    <filter id="seedGlow" x="-120%" y="-120%" width="340%" height="340%">
+      <feGaussianBlur stdDeviation="10" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <radialGradient id="appBg" cx="40%" cy="25%" r="90%">
+      <stop offset="0%" stop-color="#103A4C"/>
+      <stop offset="55%" stop-color="#0A2A3A"/>
+      <stop offset="100%" stop-color="#071E29"/>
+    </radialGradient>
+    <filter id="softShadow" x="-20%" y="-20%" width="140%" height="150%">
+      <feDropShadow dx="0" dy="5" stdDeviation="8" flood-color="#0A2A3A" flood-opacity="0.10"/>
+    </filter>
+    <filter id="novaGlow" x="-120%" y="-120%" width="340%" height="340%">
+      <feGaussianBlur stdDeviation="18" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <style>
+      .title{font-family:Arial Rounded MT Bold, Nunito, Quicksand, Arial, sans-serif; font-size:26px; letter-spacing:4px; fill:#6C7890;}
+      .smallcap{font-family:Arial Rounded MT Bold, Nunito, Quicksand, Arial, sans-serif; font-size:18px; letter-spacing:4px; fill:#6C7890;}
+      .body{font-family:Arial, Helvetica, sans-serif; font-size:16px; fill:#6B7286;}
+      .body2{font-family:Arial, Helvetica, sans-serif; font-size:14px; fill:#81889B;}
+      .panel{fill:#FAFBFC; stroke:#E5E9F0; stroke-width:2;}
+      .wordmark{font-family:Arial Rounded MT Bold, Nunito, Quicksand, Arial, sans-serif; font-weight:700;}
+    </style>
+  </defs>
+
+  <rect width="1600" height="960" fill="#F6F8FB"/>
+
+  <!-- Top overview panel -->
+  <rect class="panel" x="16" y="16" rx="24" width="1568" height="310" filter="url(#softShadow)"/>
+  <text class="title" x="40" y="48">BRAND OVERVIEW</text>
+
+  <!-- SoIA logo group -->
+  <g transform="translate(72,90)">
+    <!-- icon -->
+    <g transform="translate(0,0)">
+      <circle cx="108" cy="150" r="34" fill="#E9C46A" opacity="0.26" filter="url(#seedGlow)"/>
+      <path d="M10 170 C30 228, 104 247, 177 205 C235 172, 269 116, 267 58 C266 34, 255 18, 236 11"
+            fill="none" stroke="url(#soiaLeaf)" stroke-width="18" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M110 184 C104 137, 84 89, 43 58 C10 33,-26 24,-56 30 C-58 70,-43 110,-13 141 C19 172, 59 182, 110 184 Z"
+            transform="translate(96,26)" fill="url(#soiaLeaf)"/>
+      <path d="M126 206 C126 152, 142 104, 179 70 C216 36, 260 22, 299 25 C302 64, 289 103, 260 135 C229 169, 185 188, 126 206 Z"
+            transform="translate(80,8) scale(0.86)" fill="url(#soiaLeaf)"/>
+      <path d="M109 187 C109 138, 113 102, 127 71" transform="translate(95,24)" fill="none" stroke="url(#soiaLeaf)" stroke-width="12" stroke-linecap="round"/>
+      <circle cx="159" cy="170" r="33" fill="url(#seedGrad)"/>
+    </g>
+    <!-- wordmark -->
+    <text class="wordmark" x="270" y="108" font-size="102" fill="#0B6E99">So</text>
+    <text class="wordmark" x="437" y="108" font-size="102" fill="#2EC4B6">IA</text>
+    <text class="smallcap" x="272" y="158">A MORE HUMAN</text>
+    <text class="smallcap" x="272" y="188">OPERATING SYSTEM</text>
+  </g>
+
+  <!-- separator -->
+  <line x1="790" y1="60" x2="790" y2="278" stroke="#E5E9F0" stroke-width="2"/>
+
+  <!-- Nova logo group -->
+  <g transform="translate(860,88)">
+    <g transform="translate(120,92)">
+      <circle cx="0" cy="0" r="88" fill="#2EC4B6" opacity="0.20" filter="url(#novaGlow)"/>
+      <circle cx="10" cy="-8" r="92" fill="#2EC4B6" opacity="0.35"/>
+      <circle cx="58" cy="-28" r="88" fill="#E9C46A" opacity="0.38"/>
+      <circle cx="-20" cy="-24" r="92" fill="#41D9D2" opacity="0.38"/>
+      <circle cx="-8" cy="14" r="90" fill="#2EC4B6" opacity="0.32"/>
+    </g>
+    <text class="wordmark" x="285" y="121" font-size="102" fill="#0A2A3A">Nova</text>
+    <text class="smallcap" x="287" y="168">YOUR AI COMPANION</text>
+    <text class="smallcap" x="287" y="198">IN EVERYDAY LIFE</text>
+  </g>
+
+  <!-- Palette panel -->
+  <rect class="panel" x="16" y="342" rx="24" width="748" height="238" filter="url(#softShadow)"/>
+  <text class="title" x="40" y="374">COLOR PALETTE</text>
+  <g transform="translate(40,395)">
+    <g>
+      <rect x="0" y="0" rx="12" width="126" height="92" fill="#0B6E99"/>
+      <text class="smallcap" x="8" y="120" fill="#0B6E99">#0B6E99</text>
+      <text class="body2" x="8" y="142">PRIMARY BLUE</text>
+    </g>
+    <g transform="translate(146,0)">
+      <rect x="0" y="0" rx="12" width="126" height="92" fill="#2EC4B6"/>
+      <text class="smallcap" x="8" y="120" fill="#2EC4B6">#2EC4B6</text>
+      <text class="body2" x="8" y="142">TURQUOISE</text>
+    </g>
+    <g transform="translate(292,0)">
+      <rect x="0" y="0" rx="12" width="126" height="92" fill="#E9C46A"/>
+      <text class="smallcap" x="8" y="120" fill="#A98322">#E9C46A</text>
+      <text class="body2" x="8" y="142">AMBER</text>
+    </g>
+    <g transform="translate(438,0)">
+      <rect x="0" y="0" rx="12" width="126" height="92" fill="#0A2A3A"/>
+      <text class="smallcap" x="8" y="120" fill="#0A2A3A">#0A2A3A</text>
+      <text class="body2" x="8" y="142">DEEP NAVY</text>
+    </g>
+    <g transform="translate(584,0)">
+      <rect x="0" y="0" rx="12" width="126" height="92" fill="#FFFFFF" stroke="#D7DDE7" stroke-width="2"/>
+      <text class="smallcap" x="8" y="120" fill="#7E8697">#FFFFFF</text>
+      <text class="body2" x="8" y="142">WHITE</text>
+    </g>
+  </g>
+
+  <!-- Typography panel -->
+  <rect class="panel" x="780" y="342" rx="24" width="804" height="238" filter="url(#softShadow)"/>
+  <text class="title" x="804" y="374">TYPOGRAPHY</text>
+  <text x="824" y="538" font-family="Arial Rounded MT Bold, Nunito, Quicksand, Arial, sans-serif" font-size="116" fill="#0A2A3A">Aa</text>
+  <line x1="986" y1="390" x2="986" y2="550" stroke="#E5E9F0" stroke-width="2"/>
+  <text class="wordmark" x="1016" y="432" font-size="36" fill="#0A2A3A">Rounded Sans Serif</text>
+  <text class="wordmark" x="1016" y="468" font-size="22" fill="#0A2A3A">Semibold</text>
+  <text x="1142" y="468" font-family="Arial, Helvetica, sans-serif" font-size="22" fill="#7E8697">Regular</text>
+  <text class="body" x="1016" y="508">A more human operating system</text>
+  <text class="body" x="1016" y="536">for a brighter everyday.</text>
+  <line x1="1310" y1="390" x2="1310" y2="550" stroke="#E5E9F0" stroke-width="2"/>
+  <text class="body" x="1338" y="420" letter-spacing="4">ABCDEFGHIJKLMN</text>
+  <text class="body" x="1338" y="452" letter-spacing="4">OPQRSTUVWXYZ</text>
+  <text class="body" x="1338" y="494" letter-spacing="4">abcdefghijklmn</text>
+  <text class="body" x="1338" y="526" letter-spacing="4">opqrstuvwxyz 0123456789</text>
+
+  <!-- Usage panel -->
+  <rect class="panel" x="16" y="596" rx="24" width="1568" height="348" filter="url(#softShadow)"/>
+  <text class="title" x="40" y="628">USAGE EXAMPLES</text>
+
+  <!-- App icon card -->
+  <g transform="translate(36,650)">
+    <rect x="0" y="0" width="180" height="176" rx="18" fill="#EEF2F7"/>
+    <rect x="24" y="20" width="132" height="132" rx="34" fill="url(#appBg)"/>
+    <circle cx="90" cy="84" r="16" fill="#E9C46A" opacity="0.28" filter="url(#seedGlow)"/>
+    <circle cx="90" cy="84" r="12" fill="#E9C46A"/>
+    <path d="M88 130 C75 100, 57 88, 26 77 C11 72, 0 52, 1 33 C33 33, 58 45, 73 65 C85 81, 89 101, 88 130 Z" fill="url(#soiaLeaf)" transform="translate(30,29) scale(0.9)"/>
+    <path d="M94 130 C107 100, 125 88, 156 77 C171 72, 182 52, 181 33 C149 33, 124 45, 109 65 C97 81, 93 101, 94 130 Z" fill="#2EC4B6" transform="translate(10,29) scale(0.9)"/>
+    <text class="smallcap" x="4" y="200">SOIA APP ICON</text>
+    <text class="body2" x="4" y="222">Clean and premium</text>
+    <text class="body2" x="4" y="240">for desktop and mobile.</text>
+  </g>
+
+  <!-- Splash card -->
+  <g transform="translate(232,650)">
+    <rect x="0" y="0" width="348" height="176" rx="18" fill="#0A2A3A"/>
+    <ellipse cx="174" cy="170" rx="190" ry="34" fill="#173E52"/>
+    <ellipse cx="174" cy="168" rx="190" ry="16" fill="#245772"/>
+    <g transform="translate(122,26) scale(0.72)">
+      <circle cx="70" cy="72" r="16" fill="#E9C46A" opacity="0.28" filter="url(#seedGlow)"/>
+      <circle cx="70" cy="72" r="13" fill="#E9C46A"/>
+      <path d="M64 118 C55 92, 39 79, 14 67 C-1 61,-8 45,-8 26 C18 27, 38 35, 49 48 C58 58, 63 79, 64 118 Z" fill="url(#soiaLeaf)"/>
+      <path d="M76 118 C85 92, 101 79, 126 67 C141 61, 148 45, 148 26 C122 27, 102 35, 91 48 C82 58, 77 79, 76 118 Z" fill="#2EC4B6"/>
+    </g>
+    <text class="wordmark" x="132" y="108" font-size="46" fill="#2EC4B6">So</text>
+    <text class="wordmark" x="208" y="108" font-size="46" fill="#2EC4B6">IA</text>
+    <text x="130" y="131" font-family="Arial Rounded MT Bold, Nunito, Quicksand, Arial, sans-serif" font-size="12" letter-spacing="3" fill="#FFFFFF">A MORE HUMAN</text>
+    <text x="116" y="147" font-family="Arial Rounded MT Bold, Nunito, Quicksand, Arial, sans-serif" font-size="12" letter-spacing="3" fill="#FFFFFF">OPERATING SYSTEM</text>
+    <text class="smallcap" x="4" y="200">BOOT / SPLASH SCREEN</text>
+    <text class="body2" x="4" y="222">Dark startup screen with</text>
+    <text class="body2" x="4" y="240">the centered logo.</text>
+  </g>
+
+  <!-- favicon -->
+  <g transform="translate(596,650)">
+    <rect x="0" y="0" width="158" height="176" rx="18" fill="#EEF2F7"/>
+    <rect x="34" y="42" width="90" height="90" rx="22" fill="#FFFFFF" stroke="#DCE3EC"/>
+    <circle cx="79" cy="81" r="9" fill="#E9C46A"/>
+    <path d="M76 114 C68 94, 58 87, 40 81 C29 77, 24 65, 24 51 C43 51, 57 57, 64 65 C71 73, 75 89, 76 114 Z" fill="#2EC4B6"/>
+    <path d="M82 114 C90 94, 100 87, 118 81 C129 77, 134 65, 134 51 C115 51, 101 57, 94 65 C87 73, 83 89, 82 114 Z" fill="#2EC4B6"/>
+    <text class="smallcap" x="4" y="200">FAVICON</text>
+    <text class="body2" x="4" y="222">Very simple, legible</text>
+    <text class="body2" x="4" y="240">at 16–48 px.</text>
+  </g>
+
+  <!-- top bar examples -->
+  <g transform="translate(770,650)">
+    <rect x="0" y="0" width="530" height="176" rx="18" fill="#F5F7FA"/>
+    <rect x="8" y="16" width="514" height="56" rx="18" fill="#FFFFFF" stroke="#E1E6EF"/>
+    <g transform="translate(28,31) scale(0.33)">
+      <circle cx="70" cy="72" r="16" fill="#E9C46A"/>
+      <path d="M64 118 C55 92, 39 79, 14 67 C-1 61,-8 45,-8 26 C18 27, 38 35, 49 48 C58 58, 63 79, 64 118 Z" fill="url(#soiaLeaf)"/>
+      <path d="M76 118 C85 92, 101 79, 126 67 C141 61, 148 45, 148 26 C122 27, 102 35, 91 48 C82 58, 77 79, 76 118 Z" fill="#2EC4B6"/>
+    </g>
+    <text class="wordmark" x="70" y="47" font-size="24" fill="#0B6E99">So</text>
+    <text class="wordmark" x="110" y="47" font-size="24" fill="#2EC4B6">IA</text>
+    <text class="body" x="188" y="46">Home</text>
+    <text class="body" x="260" y="46">Apps</text>
+    <text class="body" x="330" y="46">Nova</text>
+    <text class="body" x="405" y="46">Settings</text>
+    <circle cx="485" cy="44" r="16" fill="none" stroke="#C7D0DC" stroke-width="2"/>
+    <line x1="490" y1="50" x2="497" y2="57" stroke="#C7D0DC" stroke-width="2" stroke-linecap="round"/>
+    <circle cx="483" cy="42" r="5" fill="none" stroke="#C7D0DC" stroke-width="2"/>
+
+    <rect x="8" y="90" width="514" height="56" rx="18" fill="#FFFFFF" stroke="#E1E6EF"/>
+    <g transform="translate(28,105) scale(0.33)">
+      <circle cx="70" cy="72" r="16" fill="#E9C46A"/>
+      <path d="M64 118 C55 92, 39 79, 14 67 C-1 61,-8 45,-8 26 C18 27, 38 35, 49 48 C58 58, 63 79, 64 118 Z" fill="url(#soiaLeaf)"/>
+      <path d="M76 118 C85 92, 101 79, 126 67 C141 61, 148 45, 148 26 C122 27, 102 35, 91 48 C82 58, 77 79, 76 118 Z" fill="#2EC4B6"/>
+    </g>
+    <text class="wordmark" x="70" y="121" font-size="24" fill="#0B6E99">So</text>
+    <text class="wordmark" x="110" y="121" font-size="24" fill="#2EC4B6">IA</text>
+    <text class="body" x="188" y="120">Home</text>
+    <text class="body" x="260" y="120">Apps</text>
+    <text class="body" x="330" y="120" fill="#0B6E99">Nova</text>
+    <text class="body" x="405" y="120">Settings</text>
+    <g transform="translate(483,118)">
+      <circle cx="0" cy="0" r="16" fill="#2EC4B6" opacity="0.18"/>
+      <circle cx="0" cy="0" r="10" fill="#2EC4B6" opacity="0.30"/>
+      <circle cx="4" cy="-4" r="10" fill="#E9C46A" opacity="0.40"/>
+      <circle cx="-3" cy="-4" r="10" fill="#41D9D2" opacity="0.40"/>
+    </g>
+
+    <text class="smallcap" x="8" y="198">NAVIGATION BAR / TOP BAR</text>
+    <text class="body2" x="8" y="220">Small logo in the top bar with compact navigation and Nova indicator.</text>
+  </g>
+
+  <!-- Nova card -->
+  <g transform="translate(1316,650)">
+    <rect x="0" y="0" width="232" height="176" rx="18" fill="#EEF2F7"/>
+    <g transform="translate(116,64)">
+      <circle cx="0" cy="0" r="40" fill="#2EC4B6" opacity="0.18" filter="url(#novaGlow)"/>
+      <circle cx="3" cy="-2" r="40" fill="#2EC4B6" opacity="0.32"/>
+      <circle cx="24" cy="-12" r="38" fill="#E9C46A" opacity="0.35"/>
+      <circle cx="-12" cy="-10" r="40" fill="#41D9D2" opacity="0.35"/>
+      <circle cx="-4" cy="8" r="38" fill="#2EC4B6" opacity="0.26"/>
+    </g>
+    <text class="wordmark" x="92" y="127" font-size="26" fill="#0A2A3A">Nova</text>
+    <rect x="42" y="138" width="148" height="30" rx="15" fill="#FFFFFF" stroke="#D8DEE8"/>
+    <circle cx="62" cy="153" r="5" fill="#2EC4B6"/>
+    <text class="body2" x="78" y="158">Listening...</text>
+    <text class="smallcap" x="8" y="200">NOVA ASSISTANT</text>
+    <text class="body2" x="8" y="222">Luminous sphere used as</text>
+    <text class="body2" x="8" y="240">AI presence and indicator.</text>
+  </g>
+</svg>

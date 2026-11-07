@@ -1,0 +1,105 @@
+name: Prova programmatore
+
+# La misura del programmatore delle personalizzazioni (docs/PROCEDURE.md punto 6): il ciclo libero contro quello a
+# fasi, con lo stesso modello locale su CPU, sulla copia vera del codice di SoIA
+# (copilot/addestramento/programmatore_prova.py). Un lavoro per compito in parallelo; alla fine una Release
+# «programmatore-N» con la tabella. Si avvia solo a mano.
+on:
+  workflow_dispatch:
+    inputs:
+      modello:
+        description: "Modello Ollama"
+        default: "qwen3.5:4b"
+      quante:
+        description: "Giri per compito e per modo"
+        default: "3"
+      compiti:
+        description: "Compiti separati da virgola"
+        default: "colore,saluto,ora,sezione,scheda,meteo,scuro"
+
+permissions:
+  contents: write
+
+jobs:
+  elenco:
+    runs-on: ubuntu-24.04
+    outputs:
+      compiti: ${{ steps.c.outputs.compiti }}
+    steps:
+      - id: c
+        env:
+          COMPITI: ${{ inputs.compiti }}
+        run: echo "compiti=$(python3 -c "import json,os; print(json.dumps([c.strip() for c in os.environ['COMPITI'].split(',') if c.strip()]))")" >> "$GITHUB_OUTPUT"
+
+  prova:
+    needs: elenco
+    runs-on: ubuntu-24.04
+    timeout-minutes: 340
+    strategy:
+      fail-fast: false
+      matrix:
+        compito: ${{ fromJson(needs.elenco.outputs.compiti) }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Strumenti
+        env:
+          MODELLO: ${{ inputs.modello }}
+        run: |
+          pip install -e copilot
+          curl -fsSL https://ollama.com/install.sh | sh
+          sudo systemctl stop ollama || true
+          (OLLAMA_NUM_PARALLEL=1 ollama serve > ollama.log 2>&1 &)
+          for i in $(seq 30); do curl -sf localhost:11434/api/version && break; sleep 1; done
+          ollama pull "$MODELLO"
+      - name: Misura
+        env:
+          MODELLO: ${{ inputs.modello }}
+          QUANTE: ${{ inputs.quante }}
+          COMPITO: ${{ matrix.compito }}
+        run: |
+          python copilot/addestramento/programmatore_prova.py --modello "$MODELLO" --compiti "$COMPITO" --quante "$QUANTE" \
+            --uscita "programmatore-$COMPITO.json" | tee "programmatore-$COMPITO.txt"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: programmatore-${{ matrix.compito }}
+          path: |
+            programmatore-${{ matrix.compito }}.json
+            programmatore-${{ matrix.compito }}.txt
+
+  tabella:
+    needs: prova
+    if: always()
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: risultati
+      - name: Pubblica
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          MODELLO: ${{ inputs.modello }}
+        run: |
+          python3 - <<'PY' > tabella.md
+          import glob, json, os, sys
+          sys.path.insert(0, "copilot")
+          sys.path.insert(0, "copilot/addestramento")
+          from programmatore_prova import table
+          rows = [r for f in sorted(glob.glob("risultati/*/*.json")) for r in json.load(open(f))["risultati"]]
+          print(f"Modello: {os.environ['MODELLO']} (CPU, Ollama), controllo visivo spento. "
+                "«libero» = il programmatore di prima; «fasi» = piano, codice, modifica, verifica, riassunto.\n")
+          print(table(rows))
+          print("\nControlli sbagliati per giro:\n")
+          for r in rows:
+              bad = [c for c, ok in r["controlli"] if not ok]
+              if bad or r["errore"]:
+                  print(f"- {r['compito']} {r['giro']} {r['modo']}: " + "; ".join(bad) + (f" (errore: {r['errore'][:150]})" if r["errore"] else ""))
+          PY
+          cat tabella.md >> "$GITHUB_STEP_SUMMARY"
+          tag="programmatore-${GITHUB_RUN_NUMBER}"
+          gh release create "$tag" --repo "$GITHUB_REPOSITORY" --prerelease --title "Prova programmatore ${GITHUB_RUN_NUMBER}" \
+            --notes-file tabella.md risultati/*/*.json risultati/*/*.txt

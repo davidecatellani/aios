@@ -1,0 +1,10 @@
+[Unit]
+Description=SoIA: risparmio energetico per i portatili
+After=multi-user.target tuned.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/libexec/aios-risparmio
+
+[Install]
+WantedBy=multi-user.target

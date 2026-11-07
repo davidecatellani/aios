@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1800" height="600" viewBox="0 0 1800 600" role="img" aria-label="SoIA logo for dark background">
+  <defs>
+    <filter id="seedGlow" x="-120%" y="-120%" width="340%" height="340%">
+      <feGaussianBlur stdDeviation="18" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <radialGradient id="seedGrad" cx="38%" cy="30%" r="70%">
+      <stop offset="0%" stop-color="#FFF4C7"/>
+      <stop offset="55%" stop-color="#F0CF77"/>
+      <stop offset="100%" stop-color="#E9C46A"/>
+    </radialGradient>
+  </defs>
+
+  <!-- transparent background -->
+
+  <!-- symbol -->
+  <g transform="translate(70,48)">
+    <!-- subtle glow behind seed -->
+    <circle cx="280" cy="112" r="86" fill="#E9C46A" opacity="0.28" filter="url(#seedGlow)"/>
+
+    <!-- orbit / stem -->
+    <path d="M52 368
+             C103 468, 256 498, 397 421
+             C510 358, 579 254, 575 150
+             C572 102, 549 70, 507 58"
+          fill="none"
+          stroke="#FFFFFF"
+          stroke-width="30"
+          stroke-linecap="round"
+          stroke-linejoin="round"/>
+
+    <!-- left leaf -->
+    <path d="M287 379
+             C279 318, 252 251, 196 206
+             C149 168, 91 152, 45 159
+             C41 210, 61 267, 104 310
+             C150 355, 212 370, 287 379 Z"
+          fill="#FFFFFF"/>
+
+    <!-- right leaf -->
+    <path d="M295 406
+             C295 333, 316 266, 367 220
+             C417 174, 478 154, 531 157
+             C536 208, 519 261, 480 304
+             C439 350, 378 374, 295 406 Z"
+          fill="#FFFFFF"/>
+
+    <!-- central stem notch / join -->
+    <path d="M286 390 C286 323, 289 272, 307 225"
+          fill="none"
+          stroke="#FFFFFF"
+          stroke-width="21"
+          stroke-linecap="round"/>
+
+    <!-- seed -->
+    <circle cx="280" cy="112" r="47" fill="url(#seedGrad)"/>
+  </g>
+
+  <!-- wordmark -->
+  <g font-family="Arial Rounded MT Bold, Nunito, Quicksand, Avenir Next Rounded, Trebuchet MS, Arial, sans-serif"
+     font-size="292"
+     font-weight="600"
+     letter-spacing="-10">
+    <text x="650" y="397" fill="#FFFFFF">SoIA</text>
+  </g>
+</svg>

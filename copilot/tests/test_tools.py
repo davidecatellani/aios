@@ -35,6 +35,34 @@ def test_search_web_tool_uses_fetch_and_handles_errors():
     assert "rete assente" in search_web.func(query="x")
 
 
+def test_search_falls_back_to_other_engines():
+    bing = ('<ol><li class="b_algo"><h2><a href="https://www.ansa.it/">ANSA &amp; notizie</a></h2>'
+            '<div><p>Le ultime <strong>notizie</strong></p></div></li></ol>')
+    rss = ("<rss><channel><item><title><![CDATA[Il governo approva la manovra]]></title>"
+           "<link>https://news.google.com/a/1</link><pubDate>Sun, 04 Oct 2026 20:00:00 GMT</pubDate>"
+           '<source url="https://www.corriere.it">Corriere della Sera</source></item></channel></rss>')
+    seen = []
+
+    def fetch(url):
+        seen.append(url.split("/")[2])
+        if "bing" in url:
+            return bing
+        if "news.google" in url:
+            return rss
+        return "<html>verifica anti-robot</html>"  # DuckDuckGo che non dà risultati
+
+    found = web.search("ricetta carbonara", fetch)
+    assert found[0] == {"title": "ANSA & notizie", "url": "https://www.ansa.it/", "snippet": "Le ultime notizie"}
+    assert seen == ["html.duckduckgo.com", "lite.duckduckgo.com", "www.bing.com"]
+    news = web.search("notizie del giorno", fetch)
+    assert news[0]["title"] == "Il governo approva la manovra" and "Corriere della Sera" in news[0]["snippet"]
+    lite = ("<table><tr><td><a rel=\"nofollow\" href=\"https://www.meteo.it/\" class='result-link'>Meteo</a></td></tr>"
+            "<tr><td class='result-snippet'>Previsioni per <b>Milano</b></td></tr></table>")
+    assert web.parse_duckduckgo_lite(lite) == [{"title": "Meteo", "url": "https://www.meteo.it/", "snippet": "Previsioni per Milano"}]
+    mojeek = '<ul><li><a class="title" href="https://example.it/">Esempio</a><p class="s">Testo</p></li></ul>'
+    assert web.parse_mojeek(mojeek)[0]["url"] == "https://example.it/"
+
+
 def test_html_to_text_skips_scripts_and_truncates():
     html = "<html><script>var x=1;</script><h1>Titolo</h1><p>Testo   utile</p></html>"
     assert web.html_to_text(html) == "Titolo Testo utile"
@@ -77,7 +105,9 @@ def test_install_commands_and_validation():
     tools = tools_by_name(runner)
     assert tools["install_app"].requires_confirmation
     assert tools["install_app"].func(app_id="org.videolan.VLC", source="flatpak") == "Installato org.videolan.VLC."
-    assert runner.ran[-1] == ["flatpak", "install", "-y", "--noninteractive", "flathub", "org.videolan.VLC"]
+    # per l'utente (niente password di amministratore), con Flathub aggiunto se manca
+    assert runner.ran[-1] == ["flatpak", "install", "--user", "-y", "--noninteractive", "flathub", "org.videolan.VLC"]
+    assert ["flatpak", "remote-add", "--user", "--if-not-exists", "flathub", apps.FLATHUB] in runner.ran
     tools["install_app"].func(app_id="vlc", source="system")
     assert runner.ran[-1] == ["pkexec", "apt-get", "install", "-y", "vlc"]
 

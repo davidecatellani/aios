@@ -1,0 +1,7 @@
+# L'accesso a SoIA: la schermata HTML di SoIA (aios-accesso) al posto di GDM.
+[terminal]
+vt = 1
+
+[default_session]
+command = "/usr/libexec/aios-accesso-avvio"
+user = "greeter"

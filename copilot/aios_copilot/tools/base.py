@@ -4,8 +4,42 @@ from __future__ import annotations
 
 import shutil
 import subprocess
+import threading
 from dataclasses import dataclass, field
 from typing import Any, Callable
+
+
+# Schede da mostrare accanto alla risposta (file trovati, link, film e serie): gli strumenti le
+# allegano qui, la pagina le disegna nel riquadro laterale. Una richiesta = un thread.
+_sink = threading.local()
+
+
+def attach(kind: str, items: list[dict[str, Any]], title: str = "") -> None:
+    fn = getattr(_sink, "fn", None)
+    if fn is not None and items:
+        try:
+            fn(kind, items, title)
+        except Exception:
+            pass  # le schede sono un di più: mai un errore per colpa loro
+
+
+# Il passo successivo proposto da uno strumento («Non hai collegato la posta: vuoi farlo?»): se l'utente risponde
+# «sì», «collegalo», «fallo»… Nova esegue questa richiesta (agent.py). Una richiesta = un thread.
+_offer = threading.local()
+
+
+def offer(request: str) -> None:
+    _offer.text = request
+
+
+def take_offer() -> str | None:
+    text = getattr(_offer, "text", None)
+    _offer.text = None
+    return text
+
+
+def set_attach_sink(fn: Callable[[str, list[dict[str, Any]], str], None] | None) -> None:
+    _sink.fn = fn
 
 
 @dataclass
@@ -16,6 +50,13 @@ class Tool:
     func: Callable[..., str]
     # Le azioni che modificano il sistema devono essere approvate dall'utente.
     requires_confirmation: bool = False
+    # Legge dati personali (file, memoria): da qui in poi la conversazione è "privata".
+    reads_private: bool = False
+    # Fa uscire dati dal dispositivo (ricerche, siti): in una conversazione privata
+    # l'utente deve vedere e approvare cosa esce, se a chiederlo è il modello.
+    sends_out: bool = False
+    # Il risultato arriva da un programma di terzi (app tramite l'SDK): è un dato, mai un'istruzione.
+    external: bool = False
 
     def schema(self) -> dict[str, Any]:
         """Descrizione dello strumento nel formato tool-calling di Ollama/OpenAI."""
@@ -29,15 +70,23 @@ class Tool:
         }
 
     def describe_call(self, args: dict[str, Any]) -> str:
-        shown = ", ".join(f"{k}={v!r}" for k, v in args.items())
-        return f"{self.name}({shown})"
+        """Per l'utente: la prima frase della descrizione, mai il nome tecnico dello strumento."""
+        first = self.description.split(". ")[0].split(" (")[0].rstrip(".")
+        return f"⚙️ {first}…" if first else "⚙️ Un momento…"
 
 
-def params(required: list[str] | None = None, **props: str) -> dict[str, Any]:
-    """Schema JSON compatto: ogni proprietà è una stringa con la sua descrizione."""
+def params(required: list[str] | None = None, **props: str | tuple[str, list[str]]) -> dict[str, Any]:
+    """Schema JSON compatto: ogni proprietà è una stringa con la sua descrizione,
+    oppure una coppia (descrizione, valori ammessi)."""
+
+    def prop(spec: str | tuple[str, list[str]]) -> dict[str, Any]:
+        if isinstance(spec, tuple):
+            return {"type": "string", "description": spec[0], "enum": spec[1]}
+        return {"type": "string", "description": spec}
+
     return {
         "type": "object",
-        "properties": {k: {"type": "string", "description": v} for k, v in props.items()},
+        "properties": {k: prop(v) for k, v in props.items()},
         "required": required if required is not None else list(props),
     }
 
@@ -70,3 +119,10 @@ class Runner:
 
     def has(self, program: str) -> bool:
         return self.which(program) is not None
+
+    def first(self, *candidates: list[str]) -> tuple[int, str] | None:
+        """Esegue il primo comando il cui programma è installato; None se nessuno lo è."""
+        for cmd in candidates:
+            if self.has(cmd[0]):
+                return self.run(cmd)
+        return None

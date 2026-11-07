@@ -1,0 +1,5 @@
+<?xml version="1.0"?>
+<openbox_menu>
+  <!-- SoIA non usa i menu del compositore -->
+  <menu id="root-menu" label=""/>
+</openbox_menu>

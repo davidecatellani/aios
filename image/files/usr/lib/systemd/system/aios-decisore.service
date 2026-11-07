@@ -1,0 +1,21 @@
+[Unit]
+Description=Decisore di Nova: Laya, il modello che prende le decisioni rapide (System One)
+ConditionPathExists=/usr/share/aios/laya/rl_agent_config.json
+# Laya tiene ~2,2 GB sempre in memoria: con meno di 12 GB di RAM, insieme al modello di conversazione e al
+# nucleo, il PC finirebbe nello swap. Lì decide il nucleo (smistatore.py), che pesa meno della metà.
+ConditionMemory=>=11G
+After=local-fs.target
+
+[Service]
+DynamicUser=yes
+# ~2,2 GB, sempre caricato (ricaricarlo costa decine di secondi); vedi /usr/libexec/aios-decisore
+ExecStart=/usr/libexec/aios-decisore
+Restart=on-failure
+RestartSec=10
+# l'interfaccia viene prima
+Nice=5
+CPUWeight=60
+MemoryHigh=3G
+
+[Install]
+WantedBy=multi-user.target

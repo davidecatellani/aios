@@ -1,0 +1,13 @@
+# Servizio utente: copiare in ~/.config/systemd/user/ e attivare con
+#   systemctl --user enable --now aios-mail
+[Unit]
+Description=AIOS: posta (sincronizzazione, notifiche delle mail importanti, archiviazione)
+After=network-online.target
+
+[Service]
+ExecStart=aios-mail
+Restart=on-failure
+RestartSec=60
+
+[Install]
+WantedBy=default.target

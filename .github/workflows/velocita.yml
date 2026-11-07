@@ -1,0 +1,92 @@
+name: Prova velocità
+
+# Quanto aspetta l'utente su un PC modesto (un i3 con 8 GB): lo stesso giro di richieste vere di SoIA con modi diversi
+# di far girare Qwen3.5 4B (copilot/addestramento/velocita_prova.py). Le macchine di GitHub hanno 4 thread su 2 core
+# veri, come un i3; la memoria è più veloce di un PC vecchio, quindi contano i rapporti tra i modi, non i secondi.
+# Tutti i modi sulla stessa macchina, uno dopo l'altro. Alla fine una Release «velocita-N». Si avvia solo a mano.
+on:
+  workflow_dispatch:
+    inputs:
+      modi:
+        description: "Modi separati da virgola"
+        default: "ollama,ollama-fa-q8,llama-1,llama-3,llama-3-bozza,llama-3-t4"
+
+permissions:
+  contents: write
+
+env:
+  LLAMA_CPP: b11392
+
+jobs:
+  prova:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 340
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Strumenti
+        run: |
+          pip install --index-url https://download.pytorch.org/whl/cpu torch
+          pip install "transformers>=5" sentencepiece safetensors huggingface_hub
+          pip install -e copilot
+          git clone --depth 1 --branch "$LLAMA_CPP" https://github.com/ggml-org/llama.cpp /tmp/llama.cpp
+          pip install /tmp/llama.cpp/gguf-py
+          curl -fsSL -o /tmp/llama.tar.gz \
+            "https://github.com/ggml-org/llama.cpp/releases/download/$LLAMA_CPP/llama-$LLAMA_CPP-bin-ubuntu-x64.tar.gz"
+          mkdir -p /tmp/llama-bin && tar -xzf /tmp/llama.tar.gz -C /tmp/llama-bin
+          echo "SERVER=$(find /tmp/llama-bin -name llama-server -type f | head -n1)" >> "$GITHUB_ENV"
+          echo "QUANTIZE=$(find /tmp/llama-bin -name llama-quantize -type f | head -n1)" >> "$GITHUB_ENV"
+          curl -fsSL https://ollama.com/install.sh | sh
+          sudo systemctl stop ollama || true
+          sudo systemctl disable ollama || true
+      - name: Modelli
+        env:
+          MODI: ${{ inputs.modi }}
+        run: |
+          sudo mkdir -p /mnt/m && sudo chown "$USER" /mnt/m && cd /mnt/m
+          hf download Qwen/Qwen3.5-4B --local-dir hf4 || huggingface-cli download Qwen/Qwen3.5-4B --local-dir hf4
+          python /tmp/llama.cpp/convert_hf_to_gguf.py hf4 --outtype f16 --outfile f16.gguf && rm -rf hf4
+          LD_LIBRARY_PATH="$(dirname "$QUANTIZE")" "$QUANTIZE" f16.gguf q4.gguf Q4_K_M && rm f16.gguf
+          hf download Qwen/Qwen3.5-0.8B --local-dir hf08 || huggingface-cli download Qwen/Qwen3.5-0.8B --local-dir hf08
+          python /tmp/llama.cpp/convert_hf_to_gguf.py hf08 --outtype q8_0 --outfile bozza.gguf && rm -rf hf08
+          # il 4B più compresso, pronto (come nell'immagine di SoIA): per i modi da 8 GB
+          curl -fL --retry 3 -o piccolo.gguf \
+            https://huggingface.co/bartowski/Qwen_Qwen3.5-4B-GGUF/resolve/main/Qwen_Qwen3.5-4B-IQ4_XS.gguf
+          # modelli a esperti (costruiti a blocchi), solo se richiesti: moe-lfm2, moe-granite
+          case ",$MODI," in *,moe-lfm2,*) curl -fL --retry 3 -o lfm2.gguf \
+            https://huggingface.co/LiquidAI/LFM2-8B-A1B-GGUF/resolve/main/LFM2-8B-A1B-Q4_K_M.gguf ;; esac
+          case ",$MODI," in *,moe-granite,*) curl -fL --retry 3 -o granite.gguf \
+            https://huggingface.co/ibm-granite/granite-4.0-h-tiny-GGUF/resolve/main/granite-4.0-h-tiny-Q4_K_M.gguf ;; esac
+          (ollama serve > /tmp/ollama-pull.log 2>&1 &)
+          for i in $(seq 30); do curl -sf localhost:11434/api/version && break; sleep 1; done
+          ollama pull qwen3.5:4b
+          pkill -f "ollama serve" || true
+          ls -lh /mnt/m; df -h / /mnt
+      - name: Misura
+        env:
+          MODI: ${{ inputs.modi }}
+        run: |
+          python copilot/addestramento/velocita_prova.py --modi "$MODI" --server "$SERVER" \
+            --gguf /mnt/m/q4.gguf --bozza /mnt/m/bozza.gguf --piccolo /mnt/m/piccolo.gguf --moe-dir /mnt/m --uscita velocita.json | tee velocita.txt
+      - name: Pubblica
+        if: always()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          [ -f velocita.json ] || exit 0
+          python3 - <<'PY' > tabella.md
+          import json, sys
+          sys.path.insert(0, "copilot")
+          sys.path.insert(0, "copilot/addestramento")
+          from velocita_prova import table
+          d = json.load(open("velocita.json"))
+          print("Qwen3.5 4B a 4 bit, 12 richieste vere di SoIA (Nova con gli strumenti, il programmatore, la posta) alternate.\n")
+          print("Macchina:\n```\n" + d["macchina"]["cpu"] + "\n```\n")
+          print(table(d["risultati"]))
+          PY
+          cat tabella.md >> "$GITHUB_STEP_SUMMARY"
+          tag="velocita-${GITHUB_RUN_NUMBER}"
+          gh release create "$tag" --repo "$GITHUB_REPOSITORY" --prerelease --title "Prova velocità ${GITHUB_RUN_NUMBER}" \
+            --notes-file tabella.md velocita.json velocita.txt $(ls llama-server.log ollama-serve.log 2>/dev/null)

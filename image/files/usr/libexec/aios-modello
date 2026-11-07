@@ -1,0 +1,21 @@
+#!/bin/sh
+# Il modello di Nova (Qwen3.5 4B) su llama-server: aios-modello.service, docs/VELOCITA.md.
+# - due posti: 0 la conversazione con Nova (istruzioni e strumenti letti una volta: la domanda dopo legge solo le
+#   parole nuove), 1 i lavori di sottofondo (procedure, programmatore, posta e documenti a livelli);
+# - thread: con 4 thread o meno tutti (prova velocita-1: 1,5 volte più veloce di oggi), oltre solo i core veri;
+# - memoria: la conversazione costa ~100 KB per token (velocita-2), quindi i due posti stanno su un'unica memoria
+#   (8192 token sotto i 12 GB, 16384 sopra) e sotto i 12 GB niente copie in RAM dei prompt già letti (300-480 MB
+#   l'una): il resto della RAM è dei programmi;
+# - gli stati già letti si possono salvare su disco (--slot-save-path) e ricaricare in un attimo.
+dir=/usr/share/aios/modello
+threads=$(nproc)
+if [ "$threads" -gt 4 ]; then
+  cores=$(lscpu -p=core,socket 2>/dev/null | grep -v '^#' | sort -u | wc -l)
+  [ "$cores" -gt 0 ] && threads=$cores
+fi
+kb=$(sed -n 's/^MemTotal: *\([0-9]*\) kB/\1/p' /proc/meminfo)
+ctx=16384 cache=2048
+if [ -n "$kb" ] && [ "$kb" -lt 12000000 ]; then ctx=8192 cache=0; fi
+exec /usr/lib/aios/llama/llama-server -m "$dir/nova.gguf" --host 127.0.0.1 --port 11438 \
+  -c "$ctx" -np 2 --kv-unified -t "$threads" --cache-ram "$cache" --jinja --no-webui \
+  --slot-save-path "${CACHE_DIRECTORY:-/var/cache/aios-modello}"

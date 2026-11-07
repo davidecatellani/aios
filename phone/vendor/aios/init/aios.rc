@@ -1,0 +1,11 @@
+# SoIA: impostazioni di energia applicate dopo l'avvio (una volta, poi restano).
+service aios_energia /system_ext/bin/aios-energia.sh
+    class late_start
+    user system
+    group system
+    oneshot
+    disabled
+    task_profiles ServiceCapacityLow
+
+on property:sys.boot_completed=1
+    start aios_energia

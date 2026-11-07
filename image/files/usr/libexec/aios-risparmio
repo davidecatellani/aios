@@ -1,0 +1,14 @@
+#!/bin/sh
+# Risparmio energetico per i portatili: le regolazioni di «powertop --auto-tune» (audio, PCI, SATA,
+# scheda di rete, porte USB che dormono quando non servono), tranne per mouse e tastiere USB, che
+# addormentati rispondono in ritardo. Sui PC fissi (senza batteria) non fa niente.
+ls /sys/class/power_supply/BAT* >/dev/null 2>&1 || exit 0
+command -v powertop >/dev/null && powertop --auto-tune >/dev/null 2>&1
+for iface in /sys/bus/usb/devices/*/bInterfaceClass; do
+  [ "$(cat "$iface" 2>/dev/null)" = 03 ] || continue  # 03: dispositivi d'ingresso (HID)
+  dev=$(dirname "$(dirname "$iface")")
+  echo on > "$dev/power/control" 2>/dev/null
+done
+# scritture sul disco raggruppate: il disco si sveglia meno spesso
+sysctl -q vm.dirty_writeback_centisecs=1500 2>/dev/null
+exit 0

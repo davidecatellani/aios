@@ -1,0 +1,114 @@
+name: Verifica del nucleo
+
+# Il controllo di qualità delle personalizzazioni: l'adattatore «verifica» del nucleo (Qwen3.5 0.8B) legge la
+# richiesta dell'utente e cosa è cambiato nella pagina, misurato prima e dopo (copilot/aios_copilot/cambiamenti.py),
+# e dice se la modifica è riuscita e cosa non torna (colore, posizione, dimensione, testo, elementi spariti o
+# duplicati, testi sovrapposti o illeggibili, pagina rotta…). Solo testo: guardare le immagini lo 0.8B non lo sa fare
+# abbastanza bene (prove 3 e 4). Si addestra su modifiche vere fatte apposta bene e male su pagine di SoIA
+# (copilot/addestramento/verifiche.py), quindi la risposta giusta si sa sempre. Parte dall'ultima Release
+# «adattatori-…», misura e pubblica una Release «adattatori-verifica-N» completa: la costruzione dell'immagine
+# prende la più recente. Si avvia solo a mano.
+on:
+  workflow_dispatch:
+    inputs:
+      minuti:
+        description: "Tempo massimo di addestramento (minuti, senza scheda video)"
+        default: "180"
+      esempi:
+        description: "Quanti esempi di modifiche (giuste e sbagliate) preparare"
+        default: "1500"
+
+permissions:
+  contents: write
+
+env:
+  BASE: Qwen/Qwen3.5-0.8B
+  LLAMA_CPP: b11392  # stessa versione dell'immagine (image/Containerfile)
+
+jobs:
+  verifica:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 355
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Strumenti
+        run: |
+          sudo apt-get install -y -q fonts-dejavu-core fonts-liberation fonts-noto-color-emoji
+          pip install --index-url https://download.pytorch.org/whl/cpu torch torchvision
+          pip install "transformers>=5" peft accelerate sentencepiece safetensors huggingface_hub pillow playwright opencv-python-headless
+          python -m playwright install --with-deps chromium
+          pip install -e copilot
+          git clone --depth 1 --branch "$LLAMA_CPP" https://github.com/ggml-org/llama.cpp /tmp/llama.cpp
+          pip install /tmp/llama.cpp/gguf-py
+          curl -fsSL -o /tmp/llama.tar.gz \
+            "https://github.com/ggml-org/llama.cpp/releases/download/$LLAMA_CPP/llama-$LLAMA_CPP-bin-ubuntu-x64.tar.gz"
+          mkdir -p /tmp/llama-bin && tar -xzf /tmp/llama.tar.gz -C /tmp/llama-bin
+          echo "SERVER=$(find /tmp/llama-bin -name llama-server -type f | head -n1)" >> "$GITHUB_ENV"
+      - name: Adattatori già pubblicati
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          tag=$(gh release list --repo "$GITHUB_REPOSITORY" --limit 100 --json tagName,createdAt \
+                --jq '[.[] | select(.tagName | startswith("adattatori-"))] | sort_by(.createdAt) | reverse | .[0].tagName')
+          echo "Parto da $tag"
+          mkdir -p uscita
+          for i in 1 2 3 4 5; do  # GitHub a volte risponde 500 sui file delle release: si riprova
+            gh release download "$tag" --repo "$GITHUB_REPOSITORY" --dir uscita --pattern '*.gguf' --clobber && break
+            [ "$i" = 5 ] && exit 1
+            sleep $((i * 20))
+          done
+          rm -f uscita/schermate.gguf uscita/verifica.gguf  # si rifà (schermate: la prima prova, superata)
+          ls -lh uscita
+      - name: Modello base (e proiettore delle immagini, se manca)
+        run: |
+          huggingface-cli download "$BASE" --local-dir base-hf || hf download "$BASE" --local-dir base-hf
+          if [ ! -f uscita/mmproj.gguf ]; then
+            python /tmp/llama.cpp/convert_hf_to_gguf.py base-hf --mmproj --outtype f16 --outfile uscita/mmproj.gguf
+          fi
+      - name: Modifiche giuste e sbagliate
+        run: python copilot/addestramento/verifiche.py --uscita dati-verifica --quante "${{ inputs.esempi }}"
+      - name: Adattatore verifica
+        run: |
+          python copilot/addestramento/addestra_documenti.py --base base-hf --dati dati-verifica \
+            --esempi verifica.jsonl --compito verifica --uscita lora/verifica --max-minuti "${{ inputs.minuti }}" --epoche 3 --peso-decisione 3
+      - name: Conversione in GGUF
+        run: |
+          python /tmp/llama.cpp/convert_lora_to_gguf.py --base base-hf --outtype f16 --outfile uscita/verifica.gguf lora/verifica
+          ls -lh uscita
+      - name: Misura
+        run: |
+          chmod +x "$SERVER"
+          loras=""
+          for a in uscita/*.gguf; do
+            case "${a##*/}" in base.gguf|mmproj.gguf) continue ;; esac
+            loras="$loras --lora $a"
+          done
+          LD_LIBRARY_PATH="$(dirname "$SERVER")" "$SERVER" -m uscita/base.gguf --mmproj uscita/mmproj.gguf $loras \
+            --lora-init-without-apply --port 11436 -c 4096 -np 1 > server.log 2>&1 &
+          for i in $(seq 90); do curl -sf http://127.0.0.1:11436/health && break; sleep 2; done
+          set -o pipefail
+          tail -n 5 server.log
+          { echo "### Verifica delle personalizzazioni" && echo && python copilot/addestramento/valuta_verifiche.py --dati dati-verifica \
+              --url http://127.0.0.1:11436; } | tee uscita/misura.md
+      - name: Conserva l'adattatore e la misura (anche se non si pubblica)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: verifica-${{ github.run_number }}
+          path: |
+            uscita/verifica.gguf
+            uscita/misura.md
+          if-no-files-found: ignore
+          retention-days: 14
+      - name: Pubblica
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          cd uscita && sha256sum *.gguf > SHA256SUMS
+          tag="adattatori-verifica-${GITHUB_RUN_NUMBER}"
+          { echo "Nucleo di Nova su $BASE (llama.cpp $LLAMA_CPP): tutti gli adattatori più «verifica»."; echo; cat misura.md; } > note.md
+          gh release create "$tag" --repo "$GITHUB_REPOSITORY" --prerelease --title "Verifica del nucleo ${GITHUB_RUN_NUMBER}" \
+            --notes-file note.md *.gguf misura.md SHA256SUMS
