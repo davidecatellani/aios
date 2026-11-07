@@ -68,7 +68,41 @@ def make_tools(get_index: Callable[[], Any], runner: Runner | None = None,
                 f"L'ho salvata in {out}." + (" " + docs.deliver_to.get()(out) if docs.deliver_to.get() else
                                               " Dimmi «manda la lista della spesa al telefono» per averla con te."))
 
+    facts_holder: list[Any] = []
+
+    def facts() -> Any:
+        from ..bollette import Facts
+
+        if not facts_holder:
+            facts_holder.append(Facts())
+        return facts_holder[0]
+
+    def unread() -> int:
+        try:
+            return facts().unread(get_index())
+        except Exception:
+            return 0
+
+    def bills_to_pay(giorni: str = "") -> str:
+        from ..bollette import to_pay_text
+
+        days = int(giorni) if str(giorni).strip().isdigit() else 30
+        return to_pay_text(facts(), now(), days, unread())
+
+    def bills_spent(servizio: str = "", anno: str = "") -> str:
+        from ..bollette import spent_text
+
+        year = int(anno) if str(anno).strip().isdigit() else None
+        return spent_text(facts(), servizio, year, now(), unread())
+
     return [
+        Tool("bills_to_pay", "Le bollette, fatture, avvisi di pagamento e multe da pagare nei prossimi giorni, con importo e "
+             "scadenza, trovati nei documenti dell'utente (già pronti, si legge subito).",
+             params([], giorni="Quanti giorni guardare avanti (predefinito 30)"), bills_to_pay, reads_private=True),
+        Tool("bills_spent", "Quanto ha speso l'utente per un servizio (luce, gas, acqua, telefono, internet, rifiuti, "
+             "assicurazione) o con un fornitore in un anno, dalle bollette nei documenti.",
+             params([], servizio="Servizio o fornitore (es. luce, gas, Enel)", anno="Anno (predefinito quest'anno)"),
+             bills_spent, reads_private=True),
         Tool("show_document", "Trova e mostra un documento personale (es. «la bolletta della luce di luglio»): "
              "lo apre sul PC, o dal telefono lo rende apribile lì.", params(query="Cosa cercare"), show_document,
              reads_private=True),
@@ -86,9 +120,25 @@ RE_DIET = re.compile(r"^(?:cosa|che\s+cosa)\s+(?:devo|posso|dovrei)\s+mangiare(?
 RE_SHOPPING = re.compile(r"^(?:fammi|prepara(?:mi)?|crea(?:mi)?|scrivi(?:mi)?)\s+(?:la\s+)?lista\s+della\s+spesa(?P<t>.*)$")
 
 
+RE_TO_PAY = re.compile(r"^(?:che|quali)\s+bollette\s+(?:devo|ho\s+da)\s+pagare|^(?:le\s+)?bollette\s+(?:da\s+pagare|in\s+scadenza)|"
+                       r"^cosa\s+(?:devo|ho\s+da)\s+pagare|^(?:che|quali)\s+(?:pagamenti|scadenze\s+di\s+pagamento)\s+ho")
+RE_DAYS = re.compile(r"(?:prossimi|nei)\s+(\d+)\s+giorni|(questa\s+settimana)|(questo\s+mese)")
+RE_SPENT = re.compile(r"^quanto\s+(?:ho\s+)?(?:speso|pagato|spendo|pago)\s+(?:di|per\s+(?:la|il|l')?|in)\s*(?P<s>[\w' ]+?)"
+                      r"(?:\s+(?:nel|in)\s+(?P<y>\d{4})|\s+(?P<this>quest'anno|questo\s+anno)|\s+(?P<last>l'anno\s+scorso))?$")
+
+
 class DocumentsRouter:
     def match(self, text: str) -> Intent | None:
         low = normalize(text).rstrip("?!.")
+        if RE_TO_PAY.match(low):
+            d = RE_DAYS.search(low)
+            days = (d.group(1) or ("7" if d.group(2) else "31")) if d else ""
+            return Intent("bills_to_pay", {"giorni": days})
+        m = RE_SPENT.match(low)
+        if m and re.search(r"\b(?:luce|corrente|elettricit\w*|gas|acqua|telefon\w*|cellulare|internet|fibra|rifiuti|tari|"
+                           r"assicurazion\w*|bollett\w*)\b", m.group("s")):  # «di AI», «di benzina»: ad altri
+            year = m.group("y") or (str(datetime.now().year - 1) if m.group("last") else "")
+            return Intent("bills_spent", {"servizio": m.group("s").strip(), "anno": year})
         m = RE_DIET.match(low)
         if m:
             return Intent("diet_today", {"when": low})

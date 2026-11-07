@@ -1,8 +1,9 @@
 name: Prova livelli posta
 
-# La misura dei livelli della posta (docs/VELOCITA.md): «quali sono le cose da fare dalla posta?» letto dal bronze
-# (il modello legge tutte le mail mentre l'utente aspetta) o dal gold (letto prima in sottofondo, risponde il
-# codice), con Qwen3.5 4B su CPU (2 core veri come un i3). Alla fine una Release «livelli-N». Si avvia solo a mano.
+# La misura dei livelli dei dati (docs/VELOCITA.md), letti dal bronze (il modello legge tutto mentre l'utente
+# aspetta) o dal gold (letto prima in sottofondo, risponde il codice), con Qwen3.5 4B su CPU (2 core veri come un
+# i3): la posta («quali sono le cose da fare?») e le bollette («cosa devo pagare?», «quanto ho speso di luce?»).
+# Alla fine una Release «livelli-N». Si avvia solo a mano.
 on:
   workflow_dispatch:
     inputs:
@@ -10,8 +11,11 @@ on:
         description: "Modello Ollama"
         default: "qwen3.5:4b"
       quante:
-        description: "Caselle di posta"
+        description: "Caselle di posta o cartelle di documenti per prova"
         default: "4"
+      prove:
+        description: "Quali prove: posta, bollette"
+        default: "posta,bollette"
 
 permissions:
   contents: write
@@ -39,31 +43,43 @@ jobs:
         env:
           MODELLO: ${{ inputs.modello }}
           QUANTE: ${{ inputs.quante }}
+          PROVE: ${{ inputs.prove }}
         run: |
-          python copilot/addestramento/livelli_prova.py --modello "$MODELLO" --quante "$QUANTE" --uscita livelli.json | tee livelli.txt
+          case ",$PROVE," in *,posta,*)
+            python copilot/addestramento/livelli_prova.py --modello "$MODELLO" --quante "$QUANTE" --uscita livelli.json | tee livelli.txt ;;
+          esac
+          case ",$PROVE," in *,bollette,*)
+            python copilot/addestramento/bollette_prova.py --modello "$MODELLO" --quante "$QUANTE" --uscita bollette.json | tee bollette.txt ;;
+          esac
       - name: Pubblica
         if: always()
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           MODELLO: ${{ inputs.modello }}
         run: |
-          [ -f livelli.json ] || exit 0
+          [ -f livelli.json ] || [ -f bollette.json ] || exit 0
           python3 - <<'PY' > tabella.md
           import json, os, sys
           sys.path.insert(0, "copilot")
           sys.path.insert(0, "copilot/addestramento")
-          from livelli_prova import table
-          rows = json.load(open("livelli.json"))["risultati"]
-          print(f"Modello: {os.environ['MODELLO']} (CPU, Ollama). Caselle di 20 mail con 5 cose da fare, risposta giusta nota.\n")
-          print(table(rows))
-          print("\nControlli sbagliati:\n")
-          for r in rows:
-              for level in ("bronze", "gold"):
-                  bad = [c for c, ok in r[level]["controlli"] if not ok]
-                  if bad:
-                      print(f"- casella {r['casella']} {level}: " + "; ".join(bad))
+          print(f"Modello: {os.environ['MODELLO']} (CPU, Ollama).\n")
+          for name, what, key in (("livelli", "Posta: caselle di 20 mail con 5 cose da fare", "casella"),
+                                  ("bollette", "Bollette: cartelle di 25 documenti, 12 bollette e fatture", "cartella")):
+              if not os.path.exists(f"{name}.json"):
+                  continue
+              table = __import__(f"{name}_prova").table
+              rows = json.load(open(f"{name}.json"))["risultati"]
+              print(f"## {what}, risposta giusta nota\n")
+              print(table(rows))
+              print("\nControlli sbagliati:\n")
+              for r in rows:
+                  for level in ("bronze", "gold"):
+                      bad = [c for c, ok in r[level]["controlli"] if not ok]
+                      if bad:
+                          print(f"- {key} {r[key]} {level}: " + "; ".join(bad))
+              print()
           PY
           cat tabella.md >> "$GITHUB_STEP_SUMMARY"
           tag="livelli-${GITHUB_RUN_NUMBER}"
           gh release create "$tag" --repo "$GITHUB_REPOSITORY" --prerelease --title "Prova livelli posta ${GITHUB_RUN_NUMBER}" \
-            --notes-file tabella.md livelli.json livelli.txt
+            --notes-file tabella.md $(ls livelli.json livelli.txt bollette.json bollette.txt 2>/dev/null)

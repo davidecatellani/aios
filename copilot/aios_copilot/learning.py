@@ -755,6 +755,9 @@ def build(index: FileIndex | None = None) -> tuple[Scheduler, FileIndex]:
     from .agenda import Agenda
 
     tasks.append(DeadlineTask(index, Agenda(), data_dir() / "deadline-state.json"))
+    from .bollette import BillsTask
+
+    tasks.append(BillsTask(index))  # il silver dei documenti: bollette, scadenze, importi (bollette.py)
     from .recommend import Catalog, refresh_catalog
 
     tasks.append(CatalogTask(Catalog(), refresh_catalog))

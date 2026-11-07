@@ -40,5 +40,12 @@ Qwen3.5 4B senza attese lunghe.
    l'ordine per scadenza no); gold risposta istantanea, 4 caselle su 4 giuste, 87 s di lavoro in sottofondo per
    casella (8 mail lette dal modello, 12 dal codice). Parquet e Iceberg no: sono fatti per tabelle enormi lette da
    più motori; per un utente solo basta SQLite.
+   Secondo caso, documenti e bollette (`aios_copilot/bollette.py`): bronze i documenti nell'indice dei file,
+   silver i fatti di ogni documento (tipo, servizio, emittente, data, scadenza, totale, addebito automatico; quelli
+   che non sono bollette li scarta il codice, gli altri li legge il modello quando il PC è libero e il codice
+   controlla che importo e scadenza ci siano davvero nel documento), gold le bollette da pagare in ordine di
+   scadenza e quanto si è speso per un servizio in un anno. Nova: «che bollette devo pagare?», «quanto ho speso di
+   luce quest'anno?» (strumenti `bills_to_pay`, `bills_spent`). Il modello di sottofondo si interrompe da solo se
+   l'utente parla con Nova (`precedenza.BackgroundModel`), per la posta e per i documenti.
 5. **Neuroni attivi nei modelli densi** (Deja Vu, PowerInfer): solo se il resto non basta; serve un motore apposito
    e i modelli di oggi ne accendono troppi.

@@ -102,13 +102,12 @@ def read_facts(store: MailStore) -> int:
     """Il silver della posta (livelli.py): il modello legge le mail nuove in sottofondo, cedendo il passo all'utente.
     Solo in carica (o su un fisso): a batteria si aspetta."""
     from ..learning import Conditions
-    from ..llm import make_client
-    from ..precedenza import wait_turn
+    from ..precedenza import BackgroundModel
     from . import livelli
 
     if not Conditions().on_ac():
         return 0
-    return livelli.update(store, make_client(), wait=lambda: wait_turn(limit=600))
+    return livelli.update(store, BackgroundModel())  # si interrompe da solo se l'utente parla con Nova
 
 
 def run_service(store: MailStore, notify: Callable[[str, str], None], once: bool = False,
