@@ -92,3 +92,60 @@ def test_recent_mail_and_one_scheduler(tmp_path):
     plan = procedure.parse_when("ogni lunedì alle 8:30")
     assert procedure.last_due(plan, datetime(2026, 11, 7, 1, 0)) == datetime(2026, 11, 2, 8, 30)
     assert json.loads(json.dumps(plan))["ogni"] == "settimana"
+
+
+def _letter(tmp_path, name):
+    ws = procedure_crea.create(tmp_path, name=name, purpose="La lettera ai soci", steps=["Scrivi la lettera ai soci"])
+    return ws, ws.stages()[0]
+
+
+def test_corrections_become_instructions(tmp_path):
+    from aios_copilot.tools import procedure as ptools
+
+    ws, st = _letter(tmp_path, "Lettera")
+    notes = []
+    model = Model(lambda m: "Gentile socio,\nla riunione è giovedì.\nSaluti")
+    r = procedure.Runner(ws, model, notify=lambda t, m: notes.append(m), wait=lambda: True)
+    out = st.output_files()[0]
+    for giro in range(3):
+        if giro:
+            r.redo(st.key)
+        assert r.run().status == "da guardare"
+        out.write_text(out.read_text().replace("Gentile socio", "Ciao socio") + f"(giro {giro})\n")  # la correzione di sempre
+        r.proceed()
+    assert len(procedure.corrections(ws, st.key)) == 3
+    assert procedure.proposals(ws)[st.key]["regola"] == "scrivi «Ciao» invece di «Gentile»"  # trovata dal codice
+    assert any("correggi sempre la stessa cosa" in n for n in notes)
+    assert "proposta per le istruzioni" in ptools._status_line(ws, r)
+    router = ptools.ProceduresRouter(base=lambda: tmp_path)
+    assert router.match("sì, scrivila nelle istruzioni").tool == "procedure_rule"
+    tools = {t.name: t for t in ptools.make_tools(base=lambda: tmp_path, background=False)}
+    said = tools["procedure_rule"].func(nome="", decisione="sì")
+    assert "Dal prossimo giro la fa da sola" in said
+    contract = (st.dir / "CONTEXT.md").read_text()
+    assert "Regola imparata dalle tue correzioni: scrivi «Ciao» invece di «Gentile»." in contract
+    assert procedure.parse_contract(contract, st.dir, ws.path).process.endswith("invece di «Gentile».")  # dentro Process
+    assert "non ha proposte" in tools["procedure_rule"].func(nome="lettera", decisione="sì")
+
+
+def test_model_finds_the_rule_when_corrections_differ(tmp_path):
+    ws, st = _letter(tmp_path, "Verbale")
+    asked = []
+
+    def reply(m):
+        if "correzioni" in m[0]["content"]:
+            asked.append(m)
+            return '{"regola": "tieni l\'apertura in una frase sola"}'
+        return "Apertura lunga.\nAltra frase lunga.\nCorpo."
+
+    r = procedure.Runner(ws, Model(reply), wait=lambda: True)
+    out = st.output_files()[0]
+    for giro in range(3):
+        if giro:
+            r.redo(st.key)
+        r.run()
+        out.write_text(f"Apertura breve {giro}.\nCorpo.\n")
+        r.proceed()
+    assert asked and procedure.proposals(ws)[st.key]["regola"] == "tieni l'apertura in una frase sola"
+    assert "lascio le istruzioni" in procedure.decide(ws, st.key, False)
+    assert "Regola imparata" not in (st.dir / "CONTEXT.md").read_text()

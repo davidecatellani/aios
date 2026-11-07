@@ -204,7 +204,7 @@ Noi possiamo farlo, ed è la cosa che decide se tenerlo:
    va meglio con i nostri modelli, ci si ferma qui e si decide insieme.
 3. **Nova**: crearle parlando, avviarle, «a che punto è», «vai avanti»; avvio a orario; modelli pronti. *Fatto.*
 4. **App File e Impostazioni**: la vista della procedura. *Fatto.*
-5. **Correzioni che diventano istruzioni.**
+5. **Correzioni che diventano istruzioni.** *Fatto:* ogni differenza tra il risultato com'era uscito (`.nova/original/`) e quello lasciato dall'utente si annota (`.nova/correzioni.jsonl`); dopo tre giri corretti la regola comune (la trova il codice se è sempre la stessa sostituzione, altrimenti il modello) si propone con una notifica, in Impostazioni › Procedure e a voce («sì, scrivila nelle istruzioni»).
 6. Dopo: il programmatore delle personalizzazioni a fasi con lo stesso esecutore (con controlli automatici al
    posto della revisione dell'utente).
 

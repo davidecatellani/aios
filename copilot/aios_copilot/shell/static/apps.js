@@ -1166,6 +1166,13 @@ function strisciaProcedura(p, ricarica, dici = r => avviso(r.messaggio || "Fatto
     riga.append(bottone("Istruzioni", () => apriFile({ percorso: f.istruzioni }), "bottone piccolo"));
     li.append(riga);
     if (f.problemi.length) li.append(el("small", "fase-problemi", f.problemi.join("; ")));
+    if (f.proposta) {  // le correzioni che fai sempre: diventano istruzioni? (procedure.py, punto 5)
+      const pr = el("div", "fase-proposta");
+      pr.append(el("span", "", `Correggi sempre la stessa cosa: «${f.proposta}». La scrivo nelle istruzioni?`),
+        bottone("Sì, scrivila", () => fai({ azione: "regola", fase: f.chiave, si: true }), "bottone piccolo primo"),
+        bottone("No", () => fai({ azione: "regola", fase: f.chiave, si: false }), "bottone piccolo"));
+      li.append(pr);
+    }
     fasi.append(li);
   }
   box.append(fasi);

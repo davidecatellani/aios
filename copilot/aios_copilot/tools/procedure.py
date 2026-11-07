@@ -43,6 +43,9 @@ def _status_line(ws: procedure.Workspace, runner: procedure.Runner) -> str:
         now = f"finita: il risultato è in stages/{states[-1][0].key}/output/"
     else:
         now = "da fare"
+    waiting = [(k, v["regola"]) for k, v in procedure.proposals(ws).items() if not v.get("deciso")]
+    if waiting:
+        now += "; proposta per le istruzioni: " + "; ".join(f"«{rule}»" for _, rule in waiting)
     return f"«{ws.name}» ({plan}): {now}"
 
 
@@ -158,6 +161,26 @@ def make_tools(model: Callable[[], Any] = lambda: None, tools: Callable[[], dict
         runner(ws).redo(st.key)
         return go(ws, lambda r: r.run())
 
+    def procedure_rule(nome: str = "", decisione: str = "sì", fase: str = "") -> str:
+        """Le correzioni che diventano istruzioni: sì o no alla regola proposta."""
+        if nome.strip():
+            ws, problem = pick(nome)
+            if ws is None:
+                return problem
+            candidates = [ws]
+        else:
+            candidates = [w for w in procedure.procedures(base()) if any(not v.get("deciso") for v in procedure.proposals(w).values())]
+            if len(candidates) != 1:
+                return "Non c'è una proposta che aspetta." if not candidates else "Per quale procedura? " + list_procedures()
+        ws = candidates[0]
+        pending = [k for k, v in procedure.proposals(ws).items() if not v.get("deciso")]
+        if fase.strip():
+            pending = [k for k in pending if normalize(fase) in k.lower()] or pending
+        if not pending:
+            return f"«{ws.name}» non ha proposte da decidere."
+        yes = not re.match(r"^\s*(no|non|lascia)", decisione.lower())
+        return procedure.decide(ws, pending[0], yes)
+
     def schedule_procedure(nome: str, quando: str) -> str:
         ws, problem = pick(nome)
         if ws is None:
@@ -189,6 +212,10 @@ def make_tools(model: Callable[[], Any] = lambda: None, tools: Callable[[], dict
              params([], nome="Nome o parole della procedura (vuoto: quella che aspetta)"), continue_procedure),
         Tool("redo_procedure", "Rifà una fase di una procedura e quelle dopo.",
              params(["nome", "fase"], nome="Nome o parole della procedura", fase="La fase da rifare"), redo_procedure),
+        Tool("procedure_rule", "Decide se la regola imparata dalle correzioni dell'utente va scritta nelle istruzioni di una "
+             "fase («sì, scrivila nelle istruzioni» / «no, lascia stare»).",
+             params([], nome="Nome della procedura (vuoto: quella con la proposta)", decisione="«sì» o «no»",
+                    fase="La fase (vuoto: quella della proposta)"), procedure_rule),
         Tool("schedule_procedure", "Decide quando una procedura parte da sola (o «solo a mano»).",
              params(["nome", "quando"], nome="Nome o parole della procedura", quando="es. «ogni mese il 1 alle 9»"),
              schedule_procedure),
@@ -237,6 +264,8 @@ RE_LIST = re.compile(r"^(?:le mie procedure|che procedure ho|elenca le procedure
 RE_RUN = re.compile(r"^(?:fai|esegui|avvia|lancia|prepara|parti con)\s+(?:la procedura\s+)?(?P<n>.+)$")
 RE_STATUS = re.compile(r"^a che punto (?:è|e'|e|sta|sono)\s+(?:la procedura\s+)?(?P<n>.+)$")
 RE_GO_ON = re.compile(r"^(?:vai avanti|continua|prosegui|va bene,? vai avanti)(?:\s+con\s+(?:la procedura\s+)?(?P<n>.+))?$")
+RE_RULE = re.compile(r"^(?:(?P<si>s[iì],?\s+)?scriv(?:i|ila|ilo|i la regola)\s+nelle istruzioni|(?P<no>no,?\s+)?lascia (?:stare|le istruzioni come sono))"
+                     r"(?:\s+(?:di|del|della|dello)\s+(?P<n>.+))?$")
 RE_REDO = re.compile(r"^rifai\s+(?:la fase\s+)?(?P<f>.+?)\s+(?:del|della|dello|dei|delle|di)\s+(?P<n>.+)$")
 STOP = {"procedura", "della", "delle", "dello", "dalla", "dalle", "degli", "con", "per", "mia", "mio", "il", "lo", "la"}
 
@@ -274,6 +303,9 @@ class ProceduresRouter:
             waiting = [ws for ws in procedure.procedures(self.base())
                        if any(s.get("status") == procedure.REVIEW for s in ws.load_state()["stages"].values())]
             return Intent("continue_procedure", {"nome": ""}) if len(waiting) == 1 else None
+        m = RE_RULE.match(low)
+        if m and (not m.group("n") or self._named(m.group("n"), strict=False)):
+            return Intent("procedure_rule", {"nome": m.group("n") or "", "decisione": "no" if "lascia" in low else "sì"})
         m = RE_REDO.match(low)
         if m and self._named(m.group("n"), strict=False):
             return Intent("redo_procedure", {"nome": m.group("n"), "fase": m.group("f")})

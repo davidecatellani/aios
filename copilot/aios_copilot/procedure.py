@@ -25,6 +25,7 @@ import hashlib
 import json
 import os
 import re
+import time
 from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any, Callable, Iterable
@@ -472,6 +473,138 @@ def _merge(parts: list[tuple[str, str]]) -> str:
             + "\n".join("| " + " | ".join(r) + " |" for r in rows) + "\n")
 
 
+# --- le correzioni dell'utente che diventano istruzioni (punto 5 del progetto) ----------------------------------
+REPEAT = 3  # la stessa fase corretta in tre giri diversi: si cerca la regola
+
+
+def _corrections_path(ws: "Workspace") -> Path:
+    return ws.state_dir / "correzioni.jsonl"
+
+
+def corrections(ws: "Workspace", key: str | None = None) -> list[dict[str, Any]]:
+    try:
+        rows = [json.loads(l) for l in _corrections_path(ws).read_text().splitlines() if l.strip()]
+    except (OSError, ValueError):
+        return []
+    return [r for r in rows if key is None or r["fase"] == key]
+
+
+def record_corrections(ws: "Workspace", st: Stage) -> int:
+    """Confronta i risultati com'erano usciti (.nova/original) con quelli lasciati dall'utente: ogni differenza nuova
+    è una correzione. → quante nuove."""
+    import difflib
+
+    seen = {r["firma"] for r in corrections(ws, st.key)}
+    new = 0
+    for f in st.output_files():
+        original = ws.state_dir / "original" / st.key / f.name
+        if not (f.is_file() and original.is_file()):
+            continue
+        before, after = original.read_text(errors="replace"), f.read_text(errors="replace")
+        if before.strip() == after.strip():
+            continue
+        sign = hashlib.sha256((before + "\0" + after).encode()).hexdigest()[:16]
+        if sign in seen:
+            continue
+        lines = list(difflib.unified_diff(before.splitlines(), after.splitlines(), lineterm="", n=0))
+        row = {"fase": st.key, "file": f.name, "quando": time.time(), "firma": sign,
+               "tolto": [l[1:] for l in lines if l.startswith("-") and not l.startswith("---")][:20],
+               "messo": [l[1:] for l in lines if l.startswith("+") and not l.startswith("+++")][:20]}
+        ws.state_dir.mkdir(parents=True, exist_ok=True)
+        with _corrections_path(ws).open("a") as out:
+            out.write(json.dumps(row, ensure_ascii=False) + "\n")
+        new += 1
+    return new
+
+
+def _replacements(row: dict[str, Any]) -> set[tuple[str, str]]:
+    """Le parole cambiate in una correzione: {(vecchio, nuovo)}."""
+    import difflib
+
+    a, b = " ".join(row["tolto"]).split(), " ".join(row["messo"]).split()
+    out = set()
+    for op, i1, i2, j1, j2 in difflib.SequenceMatcher(a=a, b=b).get_opcodes():
+        if op == "replace" and i2 - i1 <= 4 and j2 - j1 <= 4:
+            out.add((" ".join(a[i1:i2]).strip(".,;:"), " ".join(b[j1:j2]).strip(".,;:")))
+    return out
+
+
+def _proposals_path(ws: "Workspace") -> Path:
+    return ws.state_dir / "proposte.json"
+
+
+def proposals(ws: "Workspace") -> dict[str, Any]:
+    try:
+        return json.loads(_proposals_path(ws).read_text())
+    except (OSError, ValueError):
+        return {}
+
+
+def propose(ws: "Workspace", st: Stage, model: Any = None) -> str:
+    """Se l'utente ha corretto la fase in REPEAT giri da quando si è deciso l'ultima volta, la regola comune (o "")."""
+    props = proposals(ws)
+    if st.key in props and not props[st.key].get("deciso"):
+        return ""  # una proposta aspetta già una risposta
+    since = props.get(st.key, {}).get("quando", 0)
+    rows = [r for r in corrections(ws, st.key) if r["quando"] > since]
+    if len(rows) < REPEAT:
+        return ""
+    rule = ""
+    counts: dict[tuple[str, str], int] = {}
+    for r in rows:
+        for pair in _replacements(r):
+            counts[pair] = counts.get(pair, 0) + 1
+    common = [pair for pair, n in counts.items() if n >= REPEAT and pair[0] and pair[1]]
+    if common:
+        old, new = common[0]
+        rule = f"scrivi «{new}» invece di «{old}»"
+    elif model is not None:
+        sample = "\n\n".join(f"Tolto:\n" + "\n".join(r["tolto"][:8]) + "\nMesso:\n" + "\n".join(r["messo"][:8]) for r in rows[-5:])
+        try:
+            reply = model.chat([
+                {"role": "system", "content": "Guardi le correzioni che una persona fa ogni volta al risultato di un lavoro. "
+                                              "Rispondi solo con un JSON: {\"regola\": \"…\"} con una regola breve, in italiano, "
+                                              "che le eviterebbe la prossima volta, oppure {\"regola\": \"\"} se le correzioni "
+                                              "non hanno niente in comune."},
+                {"role": "user", "content": f"Le correzioni alla fase «{st.name}»:\n\n{sample[:6000]}"}], [])
+            m = re.search(r"\{.*\}", reply.get("content") or "", re.S)
+            rule = str(json.loads(m.group(0)).get("regola", "")).strip() if m else ""
+        except Exception:
+            rule = ""
+    if not rule:
+        return ""
+    props[st.key] = {"regola": rule, "quando": time.time(), "deciso": False}
+    ws.state_dir.mkdir(parents=True, exist_ok=True)
+    _proposals_path(ws).write_text(json.dumps(props, ensure_ascii=False))
+    return rule
+
+
+def decide(ws: "Workspace", key: str, accept: bool) -> str:
+    """Sì: la regola diventa una riga nella sezione Process del contratto della fase. No: si lascia stare (e si
+    ricomincia a contare da adesso). → la frase per l'utente."""
+    props = proposals(ws)
+    p = props.get(key)
+    st = next((s for s in ws.stages() if s.key == key), None)
+    if not p or p.get("deciso") or st is None:
+        return "Non c'è nessuna proposta da decidere per questa fase."
+    if accept:
+        contract = st.dir / "CONTEXT.md"
+        text = contract.read_text()
+        line = f"Regola imparata dalle tue correzioni: {p['regola']}."
+        m = re.search(r"^##\s+Process\s*$", text, re.M | re.I)
+        if m:
+            nxt = re.search(r"^##\s+", text[m.end():], re.M)
+            at = m.end() + nxt.start() if nxt else len(text)
+            text = text[:at].rstrip("\n") + f"\n{line}\n\n" + text[at:].lstrip("\n")
+        else:
+            text = text.rstrip("\n") + f"\n\n## Process\n{line}\n"
+        contract.write_text(text)
+    p.update(deciso=True, accettata=accept, quando=time.time())
+    _proposals_path(ws).write_text(json.dumps(props, ensure_ascii=False))
+    return (f"Fatto: nella fase «{st.name}» ho scritto «{p['regola']}». Dal prossimo giro la fa da sola."
+            if accept else f"Va bene, lascio le istruzioni della fase «{st.name}» come sono.")
+
+
 # --- esecuzione ------------------------------------------------------------------------------------------
 @dataclass
 class Report:
@@ -526,12 +659,22 @@ class Runner:
         for st in self.ws.stages():
             s = state["stages"].get(st.key, {})
             if s.get("status") == REVIEW:
+                if record_corrections(self.ws, st):
+                    self._maybe_propose(st)
                 s["status"] = APPROVED
                 s["fingerprint"] = fingerprint(st, self.ws.path)
                 state["stages"][st.key] = s
                 break
         self.ws.save_state(state)
         return self.run()
+
+    def _maybe_propose(self, st: Stage) -> None:
+        rule = propose(self.ws, st, self.model)
+        if rule:
+            self.notify(f"Procedura «{self.ws.name}»",
+                        f"Nella fase «{st.name}» correggi sempre la stessa cosa: «{rule}». Vuoi che la scriva nelle "
+                        "istruzioni, così la prossima volta la fa da sola? (Impostazioni › Procedure, o dimmi «sì, "
+                        f"scrivila nelle istruzioni di {self.ws.name.lower()}»)")
 
     def redo(self, key: str) -> None:
         """«Rifai i conti»: quella fase e le seguenti tornano da fare."""
@@ -545,6 +688,9 @@ class Runner:
 
     def run(self) -> Report:
         stages = self.ws.stages()
+        for st in stages:  # quello che l'utente ha corretto nei risultati, dall'ultimo giro (punto 5 del progetto)
+            if record_corrections(self.ws, st):
+                self._maybe_propose(st)
         if not stages:
             return Report("ferma", message=f"La procedura «{self.ws.name}» non ha fasi (cartelle in stages/ con un CONTEXT.md).")
         done = []

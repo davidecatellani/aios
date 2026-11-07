@@ -1603,7 +1603,9 @@ def describe_procedure(ws: Any, runner: Any) -> dict[str, Any]:
         phases.append({"chiave": st.key, "nome": st.name, "stato": label,
                        "risultati": [rel(f) for f in st.output_files() if f.is_file()],
                        "istruzioni": rel(st.dir / "CONTEXT.md"),
-                       "problemi": s.get("problems") or ([s["message"]] if s.get("message") else [])})
+                       "problemi": s.get("problems") or ([s["message"]] if s.get("message") else []),
+                       "proposta": next((v["regola"] for k, v in procedure.proposals(ws).items()
+                                         if k == st.key and not v.get("deciso")), "")})
     running = ws.name in ptools._running and ptools._running[ws.name].is_alive()
     return {"nome": ws.name, "cartella": rel(ws.path), "quando": procedure.describe_when(procedure.schedule(ws)),
             "in_corso": running, "fasi": phases, "stato": ptools._status_line(ws, runner),
@@ -1656,6 +1658,8 @@ def register_procedures(app: Any) -> None:
             text = tools["continue_procedure"](nome=name)
         elif what == "rifai":
             text = tools["redo_procedure"](nome=name, fase=str(b.get("fase", "")))
+        elif what == "regola":
+            text = tools["procedure_rule"](nome=name, decisione="sì" if b.get("si") else "no", fase=str(b.get("fase", "")))
         elif what == "quando":
             text = tools["schedule_procedure"](nome=name, quando=str(b.get("quando", "")))
         else:

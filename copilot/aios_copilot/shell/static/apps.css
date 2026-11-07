@@ -319,3 +319,6 @@ body.in-vista #casa, body.in-vista #fondo { display: none; }
 .fase.guarda .fase-stato { color: #B07E00; font-weight: 600; }
 .fase.no .fase-stato { color: #C0392B; font-weight: 600; }
 .fase-problemi { display: block; margin-top: 4px; color: var(--tenue); }
+.fase-proposta { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 6px; padding: 6px 8px;
+  border-radius: 8px; background: var(--chip); font-size: 14px; }
+.fase-proposta span { flex: 1; min-width: 200px; }
