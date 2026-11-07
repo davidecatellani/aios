@@ -43,6 +43,7 @@ Qwen3.5 4B senza attese lunghe.
    un PC da 8: ~3,7 GB restano a sistema e programmi (il nucleo a 4 bit ne libererebbe altri ~0,3, da misurare).
    Qualità del 4B IQ4_XS (Release `procedure-4`, stesse prove delle procedure di `procedure-3` col Q4 di Ollama):
    a fasi posta 100% (uguale), preventivo 100% (uguale), spese 86% (79% col Q4): regge, resta in aios-modello.
+   Il 4B IQ3_M (Release `procedure-5`, 0,2 GB in meno) no: a fasi preventivo 89%, spese 61%, ed è più lento.
    Modelli a esperti (Release `velocita-4`, stessa macchina e impostazioni da 8 GB del 4B IQ4_XS): scrivono 3 volte
    più in fretta (LFM2-8B-A1B 26 parole al secondo, Granite 4.0 H Tiny 23, il 4B 7,8) ma leggono poco più in fretta
    (posta 40-45 s contro 48) e occupano **7,9-9,0 GB** contro 3,4: su un PC da 8 GB no. LFM2 non usa gli strumenti
