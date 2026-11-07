@@ -239,6 +239,10 @@ def make(mode: str, args: argparse.Namespace) -> Any:
         return Llama(args.server, args.piccolo or args.gguf, 2, [*eight, "-fa", "on", "-ctk", "q8_0", "-ctv", "q8_0"], ctx=NUM_CTX)
     if mode == "llama-8gb-f16":
         return Llama(args.server, args.piccolo or args.gguf, 2, eight, ctx=NUM_CTX)
+    # modelli costruiti a blocchi (MoE): per ogni parola usano solo alcuni «esperti»; stesse impostazioni da 8 GB
+    if mode.startswith("moe-"):
+        path = Path(args.moe_dir) / f"{mode[4:]}.gguf"
+        return Llama(args.server, str(path), 2, eight, ctx=NUM_CTX)
     raise ValueError(mode)
 
 
@@ -305,6 +309,7 @@ def main() -> int:
     ap.add_argument("--gguf", default="")
     ap.add_argument("--bozza", default="")
     ap.add_argument("--piccolo", default="", help="il 4B più compresso (IQ4_XS) per i modi da 8 GB")
+    ap.add_argument("--moe-dir", default="", help="cartella con i modelli a esperti (moe-<nome> → <nome>.gguf)")
     ap.add_argument("--server", default="llama-server")
     ap.add_argument("--uscita", default="velocita.json")
     args = ap.parse_args()
