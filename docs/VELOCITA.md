@@ -28,6 +28,13 @@ Qwen3.5 4B senza attese lunghe.
    llama-server così usa 9,3 GB di RAM (la memoria dei prompt passati è di 8 GB in partenza): troppo per un PC da
    8 GB. La bozza non è partita: llama.cpp prende lo 0.8B per una testa MTP (va detto `--spec-type draft-simple`).
    Secondo giro: RAM limitata, bozza, testa MTP del 4B, previsione a n-grammi.
+   Secondo giro (Release `velocita-2`, AMD EPYC con 2 core veri e 4 thread, più lento a leggere: 24 token al
+   secondo): una domanda normale a Nova aspetta **1,5 s con llama-server invece di 45,7 s con Ollama**, e si scrive
+   a 9 parole al secondo invece di 6,4. La bozza (0.8B), la testa MTP e gli n-grammi sul processore rallentano
+   (6,6, 7,8 e 7,2 parole al secondo, pur con 88% e 79% delle parole della bozza accettate): non si usano. La RAM:
+   il 4B a 4 bit 3,0 GB, la memoria della conversazione ~100 KB per token (800 MB per posto da 8192 token), le copie
+   in RAM delle istruzioni già lette 300-480 MB l'una. Terzo giro: il 4B IQ4_XS (2,7 GB), due posti su un'unica
+   memoria da 8192 token, memoria a 8 bit o no, niente copie in RAM.
 2. **I modi che vincono, in SoIA**; più la protezione della memoria del modello (limiti di systemd perché il kernel
    non lo scarichi quando si apre il browser) e la cache del contesto salvata su disco per le istruzioni fisse.
    Misurati prima e dopo su un i3 vero.

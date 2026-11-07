@@ -127,7 +127,9 @@ class Peak:
     def _run(self) -> None:
         while not self._stop.is_set():
             out = subprocess.run(["ps", "-eo", "rss=,args="], capture_output=True, text=True).stdout  # anche «ollama runner»
-            kb = sum(int(l.split()[0]) for l in out.splitlines() if l.split() and any(n in l for n in self.names))
+            # solo i programmi del modello (non questo script, che ha «llama-server» tra i suoi argomenti)
+            kb = sum(int(l.split()[0]) for l in out.splitlines()
+                     if len(l.split()) > 1 and any(Path(l.split()[1]).name.startswith(n) for n in self.names))
             self.max_kb = max(self.max_kb, kb)
             time.sleep(0.5)
 
@@ -169,9 +171,9 @@ class Ollama:
 class Llama:
     names = ("llama-server",)
 
-    def __init__(self, server: str, gguf: str, slots: int, args: list[str]):
+    def __init__(self, server: str, gguf: str, slots: int, args: list[str], ctx: int | None = None):
         self.url, self.slots = "http://127.0.0.1:11437", slots
-        cmd = [server, "-m", gguf, "--host", "127.0.0.1", "--port", "11437", "-c", str(NUM_CTX * slots), "-np", str(slots),
+        cmd = [server, "-m", gguf, "--host", "127.0.0.1", "--port", "11437", "-c", str(ctx or NUM_CTX * slots), "-np", str(slots),
                "--no-webui", "--jinja", *args]
         print("avvio:", " ".join(cmd), flush=True)
         self.proc = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=open("llama-server.log", "a"),
@@ -192,7 +194,7 @@ class Llama:
         if tools:
             payload["tools"] = tools
         if self.slots > 1:
-            payload["id_slot"] = KINDS[kind]
+            payload["id_slot"] = min(KINDS[kind], self.slots - 1)  # con due posti: Nova nel primo, il resto nel secondo
         start = time.monotonic()
         data = _post(f"{self.url}/v1/chat/completions", payload)
         t = data.get("timings", {})
@@ -230,6 +232,13 @@ def make(mode: str, args: argparse.Namespace) -> Any:
         return Llama(args.server, args.gguf, 3, [*small, "-md", args.gguf, "--spec-type", "draft-mtp"])
     if mode == "llama-3-t4-ngram":  # previsione dai pezzi già scritti nel contesto: nessun modello
         return Llama(args.server, args.gguf, 3, [*small, "--spec-type", "ngram-mod"])
+    # per un PC da 8 GB: il 4B più compresso (IQ4_XS), due posti (Nova; il resto) su un'unica memoria da 8192 token,
+    # niente copie in RAM delle istruzioni già lette (andranno su disco)
+    eight = ["-t", "4", "--cache-ram", "0", "--kv-unified"]
+    if mode == "llama-8gb":  # memoria della conversazione a 8 bit (metà)
+        return Llama(args.server, args.piccolo or args.gguf, 2, [*eight, "-fa", "on", "-ctk", "q8_0", "-ctv", "q8_0"], ctx=NUM_CTX)
+    if mode == "llama-8gb-f16":
+        return Llama(args.server, args.piccolo or args.gguf, 2, eight, ctx=NUM_CTX)
     raise ValueError(mode)
 
 
@@ -295,6 +304,7 @@ def main() -> int:
     ap.add_argument("--ollama", default="qwen3.5:4b")
     ap.add_argument("--gguf", default="")
     ap.add_argument("--bozza", default="")
+    ap.add_argument("--piccolo", default="", help="il 4B più compresso (IQ4_XS) per i modi da 8 GB")
     ap.add_argument("--server", default="llama-server")
     ap.add_argument("--uscita", default="velocita.json")
     args = ap.parse_args()

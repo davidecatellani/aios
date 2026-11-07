@@ -49,6 +49,9 @@ jobs:
           LD_LIBRARY_PATH="$(dirname "$QUANTIZE")" "$QUANTIZE" f16.gguf q4.gguf Q4_K_M && rm f16.gguf
           hf download Qwen/Qwen3.5-0.8B --local-dir hf08 || huggingface-cli download Qwen/Qwen3.5-0.8B --local-dir hf08
           python /tmp/llama.cpp/convert_hf_to_gguf.py hf08 --outtype q8_0 --outfile bozza.gguf && rm -rf hf08
+          # il 4B più compresso, pronto (come nell'immagine di SoIA): per i modi da 8 GB
+          curl -fL --retry 3 -o piccolo.gguf \
+            https://huggingface.co/bartowski/Qwen_Qwen3.5-4B-GGUF/resolve/main/Qwen_Qwen3.5-4B-IQ4_XS.gguf
           (ollama serve > /tmp/ollama-pull.log 2>&1 &)
           for i in $(seq 30); do curl -sf localhost:11434/api/version && break; sleep 1; done
           ollama pull qwen3.5:4b
@@ -59,7 +62,7 @@ jobs:
           MODI: ${{ inputs.modi }}
         run: |
           python copilot/addestramento/velocita_prova.py --modi "$MODI" --server "$SERVER" \
-            --gguf /mnt/m/q4.gguf --bozza /mnt/m/bozza.gguf --uscita velocita.json | tee velocita.txt
+            --gguf /mnt/m/q4.gguf --bozza /mnt/m/bozza.gguf --piccolo /mnt/m/piccolo.gguf --uscita velocita.json | tee velocita.txt
       - name: Pubblica
         if: always()
         env:
