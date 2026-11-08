@@ -142,7 +142,8 @@ if esito == "paused" and dettaglio.get("reason") == "interrupted":
     print("  bash phone/compila-telefono.sh")
     sys.exit(codice or 1)
 if codice != 0:
-    print(f"ERRORE: la compilazione si è fermata (codice {codice}). Il lavoro già fatto resta sul disco.")
+    # Podman a volte perde il codice del contenitore (127): quello vero è nella sessione.
+    print(f"ERRORE: la compilazione si è fermata (codice {dettaglio.get('exit_code', codice)}). Il lavoro già fatto resta sul disco.")
     print("Manda questi file a chi ti aiuta:")
     print(f"  {log}")
     if sessione:

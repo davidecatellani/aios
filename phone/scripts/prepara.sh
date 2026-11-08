@@ -26,9 +26,9 @@ mkdir -p "$DIR" && cd "$DIR"
 if [ ! -d .repo ]; then
   repo init -u "$(campo "$B" manifest)" -b "$(campo "$B" ramo)" --repo-rev=v2.54 --git-lfs --no-clone-bundle
 fi
-# Migliaia di progetti per ore: un errore di rete passeggero su un progetto grande
-# (es. platform/external/cronet) si riprova invece di fermare tutto.
-repo sync -c -j"${AIOS_SYNC_JOBS:-4}" --no-tags --optimized-fetch --retry-fetches=4
+# Migliaia di progetti per ore: gli errori di rete sui progetti grandi si riprovano,
+# anche uno alla volta, invece di fermare tutto.
+bash "$QUI/sincronizza.sh"
 
 # SoIA si aggiunge senza modificare la base: collegamenti a questa cartella del repository
 mkdir -p vendor packages/apps
