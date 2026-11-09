@@ -79,6 +79,20 @@ main() {
     fi
   fi
 
+  # Podman tiene lo stato dei contenitori in /run/user/<utente>, un'area piccola in memoria:
+  # se è piena il contenitore non parte («No space left on device» di crun).
+  local runtime="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}" libero_run
+  if [ -d "$runtime" ]; then
+    libero_run=$(( $(df -Pk "$runtime" | awk 'NR==2 {print $4}') / 1024 ))
+    if [ "$libero_run" -lt 64 ]; then
+      echo "La memoria temporanea dell'utente ($runtime) è piena: restano $libero_run MB." >&2
+      echo "Occupano di più:" >&2
+      { du -sh "$runtime"/* 2>/dev/null | sort -h | tail -5 >&2; } || true
+      echo "Riavvia il PC (quell'area si svuota da sola; i sorgenti scaricati restano) e rilancia." >&2
+      return 1
+    fi
+  fi
+
   # 4. Telefono: solo lettura di alcune proprietà, se adb c'è e il Motorola è collegato.
   echo "== Telefono"
   if command -v adb >/dev/null 2>&1; then

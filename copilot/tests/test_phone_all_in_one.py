@@ -59,16 +59,21 @@ def pc(tmp_path):
     make_repo(repo)
     tools = tmp_path / "bin"
     tools.mkdir()
-    executable(tools / "df", '#!/bin/sh\necho "Filesystem 1024-blocks Used Available Capacity Mounted"\n'
-               'echo "/dev/fake 1 1 $FAKE_FREE_KIB 1% /"\n')
+    executable(tools / "df", '#!/bin/sh\nfree="$FAKE_FREE_KIB"\n'
+               '[ "$2" = "$XDG_RUNTIME_DIR" ] && free="$FAKE_RUN_FREE_KIB"\n'
+               'echo "Filesystem 1024-blocks Used Available Capacity Mounted"\n'
+               'echo "/dev/fake 1 1 $free 1% /"\n')
     executable(tools / "du", '#!/bin/sh\nprintf "%s\\t%s\\n" "$FAKE_USED_KIB" "$3"\n')
     # Prende il blocco della sospensione e lancia il comando che segue le opzioni.
     executable(tools / "systemd-inhibit", '#!/bin/sh\nwhile [ "${1#--}" != "$1" ]; do shift; done\nexec "$@"\n')
     calls = tmp_path / "calls.txt"
     state = tmp_path / "state"
+    runtime = tmp_path / "run"
+    runtime.mkdir()
     env = {**os.environ, "PATH": f"{tools}:{os.environ['PATH']}", "HOME": str(tmp_path),
            "AIOS_PC_BUILD_DIR": str(state), "FAKE_CALLS": str(calls), "FAKE_OUTCOME": "completed",
-           "FAKE_FREE_KIB": str(500 * GIB_KIB), "FAKE_USED_KIB": "0"}
+           "FAKE_FREE_KIB": str(500 * GIB_KIB), "FAKE_USED_KIB": "0",
+           "XDG_RUNTIME_DIR": str(runtime), "FAKE_RUN_FREE_KIB": str(1024 * 1024)}
     env.pop("AIOS_SESSION_HOURS", None)
 
     def run(*args, script=repo / "phone/compila-telefono.sh", **extra):
@@ -135,6 +140,14 @@ def test_started_checkout_counts_what_is_already_on_disk(pc):
     assert "liberane altri 50" in result.stdout
     result, calls = run("--senza-aggiornare", FAKE_FREE_KIB=str(100 * GIB_KIB), FAKE_USED_KIB=str(250 * GIB_KIB))
     assert result.returncode == 0 and calls == ["8 prototype"]
+
+
+def test_full_runtime_dir_stops_before_podman_with_a_clear_fix(pc):
+    # crun scrive lì la configurazione del contenitore: piena, «No space left on device».
+    run, *_ = pc
+    result, calls = run("--senza-aggiornare", FAKE_RUN_FREE_KIB="0")
+    assert result.returncode == 1 and calls == []
+    assert "Riavvia il PC" in result.stdout
 
 
 def test_space_check_can_be_skipped_on_purpose(pc):
