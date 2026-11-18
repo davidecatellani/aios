@@ -24,7 +24,7 @@ layer=$(ls /usr/lib64/libgtk4-layer-shell.so* /usr/lib/x86_64-linux-gnu/libgtk4-
   n=0
   while [ "$n" -lt 6 ]; do
     started=$(date +%s)
-    LD_PRELOAD="$layer" aios-shell >/dev/null 2>&1
+    LD_PRELOAD="$layer" aios-shell 2>&1 | logger -t aios-shell
     [ $(( $(date +%s) - started )) -gt 60 ] && n=0 || n=$((n + 1))
     sleep 1
   done
