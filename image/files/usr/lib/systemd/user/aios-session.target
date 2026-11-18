@@ -1,0 +1,9 @@
+# La sessione grafica di SoIA. graphical-session.target non si può avviare a mano (RefuseManualStart):
+# lo si avvia attraverso questo target, come fanno sway e Hyprland. Senza, xdg-desktop-portal non parte
+# («graphical-session.target is inactive») e i programmi non trovano tema, scelta dei file e condivisione schermo.
+[Unit]
+Description=Sessione grafica di SoIA
+Documentation=man:systemd.special(7)
+BindsTo=graphical-session.target
+Wants=graphical-session-pre.target
+After=graphical-session-pre.target

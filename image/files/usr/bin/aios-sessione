@@ -49,6 +49,7 @@ if [ "${AIOS_COMPOSITORE:-hyprland}" != labwc ] && command -v Hyprland >/dev/nul
   Hyprland --config "$run/hyprland.conf" > "$run/hyprland-avvio.log" 2>&1
   code=$?
   if [ $(( $(date +%s) - started )) -ge 15 ]; then
+    systemctl --user stop aios-session.target >/dev/null 2>&1
     exit "$code"  # sessione vera, chiusa dall'utente (uscita o spegnimento)
   fi
   logger -t aios-sessione "Hyprland si è chiuso all'avvio (codice $code): uso labwc. $(tail -n 20 "$run/hyprland-avvio.log" | tr '\n' ' ')"
