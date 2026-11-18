@@ -22,7 +22,15 @@ fine dice se la sessione è in pausa, finita con le immagini oppure fallita.
 Tutto quello che compare sullo schermo è salvato anche in
 `~/soia-phone-build/logs/compila-telefono-<data>.log`. Se la sessione di 8 ore
 finisce prima della compilazione, basta rilanciare lo stesso comando.
-Opzioni: `--ore N` (0: fino alla fine), `--senza-aggiornare`, `--ignora-spazio`.
+Opzioni: `--ore N` (0: fino alla fine), `--senza-aggiornare`, `--ignora-spazio`,
+`--ignora-memoria`.
+
+L'analisi dei file di Android 16 (`soong_build`) da sola usa più di 30 GB: con 32 GB
+di RAM e lo zram di Fedora il sistema la chiude («Killed»). Lo script chiede almeno
+60 GiB tra RAM e swap e, se mancano, stampa i comandi per uno swap su disco da 32 GB
+in `/var/swapfile` (da riattivare con `sudo swapon /var/swapfile` dopo un riavvio).
+Durante la compilazione Nova si fa da parte come per i giochi: lavori a riposo in
+pausa, modelli di Ollama fuori dalla memoria e nucleo fermo, poi tutto torna com'era.
 
 ## Dal terminale del PC, una fase alla volta
 

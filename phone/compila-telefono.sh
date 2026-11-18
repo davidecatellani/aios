@@ -7,20 +7,66 @@
 #   bash phone/compila-telefono.sh --ore 12           sessione più lunga (0: fino alla fine)
 #   bash phone/compila-telefono.sh --senza-aggiornare non scaricare le ultime correzioni
 #   bash phone/compila-telefono.sh --ignora-spazio    solo se sai che lo spazio basta
+#   bash phone/compila-telefono.sh --ignora-memoria   solo se sai che la memoria basta
 set -euo pipefail
 
 SPAZIO_TOTALE_GIB=300   # sorgenti AOSP + compilazione (PC-BUILD.md)
+MEMORIA_MINIMA_GIB=60   # RAM + swap: Google consiglia 64 GB per compilare Android
 
-uso() { sed -n '2,9p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; }
+uso() { sed -n '2,10p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; }
+
+NOVA_SEGNO=""   # segno «aios-gioco» creato da questo script
+NOVA_NUCLEO=0   # nucleo di Nova fermato da questo script
+
+# Mentre compila, Nova si fa da parte come per i giochi (copilot/aios_copilot/giochi.py): il segno
+# «aios-gioco» mette in pausa i lavori a riposo, i modelli di Ollama escono dalla memoria (si
+# ricaricano alla prima domanda) e il nucleo si ferma. ripristina_nova rimette tutto com'era.
+libera_memoria_nova() {
+  local segno="$1/aios-gioco"
+  echo "== Nova si fa da parte durante la compilazione (come per i giochi)"
+  if [ -d "$1" ] && [ ! -e "$segno" ] && touch "$segno" 2>/dev/null; then NOVA_SEGNO="$segno"; fi
+  python3 - "${AIOS_OLLAMA_URL:-http://localhost:11434}" <<'PY' || true
+import json, sys, urllib.request
+base = sys.argv[1].rstrip("/")
+try:
+    with urllib.request.urlopen(base + "/api/ps", timeout=5) as risposta:
+        modelli = [m["name"] for m in json.load(risposta).get("models", [])]
+except (OSError, ValueError, KeyError):
+    modelli = []
+for nome in modelli:
+    richiesta = urllib.request.Request(base + "/api/generate", headers={"Content-Type": "application/json"},
+                                       data=json.dumps({"model": nome, "keep_alive": 0}).encode())
+    try:
+        urllib.request.urlopen(richiesta, timeout=60).read()
+    except OSError:
+        pass
+if modelli:
+    print("Modelli di Nova tolti dalla memoria:", ", ".join(modelli))
+PY
+  if systemctl is-active --quiet aios-nucleo.service 2>/dev/null \
+      && systemctl stop --no-block aios-nucleo.service >/dev/null 2>&1; then
+    NOVA_NUCLEO=1
+    echo "Nucleo di Nova fermato fino alla fine della compilazione."
+  fi
+}
+
+ripristina_nova() {
+  if [ -n "$NOVA_SEGNO" ]; then rm -f "$NOVA_SEGNO"; NOVA_SEGNO=""; fi
+  if [ "$NOVA_NUCLEO" = 1 ]; then
+    systemctl start --no-block aios-nucleo.service >/dev/null 2>&1 || true
+    NOVA_NUCLEO=0
+  fi
+}
 
 main() {
-  local repo ore="${AIOS_SESSION_HOURS:-8}" aggiorna=1 controlla_spazio=1 argomenti=("$@")
+  local repo ore="${AIOS_SESSION_HOURS:-8}" aggiorna=1 controlla_spazio=1 controlla_memoria=1 argomenti=("$@")
   repo="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
   while [ $# -gt 0 ]; do
     case "$1" in
       --ore) [ $# -ge 2 ] || { echo "--ore vuole un numero di ore." >&2; return 2; }; ore="$2"; shift 2 ;;
       --senza-aggiornare) aggiorna=0; shift ;;
       --ignora-spazio) controlla_spazio=0; shift ;;
+      --ignora-memoria) controlla_memoria=0; shift ;;
       -h|--help) uso; return 0 ;;
       *) echo "Opzione sconosciuta: $1" >&2; uso >&2; return 2 ;;
     esac
@@ -93,6 +139,28 @@ main() {
     fi
   fi
 
+  # Memoria: l'analisi dei file di Android 16 (soong_build) da sola supera i 30 GB. Con meno
+  # RAM + swap il sistema la chiude («Killed»): serve uno swap su disco (lo zram di Fedora,
+  # compresso in RAM, aggiunge poco).
+  local memoria_gib
+  memoria_gib=$(( $(free -m | awk '/^Mem:/ {m=$2} /^Swap:/ {s=$2} END {print m + s}') / 1024 ))
+  echo "== Memoria: $memoria_gib GiB tra RAM e swap"
+  if [ "$controlla_memoria" = 1 ] && [ "$memoria_gib" -lt "$MEMORIA_MINIMA_GIB" ]; then
+    echo "Per compilare Android 16 servono almeno $MEMORIA_MINIMA_GIB GiB tra RAM e swap: l'analisi dei" >&2
+    echo "file di Android ne usa più di 30 e con meno il sistema la chiude («Killed»)." >&2
+    echo "Aggiungi (o riattiva dopo un riavvio) uno swap su disco da 32 GB:" >&2
+    if [ ! -f /var/swapfile ]; then
+      if [ "$(stat -f -c %T /var 2>/dev/null)" = btrfs ]; then
+        echo "  sudo btrfs filesystem mkswapfile --size 32g /var/swapfile" >&2
+      else
+        echo "  sudo fallocate -l 32G /var/swapfile && sudo chmod 600 /var/swapfile && sudo mkswap /var/swapfile" >&2
+      fi
+    fi
+    echo "  sudo swapon /var/swapfile" >&2
+    echo "Poi rilancia. Per provare lo stesso: bash phone/compila-telefono.sh --ignora-memoria" >&2
+    return 1
+  fi
+
   # 4. Telefono: solo lettura di alcune proprietà, se adb c'è e il Motorola è collegato.
   echo "== Telefono"
   if command -v adb >/dev/null 2>&1; then
@@ -130,6 +198,13 @@ PY
   else
     echo "ATTENZIONE: non riesco a impedire la sospensione: disattivala nelle impostazioni del PC."
   fi
+
+  # Nova lascia memoria e processore alla compilazione; alla fine, anche dopo un errore o
+  # la chiusura del terminale, torna com'era.
+  trap ripristina_nova EXIT
+  trap 'exit 129' HUP
+  trap 'exit 143' TERM
+  libera_memoria_nova "$runtime"
 
   # 6. Compilazione: prepara + compila + controlla + estrae le immagini.
   echo "== Compilazione (sessione di $ore ore; 0 = fino alla fine)"

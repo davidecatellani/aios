@@ -21,6 +21,7 @@ def executable(path, code):
 FAKE_PC_BUILD = """#!/usr/bin/env bash
 set -eu
 echo "$AIOS_SESSION_HOURS $*" >> "$FAKE_CALLS"
+[ -e "$XDG_RUNTIME_DIR/aios-gioco" ] && echo "durante: segno" >> "$FAKE_CALLS.nova"
 mkdir -p "$AIOS_PC_BUILD_DIR/logs/run-1"
 case "$FAKE_OUTCOME" in
   completed)
@@ -64,6 +65,11 @@ def pc(tmp_path):
                'echo "Filesystem 1024-blocks Used Available Capacity Mounted"\n'
                'echo "/dev/fake 1 1 $free 1% /"\n')
     executable(tools / "du", '#!/bin/sh\nprintf "%s\\t%s\\n" "$FAKE_USED_KIB" "$3"\n')
+    executable(tools / "free", '#!/bin/sh\necho "              total        used        free"\n'
+               'echo "Mem:   $FAKE_RAM_MIB 1 1"\necho "Swap:  $FAKE_SWAP_MIB 0 0"\n')
+    # Il nucleo di Nova: attivo se FAKE_NUCLEO=1; le chiamate restano nel registro di Nova.
+    executable(tools / "systemctl", '#!/bin/sh\necho "$*" >> "$FAKE_CALLS.nova"\n'
+               '[ "$1" = is-active ] && [ "$FAKE_NUCLEO" != 1 ] && exit 3\nexit 0\n')
     # Prende il blocco della sospensione e lancia il comando che segue le opzioni.
     executable(tools / "systemd-inhibit", '#!/bin/sh\nwhile [ "${1#--}" != "$1" ]; do shift; done\nexec "$@"\n')
     calls = tmp_path / "calls.txt"
@@ -73,7 +79,9 @@ def pc(tmp_path):
     env = {**os.environ, "PATH": f"{tools}:{os.environ['PATH']}", "HOME": str(tmp_path),
            "AIOS_PC_BUILD_DIR": str(state), "FAKE_CALLS": str(calls), "FAKE_OUTCOME": "completed",
            "FAKE_FREE_KIB": str(500 * GIB_KIB), "FAKE_USED_KIB": "0",
-           "XDG_RUNTIME_DIR": str(runtime), "FAKE_RUN_FREE_KIB": str(1024 * 1024)}
+           "XDG_RUNTIME_DIR": str(runtime), "FAKE_RUN_FREE_KIB": str(1024 * 1024),
+           "FAKE_RAM_MIB": str(31 * 1024), "FAKE_SWAP_MIB": str(40 * 1024), "FAKE_NUCLEO": "0",
+           "AIOS_OLLAMA_URL": "http://127.0.0.1:9"}
     env.pop("AIOS_SESSION_HOURS", None)
 
     def run(*args, script=repo / "phone/compila-telefono.sh", **extra):
@@ -148,6 +156,34 @@ def test_full_runtime_dir_stops_before_podman_with_a_clear_fix(pc):
     result, calls = run("--senza-aggiornare", FAKE_RUN_FREE_KIB="0")
     assert result.returncode == 1 and calls == []
     assert "Riavvia il PC" in result.stdout
+
+
+def test_too_little_memory_stops_before_hours_of_work_and_says_how_to_add_swap(pc):
+    # 31 GB di RAM e 8 di zram: l'analisi di Android 16 è stata chiusa dal sistema («Killed»).
+    run, *_ = pc
+    result, calls = run("--senza-aggiornare", FAKE_SWAP_MIB=str(8 * 1024))
+    assert result.returncode == 1 and calls == []
+    assert "sudo swapon /var/swapfile" in result.stdout and "--ignora-memoria" in result.stdout
+    result, calls = run("--senza-aggiornare", "--ignora-memoria", FAKE_SWAP_MIB=str(8 * 1024))
+    assert result.returncode == 0 and calls == ["8 prototype"]
+
+
+def test_nova_steps_aside_during_the_build_and_comes_back(pc, tmp_path):
+    run, *_ = pc
+    result, _ = run("--senza-aggiornare", FAKE_NUCLEO="1", FAKE_OUTCOME="failed")
+    assert result.returncode == 17
+    nova = (tmp_path / "calls.txt.nova").read_text().splitlines()
+    assert nova == ["is-active --quiet aios-nucleo.service", "stop --no-block aios-nucleo.service",
+                    "durante: segno", "start --no-block aios-nucleo.service"]
+    assert not (tmp_path / "run/aios-gioco").exists()
+
+
+def test_a_game_already_running_keeps_its_own_flag(pc, tmp_path):
+    run, *_ = pc
+    (tmp_path / "run/aios-gioco").touch()
+    result, _ = run("--senza-aggiornare")
+    assert result.returncode == 0
+    assert (tmp_path / "run/aios-gioco").exists()
 
 
 def test_space_check_can_be_skipped_on_purpose(pc):
