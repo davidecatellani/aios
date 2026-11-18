@@ -1,4 +1,4 @@
-# Schermata di accesso: il logo di SoIA
+# Schermata di accesso di riserva: il logo di SoIA (360 px: GDM lo mostra a grandezza piena)
 [org/gnome/login-screen]
 logo='/usr/share/pixmaps/aios-logo-chiaro.png'
 

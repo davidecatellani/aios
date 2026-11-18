@@ -36,7 +36,8 @@ if [ "${AIOS_COMPOSITORE:-hyprland}" != labwc ] && command -v Hyprland >/dev/nul
   # dalla 0.53 le regole hanno una sintassi nuova («blur on, match:namespace …»): quella vecchia dà errori in alto
   ver=$(Hyprland --version 2>/dev/null | sed -n 's/^Hyprland v\{0,1\}\([0-9][0-9]*\)\.\([0-9][0-9]*\).*/\1 \2/p' | head -n1)
   major=${ver%% *}; minor=${ver##* }
-  if [ -n "$ver" ] && { [ "$major" -gt 0 ] || [ "$minor" -ge 53 ]; }; then
+  # versione non letta: la sintassi nuova, quella di tutte le Hyprland che Fedora distribuisce ora
+  if [ -z "$ver" ] || [ "$major" -gt 0 ] || [ "$minor" -ge 53 ]; then
     printf 'layerrule = blur on, match:namespace aios-pannello\nlayerrule = ignore_alpha 0, match:namespace aios-pannello\n' > "$run/regole.conf"
   else
     printf 'layerrule = blur, aios-pannello\nlayerrule = ignorezero, aios-pannello\n' > "$run/regole.conf"
