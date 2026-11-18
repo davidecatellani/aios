@@ -8,6 +8,8 @@ BASE="$(campo "$B" base)"
 cd "$SORGENTI/$BASE-$(campo "$B" ramo)"
 [ -f "$PHONE/packages/apps/Nova/native/arm64-v8a/aios-llama-server" ] || {
   echo "Manca llama.cpp per Android: lancia prima scripts/llama-android.sh" >&2; exit 1; }
+# Copia aggiornata di SoIA nei sorgenti, con i motori nativi e i modelli appena preparati.
+collega_soia "$PWD"
 # envsetup AOSP/Lineage legge variabili opzionali (TOP, ZSH_VERSION, ecc.).
 # Manteniamo errexit/pipefail, ma sospendiamo nounset durante i comandi upstream.
 set +u

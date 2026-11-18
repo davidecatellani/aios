@@ -43,7 +43,4 @@ print('Google ARM64: revisione e contenuto verificati; firme APK preservate.')
 PY
 DIR="$SORGENTI/aosp-android-16.0.0_r3"
 mkdir -p "$DIR/vendor"
-if [ -e "$DIR/vendor/gapps" ] && [ ! -L "$DIR/vendor/gapps" ]; then
-  echo 'vendor/gapps è già presente e non è un link: fermo senza sovrascriverlo.' >&2; exit 1
-fi
-ln -sfn "$GAPPS" "$DIR/vendor/gapps"
+copia_in_sorgenti "$GAPPS" "$DIR/vendor/gapps"

@@ -24,9 +24,10 @@ download e compilazione separati.
 | **AOSP** | Google Pixel, GSI (Motorola, Samsung, Oppo…) | il sistema di riferimento; sui Pixel l'avvio resta verificato con la chiave di SoIA |
 | **LineageOS** | telefoni con supporto ufficiale LineageOS, es. **Redmi Note 9 Pro (miatoll)** | file hardware già mantenuti per centinaia di modelli: chiamate, fotocamera, sensori funzionano |
 
-SoIA non modifica la base: `scripts/prepara.sh` collega nei sorgenti
-`vendor/aios` (configurazione) e `packages/apps/Nova` (l'app di sistema); su LineageOS
-anche `vendor/extra/product.mk`, che LineageOS include da sé.
+SoIA non modifica la base: `scripts/prepara.sh` copia nei sorgenti `device/aios`,
+`vendor/aios` (configurazione) e `packages/apps/Nova` (l'app di sistema), e `compila.sh`
+li ricopia a ogni compilazione: Soong non entra nelle cartelle collegate con link
+simbolici. Su LineageOS anche `vendor/extra/product.mk`, che LineageOS include da sé.
 
 ## Cosa c'è
 
@@ -46,7 +47,7 @@ packages/apps/Nova/           app di sistema (Kotlin, senza librerie esterne):
   llm/LocalModel.kt           llama.cpp avviato solo quando serve, spento dopo 60 s
   setup/RestoreActivity.kt    primo avvio: «Ripristina dal computer»
 scripts/
-  prepara.sh BERSAGLIO        scarica i sorgenti e collega SoIA
+  prepara.sh BERSAGLIO        scarica i sorgenti e ci copia SoIA
   llama-android.sh            compila llama.cpp per Android con l'NDK
   compila.sh BERSAGLIO        compila
   chiavi.sh SORGENTI          crea le chiavi (una volta, poi offline)

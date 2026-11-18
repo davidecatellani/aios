@@ -7,7 +7,7 @@
       "manifest": "https://android.googlesource.com/platform/manifest",
       "ramo": "android-16.0.0_r3",
       "prodotto": "aios_gsi_arm64",
-      "rilascio": "trunk_staging",
+      "rilascio": "aosp_current",
       "tipo_catalogo": "gsi",
       "uscite": [
         "system.img",

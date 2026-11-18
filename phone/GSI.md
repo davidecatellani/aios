@@ -8,7 +8,8 @@ bootloader, modem o driver e non garantisce da sola il funzionamento delle perif
 ## Prima variante
 
 - bersaglio: `gsi`, prodotto `aios_gsi_arm64`, variante `user`;
-- base fissata: `android-16.0.0_r3`, release configuration `trunk_staging`;
+- base fissata: `android-16.0.0_r3`, release configuration `aosp_current` (l'alias AOSP
+  della configurazione corrente, `bp2a`: nei tag Android 16 `trunk_staging` non c'è);
 - architettura: ARM64, telefoni Treble; primo gruppo di candidati con Android 16;
 - artefatti: `system.img` e `vbmeta.img`, catalogo firmato con SHA-256;
 - stato: configurazione e controlli verificati, immagine non ancora compilata.

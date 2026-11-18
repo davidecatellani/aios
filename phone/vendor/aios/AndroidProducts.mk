@@ -6,5 +6,5 @@ PRODUCT_MAKEFILES := \
     $(LOCAL_DIR)/products/aios_shiba.mk
 
 COMMON_LUNCH_CHOICES := \
-    aios_gsi_arm64-trunk_staging-userdebug \
+    aios_gsi_arm64-aosp_current-userdebug \
     aios_shiba-trunk_staging-userdebug

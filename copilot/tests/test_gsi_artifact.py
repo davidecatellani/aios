@@ -143,9 +143,15 @@ def test_build_checks_its_unsigned_output_and_limits_parallelism(tmp_path, compl
     native = phone / "packages/apps/Nova/native/arm64-v8a"
     native.mkdir(parents=True)
     (native / "aios-llama-server").write_bytes(b"simulated native executable")
+    for part in ("device/aios", "vendor/aios"):
+        (phone / part).mkdir(parents=True)
+        (phone / part / "Android.mk").write_text("# " + part)
     sources = tmp_path / "sources"
     checkout = sources / f'aosp-{target["ramo"]}'
     (checkout / "build").mkdir(parents=True)
+    # Il collegamento delle versioni precedenti, che Soong ignorava, diventa una copia.
+    (checkout / "vendor").mkdir()
+    (checkout / "vendor/aios").symlink_to(phone / "vendor/aios")
     (checkout / "build/envsetup.sh").write_text(
         ': "$ZSH_VERSION"  # variabile opzionale letta anche da envsetup AOSP\n'
         'lunch() { printf "%s\\n" "$@" > lunch-args; }\n'
@@ -160,7 +166,11 @@ def test_build_checks_its_unsigned_output_and_limits_parallelism(tmp_path, compl
     env.pop("ZSH_VERSION", None)
     result = subprocess.run(["bash", str(scripts / "compila.sh"), "gsi"], env=env,
                             capture_output=True, text=True, timeout=10)
-    assert (checkout / "lunch-args").read_text().strip() == "aios_gsi_arm64-trunk_staging-user"
+    assert (checkout / "lunch-args").read_text().strip() == "aios_gsi_arm64-aosp_current-user"
+    for part in ("device/aios", "vendor/aios", "packages/apps/Nova"):
+        assert not (checkout / part).is_symlink() and (checkout / part).is_dir()
+    assert (checkout / "vendor/aios/Android.mk").read_text() == "# vendor/aios"
+    assert (checkout / "packages/apps/Nova/native/arm64-v8a/aios-llama-server").exists()
     assert (checkout / "build-args").read_text().splitlines() == ["-j4", "target-files-package"]
     assert (result.returncode == 0) == complete, result.stderr
     if complete:

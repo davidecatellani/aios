@@ -29,3 +29,26 @@ if not matches:
 print(max(matches, key=lambda p: p.stat().st_mtime))
 PY
 }
+
+copia_in_sorgenti() {  # copia_in_sorgenti ORIGINE DESTINAZIONE
+  # Soong non entra nelle cartelle collegate con link simbolici (build/soong/finder,
+  # salvo ALLOW_BP_UNDER_SYMLINKS): prodotti e Android.bp vanno copiati nei sorgenti.
+  # Ogni chiamata aggiorna la copia; il segno .soia-copia la distingue da file altrui.
+  local origine="$1" destinazione="$2"
+  command -v rsync >/dev/null || { echo "Manca rsync" >&2; exit 1; }
+  [ -d "$origine" ] || { echo "Manca $origine" >&2; exit 1; }
+  if [ -L "$destinazione" ]; then
+    rm "$destinazione"  # collegamento delle versioni precedenti
+  elif [ -e "$destinazione" ] && [ ! -e "$destinazione/.soia-copia" ]; then
+    echo "$destinazione esiste e non è una copia di SoIA: fermo senza sovrascriverla." >&2; exit 1
+  fi
+  mkdir -p "$destinazione"
+  rsync -a --delete --exclude=/.git --exclude=/.soia-copia "$origine/" "$destinazione/"
+  touch "$destinazione/.soia-copia"
+}
+
+collega_soia() {  # collega_soia CARTELLA_SORGENTI: SoIA aggiornato dentro i sorgenti Android
+  copia_in_sorgenti "$PHONE/device/aios" "$1/device/aios"
+  copia_in_sorgenti "$PHONE/vendor/aios" "$1/vendor/aios"
+  copia_in_sorgenti "$PHONE/packages/apps/Nova" "$1/packages/apps/Nova"
+}

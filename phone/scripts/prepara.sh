@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Scarica i sorgenti della base (AOSP o LineageOS) e ci collega SoIA.
+# Scarica i sorgenti della base (AOSP o LineageOS) e ci copia SoIA.
 #   scripts/prepara.sh miatoll | gsi | shiba
 source "$(dirname "$0")/comune.sh"
 B="${1:?uso: prepara.sh BERSAGLIO}"
@@ -30,12 +30,9 @@ fi
 # anche uno alla volta, invece di fermare tutto.
 bash "$QUI/sincronizza.sh"
 
-# SoIA si aggiunge senza modificare la base: collegamenti a questa cartella del repository
-mkdir -p vendor packages/apps
-mkdir -p device
-ln -sfn "$PHONE/device/aios" device/aios
-ln -sfn "$PHONE/vendor/aios" vendor/aios
-ln -sfn "$PHONE/packages/apps/Nova" packages/apps/Nova
+# SoIA si aggiunge senza modificare la base: copie di questa cartella del repository,
+# rifatte a ogni compilazione (compila.sh).
+collega_soia "$PWD"
 if [ "$BASE" = "lineage" ]; then
   mkdir -p vendor/extra
   ln -sfn "$PHONE/vendor/aios/extra-product.mk" vendor/extra/product.mk  # LineageOS lo include da sé
