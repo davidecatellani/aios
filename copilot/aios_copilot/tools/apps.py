@@ -262,6 +262,13 @@ ALIASES = {"vscode": "Visual Studio Code", "vs code": "Visual Studio Code", "cod
            "chrome": "Google Chrome", "google chrome": "Google Chrome", "edge": "Microsoft Edge", "word": "OnlyOffice",
            "office": "LibreOffice", "photoshop": "GIMP", "teams": "Teams for Linux", "whatsapp": "WhatsApp Desktop",
            "obs": "OBS Studio", "vlc": "VLC", "telegram": "Telegram Desktop", "minecraft": "Prism Launcher"}
+# programmi che non sono su Flathub: l'installatore ufficiale del produttore, per l'utente (in ~/.local, senza
+# password di amministratore). Solo questi indirizzi, scritti qui: mai uno trovato sul web.
+ESTERNI = {
+    "claude code": {"nome": "Claude Code", "comando": "claude", "installa": "curl -fsSL https://claude.ai/install.sh | bash",
+                    "dopo": "Per usarlo apri il terminale (Ctrl+Alt+T) e scrivi «claude»."},
+}
+ESTERNI_ALIAS = {"claude": "claude code", "claude cli": "claude code", "claude ai code": "claude code"}
 STEAM_SEARCH = "https://store.steampowered.com/api/storesearch/?term={q}&l=italian&cc=IT"
 
 
@@ -302,6 +309,9 @@ class GameInstaller:
         name = name.strip().strip("«»\"'")
         if not name:
             return "Cosa installo?"
+        key = ESTERNI_ALIAS.get(_norm(name), _norm(name))
+        if key in ESTERNI:
+            return self.install_external(ESTERNI[key])
         if self.runner.has("flatpak"):
             app = self.flathub(name)
             if app is not None:
@@ -319,6 +329,16 @@ class GameInstaller:
                     return f"Installato {app['name']}. Vuoi che lo apra?"
                 return f"L'installazione di {app['name']} non è riuscita: {out.strip().splitlines()[-1] if out.strip() else 'errore sconosciuto'}."
         return self.install(name)
+
+    def install_external(self, prog: dict[str, str]) -> str:
+        """Un programma fuori da Flathub, con l'installatore ufficiale scritto in ESTERNI."""
+        if self.runner.has(prog["comando"]) or (Path.home() / ".local/bin" / prog["comando"]).exists():
+            return f"{prog['nome']} è già installato. {prog['dopo']}"
+        code, out = self.runner.run(["sh", "-c", prog["installa"]])
+        if code == 0:
+            return f"Installato {prog['nome']}. {prog['dopo']}"
+        last = out.strip().splitlines()[-1] if out.strip() else "errore sconosciuto"
+        return f"L'installazione di {prog['nome']} non è riuscita: {last}."
 
     def steam(self, title: str) -> dict[str, Any] | None:
         import json

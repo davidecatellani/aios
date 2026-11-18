@@ -176,3 +176,19 @@ def test_install_software_by_name_finds_the_right_app():
     r = R(flathub=listing)
     assert GameInstaller(r).install_any("vscode").startswith("Installato Visual Studio Code")
     assert r.calls[-1][-1] == "com.visualstudio.code"
+
+
+def test_programs_outside_flathub_use_the_official_installer(tmp_path, monkeypatch):
+    from aios_copilot.tools.apps import GameInstaller
+
+    monkeypatch.setenv("HOME", str(tmp_path))
+
+    class R(FakeRunner):
+        def has(self, name):
+            return name != "claude"
+
+    r = R()
+    msg = GameInstaller(r).install_any("Claude Code")
+    assert msg.startswith("Installato Claude Code") and "claude" in msg
+    assert r.calls == [["sh", "-c", "curl -fsSL https://claude.ai/install.sh | bash"]]  # niente Flathub né Steam
+    assert GameInstaller(FakeRunner()).install_any("claude").startswith("Claude Code è già installato")

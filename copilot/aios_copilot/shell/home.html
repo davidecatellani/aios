@@ -32,7 +32,9 @@ button { font: inherit; cursor: pointer; }
 #logo { font-weight: 800; letter-spacing: .5px; cursor: pointer; }
 #logo b { color: var(--turchese-scuro); }
 @media (prefers-color-scheme: dark) { #logo b { color: var(--turchese); } }
-#app-aperte { display: flex; gap: 6px; overflow: hidden; }
+/* le finestre si fermano prima dell'ora, che sta al centro: se sono tante si stringono (nome con «…») */
+#app-aperte { display: flex; gap: 6px; overflow: hidden; min-width: 0; max-width: calc(50% - 200px); }
+#app-aperte .aperta { min-width: 64px; flex-shrink: 1; }
 .aperta { display: flex; align-items: center; gap: 7px; height: 28px; padding: 0 6px 0 7px; border-radius: 9px;
           background: transparent; color: var(--tenue); font-size: 13px; font-weight: 600; cursor: pointer;
           border: 1px solid transparent; transition: background .15s, color .15s, border-color .15s; max-width: 200px; }
