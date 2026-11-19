@@ -186,6 +186,12 @@ def test_a_game_already_running_keeps_its_own_flag(pc, tmp_path):
     assert (tmp_path / "run/aios-gioco").exists()
 
 
+def test_only_build_skips_the_completed_preparation(pc):
+    run, *_ = pc
+    result, calls = run("--senza-aggiornare", "--solo-compila")
+    assert result.returncode == 0 and calls == ["8 build"]
+
+
 def test_space_check_can_be_skipped_on_purpose(pc):
     run, *_ = pc
     result, calls = run("--senza-aggiornare", "--ignora-spazio", FAKE_FREE_KIB=str(10 * GIB_KIB))

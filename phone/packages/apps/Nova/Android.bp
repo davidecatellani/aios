@@ -42,13 +42,18 @@ prebuilt_etc {
     name: "nova-bundle-manifest", src: "bundle/manifest.json", filename: "manifest.json",
     sub_dir: "aios/models", system_ext_specific: true,
 }
+// Le <uses-library> facoltative dei manifest, nello stesso ordine: la build le confronta con l'APK
+// (manifest_check). Gli APK sono fissati con SHA-256 nel lock di prepara-prototipo.py; se lo si
+// aggiorna e l'elenco cambia, la build lo dice con l'elenco giusto.
 android_app_import {
     name: "SoiaFDroid", apk: "bundle/FDroid.apk", presigned: true, preprocessed: true,
     system_ext_specific: true,
+    optional_uses_libs: ["androidx.window.extensions", "androidx.window.sidecar"],
 }
 android_app_import {
     name: "SoiaKDEConnect", apk: "bundle/KDEConnect.apk", presigned: true, preprocessed: true,
     system_ext_specific: true,
+    optional_uses_libs: ["androidx.window.extensions", "androidx.window.sidecar", "org.apache.http.legacy"],
 }
 
 // llama.cpp compilato con l'NDK (scripts/llama-android.sh), avviato solo quando serve

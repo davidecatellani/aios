@@ -171,7 +171,7 @@ def test_build_checks_its_unsigned_output_and_limits_parallelism(tmp_path, compl
         assert not (checkout / part).is_symlink() and (checkout / part).is_dir()
     assert (checkout / "vendor/aios/Android.mk").read_text() == "# vendor/aios"
     assert (checkout / "packages/apps/Nova/native/arm64-v8a/aios-llama-server").exists()
-    assert (checkout / "build-args").read_text().splitlines() == ["-j4", "target-files-package"]
+    assert (checkout / "build-args").read_text().splitlines() == ["-k0", "-j4", "target-files-package"]
     assert (result.returncode == 0) == complete, result.stderr
     if complete:
         output = phone / "uscita/gsi/prototipo"

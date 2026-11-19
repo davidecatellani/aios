@@ -8,12 +8,13 @@
 #   bash phone/compila-telefono.sh --senza-aggiornare non scaricare le ultime correzioni
 #   bash phone/compila-telefono.sh --ignora-spazio    solo se sai che lo spazio basta
 #   bash phone/compila-telefono.sh --ignora-memoria   solo se sai che la memoria basta
+#   bash phone/compila-telefono.sh --solo-compila     salta la preparazione già completata
 set -euo pipefail
 
 SPAZIO_TOTALE_GIB=300   # sorgenti AOSP + compilazione (PC-BUILD.md)
 MEMORIA_MINIMA_GIB=60   # RAM + swap: Google consiglia 64 GB per compilare Android
 
-uso() { sed -n '2,10p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; }
+uso() { sed -n '2,11p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; }
 
 NOVA_SEGNO=""   # segno «aios-gioco» creato da questo script
 NOVA_NUCLEO=0   # nucleo di Nova fermato da questo script
@@ -59,7 +60,7 @@ ripristina_nova() {
 }
 
 main() {
-  local repo ore="${AIOS_SESSION_HOURS:-8}" aggiorna=1 controlla_spazio=1 controlla_memoria=1 argomenti=("$@")
+  local repo ore="${AIOS_SESSION_HOURS:-8}" aggiorna=1 controlla_spazio=1 controlla_memoria=1 fase=prototype argomenti=("$@")
   repo="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
   while [ $# -gt 0 ]; do
     case "$1" in
@@ -67,6 +68,7 @@ main() {
       --senza-aggiornare) aggiorna=0; shift ;;
       --ignora-spazio) controlla_spazio=0; shift ;;
       --ignora-memoria) controlla_memoria=0; shift ;;
+      --solo-compila) fase=build; shift ;;
       -h|--help) uso; return 0 ;;
       *) echo "Opzione sconosciuta: $1" >&2; uso >&2; return 2 ;;
     esac
@@ -207,11 +209,11 @@ PY
   libera_memoria_nova "$runtime"
 
   # 6. Compilazione: prepara + compila + controlla + estrae le immagini.
-  echo "== Compilazione (sessione di $ore ore; 0 = fino alla fine)"
+  echo "== Compilazione: fase $fase (sessione di $ore ore; 0 = fino alla fine)"
   echo "Lascia aperto questo terminale. Ctrl+C ferma tutto: il lavoro fatto resta sul disco."
   local inizio codice=0
   inizio="$(date +%s)"
-  AIOS_SESSION_HOURS="$ore" "${inibisci[@]}" bash "$repo/phone/scripts/pc-build.sh" prototype || codice=$?
+  AIOS_SESSION_HOURS="$ore" "${inibisci[@]}" bash "$repo/phone/scripts/pc-build.sh" "$fase" || codice=$?
 
   # 7. Esito, in chiaro.
   python3 - "$stato" "$repo" "$inizio" "$codice" "$log" <<'PY'

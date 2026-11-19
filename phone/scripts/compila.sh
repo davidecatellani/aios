@@ -18,7 +18,9 @@ if [ "$BASE" = "lineage" ]; then
   brunch "$(campo "$B" dispositivo_lineage)" "-j$BUILD_JOBS"
 else
   lunch "$(campo "$B" prodotto)-$(campo "$B" rilascio)-user"
-  m "-j$BUILD_JOBS" target-files-package
+  # -k0: dopo un errore continua con tutto il resto e alla fine li elenca tutti, così un giro
+  # di molte ore mostra ogni problema invece del primo.
+  m -k0 "-j$BUILD_JOBS" target-files-package
 fi
 set -u
 if [ "$B" = gsi ]; then

@@ -23,7 +23,8 @@ Tutto quello che compare sullo schermo è salvato anche in
 `~/soia-phone-build/logs/compila-telefono-<data>.log`. Se la sessione di 8 ore
 finisce prima della compilazione, basta rilanciare lo stesso comando.
 Opzioni: `--ore N` (0: fino alla fine), `--senza-aggiornare`, `--ignora-spazio`,
-`--ignora-memoria`.
+`--ignora-memoria`, `--solo-compila` (salta la preparazione, se è già completa: riparte
+dalla compilazione, che riusa tutto quello che è già stato compilato).
 
 L'analisi dei file di Android 16 (`soong_build`) da sola usa più di 30 GB: con 32 GB
 di RAM e lo zram di Fedora il sistema la chiude («Killed»). Lo script chiede almeno
